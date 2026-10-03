@@ -1,0 +1,124 @@
+/* =====================================================================
+   INVOIZ BUYER — THEME
+   Generated from the project's current styling (keeps Invoiz identity).
+   Single source of truth for design tokens. Safe to link alongside
+   app.css — token values below match the live site 1:1, this file only
+   adds the missing tokens + reusable component classes.
+   Brand: teal #16697A / dark #0E4A57 / accent orange #F0A202
+          (same defaults as sellers.primary_color / accent_color)
+   ===================================================================== */
+
+:root{
+  /* --- Brand (Invoiz identity) --- */
+  --primary:#16697A;
+  --primary-dark:#0E4A57;
+  --accent:#F0A202;
+  --accent-dark:#C77F02;
+
+  /* --- Greens (storefront chrome — kept as-is) --- */
+  --green:#134e4a;
+  --green-light:#0d9488;
+  --green-dark:#0f766e;
+
+  /* --- Surfaces --- */
+  --bg:#f5f5f5;
+  --bg-warm:#F7F6F2;
+  --card:#fff;
+  --overlay:#f8f8f8;
+
+  /* --- Text --- */
+  --text:#1a1a1a;
+  --text-primary:#1B1B1E;
+  --text2:#555;
+  --text-secondary:#6E6E73;
+  --text3:#999;
+
+  /* --- Borders --- */
+  --border:#e5e5e5;
+  --border-light:#f0f0f0;
+  --stroke-color:#e5e5e5;
+
+  /* --- Semantics --- */
+  --success:#10b981;
+  --danger:#ef4444;
+  --warning:#F0A202;
+  --info:#1D4ED8;
+
+  /* --- Radius --- */
+  --radius:10px;
+  --radius-sm:6px;
+  --radius-md:8px;
+  --radius-lg:12px;
+  --radius-full:999px;
+
+  /* --- Shadows --- */
+  --shadow-sm:0 1px 4px rgba(0,0,0,.08);
+  --shadow-md:0 4px 16px rgba(0,0,0,.10);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.12);
+  --shadow-hero:0 4px 20px rgba(0,0,0,.15);
+
+  /* --- Typography --- */
+  --font-sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-size-base:13px;
+
+  /* --- Avatar / placeholder palette (product color badges) --- */
+  --avatar-1:#0F766E;
+  --avatar-2:#1D4ED8;
+  --avatar-3:#7C3AED;
+  --avatar-4:#DB2777;
+  --avatar-5:#EA580C;
+}
+
+/* =====================================================================
+   COMPONENTS — reusable classes matching current inline patterns
+   ===================================================================== */
+
+/* Buttons */
+.t-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 16px;border-radius:var(--radius);border:none;font-weight:700;
+  cursor:pointer;font-size:12px;font-family:var(--font-sans);
+  transition:background .15s,color .15s,border-color .15s;text-decoration:none}
+.t-btn-primary{background:var(--green);color:#fff}
+.t-btn-primary:hover{background:var(--green-dark)}
+.t-btn-brand{background:var(--primary);color:#fff}
+.t-btn-brand:hover{background:var(--primary-dark)}
+.t-btn-accent{background:var(--accent);color:#fff}
+.t-btn-accent:hover{background:var(--accent-dark)}
+.t-btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.t-btn-outline:hover{border-color:var(--green);color:var(--green)}
+.t-btn-danger{background:var(--danger);color:#fff}
+.t-btn:disabled{opacity:.55;cursor:not-allowed}
+
+/* Badges / pills */
+.t-badge{display:inline-grid;place-items:center;min-width:16px;height:16px;
+  padding:0 4px;border-radius:var(--radius-full);background:var(--danger);
+  color:#fff;font-size:9px;font-weight:800}
+.t-pill{display:inline-block;padding:8px 12px;border-radius:var(--radius-full);
+  background:#fff;border:1px solid var(--border);font-weight:600;font-size:12px;
+  color:var(--text2);text-decoration:none;transition:all .15s}
+.t-pill:hover{border-color:var(--green);color:var(--green)}
+.t-pill.active{background:var(--green);color:#fff;border-color:var(--green)}
+
+/* Cards */
+.t-card{background:var(--card);border:1px solid var(--border);
+  border-radius:var(--radius);overflow:hidden}
+.t-card-hover{transition:box-shadow .2s,transform .2s}
+.t-card-hover:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+.t-price{color:var(--green);font-weight:800}
+.t-muted{color:var(--text3);font-size:11px}
+
+/* Alerts */
+.t-alert{padding:10px 12px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:12px}
+.t-alert-success{background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0}
+.t-alert-error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+
+/* Forms */
+.t-input{width:100%;padding:10px 14px;border:1px solid var(--border);
+  border-radius:var(--radius);font-size:13px;font-family:var(--font-sans);
+  color:var(--text);background:#fff;outline:none;transition:border-color .15s}
+.t-input:focus{border-color:var(--green)}
+.t-label{display:block;font-weight:700;font-size:12px;margin:10px 0 4px;color:var(--text)}
+
+/* Store header gradient (hero) */
+.t-hero{background:linear-gradient(135deg,var(--green) 0%,var(--green-dark) 100%)}
+.t-brand-gradient{background:linear-gradient(180deg,var(--primary),var(--primary-dark))}
