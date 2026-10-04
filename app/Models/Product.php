@@ -60,14 +60,21 @@ class Product extends Model
     /** Primary image URL: product_images (either col) -> legacy `image` col. */
     public function getPrimaryImageUrlAttribute(): ?string
     {
+        $candidates = [];
         try {
             $img = $this->relationLoaded('images') ? $this->images->first() : $this->images()->first();
             if ($img) {
-                $path = $img->path ?? $img->image_path ?? null;
-                if ($path) return url('storage/' . ltrim($path, '/'));
+                $candidates[] = $img->path ?? null;
+                $candidates[] = $img->image_path ?? null;
             }
         } catch (\Throwable $e) {}
-        return $this->image ? url('storage/' . ltrim($this->image, '/')) : null;
+        $candidates[] = $this->image;
+        foreach ($candidates as $path) {
+            if ($path && file_exists(storage_path('app/public/' . ltrim($path, '/')))) {
+                return url('storage/' . ltrim($path, '/'));
+            }
+        }
+        return null;
     }
 
     /** Discount % from compare_at_price, for deal badges. */
@@ -82,6 +89,41 @@ class Product extends Model
     public function seller()
     {
         return $this->belongsTo(Seller::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'product_id');
+    }
+
+    public function sellerNotifications()
+    {
+        return $this->hasMany(SellerNotification::class, 'product_id');
+    }
+
+    /** Seller catalog scope (original seller app: products.seller_id = user id). */
+    public function scopeForSeller($query, $sellerId)
+    {
+        if ($sellerId instanceof Seller) {
+            return $query->whereIn('seller_id', $sellerId->catalogIds());
+        }
+        return $query->where('seller_id', $sellerId);
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        if (! $this->image) {
+            return $this->primary_image_url;
+        }
+        return url('storage/' . ltrim($this->image, '/'));
+    }
+
+    public function getProfitPerUnitAttribute(): ?float
+    {
+        if ($this->cost_price === null) {
+            return null;
+        }
+        return round((float) $this->price - (float) $this->cost_price, 2);
     }
 
     public function category()

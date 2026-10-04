@@ -16,6 +16,16 @@ use App\Http\Controllers\Admin\ChatController;
 use App\Http\Controllers\Admin\OrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\CategoryController;
+use App\Http\Controllers\Seller\AuthController as SellerAppAuth;
+use App\Http\Controllers\Seller\ChatController as SellerAppChat;
+use App\Http\Controllers\Seller\DashboardController as SellerAppDashboard;
+use App\Http\Controllers\Seller\NotificationController as SellerAppNotifications;
+use App\Http\Controllers\Seller\OrderController as SellerAppOrders;
+use App\Http\Controllers\Seller\ProductController as SellerAppProducts;
+use App\Http\Controllers\Seller\ProfileController as SellerAppProfile;
+use App\Http\Controllers\Seller\ReportController as SellerAppReports;
+use App\Http\Controllers\Seller\ReviewController as SellerAppReviews;
+use App\Http\Controllers\Seller\VoucherController as SellerAppVouchers;
 use App\Http\Controllers\BuyerChatController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Web\HomeController;
@@ -32,18 +42,89 @@ use Illuminate\Http\Request;
 |--------------------------------------------------------------------------
 */
 
-// ---- Landing (index.html equivalent) ----
+// ---- Landing (live marketplace data) ----
 Route::get('/', function () {
     $deals = [];
+    $categories = collect();
+    $stores = collect();
+    $stats = ['products' => 0, 'sellers' => 0, 'orders' => 0];
     try {
-        $deals = Product::where('status', 'active')->latest()->take(6)->get()->map(function ($p) {
-            $img = null;
-            try { $img = $p->images()->first()?->path ?? $p->images()->first()?->image_path ?? null; } catch (\Throwable $e) {}
-            return ['name' => $p->name, 'price' => (float) ($p->price ?? 0), 'image' => $img ?: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?auto=format&fit=crop&w=700&q=80'];
+        $dealRows = Product::with('category')->where('status', 'active')
+            ->whereNotNull('compare_at_price')
+            ->whereColumn('compare_at_price', '>', 'price')
+            ->orderByDesc('created_at')->take(6)->get();
+        if ($dealRows->isEmpty()) {
+            $dealRows = Product::with('category')->where('status', 'active')->orderByDesc('created_at')->take(6)->get();
+        }
+        $deals = $dealRows->map(function ($p) {
+            $pct = ($p->compare_at_price > $p->price && $p->compare_at_price > 0)
+                ? (int) round((($p->compare_at_price - $p->price) / $p->compare_at_price) * 100) : 0;
+            try { $store = \App\Models\Seller::nameFor($p->seller_id); } catch (\Throwable $e) { $store = ''; }
+            return [
+                'id' => $p->id, 'name' => $p->name,
+                'price' => (float) ($p->price ?? 0),
+                'compare_at' => (float) ($p->compare_at_price ?? 0),
+                'pct' => $pct, 'rating' => $p->rating ? round((float) $p->rating, 1) : null,
+                'store' => $store, 'image' => $p->primary_image_url,
+            ];
         })->toArray();
+        $categories = \App\Models\Category::active()->withCount(['products' => fn ($q) => $q->where('status', 'active')])->orderByDesc('products_count')->take(10)->get()->map(function ($c) {
+            $imgs = Product::where('category_id', $c->id)->where('status', 'active')->orderByDesc('created_at')->take(8)->get()
+                ->map(fn ($p) => $p->primary_image_url)->filter()->unique()->take(4)->values()->all();
+            $c->cover_images = $imgs;
+            return $c;
+        });
+        $sellers = \App\Models\Seller::approved()->with('user')->get();
+        $stores = $sellers->map(function ($s) {
+            $uid = $s->user_id;
+            $count = Product::where(function ($q) use ($s, $uid) { $q->where('seller_id', $uid)->orWhere('seller_id', $s->id); })->where('status', 'active')->count();
+            return ['user_id' => $uid, 'name' => $s->display_name, 'line' => $s->line_of_business ?: 'Local seller', 'products' => $count];
+        })->sortByDesc('products')->take(3)->values();
+        $stats = [
+            'products' => Product::where('status', 'active')->count(),
+            'sellers' => $sellers->count(),
+            'orders' => \App\Models\Order::whereNotIn('status', ['cancelled'])->count(),
+        ];
     } catch (\Throwable $e) { $deals = []; }
-    return view('landing', compact('deals'));
+    return view('landing', compact('deals', 'categories', 'stores', 'stats'));
 })->name('landing');
+
+// ---- Sell on INVOIZ (buyer applies, admin approves in /admin/sellers) ----
+Route::get('/sell', function () {
+    $uid = session('buyer.id') ?? (Auth::check() ? Auth::id() : null);
+    if (! $uid) {
+        return redirect('/register')->with('success', 'Create your buyer account first — then apply as a seller.');
+    }
+    $existing = \App\Models\Seller::where('user_id', $uid)->first();
+    return view('sell', ['existing' => $existing]);
+})->name('sell');
+
+Route::post('/sell', function (Request $request) {
+    $uid = session('buyer.id') ?? (Auth::check() ? Auth::id() : null);
+    if (! $uid) {
+        return redirect('/login')->with('error', 'Please log in first.');
+    }
+    if (\App\Models\Seller::where('user_id', $uid)->exists()) {
+        return back()->with('error', 'You already have a seller application.');
+    }
+    $data = $request->validate([
+        'business_name' => 'required|string|max:150',
+        'line_of_business' => 'required|string|max:100',
+        'id_image' => 'nullable|image|max:5120',
+        'business_permit' => 'nullable|image|max:5120',
+        'logo' => 'nullable|image|max:5120',
+    ]);
+    $idPath = $request->hasFile('id_image') ? $request->file('id_image')->store('seller-ids', 'public') : null;
+    $permitPath = $request->hasFile('business_permit') ? $request->file('business_permit')->store('seller-permits', 'public') : null;
+    $logoPath = $request->hasFile('logo') ? $request->file('logo')->store('logos', 'public') : null;
+    \App\Models\Seller::create([
+        'user_id' => $uid, 'business_name' => $data['business_name'],
+        'line_of_business' => $data['line_of_business'],
+        'id_image' => $idPath, 'business_permit' => $permitPath, 'logo' => $logoPath,
+        'approval_status' => 'pending', 'status' => 'active',
+    ]);
+    return back()->with('success', 'Application submitted! An admin will review it in Seller Management.');
+})->name('sell.post');
 
 // ---- Unified auth (single login/register for everyone) ----
 Route::get('/login', [UnifiedAuthController::class, 'showLogin'])->name('login');
@@ -54,6 +135,15 @@ Route::post('/logout', [UnifiedAuthController::class, 'logout'])->name('logout')
 Route::get('/logout', [UnifiedAuthController::class, 'logout']);
 Route::get('/home', fn () => redirect('/shop'));
 
+// Email code verification (Gmail OTP)
+Route::get('/verify', [UnifiedAuthController::class, 'showVerify'])->name('verify');
+Route::post('/verify', [UnifiedAuthController::class, 'verifyCode'])->name('verify.post');
+Route::post('/verify/resend', [UnifiedAuthController::class, 'resendCode'])->name('verify.resend');
+
+// Continue with Gmail (Google OAuth)
+Route::get('/auth/google', [UnifiedAuthController::class, 'googleRedirect'])->name('google.redirect');
+Route::get('/auth/google/callback', [UnifiedAuthController::class, 'googleCallback'])->name('google.callback');
+
 // Dual buyer+seller logins pick an account here before entering a dashboard.
 Route::middleware('auth')->group(function () {
     Route::get('/choose', [UnifiedAuthController::class, 'showChoose'])->name('choose');
@@ -61,12 +151,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/choose/seller', [UnifiedAuthController::class, 'chooseSeller'])->name('choose.seller');
 });
 
-// Legacy verify routes (old OTP accounts) — kept working, unified register skips OTP.
-Route::get('/verify', [BuyerWebAuth::class, 'showVerify']);
-Route::post('/verify', [BuyerWebAuth::class, 'verifyCode']);
-Route::post('/verify/resend', [BuyerWebAuth::class, 'resend']);
-Route::get('/auth/google', [BuyerWebAuth::class, 'googleRedirect']);
-Route::get('/auth/google/callback', [BuyerWebAuth::class, 'googleCallback']);
+// (Unified /verify + /auth/google routes above cover all accounts.)
 
 // ---- Buyer shop (common e-commerce flow: Shopee/Lazada style) ----
 Route::get('/shop', [HomeController::class, 'index'])->name('shop');
@@ -314,7 +399,14 @@ Route::get('/store/{id}', function($id, Request $request){
     } else { $buyer = session('buyer'); }
   } catch (\Throwable $e) { $buyer = session('buyer'); }
   $tab = $request->input('tab')==='reviews' ? 'reviews' : 'products';
-  return view('store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
+  $storeLogo = null;
+  try {
+    $srow = \App\Models\Seller::where('user_id', $sellerId)->first();
+    if ($srow && $srow->logo) {
+      $storeLogo = asset('storage/' . ltrim($srow->logo, '/'));
+    }
+  } catch (\Throwable $e) {}
+  return view('store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer','storeLogo') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
 });
 
 Route::post('/store/{id}/follow', function($id, Request $request){
@@ -392,7 +484,9 @@ Route::get('/messages', function(Request $request){
       $last = $c->lastMessage;
       try { [$lastLabel] = \App\Models\Message::roleBadge($last->senderRole()); }
       catch (\Throwable $e) { $lastLabel = 'Seller'; }
-      return ['other_id'=>$c->seller_id,'last'=>$last,'unread'=>$unread,'last_mine'=>(int)$last->sender_id===(int)$userId,'last_label'=>$lastLabel];
+      try { $contactRole = \App\Models\User::chatRoleFor(\App\Models\User::find($c->seller_id)); }
+      catch (\Throwable $e) { $contactRole = 'seller'; }
+      return ['other_id'=>$c->seller_id,'last'=>$last,'unread'=>$unread,'last_mine'=>(int)$last->sender_id===(int)$userId,'last_label'=>$lastLabel,'contact_role'=>$contactRole];
     })->values();
   $selId = (int)$request->input('seller', 0);
   $selConv = null; $selMessages = collect(); $selName = '';
@@ -461,29 +555,57 @@ Route::post('/notifications/read-all', function(Request $request){
   return back()->with('success','All notifications marked as read');
 });
 
-// ---- Seller Center (same login page, role redirect sends sellers here) ----
-Route::get('/seller/login', [SellerAuthController::class, 'showLogin'])->name('seller.login');
-Route::post('/seller/login', [SellerAuthController::class, 'login'])->name('seller.login.post');
-Route::post('/seller/logout', [SellerAuthController::class, 'logout'])->name('seller.logout');
+// ---- Seller Center: exact original seller app (same pages + functions) ----
+Route::get('/seller/login', [SellerAppAuth::class, 'showLogin'])->name('seller.login');
+Route::post('/seller/login', [SellerAppAuth::class, 'login'])->name('seller.login.post');
+Route::post('/seller/logout', [SellerAppAuth::class, 'logout'])->name('seller.logout');
 
 Route::prefix('seller')->middleware('seller')->group(function () {
-    Route::get('/dashboard', [SellerAuthController::class, 'dashboard'])->name('seller.dashboard');
-    Route::get('/orders', [SellerCenterController::class, 'orders'])->name('seller.orders');
-    Route::post('/orders/{order}/status', [SellerCenterController::class, 'orderStatus'])->name('seller.orders.status');
-    Route::get('/inventory', [SellerCenterController::class, 'inventory'])->name('seller.inventory');
-    Route::post('/inventory/{product}/stock', [SellerCenterController::class, 'inventoryUpdate'])->name('seller.inventory.stock');
-    Route::get('/vouchers', [SellerCenterController::class, 'vouchers'])->name('seller.vouchers');
-    Route::post('/vouchers', [SellerCenterController::class, 'voucherStore'])->name('seller.vouchers.store');
-    Route::post('/vouchers/{voucher}/toggle', [SellerCenterController::class, 'voucherToggle'])->name('seller.vouchers.toggle');
-    Route::post('/vouchers/{voucher}/delete', [SellerCenterController::class, 'voucherDestroy'])->name('seller.vouchers.destroy');
-    Route::get('/feedback', [SellerCenterController::class, 'feedback'])->name('seller.feedback');
-    Route::get('/reports', [SellerCenterController::class, 'reports'])->name('seller.reports');
-    Route::get('/chat', [SellerCenterController::class, 'chat'])->name('seller.chat');
-    Route::post('/chat/send', [SellerCenterController::class, 'chatSend'])->name('seller.chat.send');
-    Route::get('/chat/{user}/messages', [SellerCenterController::class, 'chatMessages'])->name('seller.chat.messages');
-    Route::get('/notifications', [SellerCenterController::class, 'notifications'])->name('seller.notifications');
-    Route::get('/account', [SellerCenterController::class, 'account'])->name('seller.account');
-    Route::post('/account', [SellerCenterController::class, 'accountUpdate'])->name('seller.account.update');
+    Route::get('/dashboard', SellerAppDashboard::class)->name('seller.dashboard');
+
+    // Orders
+    Route::get('/orders', [SellerAppOrders::class, 'index'])->name('seller.orders.index');
+    Route::get('/orders/{order}', [SellerAppOrders::class, 'show'])->name('seller.orders.show');
+    Route::post('/orders/{order}/status', [SellerAppOrders::class, 'updateStatus'])->name('seller.orders.status');
+    Route::post('/orders/{order}/pickup', [SellerAppOrders::class, 'schedulePickup'])->name('seller.orders.pickup');
+    Route::get('/orders/{order}/waybill', [SellerAppOrders::class, 'waybill'])->name('seller.orders.waybill');
+
+    // Products
+    Route::get('/products', [SellerAppProducts::class, 'index'])->name('seller.products.index');
+    Route::get('/products/create', [SellerAppProducts::class, 'create'])->name('seller.products.create');
+    Route::post('/products', [SellerAppProducts::class, 'store'])->name('seller.products.store');
+    Route::get('/products/{product}/edit', [SellerAppProducts::class, 'edit'])->name('seller.products.edit');
+    Route::post('/products/{product}', [SellerAppProducts::class, 'update'])->name('seller.products.update');
+    Route::post('/products/{product}/archive', [SellerAppProducts::class, 'archive'])->name('seller.products.archive');
+    Route::post('/products/{product}/restore', [SellerAppProducts::class, 'restore'])->name('seller.products.restore');
+
+    // Vouchers
+    Route::get('/vouchers', [SellerAppVouchers::class, 'index'])->name('seller.vouchers.index');
+    Route::post('/vouchers', [SellerAppVouchers::class, 'store'])->name('seller.vouchers.store');
+    Route::post('/vouchers/{voucher}', [SellerAppVouchers::class, 'update'])->name('seller.vouchers.update');
+    Route::delete('/vouchers/{voucher}', [SellerAppVouchers::class, 'destroy'])->name('seller.vouchers.destroy');
+
+    // Reports
+    Route::get('/reports', SellerAppReports::class)->name('seller.reports');
+
+    // Chat
+    Route::get('/chat', [SellerAppChat::class, 'index'])->name('seller.chat.index');
+    Route::get('/chat/{conversation}', [SellerAppChat::class, 'show'])->name('seller.chat.show');
+    Route::post('/chat/{conversation}/reply', [SellerAppChat::class, 'reply'])->name('seller.chat.reply');
+
+    // Feedback
+    Route::get('/feedback', [SellerAppReviews::class, 'index'])->name('seller.feedback.index');
+    Route::post('/feedback/{review}/toggle', [SellerAppReviews::class, 'toggle'])->name('seller.feedback.toggle');
+
+    // Notifications
+    Route::get('/notifications', [SellerAppNotifications::class, 'index'])->name('seller.notifications.index');
+    Route::match(['GET', 'POST'], '/notifications/{notification}/read', [SellerAppNotifications::class, 'markRead'])->name('seller.notifications.read');
+    Route::post('/notifications/read-all', [SellerAppNotifications::class, 'markAllRead'])->name('seller.notifications.read-all');
+
+    // Account
+    Route::get('/account', [SellerAppProfile::class, 'index'])->name('seller.account');
+    Route::post('/account/profile', [SellerAppProfile::class, 'updateProfile'])->name('seller.account.profile');
+    Route::post('/account/password', [SellerAppProfile::class, 'updatePassword'])->name('seller.account.password');
 });
 
 Route::get('/admin/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');

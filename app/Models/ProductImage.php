@@ -28,9 +28,14 @@ class ProductImage extends Model
         });
     }
 
-    /** Resolved path regardless of which column was filled. */
+    /** Resolved path regardless of which column was filled (existing file wins). */
     public function getResolvedPathAttribute(): ?string
     {
+        foreach ([$this->path ?? null, $this->image_path ?? null] as $p) {
+            if ($p && file_exists(storage_path('app/public/' . ltrim($p, '/')))) {
+                return $p;
+            }
+        }
         return $this->path ?? $this->image_path;
     }
 

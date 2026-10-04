@@ -97,7 +97,9 @@
                 <span style="position:absolute; bottom:0; right:0; width:10px; height:10px; border-radius:50%; background:#2E8B57; border:2px solid #fff;"></span>
               </div>
               <div style="min-width:0; flex:1;">
+                @php [$browLabel, $browFg, $browBg] = \App\Models\Message::roleBadge(\App\Models\User::chatRoleFor($c->user)); @endphp
                 <div class="conv-name">{{ $c->user->name ?? 'Unknown' }}</div>
+                <div style="margin:2px 0;"><span style="display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;background:{{ $browBg }};color:{{ $browFg }}">{{ $browLabel }}</span></div>
                 <div class="conv-last">{{ $c->last->body }}</div>
               </div>
               <div class="conv-meta">

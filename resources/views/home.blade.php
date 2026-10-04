@@ -137,10 +137,17 @@ $offOf = function($p){
   @if($products->isNotEmpty())
   <div class="sf-grid">
     @foreach($products as $i => $p)
-      @php $g = $gradients[$i % count($gradients)]; @endphp
+      @php
+        $g = $gradients[$i % count($gradients)];
+        $pImg = (!empty($p->image) && file_exists(storage_path('app/public/'.$p->image))) ? asset('storage/'.$p->image) : null;
+      @endphp
       <a class="sf-plink" href="{{ url('/product/'.$p->id.$qs) }}">
         <div class="sf-pcard">
-          <div class="sf-swatch" style="background:{{ $g }}"><div class="mono">{{ $monoOf($p->name) }}</div></div>
+          @if($pImg)
+            <div class="sf-swatch" style="padding:0;overflow:hidden;background:#f3f4f6;aspect-ratio:4/3;height:auto"><img src="{{ $pImg }}" alt="{{ $p->name }}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></div>
+          @else
+            <div class="sf-swatch" style="background:{{ $g }};aspect-ratio:4/3;height:auto"><div class="mono">{{ $monoOf($p->name) }}</div></div>
+          @endif
           <div class="body">
             <div class="sf-cat">{{ $p->category->name ?? 'General' }}</div>
             <h3>{{ $p->name }}</h3>

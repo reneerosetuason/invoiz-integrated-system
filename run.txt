@@ -1,0 +1,4 @@
+cd "C:\Users\LENOVO\OneDrive\Desktop\Invoiz e-commerce\invoiz-integrated"
+php artisan migrate --force
+php artisan serve --host=127.0.0.1 --port=8000
+# open http://127.0.0.1:8000/

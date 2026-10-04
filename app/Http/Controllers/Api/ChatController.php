@@ -49,6 +49,7 @@ class ChatController extends Controller
         Message::create([
             'conversation_id' => $conversation->id,
             'sender_id'       => $buyerId,
+            'receiver_id'     => $validated['seller_id'] ?? $conversation->seller_id,
             'body'            => $validated['body'],
         ]);
 
@@ -85,6 +86,7 @@ class ChatController extends Controller
         $message = Message::create([
             'conversation_id' => $conversation->id,
             'sender_id'       => $request->user()->id,
+            'receiver_id'     => $conversation->seller_id,
             'body'            => $validated['body'],
         ]);
 

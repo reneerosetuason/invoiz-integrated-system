@@ -38,7 +38,11 @@ a.st-link:hover .st-card{box-shadow:0 8px 24px rgba(0,0,0,.12);transform:transla
 <a href="{{ url('/') }}" style="color:var(--text2);text-decoration:none;font-weight:600;font-size:12px">← Back to store</a>
 
 <div class="st-head" style="margin-top:12px">
-  <div class="st-avatar">{{ $initial }}</div>
+  @if(!empty($storeLogo))
+    <img src="{{ $storeLogo }}" alt="{{ $name }}" class="st-avatar" style="object-fit:cover;padding:0">
+  @else
+    <div class="st-avatar">{{ $initial }}</div>
+  @endif
   <div style="flex:1;min-width:200px">
     <div style="font-weight:800;font-size:18px">{{ $name }}</div>
     <div style="font-size:11px;color:var(--text3);margin-top:2px">Verified seller · Cash on Delivery</div>
@@ -102,10 +106,15 @@ a.st-link:hover .st-card{box-shadow:0 8px 24px rgba(0,0,0,.12);transform:transla
           $cc = $pal[$hh % count($pal)];
           $w = preg_split('/\s+/', trim($p->name));
           $mono = strtoupper(substr($w[0] ?? '',0,1).substr($w[1] ?? '',0,1));
+          $pImg = (!empty($p->image) && file_exists(storage_path('app/public/'.$p->image))) ? asset('storage/'.$p->image) : null;
         @endphp
         <a class="st-link" href="{{ url('/product/'.$p->id) }}">
           <div class="st-card" style="flex:1">
-            <div class="st-sw" style="background:{{ $cc }}"><div class="mono">{{ $mono }}</div></div>
+            @if($pImg)
+              <div class="st-sw" style="padding:0;overflow:hidden;background:#f3f4f6;aspect-ratio:4/3;height:auto"><img src="{{ $pImg }}" alt="{{ $p->name }}" style="width:100%;height:100%;object-fit:cover;display:block" loading="lazy"></div>
+            @else
+              <div class="st-sw" style="background:{{ $cc }};aspect-ratio:4/3;height:auto"><div class="mono">{{ $mono }}</div></div>
+            @endif
             <div class="st-body">
               <div class="st-name">{{ $p->name }}</div>
               <div class="st-price">₱{{ number_format($p->price,2) }}</div>

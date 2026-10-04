@@ -11,7 +11,10 @@
 <div style="display:grid;grid-template-columns:320px 1fr;gap:16px;margin-top:14px;min-height:480px">
   <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
     <div style="padding:12px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:13px">Chats</div>
-    <div style="padding:8px;max-height:440px;overflow:auto">
+    <div style="padding:10px 12px;border-bottom:1px solid var(--border)">
+      <input type="search" id="chatSearch" placeholder="Search chats or people..." style="width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:12px;outline:none;font-family:inherit" autocomplete="off">
+    </div>
+    <div id="convList" style="padding:8px;max-height:400px;overflow:auto">
       @forelse($conversations as $conv)
         @php
           $sname = \App\Models\Seller::nameFor($conv['other_id']);
@@ -19,15 +22,17 @@
           $colors = ['#0F766E','#1D4ED8','#7C3AED','#DB2777','#EA580C'];
           $color = $colors[array_sum(array_map('ord', str_split((string)$conv['other_id']))) % count($colors)];
           $isSel = (int)$selId === (int)$conv['other_id'];
+          [$crowLabel, $crowFg, $crowBg] = \App\Models\Message::roleBadge($conv['contact_role'] ?? 'seller');
         @endphp
-        <a href="{{ url('/messages?seller='.$conv['other_id']) }}" style="display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;text-decoration:none;color:inherit;margin-bottom:4px;transition:all .15s;border:1px solid {{ $isSel ? 'var(--green)' : 'transparent' }};background:{{ $isSel ? '#f0fdf4' : 'transparent' }}" onmouseover="this.style.background='#f8f8f8'" onmouseout="this.style.background='{{ $isSel ? '#f0fdf4' : 'transparent' }}'">
+        <a href="{{ url('/messages?seller='.$conv['other_id']) }}" data-search="{{ strtolower($sname.' '.$conv['last']->body.' '.$crowLabel) }}" style="display:flex;gap:10px;align-items:center;padding:10px;border-radius:10px;text-decoration:none;color:inherit;margin-bottom:4px;transition:all .15s;border:1px solid {{ $isSel ? 'var(--green)' : 'transparent' }};background:{{ $isSel ? '#f0fdf4' : 'transparent' }}" onmouseover="this.style.background='#f8f8f8'" onmouseout="this.style.background='{{ $isSel ? '#f0fdf4' : 'transparent' }}'">
           <div style="width:42px;height:42px;background:{{ $color }};border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:14px;flex-shrink:0">{{ $initial }}</div>
           <div style="flex:1;min-width:0">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div style="font-weight:700;font-size:13px">{{ $sname }}</div>
-              <div style="font-size:10px;color:var(--text3)">{{ $conv['last']->created_at->diffForHumans() }}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
+              <div style="font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $sname }}</div>
+              <div style="font-size:10px;color:var(--text3);flex-shrink:0">{{ $conv['last']->created_at->diffForHumans() }}</div>
             </div>
-            <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px">{{ $conv['last_mine'] ? 'You: ' : $conv['last_label'].': ' }}{{ $conv['last']->body }}</div>
+            <div style="margin-top:3px"><span style="display:inline-block;font-size:9px;font-weight:800;padding:1px 8px;border-radius:999px;background:{{ $crowBg }};color:{{ $crowFg }}">{{ $crowLabel }}</span></div>
+            <div style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px">{{ $conv['last_mine'] ? 'You: ' : $conv['last_label'].': ' }}{{ $conv['last']->body }}</div>
           </div>
           @if($conv['unread'] > 0)
             <span style="background:var(--danger);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px;flex-shrink:0">{{ $conv['unread'] }}</span>
@@ -42,6 +47,18 @@
         </div>
       @endforelse
     </div>
+    <script>
+    (function(){
+      var box = document.getElementById('chatSearch');
+      if(!box) return;
+      box.addEventListener('input', function(){
+        var q = box.value.toLowerCase().trim();
+        document.querySelectorAll('#convList > a').forEach(function(a){
+          a.style.display = (!q || (a.getAttribute('data-search') || '').indexOf(q) !== -1) ? '' : 'none';
+        });
+      });
+    })();
+    </script>
   </div>
   <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column">
     @if($selId)

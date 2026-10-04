@@ -17,9 +17,9 @@
 @endif
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
   @php $hasPImg = $p->image && file_exists(storage_path('app/public/'.$p->image)); @endphp
-  <div style="height:420px;background:#fff;border-radius:10px;display:grid;place-items:center;padding:12px;overflow:hidden;text-align:center;border:1px solid var(--border)">
+  <div style="height:420px;background:#f3f4f6;border-radius:10px;overflow:hidden;border:1px solid var(--border)">
     @if($hasPImg)
-      <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block">
+      <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}" style="width:100%;height:100%;object-fit:cover;display:block">
     @else
       <div style="width:100%;height:100%;background:{{ cFor($p->name) }};border-radius:10px;display:grid;place-items:center;color:#fff;padding:20px">
         <div>

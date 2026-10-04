@@ -69,6 +69,9 @@ class SellerAuthController extends Controller
             return redirect('/seller/login');
         }
 
+        // Keep order notifications in sync before rendering (same as original).
+        $this->syncSellerNotifications(Auth::id());
+
         // Seller catalog spans BOTH id conventions in the shared DB:
         // products/order_items use the seller's USER id, admin orders use SELLERS id.
         $catalogIds = $seller->catalogIds();
@@ -166,5 +169,61 @@ class SellerAuthController extends Controller
             'statusStats',
             'topProducts'
         ))->with('active', 'dashboard')->with('title', 'Dashboard');
+    }
+
+    /**
+     * Create notifications for new / delivered orders and new visible
+     * reviews that don't have one yet (same as the original seller app).
+     */
+    protected function syncSellerNotifications(int $sellerId): void
+    {
+        $newOrders = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
+            ->whereIn('status', ['pending', 'confirmed'])
+            ->whereDoesntHave('sellerNotifications', fn ($q) => $q->where('seller_id', $sellerId)->where('type', 'new_order'))
+            ->limit(50)
+            ->get();
+
+        foreach ($newOrders as $order) {
+            \App\Models\SellerNotification::create([
+                'seller_id' => $sellerId,
+                'order_id'  => $order->id,
+                'type'      => 'new_order',
+                'title'     => 'New order received',
+                'body'      => "Order #{$order->id} needs your attention.",
+            ]);
+        }
+
+        $delivered = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
+            ->where('status', 'delivered')
+            ->whereDoesntHave('sellerNotifications', fn ($q) => $q->where('seller_id', $sellerId)->where('type', 'delivered'))
+            ->limit(50)
+            ->get();
+
+        foreach ($delivered as $order) {
+            \App\Models\SellerNotification::create([
+                'seller_id' => $sellerId,
+                'order_id'  => $order->id,
+                'type'      => 'delivered',
+                'title'     => 'Order delivered',
+                'body'      => "Order #{$order->id} was confirmed delivered.",
+            ]);
+        }
+
+        $reviews = \App\Models\Review::whereHas('product', fn ($q) => $q->where('seller_id', $sellerId))
+            ->where('status', 'visible')
+            ->whereDoesntHave('product.sellerNotifications', fn ($q) => $q->where('seller_id', $sellerId)->where('type', 'review'))
+            ->limit(50)
+            ->get();
+
+        foreach ($reviews as $review) {
+            \App\Models\SellerNotification::create([
+                'seller_id'  => $sellerId,
+                'order_id'   => $review->order_id,
+                'product_id' => $review->product_id,
+                'type'       => 'review',
+                'title'      => 'New customer review',
+                'body'       => "Rated {$review->rating}/5.",
+            ]);
+        }
     }
 }

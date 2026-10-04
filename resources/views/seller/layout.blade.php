@@ -147,6 +147,10 @@
             <svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8Z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>
             Inventory
           </a>
+          <a class="nav-link {{ $active === 'products' ? 'active' : '' }}" href="/seller/products">
+            <svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+            Products
+          </a>
           <a class="nav-link {{ $active === 'vouchers' ? 'active' : '' }}" href="/seller/vouchers">
             <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M15 5v14M3 12h4a2 2 0 0 0 4 0 2 2 0 0 0 4 0h4"/></svg>
             Vouchers

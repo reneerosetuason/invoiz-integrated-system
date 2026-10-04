@@ -29,53 +29,238 @@ class SellerCenterController extends Controller
     }
 
     // ------------------------------------------------------------------ Orders
-    // Corresponds with buyer checkout (/cart,/checkout) and admin orders:
-    // same statuses, same history timeline, same totals.
-    public function orders(Request $request)
+    // Same order pipeline as the original seller app (accept → prepare →
+    // pack → hand over → deliver), applied to this seller's items only.
+    // Buyer checkout, seller fulfillment and admin oversight all read the
+    // same statuses, history timeline and totals.
+    protected const ORDER_TRANSITIONS = [
+        'pending'             => ['confirmed', 'cancelled'],
+        'confirmed'           => ['processing', 'cancelled'],
+        'processing'          => ['ready_for_delivery'],
+        'ready_for_delivery'  => ['out_for_delivery'],
+        'out_for_delivery'    => ['delivered'],
+        'delivered'           => [],
+        'cancelled'           => [],
+    ];
+
+    /** Both id conventions that can appear as seller_id in the shared DB. */
+    protected function catalogIds(): array
     {
-        $seller = $this->seller();
-        $ids = $seller->catalogIds();
-        $orderIds = OrderItem::whereIn('seller_id', $ids)->pluck('order_id')->unique()->all();
-        $q = Order::with(['buyer', 'items.product'])
-            ->where(function ($qq) use ($ids, $orderIds) {
-                $qq->whereIn('seller_id', $ids);
-                if (! empty($orderIds)) $qq->orWhereIn('id', $orderIds);
-            });
-        if ($request->filled('status')) $q->where('status', $request->status);
-        $orders = $q->latest()->paginate(20);
-        return $this->page(compact('orders'), 'orders', 'Orders');
+        return $this->seller()->catalogIds();
     }
 
+    protected function sellerOrderQuery()
+    {
+        $ids = $this->catalogIds();
+        return Order::where(function ($q) use ($ids) {
+            $q->whereIn('seller_id', $ids)
+              ->orWhereHas('items', fn ($iq) => $iq->whereIn('seller_id', $ids));
+        });
+    }
+
+    public function orders(Request $request)
+    {
+        $ids = $this->catalogIds();
+        $status = $request->input('status', 'all');
+
+        $query = Order::with(['buyer', 'items', 'payment', 'delivery', 'courierPickup'])
+            ->whereHas('items', fn ($q) => $q->whereIn('seller_id', $ids))
+            ->latest();
+
+        if ($status !== 'all' && array_key_exists($status, self::ORDER_TRANSITIONS)) {
+            $query->where('status', $status);
+        }
+
+        $orders = $query->get()->map(function (Order $order) use ($ids) {
+            $order->seller_items = $order->items->whereIn('seller_id', $ids)->values();
+            $order->seller_subtotal = round($order->seller_items->sum(fn ($it) => $it->line_total ?? (($it->unit_price ?? $it->price ?? 0) * $it->quantity)), 2);
+            return $order;
+        });
+
+        $counts = ['all' => 0];
+        foreach (array_keys(self::ORDER_TRANSITIONS) as $s) {
+            $counts[$s] = Order::whereHas('items', fn ($q) => $q->whereIn('seller_id', $ids))->where('status', $s)->count();
+        }
+        $counts['all'] = Order::whereHas('items', fn ($q) => $q->whereIn('seller_id', $ids))->count();
+
+        return $this->page(compact('orders', 'status', 'counts'), 'orders', 'Orders');
+    }
+
+    public function orderShow($id)
+    {
+        $ids = $this->catalogIds();
+        $order = Order::with(['buyer', 'address', 'items', 'payment', 'delivery', 'courierPickup', 'orderVouchers.voucher', 'statusHistories'])
+            ->whereHas('items', fn ($q) => $q->whereIn('seller_id', $ids))
+            ->findOrFail($id);
+        $order->seller_items = $order->items->whereIn('seller_id', $ids)->values();
+        $order->seller_subtotal = round($order->seller_items->sum(fn ($it) => $it->line_total ?? (($it->unit_price ?? $it->price ?? 0) * $it->quantity)), 2);
+        $transitions = self::ORDER_TRANSITIONS[$order->status] ?? [];
+        return view('seller.orders-show', compact('order', 'transitions'))->with('active', 'orders')->with('title', 'Order #' . $order->id);
+    }
+
+    /**
+     * Accepts the original `action` buttons (accept/process/pack/handover/
+     * deliver/cancel) as well as a direct `status` value (used by the
+     * quick-update dropdown).
+     */
     public function orderStatus(Request $request, Order $order)
     {
-        $seller = $this->seller();
-        $ids = $seller->catalogIds();
+        $ids = $this->catalogIds();
         $belongs = in_array($order->seller_id, $ids)
             || OrderItem::where('order_id', $order->id)->whereIn('seller_id', $ids)->exists();
         abort_if(! $belongs, 403);
 
-        $data = $request->validate([
-            'status' => 'required|in:pending,processing,shipped,delivered,cancelled',
-        ]);
+        $action = $request->input('action');
+        $target = match ($action) {
+            'accept'   => 'confirmed',
+            'process'  => 'processing',
+            'pack'     => 'ready_for_delivery',
+            'handover' => 'out_for_delivery',
+            'deliver'  => 'delivered',
+            'cancel'   => 'cancelled',
+            default    => $request->input('status'),
+        };
 
-        $from = $order->status;
-        $order->update(['status' => $data['status']]);
+        if (! $target || ! in_array($target, self::ORDER_TRANSITIONS[$order->status] ?? [], true)) {
+            return back()->with('error', 'This action is not allowed for the current order status.');
+        }
 
-        \App\Models\OrderStatusHistory::create([
-            'order_id' => $order->id,
-            'from_status' => $from,
-            'to_status' => $data['status'],
-            'note' => 'Status updated by seller.',
-        ]);
+        $note = $request->input('note');
+        $me = Auth::id();
 
-        // Cancelling restores stock, same as buyer cancel flow.
-        if ($data['status'] === 'cancelled' && $from !== 'cancelled') {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($order, $target, $action, $note, $me) {
+            $from = $order->status;
+            $order->update(['status' => $target]);
+
+            \App\Models\OrderStatusHistory::create([
+                'order_id'    => $order->id,
+                'from_status' => $from,
+                'to_status'   => $target,
+                'note'        => $note ?: $this->defaultOrderNote($action ?? $target),
+                'created_at'  => now(),
+            ]);
+
+            $this->syncDelivery($order, $target);
+
+            \App\Models\SellerNotification::create([
+                'seller_id' => $me,
+                'order_id'  => $order->id,
+                'type'      => 'status',
+                'title'     => $this->orderNotificationTitle($action ?? $target),
+                'body'      => "Order #{$order->id} is now {$target}.",
+            ]);
+        });
+
+        if ($target === 'cancelled') {
             foreach ($order->items as $item) {
                 Product::where('id', $item->product_id)->increment('stock', $item->quantity);
             }
         }
 
-        return back()->with('status', "Order #{$order->id} moved to {$data['status']}.");
+        return back()->with('success', $this->orderFlashMessage($action ?? $target));
+    }
+
+    public function schedulePickup(Request $request, Order $order)
+    {
+        $ids = $this->catalogIds();
+        $belongs = in_array($order->seller_id, $ids)
+            || OrderItem::where('order_id', $order->id)->whereIn('seller_id', $ids)->exists();
+        abort_if(! $belongs, 403);
+        abort_if(! in_array($order->status, ['ready_for_delivery', 'processing'], true), 403);
+
+        $validated = $request->validate([
+            'courier'         => ['required', 'string', 'max:100'],
+            'pickup_at'       => ['required', 'date', 'after_or_equal:today'],
+            'tracking_number' => ['nullable', 'string', 'max:100'],
+            'notes'           => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        \App\Models\CourierPickup::create([
+            'order_id'        => $order->id,
+            'seller_id'       => Auth::id(),
+            'courier'         => $validated['courier'],
+            'pickup_at'       => $validated['pickup_at'],
+            'tracking_number' => $validated['tracking_number'] ?? null,
+            'status'          => 'scheduled',
+            'notes'           => $validated['notes'] ?? null,
+        ]);
+
+        return back()->with('success', 'Courier pickup scheduled successfully.');
+    }
+
+    public function waybill(Order $order)
+    {
+        $ids = $this->catalogIds();
+        $belongs = in_array($order->seller_id, $ids)
+            || OrderItem::where('order_id', $order->id)->whereIn('seller_id', $ids)->exists();
+        abort_if(! $belongs, 403);
+        $order->load(['buyer', 'address', 'items', 'delivery', 'courierPickup']);
+        $order->seller_items = $order->items->whereIn('seller_id', $ids)->values();
+        $order->seller_subtotal = round($order->seller_items->sum(fn ($it) => $it->line_total ?? (($it->unit_price ?? $it->price ?? 0) * $it->quantity)), 2);
+        return view('seller.orders-waybill', compact('order'))->with('active', 'orders')->with('title', 'Waybill #' . $order->id);
+    }
+
+    protected function syncDelivery(Order $order, string $target): void
+    {
+        $delivery = $order->delivery;
+        if (! $delivery) {
+            $delivery = \App\Models\Delivery::create(['order_id' => $order->id]);
+        }
+        if ($target === 'out_for_delivery') {
+            $data = ['status' => 'picked_up'];
+            if (! $delivery->picked_up_at) {
+                $data['picked_up_at'] = now();
+            }
+            $delivery->update($data);
+            if ($order->courierPickup) {
+                $order->courierPickup->update(['status' => 'picked_up']);
+            }
+        }
+        if ($target === 'delivered') {
+            $delivery->update(['status' => 'delivered', 'delivered_at' => now()]);
+            if ($order->payment) {
+                $order->payment->update(['status' => 'paid', 'paid_at' => now()]);
+            }
+        }
+    }
+
+    protected function defaultOrderNote(?string $action): string
+    {
+        return match ($action) {
+            'accept'   => 'Order accepted by seller.',
+            'process'  => 'Order is being prepared.',
+            'pack'     => 'Items packed and ready for pickup.',
+            'handover' => 'Order handed over to courier.',
+            'deliver'  => 'Order delivered to customer.',
+            'cancel'   => 'Order cancelled by seller.',
+            default    => 'Status updated by seller.',
+        };
+    }
+
+    protected function orderNotificationTitle(?string $action): string
+    {
+        return match ($action) {
+            'accept'   => 'Order accepted',
+            'process'  => 'Order is being prepared',
+            'pack'     => 'Order packed',
+            'handover' => 'Order handed to courier',
+            'deliver'  => 'Delivery confirmed',
+            'cancel'   => 'Order cancelled',
+            default    => 'Order updated',
+        };
+    }
+
+    protected function orderFlashMessage(?string $action): string
+    {
+        return match ($action) {
+            'accept'   => 'Order accepted. You can now start preparing it.',
+            'process'  => 'Order is now being prepared.',
+            'pack'     => 'Order packed. Ready for courier handover.',
+            'handover' => 'Order handed over to the courier.',
+            'deliver'  => 'Delivery confirmed. The order has been completed.',
+            'cancel'   => 'Order cancelled.',
+            default    => 'Order updated.',
+        };
     }
 
     // ------------------------------------------------------------------ Inventory
@@ -132,44 +317,259 @@ class SellerCenterController extends Controller
         return back()->with('status', "Stock updated for \"{$product->name}\".");
     }
 
+    // ------------------------------------------------------------------ Products
+    // Full catalog management, same as the original seller app: searchable /
+    // filterable list, create with variants + image, edit, archive/restore.
+    public function products(Request $request)
+    {
+        $ids = $this->catalogIds();
+        $query = Product::with('category')->whereIn('seller_id', $ids)->withCount('variants');
+
+        if ($request->filled('q')) {
+            $query->where('name', 'like', '%' . $request->input('q') . '%');
+        }
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->input('category_id'));
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+        if ($request->filled('low_stock')) {
+            $query->where('stock', '<=', 5);
+        }
+
+        $products = $query->latest()->get();
+        $categories = \App\Models\Category::active()->orderBy('name')->get();
+
+        return $this->page([
+            'products'   => $products,
+            'categories' => $categories,
+            'filters'    => $request->only(['q', 'category_id', 'status', 'low_stock']),
+        ], 'products', 'Products');
+    }
+
+    public function productCreate()
+    {
+        $categories = \App\Models\Category::active()->orderBy('name')->get();
+        return view('seller.products.create', compact('categories'))->with('active', 'products')->with('title', 'Add Product');
+    }
+
+    public function productStore(Request $request)
+    {
+        $validated = $request->validate([
+            'name'         => ['required', 'string', 'max:150'],
+            'category_id'  => ['required', 'exists:categories,id'],
+            'description'  => ['nullable', 'string', 'max:5000'],
+            'price'        => ['required', 'numeric', 'min:0'],
+            'cost_price'   => ['nullable', 'numeric', 'min:0'],
+            'stock'        => ['required', 'integer', 'min:0'],
+            'weight'       => ['nullable', 'string', 'max:50'],
+            'dimensions'   => ['nullable', 'string', 'max:100'],
+            'image'        => ['nullable', 'image', 'max:5120'],
+            'status'       => ['required', 'in:active,inactive,out_of_stock'],
+        ]);
+
+        $validated['seller_id'] = Auth::id();
+        if ($request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('products', 'public');
+        }
+
+        $product = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
+            $product = Product::create($validated);
+            $this->saveProductVariants($product, $request);
+            return $product;
+        });
+
+        return redirect('/seller/products/' . $product->id . '/edit')
+            ->with('status', 'Product added successfully.');
+    }
+
+    public function productEdit(Product $product)
+    {
+        abort_if(! in_array($product->seller_id, $this->catalogIds()), 403);
+        $product->load('variants');
+        $categories = \App\Models\Category::active()->orderBy('name')->get();
+        return view('seller.products.edit', compact('product', 'categories'))->with('active', 'products')->with('title', 'Edit Product');
+    }
+
+    public function productUpdate(Request $request, Product $product)
+    {
+        abort_if(! in_array($product->seller_id, $this->catalogIds()), 403);
+
+        $validated = $request->validate([
+            'name'         => ['required', 'string', 'max:150'],
+            'category_id'  => ['required', 'exists:categories,id'],
+            'description'  => ['nullable', 'string', 'max:5000'],
+            'price'        => ['required', 'numeric', 'min:0'],
+            'cost_price'   => ['nullable', 'numeric', 'min:0'],
+            'stock'        => ['required', 'integer', 'min:0'],
+            'weight'       => ['nullable', 'string', 'max:50'],
+            'dimensions'   => ['nullable', 'string', 'max:100'],
+            'image'        => ['nullable', 'image', 'max:5120'],
+            'status'       => ['required', 'in:active,inactive,out_of_stock'],
+        ]);
+
+        if ($request->hasFile('image')) {
+            if ($product->image) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($product->image);
+            }
+            $validated['image'] = $request->file('image')->store('products', 'public');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $validated, $request) {
+            $product->update($validated);
+            $this->saveProductVariants($product, $request);
+        });
+
+        return back()->with('status', 'Product updated successfully.');
+    }
+
+    public function productArchive(Product $product)
+    {
+        abort_if(! in_array($product->seller_id, $this->catalogIds()), 403);
+        $product->update(['status' => 'inactive']);
+        return back()->with('status', 'Product archived.');
+    }
+
+    public function productRestore(Product $product)
+    {
+        abort_if(! in_array($product->seller_id, $this->catalogIds()), 403);
+        $product->update(['status' => 'active']);
+        return back()->with('status', 'Product restored.');
+    }
+
+    protected function saveProductVariants(Product $product, Request $request): void
+    {
+        $types = $request->input('variants.type', []);
+        $values = $request->input('variants.value', []);
+        $adjustments = $request->input('variants.adjustment', []);
+        $stocks = $request->input('variants.stock', []);
+
+        if (empty($types) || empty(array_filter($types))) {
+            return;
+        }
+
+        $product->variants()->delete();
+
+        foreach ($types as $index => $type) {
+            $value = trim($values[$index] ?? '');
+            if ($type === null || trim((string) $type) === '' || $value === '') {
+                continue;
+            }
+            $product->variants()->create([
+                'variant_type'     => trim($type),
+                'variant_value'    => $value,
+                'price_adjustment' => (float) ($adjustments[$index] ?? 0),
+                'stock'            => (int) ($stocks[$index] ?? 0),
+                'status'           => 'active',
+            ]);
+        }
+
+        $totalVariantStock = $product->variants()->sum('stock');
+        if ($totalVariantStock > 0 && $product->status === 'out_of_stock') {
+            $product->update(['status' => 'active']);
+        }
+    }
+
     // ------------------------------------------------------------------ Vouchers
     public function vouchers()
     {
-        $seller = $this->seller();
-        $vouchers = Voucher::whereIn('seller_id', $seller->catalogIds())->latest()->get();
+        $ids = $this->catalogIds();
+        $vouchers = Voucher::where(function ($q) use ($ids) {
+            $q->whereNull('seller_id')->orWhereIn('seller_id', $ids);
+        })->latest()->get();
         return $this->page(compact('vouchers'), 'vouchers', 'Vouchers');
     }
 
     public function voucherStore(Request $request)
     {
-        $seller = $this->seller();
-
         $data = $request->validate([
-            'code' => 'required|string|max:30|unique:vouchers,code',
-            'type' => 'required|in:fixed,percent',
-            'value' => 'required|numeric|min:0.01',
-            'min_spend' => 'nullable|numeric|min:0',
-            'usage_limit' => 'nullable|integer|min:1',
-            'starts_at' => 'nullable|date',
-            'ends_at' => 'nullable|date|after:starts_at',
+            'code'           => 'required|string|max:50|unique:vouchers,code',
+            'name'           => 'nullable|string|max:150',
+            'description'    => 'nullable|string|max:1000',
+            'type'           => 'nullable|in:fixed,percent',
+            'discount_type'  => 'nullable|in:fixed,percent',
+            'value'          => 'nullable|numeric|min:0.01',
+            'discount_value' => 'nullable|numeric|min:0.01',
+            'min_spend'      => 'nullable|numeric|min:0',
+            'max_discount'   => 'nullable|numeric|min:0',
+            'starts_at'      => 'nullable|date',
+            'valid_from'     => 'nullable|date',
+            'ends_at'        => 'nullable|date',
+            'valid_until'    => 'nullable|date',
+            'usage_limit'    => 'nullable|integer|min:1',
+            'status'         => 'nullable|in:active,inactive',
         ]);
 
+        $type = $data['type'] ?? $data['discount_type'] ?? 'fixed';
+        $value = $data['value'] ?? $data['discount_value'] ?? 0;
+        $code = strtoupper($data['code']);
+
         Voucher::create([
-            'seller_id' => $seller->id,
-            'code' => strtoupper($data['code']),
-            'name' => strtoupper($data['code']),
-            'type' => $data['type'],
-            'discount_type' => $data['type'],
-            'value' => $data['value'],
-            'discount_value' => $data['value'],
-            'min_spend' => $data['min_spend'] ?? 0,
-            'usage_limit' => $data['usage_limit'] ?? null,
-            'starts_at' => $data['starts_at'] ?? null,
-            'ends_at' => $data['ends_at'] ?? null,
-            'status' => 'active',
+            'seller_id'      => Auth::id(),
+            'code'           => $code,
+            'name'           => $data['name'] ?? $code,
+            'description'    => $data['description'] ?? null,
+            'type'           => $type,
+            'discount_type'  => $type,
+            'value'          => $value,
+            'discount_value' => $value,
+            'min_spend'      => $data['min_spend'] ?? 0,
+            'max_discount'   => $data['max_discount'] ?? null,
+            'starts_at'      => $data['starts_at'] ?? $data['valid_from'] ?? null,
+            'valid_from'     => $data['valid_from'] ?? $data['starts_at'] ?? null,
+            'ends_at'        => $data['ends_at'] ?? $data['valid_until'] ?? null,
+            'valid_until'    => $data['valid_until'] ?? $data['ends_at'] ?? null,
+            'usage_limit'    => $data['usage_limit'] ?? null,
+            'status'         => $data['status'] ?? 'active',
         ]);
 
         return back()->with('status', 'Voucher created.');
+    }
+
+    public function voucherUpdate(Request $request, Voucher $voucher)
+    {
+        $ids = $this->catalogIds();
+        abort_if($voucher->seller_id !== null && ! in_array($voucher->seller_id, $ids), 403);
+
+        $data = $request->validate([
+            'name'           => 'required|string|max:150',
+            'description'    => 'nullable|string|max:1000',
+            'type'           => 'nullable|in:fixed,percent',
+            'discount_type'  => 'nullable|in:fixed,percent',
+            'value'          => 'nullable|numeric|min:0',
+            'discount_value' => 'nullable|numeric|min:0',
+            'min_spend'      => 'nullable|numeric|min:0',
+            'max_discount'   => 'nullable|numeric|min:0',
+            'starts_at'      => 'nullable|date',
+            'valid_from'     => 'nullable|date',
+            'ends_at'        => 'nullable|date',
+            'valid_until'    => 'nullable|date',
+            'usage_limit'    => 'nullable|integer|min:1',
+            'status'         => 'required|in:active,inactive',
+        ]);
+
+        $type = $data['type'] ?? $data['discount_type'] ?? $voucher->type;
+        $value = $data['value'] ?? $data['discount_value'] ?? $voucher->value;
+
+        $voucher->update([
+            'name'           => $data['name'],
+            'description'    => $data['description'] ?? null,
+            'type'           => $type,
+            'discount_type'  => $type,
+            'value'          => $value,
+            'discount_value' => $value,
+            'min_spend'      => $data['min_spend'] ?? 0,
+            'max_discount'   => $data['max_discount'] ?? null,
+            'starts_at'      => $data['starts_at'] ?? $data['valid_from'] ?? null,
+            'valid_from'     => $data['valid_from'] ?? $data['starts_at'] ?? null,
+            'ends_at'        => $data['ends_at'] ?? $data['valid_until'] ?? null,
+            'valid_until'    => $data['valid_until'] ?? $data['ends_at'] ?? null,
+            'usage_limit'    => $data['usage_limit'] ?? null,
+            'status'         => $data['status'],
+        ]);
+
+        return back()->with('status', 'Voucher updated successfully.');
     }
 
     public function voucherToggle(Request $request, Voucher $voucher)
@@ -182,33 +582,58 @@ class SellerCenterController extends Controller
 
     public function voucherDestroy(Request $request, Voucher $voucher)
     {
-        abort_if(! in_array($voucher->seller_id, $this->seller()->catalogIds()), 403);
+        abort_if(! in_array($voucher->seller_id, $this->catalogIds()), 403);
+        if (($voucher->used_count ?? 0) > 0) {
+            return back()->with('error', 'This voucher has already been used and cannot be deleted.');
+        }
         $voucher->delete();
         return back()->with('status', 'Voucher deleted.');
     }
 
+    public function feedbackToggle(Request $request, \App\Models\Review $review)
+    {
+        $ids = $this->catalogIds();
+        abort_if(! \App\Models\Product::where('id', $review->product_id)->whereIn('seller_id', $ids)->exists(), 403);
+
+        $review->update([
+            'status' => $review->status === 'visible' ? 'hidden' : 'visible',
+        ]);
+
+        $avg = \App\Models\Review::where('product_id', $review->product_id)
+            ->where('status', 'visible')
+            ->avg('rating');
+        Product::where('id', $review->product_id)->update([
+            'rating' => $avg ? round($avg, 1) : null,
+        ]);
+
+        return back()->with('status', $review->status === 'visible'
+            ? 'Feedback shown on the product.'
+            : 'Feedback hidden from the product.');
+    }
+
     // ------------------------------------------------------------------ Customer feedback
+    // Buyer ratings land in `reviews` (same table the buyer app writes),
+    // so the seller sees exactly what buyers left.
     public function feedback()
     {
         $seller = $this->seller();
         $ids = $seller->catalogIds();
 
-        $reviews = ProductReview::with(['product', 'buyer'])
+        $reviews = \App\Models\Review::with(['product', 'buyer'])
             ->whereHas('product', fn ($q) => $q->whereIn('seller_id', $ids))
             ->latest()
             ->paginate(15);
+        $reviews->getCollection()->each(fn ($r) => $r->setAttribute('review', $r->review ?? $r->comment));
 
-        $rating = ProductReview::whereHas('product', fn ($q) => $q->whereIn('seller_id', $ids))
-            ->avg('rating');
+        $allRatings = \App\Models\Review::whereHas('product', fn ($q) => $q->whereIn('seller_id', $ids))->pluck('rating');
+        $rating = round($allRatings->avg() ?? 0, 1);
+        $total = $allRatings->count();
 
-        $total = ProductReview::whereHas('product', fn ($q) => $q->whereIn('seller_id', $ids))->count();
-
-        $distribution = [
-            5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0,
-        ];
-        foreach (ProductReview::whereHas('product', fn ($q) => $q->whereIn('seller_id', $ids))
-            ->selectRaw('rating, COUNT(*) as c')->groupBy('rating')->get() as $row) {
-            $distribution[$row->rating] = $row->c;
+        $distribution = [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0];
+        foreach ($allRatings as $star) {
+            if (isset($distribution[$star])) {
+                $distribution[$star]++;
+            }
         }
 
         return $this->page(compact('reviews', 'rating', 'total', 'distribution'), 'feedback', 'Customer Feedback');
@@ -267,100 +692,118 @@ class SellerCenterController extends Controller
     }
 
     // ------------------------------------------------------------------ Chat
-    public function chat(Request $request)
+    // Conversation threads shared with buyers (same table the buyer app
+    // reads), so both sides always see the same messages.
+    public function chatIndex()
     {
-        $seller = $this->seller();
         $me = Auth::id();
-        $with = $request->integer('with');
-
-        $conversations = Message::where('sender_id', $me)->orWhere('receiver_id', $me)
-            ->get()
-            ->groupBy(fn ($m) => $m->sender_id === $me ? $m->receiver_id : $m->sender_id)
-            ->map(function ($msgs) use ($me) {
-                $last = $msgs->sortByDesc('created_at')->first();
-                $otherId = $last->sender_id === $me ? $last->receiver_id : $last->sender_id;
-                $other = \App\Models\User::find($otherId);
-                return (object) [
-                    'user' => $other,
-                    'last' => $last,
-                    'unread' => $msgs->where('receiver_id', $me)->where('is_read', false)->count(),
-                ];
+        $conversations = \App\Models\Conversation::with(['buyer', 'lastMessage.sender'])
+            ->where(function ($q) use ($me) {
+                $q->where('seller_id', $me)
+                  ->orWhereIn('seller_id', $this->catalogIds())
+                  ->orWhereHas('buyer', function ($buyer) use ($me) {
+                      $buyer->whereHas('orders.items', function ($items) use ($me) {
+                          $items->whereIn('seller_id', [$me]);
+                      });
+                  });
             })
-            ->filter(fn ($c) => $c->user && $c->last)
-            ->sortByDesc(fn ($c) => $c->last->created_at)
-            ->values();
+            ->withCount(['messages as unread_count' => function ($q) use ($me) {
+                $q->where('is_read', false)->where('sender_id', '!=', $me);
+            }])
+            ->latest('updated_at')
+            ->get();
 
-        $thread = collect();
-        $otherUser = null;
-        if ($with) {
-            $otherUser = \App\Models\User::find($with);
-            if ($otherUser) {
-                $thread = Message::where(function ($q) use ($me, $with) {
-                    $q->where('sender_id', $me)->where('receiver_id', $with);
-                })->orWhere(function ($q) use ($me, $with) {
-                    $q->where('sender_id', $with)->where('receiver_id', $me);
-                })->orderBy('created_at')->get();
-
-                Message::where('sender_id', $with)->where('receiver_id', $me)
-                    ->where('is_read', false)->update(['is_read' => true]);
-            }
-        }
-
-        return $this->page(compact('conversations', 'thread', 'otherUser'), 'chat', 'Chat / Messaging');
+        return view('seller.chat.index', compact('conversations'))->with('active', 'chat')->with('title', 'Chat / Messaging');
     }
 
-    public function chatSend(Request $request)
-    {
-        $data = $request->validate([
-            'receiver_id' => 'required|exists:users,id',
-            'body' => 'required|string|max:2000',
-        ]);
-
-        $message = Message::create([
-            'sender_id' => Auth::id(),
-            'receiver_id' => $data['receiver_id'],
-            'body' => $data['body'],
-            'is_read' => false,
-        ]);
-
-        if ($request->expectsJson()) {
-            return response()->json(['message' => $message]);
-        }
-
-        return redirect('/seller/chat?with=' . $data['receiver_id']);
-    }
-
-    public function chatMessages(Request $request, \App\Models\User $user)
+    public function chatShow($id)
     {
         $me = Auth::id();
-        $after = (int) $request->query('after', 0);
+        $conversation = \App\Models\Conversation::with(['buyer', 'messages.sender'])
+            ->where(function ($q) use ($me) {
+                $q->where('seller_id', $me)
+                  ->orWhereIn('seller_id', $this->catalogIds())
+                  ->orWhereHas('buyer', function ($buyer) use ($me) {
+                      $buyer->whereHas('orders.items', function ($items) use ($me) {
+                          $items->whereIn('seller_id', [$me]);
+                      });
+                  });
+            })
+            ->findOrFail($id);
 
-        $query = Message::where(function ($q) use ($me, $user) {
-            $q->where('sender_id', $me)->where('receiver_id', $user->id);
-        })->orWhere(function ($q) use ($me, $user) {
-            $q->where('sender_id', $user->id)->where('receiver_id', $me);
-        });
+        \App\Models\Message::where('conversation_id', $conversation->id)
+            ->where('sender_id', '!=', $me)
+            ->update(['is_read' => true]);
 
-        if ($after > 0) {
-            $query->where('id', '>', $after);
+        if (! $conversation->seller_id) {
+            $conversation->update(['seller_id' => $me]);
         }
 
-        $messages = $query->orderBy('created_at')->get();
+        $messages = $conversation->messages()->with('sender')->orderBy('created_at')->get();
 
-        Message::where('sender_id', $user->id)->where('receiver_id', $me)
-            ->where('is_read', false)->update(['is_read' => true]);
+        return view('seller.chat.show', compact('conversation', 'messages'))->with('active', 'chat')->with('title', 'Chat / Messaging');
+    }
 
-        return response()->json(['messages' => $messages]);
+    public function chatReply(Request $request, $id)
+    {
+        $me = Auth::id();
+        $validated = $request->validate([
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $conversation = \App\Models\Conversation::where(function ($q) use ($me) {
+            $q->where('seller_id', $me)
+              ->orWhereIn('seller_id', $this->catalogIds())
+              ->orWhereHas('buyer', function ($buyer) use ($me) {
+                  $buyer->whereHas('orders.items', function ($items) use ($me) {
+                      $items->whereIn('seller_id', [$me]);
+                  });
+              });
+        })->findOrFail($id);
+
+        if (! $conversation->seller_id) {
+            $conversation->update(['seller_id' => $me]);
+        }
+
+        \App\Models\Message::create([
+            'conversation_id' => $conversation->id,
+            'sender_id'       => $me,
+            'receiver_id'     => $conversation->buyer_id,
+            'body'            => $validated['body'],
+            'is_read'         => false,
+        ]);
+
+        $conversation->touch();
+
+        return back()->with('status', 'Message sent.');
     }
 
     // ------------------------------------------------------------------ Notifications
     public function notifications()
     {
-        $notifications = NotificationsLog::where('user_id', Auth::id())
+        $notifications = \App\Models\SellerNotification::forSeller(Auth::id())
             ->latest()
-            ->paginate(15);
+            ->paginate(30);
 
         return $this->page(compact('notifications'), 'notifications', 'Notifications');
+    }
+
+    public function notificationRead($id)
+    {
+        \App\Models\SellerNotification::forSeller(Auth::id())
+            ->where('id', $id)
+            ->update(['is_read' => true]);
+
+        return back();
+    }
+
+    public function notificationsReadAll()
+    {
+        \App\Models\SellerNotification::forSeller(Auth::id())
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
+        return back()->with('status', 'All notifications marked as read.');
     }
 
     // ------------------------------------------------------------------ Account
@@ -407,5 +850,41 @@ class SellerCenterController extends Controller
         );
 
         return back()->with('status', 'Store account updated.');
+    }
+
+    public function updateProfile(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name'  => ['required', 'string', 'max:100'],
+            'middle_initial' => ['nullable', 'string', 'max:10'],
+            'phone'      => ['required', 'string', 'max:30'],
+            'email'      => ['required', 'email', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($user->id)],
+            'sex'        => ['required', 'in:male,female,other'],
+        ]);
+
+        $user->update($validated);
+
+        return back()->with('status', 'Profile updated successfully.');
+    }
+
+    public function updatePassword(Request $request)
+    {
+        $user = Auth::user();
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'new_password'     => ['required', 'string', 'min:6', 'confirmed'],
+        ]);
+
+        if (! \Illuminate\Support\Facades\Hash::check($validated['current_password'], $user->password)) {
+            return back()->withErrors(['current_password' => 'The current password is incorrect.']);
+        }
+
+        $user->update(['password' => \Illuminate\Support\Facades\Hash::make($validated['new_password'])]);
+
+        return back()->with('status', 'Password updated successfully.');
     }
 }

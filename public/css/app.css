@@ -1,101 +1,332 @@
+/* =====================================================================
+   Invoiz Seller — design tokens (mirrors the buyer Flutter app theme)
+   ===================================================================== */
 :root {
-  --primary: #16697A;
-  --primary-dark: #0E4A57;
-  --secondary: #F0A202;
-  --accent: #EAF4F3;
-  --background: #F7F6F2;
-  --card: #FFFFFF;
-  --text-primary: #1B1B1E;
-  --text-secondary: #6E6E73;
-  --success: #2E8B57;
-  --warning: #E05A33;
-  --gold: #F5A623;
-  --border: #E8E6E0;
-  --surface-soft: #F0EEE9;
+    --primary: #16697A;
+    --primary-dark: #0E4A57;
+    --secondary: #F0A202;
+    --accent: #EAF4F3;
+    --background: #F7F6F2;
+    --card: #FFFFFF;
+    --text-primary: #1B1B1E;
+    --text-secondary: #6E6E73;
+    --success: #2E8B57;
+    --warning: #E05A33;
+    --gold: #F5A623;
+    --border: #E8E6E0;
+    --surface-soft: #F0EEE9;
 }
 
-* { box-sizing: border-box; }
+* {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
 
 body {
-  margin: 0;
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-  background: var(--background);
-  color: var(--text-primary);
-  font-size: 14px;
-  line-height: 1.4;
+    background-color: var(--background);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
 }
 
+/* Thin, tinted scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D6D3CC; border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: #C2BEB4; }
+
+/* =====================================================================
+   Cards & surfaces
+   ===================================================================== */
 .card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
 }
 
+.stat-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    padding: 14px;
+}
+
+.stat-card .stat-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* =====================================================================
+   Buttons
+   ===================================================================== */
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 48px;
-  padding: 0 20px;
-  border-radius: 14px;
-  font-weight: 600;
-  font-size: 14px;
-  border: none;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1;
+    padding: 9px 15px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    text-decoration: none;
 }
 
-.btn-primary { background: var(--primary); color: #fff; }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-primary {
+    background: var(--primary);
+    color: #fff;
+}
 .btn-primary:hover { background: var(--primary-dark); }
 
-.btn-secondary {
-  background: transparent;
-  color: var(--primary);
-  border: 1px solid var(--primary);
+.btn-outline {
+    background: #fff;
+    color: var(--primary);
+    border-color: var(--primary);
+}
+.btn-outline:hover { background: var(--accent); }
+
+.btn-soft {
+    background: var(--accent);
+    color: var(--primary);
+}
+.btn-soft:hover { background: #DCEAE9; }
+
+.btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+}
+.btn-ghost:hover { background: var(--surface-soft); color: var(--text-primary); }
+
+.btn-danger {
+    background: #FDECEC;
+    color: var(--warning);
+}
+.btn-danger:hover { background: #FADADA; }
+
+.btn-sm { padding: 6px 10px; font-size: 12px; border-radius: 8px; }
+.btn-xs { padding: 4px 8px; font-size: 11px; border-radius: 6px; }
+
+/* =====================================================================
+   Form fields
+   ===================================================================== */
+.input, .select, .textarea {
+    width: 100%;
+    background: var(--surface-soft);
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--text-primary);
+    outline: none;
+    transition: all 0.15s ease;
 }
 
-.btn-secondary:hover { background: var(--accent); }
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid var(--border);
-  background: var(--card);
+.input:focus, .select:focus, .textarea:focus {
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(22, 105, 122, 0.12);
 }
 
-.chip-accent { background: var(--accent); color: var(--primary-dark); border-color: var(--accent); }
+.input::placeholder, .textarea::placeholder { color: var(--text-secondary); }
 
-input, select, textarea {
-  background: var(--surface-soft);
-  border: none;
-  border-radius: 14px;
-  padding: 12px 16px;
-  font-family: inherit;
-  font-size: 14px;
-  color: var(--text-primary);
-  width: 100%;
-  outline: none;
+.select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236E6E73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 34px;
+    cursor: pointer;
 }
 
-input:focus, select:focus, textarea:focus { outline: 1.6px solid var(--primary); }
+label.field-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+/* =====================================================================
+   Tables
+   ===================================================================== */
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table thead th {
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+.table tbody td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.table tbody tr:last-child td { border-bottom: none; }
+.table tbody tr:hover { background: #FCFBF9; }
+
+/* =====================================================================
+   Badges
+   ===================================================================== */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.badge-dot { width: 6px; height: 6px; border-radius: 999px; display: inline-block; background-color: currentColor; }
+
+/* Status colors */
+.badge-pending { background: #FEF3C7; color: #D97706; }
+.badge-confirmed { background: #E0F2FE; color: #0284C7; }
+.badge-processing { background: #DBEAFE; color: #2563EB; }
+.badge-ready_for_delivery { background: #EDE9FE; color: #7C3AED; }
+.badge-out_for_delivery { background: #FFEDD5; color: #EA580C; }
+.badge-delivered { background: #D1FAE5; color: #059669; }
+.badge-completed { background: #D1FAE5; color: #059669; }
+.badge-cancelled { background: #FEE2E2; color: #DC2626; }
+.badge-refunded { background: #FCE7F3; color: #DB2777; }
+.badge-active { background: #D1FAE5; color: #059669; }
+.badge-inactive { background: var(--surface-soft); color: var(--text-secondary); }
+.badge-out_of_stock { background: #FEE2E2; color: #DC2626; }
+.badge-visible { background: #D1FAE5; color: #059669; }
+.badge-hidden { background: var(--surface-soft); color: var(--text-secondary); }
+.badge-scheduled { background: #FEF3C7; color: #D97706; }
+.badge-picked_up { background: #CFFAFE; color: #0891B2; }
+
+/* =====================================================================
+   Sidebar
+   ===================================================================== */
+.sidebar-nav a {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 10px;
+    border-radius: 9px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+.sidebar-nav a:hover { background: var(--surface-soft); }
+.sidebar-nav a.active {
+    background: var(--accent);
+    color: var(--primary);
+    font-weight: 700;
+}
+.sidebar-nav .nav-section {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 12px 10px 4px;
+}
+
+/* Collapsed icon-only rail (desktop only). Icons stay visible & clickable. */
+@media (min-width: 1024px) {
+    .sidebar-collapsed .sb-hide-collapsed,
+    .sidebar-collapsed .sb-label,
+    .sidebar-collapsed .sb-footer,
+    .sidebar-collapsed .nav-section {
+        display: none;
+    }
+    .sidebar-collapsed .sb-brand-header {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    .sidebar-collapsed .sb-logo-wrap {
+        margin-left: auto;
+        margin-right: auto;
+    }
+    .sidebar-collapsed .sidebar-nav {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+    .sidebar-collapsed .sidebar-nav a,
+    .sidebar-collapsed .sb-logout {
+        justify-content: center;
+        padding-left: 0;
+        padding-right: 0;
+    }
+}
+
+/* Fixed sidebar: the rail stays pinned while the page scrolls.
+   The nav list itself scrolls only when hovered (desktop mouse).
+   Touch screens and mobile keep normal scrolling. */
+.sidebar-nav {
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #D6D3CC transparent;
+}
+.sidebar-nav::-webkit-scrollbar {
+    width: 6px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: #D6D3CC;
+    border-radius: 999px;
+}
+@media (hover: hover) and (min-width: 1024px) {
+    .sidebar-nav {
+        overflow-y: hidden;
+    }
+    .sidebar-nav:hover,
+    .sidebar-nav:focus-within {
+        overflow-y: auto;
+    }
+}
+
+/* =====================================================================
+   Charts / misc
+   ===================================================================== */
+.chart-tooltip-label { font-weight: 600; }
 
 .avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: #fff;
-  font-weight: 700;
-  width: 40px;
-  height: 40px;
-  flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
 }
 
-.store-link { color: var(--primary); font-weight: 600; text-decoration: none; }
+.rating-stars { color: var(--gold); }
+
+.progress-ring-track { stroke: var(--border); }
+
+/* =====================================================================
+   Print (waybill / shipping label)
+   ===================================================================== */
+@media print {
+    body * { visibility: hidden; }
+    #print-area, #print-area * { visibility: visible; }
+    #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 0;
+        margin: 0;
+    }
+    .no-print { display: none !important; }
+}

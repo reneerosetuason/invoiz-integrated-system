@@ -80,7 +80,12 @@
           </div>
           <div style="min-width:0; flex:1;">
             <div class="conv-name">{{ $user->name }}</div>
-            <div class="conv-sub conv-role-text" style="font-size:11px; color:#6B7280;">{{ ucfirst($user->role ?? 'buyer') }} · <span style="color:#2E8B57;">● Online</span></div>
+            <div class="conv-sub conv-role-text" style="font-size:11px; color:#6B7280;">
+              @foreach($user->roleBadges() as $badge)
+                <span style="display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;background:{{ $badge[2] }};color:{{ $badge[1] }};margin-right:4px">{{ $badge[0] }}</span>
+              @endforeach
+              · <span style="color:#2E8B57;">● Online</span>
+            </div>
             @if($user->last_message)
               <div class="conv-last" style="font-size:12px; color:#6B7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;">{{ Str::limit($user->last_message->body, 28) }}</div>
             @endif
@@ -114,7 +119,11 @@
         </div>
         <div>
           <div class="name">{{ $selectedUser->name }}</div>
-          <div style="font-size:11px; color:#6B7280; display:flex; align-items:center; gap:4px;"><span class="status-dot"></span> Active now · {{ ucfirst($selectedUser->role ?? 'buyer') }}</div>
+          <div style="font-size:11px; color:#6B7280; display:flex; align-items:center; gap:4px;"><span class="status-dot"></span> Active now ·
+            @foreach($selectedUser->roleBadges() as $badge)
+              <span style="display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;background:{{ $badge[2] }};color:{{ $badge[1] }}">{{ $badge[0] }}</span>
+            @endforeach
+          </div>
         </div>
         <div style="margin-left:auto; display:flex; gap:6px;">
           <button class="icon-btn" title="Voice call"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .8 2.9a2 2 0 0 1-.6 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.6c.9.4 1.9.7 2.9.8a2 2 0 0 1 1.7 2z"/></svg></button>

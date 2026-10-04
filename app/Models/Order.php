@@ -65,6 +65,12 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function itemsForSeller($sellerId)
+    {
+        $ids = $sellerId instanceof Seller ? $sellerId->catalogIds() : [$sellerId];
+        return $this->items()->whereIn('seller_id', $ids);
+    }
+
     public function seller()
     {
         return $this->belongsTo(Seller::class);
@@ -93,5 +99,25 @@ class Order extends Model
     public function statusHistories()
     {
         return $this->hasMany(OrderStatusHistory::class, 'order_id');
+    }
+
+    public function courierPickup()
+    {
+        return $this->hasOne(CourierPickup::class, 'order_id')->latestOfMany();
+    }
+
+    public function sellerNotifications()
+    {
+        return $this->hasMany(SellerNotification::class, 'order_id');
+    }
+
+    public function orderVouchers()
+    {
+        return $this->hasMany(OrderVoucher::class, 'order_id');
+    }
+
+    public function getFormattedTotalAttribute(): string
+    {
+        return '₱' . number_format((float) ($this->total_amount ?? $this->total ?? 0), 2);
     }
 }

@@ -38,3 +38,12 @@ Open: `http://127.0.0.1:8000/` (landing), `/register` (buyer), `/login` (role re
 - New non-destructive migration: `2026_10_04_000001_unified_buyer_columns.php` (adds missing buyer cols, `carts`, `addresses`).
 - `bootstrap/app.php`: guests → `/login`, users → `/home` (→ `/shop`).
 - Static preview: open `index.html` directly; live version is served by Laravel at `/`.
+
+## Exact seller app (original look + functions)
+
+- Folder: C:\Users\LENOVO\OneDrive\Desktop\Invoiz e-commerce\invoiz-seller (exact copy of the original seller app).
+- Same invoizdb, same APP_KEY + SESSION_COOKIE=invoiz_session (set in both .env files).
+- Login on :8000 as a dual account -> /choose -> Continue as Seller creates a single-use sso_tokens row and hands off to :8100/sso/{token}, which signs you into the exact seller dashboard.
+- Logout anywhere deletes all of the account's sessions, so both apps log out and return to the :8000 landing page.
+- Run both: php artisan serve --port=8000 here, php artisan serve --port=8100 in invoiz-seller.
+

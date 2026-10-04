@@ -90,6 +90,26 @@ class User extends Authenticatable
         return $this->hasOne(Seller::class);
     }
 
+    public function products()
+    {
+        return $this->hasMany(Product::class, 'seller_id');
+    }
+
+    public function conversations()
+    {
+        return $this->hasMany(Conversation::class, 'buyer_id');
+    }
+
+    public function isApproved(): bool
+    {
+        return $this->approval_status === 'approved' && $this->isActive();
+    }
+
+    public function canSell(): bool
+    {
+        return $this->seller?->isApproved() ?? false;
+    }
+
     public function orders()
     {
         return $this->hasMany(Order::class, 'buyer_id');
@@ -141,5 +161,47 @@ class User extends Authenticatable
     public function getFullNameAttribute(): string
     {
         return $this->displayName();
+    }
+
+    /**
+     * Chat badges for this account: always the account role, plus a Seller
+     * badge when a buyer-role account also owns an approved store, so
+     * nobody mistakes which hat they wear in a conversation.
+     * Returns list of [label, foreground, background].
+     */
+    public function roleBadges(): array
+    {
+        $badges = [Message::roleBadge($this->role ?? 'buyer')];
+        if (($this->role ?? '') !== 'seller' && ($this->role ?? '') !== 'admin') {
+            try {
+                $hasStore = Seller::where('user_id', $this->id)
+                    ->where(function ($q) {
+                        $q->where('approval_status', 'approved')->orWhere('status', 'approved');
+                    })->exists();
+            } catch (\Throwable $e) {
+                $hasStore = false;
+            }
+            if ($hasStore) {
+                $badges[] = Message::roleBadge('seller');
+            }
+        }
+        return $badges;
+    }
+
+    /** Contact role of another user as seen in a chat thread. */
+    public static function chatRoleFor(?User $user): string
+    {
+        if (! $user) {
+            return 'buyer';
+        }
+        if (($user->role ?? '') === 'admin') {
+            return 'admin';
+        }
+        try {
+            $isSeller = Seller::where('user_id', $user->id)->exists();
+        } catch (\Throwable $e) {
+            $isSeller = false;
+        }
+        return $isSeller ? 'seller' : 'buyer';
     }
 }

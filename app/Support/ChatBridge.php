@@ -40,9 +40,31 @@ class ChatBridge
             $other = $receiver;
         }
 
-        // No buyer involved (e.g. admin <-> seller): seller-center and
-        // admin-center read those directly via sender/receiver.
+        // No buyer involved: admin <-> seller support threads are carried
+        // by a conversation too (admin recorded as the contact party),
+        // so the seller's conversation inbox shows them.
         if (! $buyer) {
+            $admin = null;
+            $sellerUser = null;
+            foreach ([$sender, $receiver] as $party) {
+                if (! $party) {
+                    continue;
+                }
+                if ($party->role === 'admin' && ! $admin) {
+                    $admin = $party;
+                } elseif (\App\Models\Seller::where('user_id', $party->id)->exists() && ! $sellerUser) {
+                    $sellerUser = $party;
+                }
+            }
+            if (! $admin || ! $sellerUser) {
+                return;
+            }
+            $conversation = Conversation::firstOrCreate(
+                ['buyer_id' => $admin->id, 'seller_id' => $sellerUser->id],
+                ['subject' => 'Support']
+            );
+            $message->conversation_id = $conversation->id;
+            $conversation->touch();
             return;
         }
 
