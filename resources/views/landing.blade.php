@@ -195,7 +195,8 @@ body{overflow-x:hidden}
 <div class="mt-6 grid gap-4 md:grid-cols-3">
 @forelse(($stores ?? collect()) as $s)
 <article class="card-hover rounded-3xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-card">
-<div class="flex items-center gap-3"><span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal to-teal-dark text-lg font-extrabold text-white">{{ strtoupper(mb_substr($s['name'],0,1)) }}</span>
+<div class="flex items-center gap-3">
+@if(!empty($s['logo']))<img src="{{ $s['logo'] }}" alt="{{ $s['name'] }}" class="h-14 w-14 shrink-0 rounded-2xl object-cover ring-1 ring-gray-200">@else<span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-teal to-teal-dark text-lg font-extrabold text-white">{{ strtoupper(mb_substr($s['name'],0,1)) }}</span>@endif
 <div class="min-w-0"><h3 class="truncate text-base font-extrabold">{{ $s['name'] }}</h3><p class="truncate text-xs font-bold text-amber-700">{{ $s['line'] }}</p></div></div>
 <div class="mt-4 flex items-center justify-between"><span class="inline-flex rounded-full bg-teal-light px-3 py-1 text-xs font-extrabold text-teal-dark">{{ $s['products'] }} product(s)</span><a href="{{ url('/store/'.$s['user_id']) }}" class="inline-flex items-center gap-1 rounded-xl bg-teal px-4 py-2 text-xs font-extrabold text-white transition hover:bg-teal-dark">Visit store →</a></div>
 </article>

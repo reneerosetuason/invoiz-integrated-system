@@ -332,7 +332,7 @@ class UnifiedAuthController extends Controller
             }
         }
         Auth::logout();
-        $request->session()->forget(['buyer', 'seller_id', 'checkout_single', 'checkout_seller_id', 'checkout_all']);
+        $request->session()->forget(['buyer', 'seller_id', 'checkout_single', 'checkout_seller_id', 'checkout_all', 'checkout_selected']);
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

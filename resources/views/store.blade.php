@@ -31,6 +31,8 @@ a.st-link:hover .st-card{box-shadow:0 8px 24px rgba(0,0,0,.12);transform:transla
 .st-price{color:var(--primary-dark,#0E4A57);font-weight:800;font-size:15px;margin-top:auto;padding-top:8px}
 .st-rev{background:#fff;border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px}
 .st-stars{color:#F0A202;font-weight:800;font-size:12px}
+.st-stars .st-star-fill{fill:#F0A202}
+.st-stars .st-star-empty{fill:#E5E7EB}
 @media (max-width:860px){ .st-grid{grid-template-columns:repeat(2,1fr)} .st-actions{margin-left:0} }
 @media (max-width:560px){ .st-grid{grid-template-columns:1fr} }
 </style>
@@ -76,7 +78,7 @@ a.st-link:hover .st-card{box-shadow:0 8px 24px rgba(0,0,0,.12);transform:transla
   @forelse($reviews as $r)    <div class="st-rev">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <b style="font-size:13px">{{ trim(($r->buyer->first_name ?? '').' '.($r->buyer->last_name ?? '')) ?: 'Buyer' }}</b>
-        <span class="st-stars">{{ str_repeat('★', (int)$r->rating) }}{{ str_repeat('☆', 5-(int)$r->rating) }}</span>
+        <span class="st-stars" style="display:inline-flex;gap:1px">@for($s = 1; $s <= 5; $s++)<svg width="13" height="13" viewBox="0 0 20 20" class="{{ $s <= (int)$r->rating ? 'st-star-fill' : 'st-star-empty' }}"><path d="M10 1.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L10 14.8l-5.2 2.8 1-5.8-4.3-4.1 5.9-.9L10 1.5z"/></svg>@endfor</span>
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:2px">{{ $r->product->name ?? '' }} · {{ $r->created_at->diffForHumans() }}</div>
       @if($r->comment)<div style="font-size:13px;margin-top:6px">{{ $r->comment }}</div>@endif

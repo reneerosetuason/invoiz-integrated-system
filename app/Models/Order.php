@@ -54,6 +54,14 @@ class Order extends Model
         });
     }
 
+    /** Statuses from which the BUYER may still cancel (never shipped/on-the-way). */
+    public const BUYER_CANCELLABLE = ['pending', 'confirmed'];
+
+    public function isCancellableByBuyer(): bool
+    {
+        return in_array($this->status, self::BUYER_CANCELLABLE, true);
+    }
+
     /** Revenue-safe total: prefers `total`, falls back to `total_amount`. */
     public function getEffectiveTotalAttribute(): float
     {

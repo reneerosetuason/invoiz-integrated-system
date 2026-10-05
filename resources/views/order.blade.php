@@ -20,8 +20,14 @@
     'delivered' => '#10b981', 'cancelled' => '#ef4444',
   ][$o->status] ?? '#1a1a1a';
 @endphp
+@php
+  $oRef = $o->order_number ?? ('INV-'.$o->id);
+  $oStore = '';
+  try { $oStore = \App\Models\Seller::nameFor(optional($o->items->first())->seller_id ?? 0); } catch (\Throwable $e) {}
+@endphp
 <a href="{{ url('/orders') }}" style="color:var(--text2);text-decoration:none;font-weight:600;font-size:12px">← Back to orders</a>
-<h2 style="font-weight:800;margin:8px 0 0">Order #{{ $o->id }}</h2>
+<h2 style="font-weight:800;margin:8px 0 0">{{ $oRef }}</h2>
+@if($oStore && $oStore !== 'Store')<div style="font-size:12px;color:var(--text2);margin-top:2px">Sold by <a href="{{ url('/store/'.optional($o->items->first())->seller_id) }}" style="color:var(--primary-dark);font-weight:700;text-decoration:none">{{ $oStore }}</a></div>@endif
 
 @if(session('success'))<div style="background:#ecfdf5;color:#065f46;padding:10px;border-radius:8px;border:1px solid #a7f3d0;margin-top:12px;font-size:13px;font-weight:600">{{ session('success') }}</div>@endif
 @if(session('error'))<div style="background:#fef2f2;color:#991b1b;padding:10px;border-radius:8px;border:1px solid #fecaca;margin-top:12px;font-size:13px;font-weight:600">{{ session('error') }}</div>@endif
@@ -95,10 +101,12 @@
   @endforelse
 </div>
 
-@if(in_array($o->status, ['pending','confirmed']))
+@if($o->isCancellableByBuyer())
   <form method="POST" action="{{ url('/orders/'.$o->id.'/cancel') }}" style="margin-top:12px" onsubmit="return confirm('Cancel this order?');">
     @csrf
     <button type="submit" style="width:100%;padding:11px;border-radius:999px;background:#fff;color:var(--danger);border:1.5px solid var(--danger);font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">Cancel Order</button>
   </form>
+@elseif(! in_array($o->status, ['cancelled','delivered']))
+  <div style="margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:var(--text2);font-size:12px;text-align:center">This order is {{ str_replace('_',' ',$o->status) }} and can no longer be cancelled. Contact the seller if you need help.</div>
 @endif
 @endsection

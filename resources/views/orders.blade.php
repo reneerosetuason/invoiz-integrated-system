@@ -57,7 +57,12 @@
             $oRest = $o->items->count() - count($oNames);
           @endphp
           <b style="font-size:14px">{{ implode(', ', $oNames) }}{{ $oRest > 0 ? ' +'.$oRest.' more' : '' }}</b>
-          <div style="color:var(--text3);font-size:11px;margin-top:2px">Order #{{ $o->id }} · {{ $o->created_at->format('M d, Y · h:i A') }} · <span style="color:var(--primary-dark);font-weight:700">Track →</span></div>
+          @php
+            $oRef = $o->order_number ?? ('INV-'.$o->id);
+            $oStore = '';
+            try { $oStore = \App\Models\Seller::nameFor(optional($o->items->first())->seller_id ?? 0); } catch (\Throwable $e) {}
+          @endphp
+          <div style="color:var(--text3);font-size:11px;margin-top:2px">{{ $oRef }}@if($oStore && $oStore !== 'Store') · Sold by <b>{{ $oStore }}</b>@endif · {{ $o->created_at->format('M d, Y · h:i A') }} · <span style="color:var(--primary-dark);font-weight:700">Track →</span></div>
         </div>
         <span style="padding:5px 12px;border-radius:999px;background:{{ $pillBg }};color:{{ $pillFg }};font-weight:700;font-size:11px;border:1px solid {{ $pillBd }}">{{ $pillLabel }}</span>
       </div>

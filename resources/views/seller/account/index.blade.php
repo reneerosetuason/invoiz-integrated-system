@@ -15,9 +15,13 @@
             <div class="card overflow-hidden">
                 <div class="p-6" style="background:linear-gradient(135deg,#16697A,#0E4A57);">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 text-xl font-extrabold text-white">
-                            {{ strtoupper(substr(auth()->user()->seller->business_name, 0, 1)) }}
-                        </div>
+                        @if(auth()->user()->seller?->logo)
+                            <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="Shop logo" class="h-14 w-14 rounded-2xl bg-white object-cover ring-2 ring-white/40">
+                        @else
+                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 text-xl font-extrabold text-white">
+                                {{ strtoupper(substr(auth()->user()->seller->business_name, 0, 1)) }}
+                            </div>
+                        @endif
                         <div>
                             <div class="text-lg font-extrabold text-white">{{ auth()->user()->seller->business_name }}</div>
                             <div class="text-xs text-white/70">{{ auth()->user()->seller->line_of_business }}</div>

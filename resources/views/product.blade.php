@@ -105,7 +105,8 @@
         <div style="font-size:11px;color:var(--text3);margin:8px 0 6px">{{ $type }}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap" data-vgroup="{{ $type }}">
           @foreach($opts as $v)
-            <button type="button" class="opt-pill" data-variant="{{ $v->id }}" data-adj="{{ $v->price_adjustment }}" data-label="{{ $v->variant_type }}: {{ $v->variant_value }}" onclick="pickVariant(this)" style="padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">{{ $v->variant_value }}{{ $v->price_adjustment > 0 ? ' (+₱'.number_format($v->price_adjustment,2).')' : '' }}</button>
+            @php $vOut = ((int) $v->stock) < 1; @endphp
+            <button type="button" class="opt-pill" data-variant="{{ $v->id }}" data-adj="{{ $v->price_adjustment }}" data-stock="{{ (int) $v->stock }}" data-label="{{ $v->variant_type }}: {{ $v->variant_value }}" @if($vOut) disabled title="Out of stock" @else onclick="pickVariant(this)" @endif style="padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:{{ $vOut ? '#f3f4f6' : '#fff' }};font-size:12px;font-weight:600;cursor:{{ $vOut ? 'not-allowed' : 'pointer' }};font-family:inherit;{{ $vOut ? 'opacity:.5;text-decoration:line-through;' : '' }}">{{ $v->variant_value }}{{ $v->price_adjustment > 0 ? ' (+₱'.number_format($v->price_adjustment,2).')' : '' }}</button>
           @endforeach
         </div>
       @endforeach
@@ -115,7 +116,7 @@
       <button type="button" onclick="optQty(-1)" style="width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--border);font-weight:800;font-size:14px;cursor:pointer">−</button>
       <span id="optQtyVal" style="min-width:30px;text-align:center;font-weight:800">1</span>
       <button type="button" onclick="optQty(1)" style="width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer">+</button>
-      <span style="font-size:11px;color:var(--text3)">{{ $p->stock }} available</span>
+      <span id="optAvail" style="font-size:11px;color:var(--text3)">{{ $p->stock }} available</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-weight:800">Total <span id="optTotal" style="color:var(--green);font-size:16px">₱{{ number_format($p->price,2) }}</span></div>
     <div style="display:flex;gap:10px">
@@ -127,9 +128,14 @@
 <script>
 (function(){
   var base = parseFloat("{{ $p->price }}");
-  var maxQty = parseInt("{{ $p->stock }}") || 1;
+  var baseMax = Math.max(1, parseInt("{{ $p->stock }}") || 1);
+  var maxQty = baseMax;
   var qty = 1, variantId = '', variantAdj = 0, buyNow = false;
   var peso = function(n){ return '₱' + n.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}); };
+  function refreshAvail(){
+    var el = document.getElementById('optAvail');
+    if(el) el.textContent = maxQty + ' available' + (variantId ? ' for this variation' : '');
+  }
 
   window.openOpt = function(isBuy){
     buyNow = !!isBuy; qty = 1; updateOpt();
@@ -141,12 +147,17 @@
     if(m) m.style.display = 'none';
   };
   window.pickVariant = function(btn){
+    if(btn.disabled) return;
     document.querySelectorAll('.opt-pill').forEach(function(b){
       b.style.borderColor = 'var(--border)'; b.style.background = '#fff'; b.style.color = 'var(--text)';
     });
     btn.style.borderColor = 'var(--green)'; btn.style.background = '#f0fdf4'; btn.style.color = 'var(--green)';
     variantId = btn.getAttribute('data-variant');
     variantAdj = parseFloat(btn.getAttribute('data-adj')) || 0;
+    // Cap quantity at the SELECTED variation's stock (e.g. 12 means max 12).
+    maxQty = Math.max(1, parseInt(btn.getAttribute('data-stock')) || 1);
+    if(qty > maxQty) qty = maxQty;
+    refreshAvail();
     updateOpt();
   };
   window.optQty = function(d){

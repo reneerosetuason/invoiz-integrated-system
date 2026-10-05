@@ -71,6 +71,7 @@ class OrderController extends Controller
 
             $lineItems[] = [
                 'product_id'    => $item->product_id,
+                'product_variant_id' => $item->variant_id,
                 'seller_id'     => $item->product->seller_id,
                 'product_name'  => $item->product->name,
                 'variant_label' => $item->variant
@@ -148,12 +149,10 @@ class OrderController extends Controller
                     $voucher->increment('used_count');
                 }
 
-                // Deduct stock.
+                // Deduct stock (guarded: fails the whole checkout when short).
                 foreach ($cart->items as $item) {
-                    if ($item->variant_id) {
-                        $item->variant->decrement('stock', $item->quantity);
-                    } else {
-                        $item->product->decrement('stock', $item->quantity);
+                    if (! \App\Support\Stock::deduct($item->product_id, $item->variant_id, $item->quantity)) {
+                        throw new \Exception("Insufficient stock for \"{$item->product->name}\".");
                     }
                 }
 
@@ -186,8 +185,8 @@ class OrderController extends Controller
     {
         $order = Order::where('buyer_id', $request->user()->id)->findOrFail($id);
 
-        if (! in_array($order->status, ['pending', 'confirmed'])) {
-            return response()->json(['message' => 'This order can no longer be cancelled.'], 422);
+        if (! $order->isCancellableByBuyer()) {
+            return response()->json(['message' => 'This order can no longer be cancelled — it is already on its way to you.'], 422);
         }
 
         $order->update(['status' => 'cancelled']);
@@ -200,10 +199,8 @@ class OrderController extends Controller
             'created_at' => now(),
         ]);
 
-        // Restore stock.
-        foreach ($order->items as $item) {
-            Product::where('id', $item->product_id)->increment('stock', $item->quantity);
-        }
+        // Only pre-shipment cancels give stock back (pending/confirmed reach here).
+        \App\Support\Stock::restoreOrder($order->fresh('items'));
 
         return response()->json(['message' => 'Order cancelled.']);
     }

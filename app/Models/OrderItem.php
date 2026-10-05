@@ -27,15 +27,15 @@ class OrderItem extends Model
 
     protected static function booted(): void
     {
-        // Keep buyer cols and admin cols in sync so every screen shows the same line totals.
+        // Keep buyer cols and admin cols in sync so every screen shows the
+        // same line totals. NOTE: `subtotal` is a DB-generated column on
+        // shared invoizdb — never write it, only read it.
         static::saving(function (OrderItem $it) {
             if ($it->unit_price === null && $it->price !== null) $it->unit_price = $it->price;
             if ($it->price === null && $it->unit_price !== null) $it->price = $it->unit_price;
             $line = ((float) ($it->unit_price ?? $it->price ?? 0)) * ((int) ($it->quantity ?? 0));
-            if ($it->total_price === null && $it->subtotal !== null) $it->total_price = $it->subtotal;
-            if ($it->subtotal === null && $it->total_price !== null) $it->subtotal = $it->total_price;
             if ($it->total_price === null) $it->total_price = $line;
-            if ($it->subtotal === null) $it->subtotal = $line;
+            unset($it->subtotal);
         });
     }
 

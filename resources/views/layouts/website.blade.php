@@ -15,12 +15,12 @@
   @endphp
   <header class="topbar">
     @if(!$hideSidebar)<button class="hamburger" onclick="toggleSidebar()" title="Toggle menu">&#9776;</button>@endif
-    <a href="{{ url('/') }}" class="brand">
+    <a href="{{ url('/shop') }}" class="brand">
       <div class="brand-icon"><img src="{{ asset('storage/logos/logo.png') }}" onerror="this.onerror=null;this.src='{{ asset('images/logo.png') }}'" alt="Invoiz" style="width:100%;height:100%;object-fit:cover;"></div>
       <span class="brand-text">Invoiz</span>
       <span class="brand-sub">ONLINE SHOPPING</span>
     </a>
-    <form method="GET" action="{{ url('/') }}" class="search">
+    <form method="GET" action="{{ url('/shop') }}" class="search">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="text" name="search" value="{{ request('search') }}" placeholder="Search products...">
       <button type="submit" class="search-btn">Search</button>
@@ -90,7 +90,7 @@
     @if(!$hideSidebar)
     <aside id="sidebar" class="sidebar">
       <div class="sidebar-label" style="margin-top:0">Menu</div>
-      <a class="side-link {{ request()->is('/') ? 'active' : '' }}" href="{{ url('/') }}">
+      <a class="side-link {{ request()->is('shop') ? 'active' : '' }}" href="{{ url('/shop') }}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Home
       </a>
@@ -105,7 +105,7 @@
       </a>
       <div class="sidebar-label">Categories</div>
       @foreach(\App\Models\Category::active()->orderBy('name')->limit(8)->get() as $sc)
-        <a class="side-link {{ (string)request('category')===(string)$sc->id ? 'active' : '' }}" href="{{ url('/?category='.$sc->id) }}">
+        <a class="side-link {{ (string)request('category')===(string)$sc->id ? 'active' : '' }}" href="{{ url('/shop?category='.$sc->id) }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
           {{ $sc->name }}
         </a>

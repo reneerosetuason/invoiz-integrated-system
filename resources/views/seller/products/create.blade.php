@@ -87,21 +87,24 @@
         </div>
 
         <div class="card p-6">
-            <div class="mb-4 flex items-center justify-between">
+            <div class="mb-1 flex items-center justify-between">
                 <h3 class="text-base font-bold">Variations <span class="text-sm font-medium text-ink-light">(optional)</span></h3>
                 <button type="button" @click="addVariant()" class="btn btn-outline btn-sm">
                     <x-icon name="plus" class="h-4 w-4" /> Add Variation
                 </button>
             </div>
-            <p class="mb-4 text-xs text-ink-light">Examples: Color (Red, Blue) or Size (Small, Medium, Large).</p>
+            <p class="mb-4 text-xs text-ink-light">Examples: Color (Red, Blue) or Size (Small, Medium, Large) — click <b>Add Variation</b> once per value, as many as you need. <b>Price +₱</b> is added to the base price for that variation (negative = discount). <b>Stock</b> is how many pieces of that variation you have.</p>
 
             <div class="space-y-3">
+                <div class="hidden grid-cols-5 items-center gap-3 px-3 text-[11px] font-extrabold uppercase tracking-wider text-ink-light md:grid" x-show="variants.length > 0">
+                    <span>Type</span><span>Value</span><span>Price +₱</span><span>Stock (pcs)</span><span></span>
+                </div>
                 <template x-for="(v, i) in variants" :key="i">
                     <div class="grid grid-cols-2 items-center gap-3 rounded-2xl bg-basebg p-3 md:grid-cols-5">
                         <input type="text" x-model="v.type" :name="`variants[type][${i}]`" class="input !py-2.5" placeholder="Type (Color)">
                         <input type="text" x-model="v.value" :name="`variants[value][${i}]`" class="input !py-2.5" placeholder="Value (Red)">
-                        <input type="number" step="0.01" x-model="v.adjustment" :name="`variants[adjustment][${i}]`" class="input !py-2.5" placeholder="±₱">
-                        <input type="number" min="0" x-model="v.stock" :name="`variants[stock][${i}]`" class="input !py-2.5" placeholder="Stock">
+                        <input type="number" step="0.01" x-model="v.adjustment" :name="`variants[adjustment][${i}]`" class="input !py-2.5" placeholder="+0.00">
+                        <input type="number" min="0" x-model="v.stock" :name="`variants[stock][${i}]`" class="input !py-2.5" placeholder="e.g. 50">
                         <button type="button" @click="variants.splice(i, 1)" class="btn btn-danger btn-sm justify-self-start">
                             <x-icon name="trash" class="h-4 w-4" />
                         </button>

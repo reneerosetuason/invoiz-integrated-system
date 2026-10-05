@@ -123,6 +123,11 @@ class OrderController extends Controller
                 'created_at'  => now(),
             ]);
 
+            // Cancelling before shipment returns the deducted stock.
+            if ($target === 'cancelled') {
+                \App\Support\Stock::restoreOrder($order->load('items'));
+            }
+
             $this->syncDelivery($order, $target, $action);
 
             SellerNotification::create([

@@ -24,6 +24,8 @@
       @elseif($checkoutMode === 'seller')
         <input type="hidden" name="checkout_mode" value="seller">
         <input type="hidden" name="seller_id" value="{{ $sellerId ?? '' }}">
+      @elseif($checkoutMode === 'selected')
+        <input type="hidden" name="checkout_mode" value="selected">
       @else
         <input type="hidden" name="checkout_mode" value="all">
       @endif
@@ -35,8 +37,8 @@
       </label>
       <div style="margin-top:12px;padding:10px;background:#f0fdf4;border:1px solid var(--green);border-radius:8px;font-size:11px;color:var(--green-dark)">COD only: Pay when your order is delivered.</div>
       <button type="submit" style="width:100%;margin-top:14px;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-weight:800;cursor:pointer;font-size:13px">
-        @if($checkoutMode === 'all')
-          Place {{ count($sellerGroups) }} Orders — ₱{{ number_format($grandTotal,2) }}
+        @if(in_array($checkoutMode, ['all','selected']))
+          Place {{ count($sellerGroups) }} Order(s) — ₱{{ number_format($grandTotal,2) }}
         @else
           Place Order
         @endif
@@ -49,7 +51,8 @@
       @php $orderNum = 1; @endphp
       @foreach($sellerGroups as $sid => $group)
         <div style="margin-bottom:12px;{{ !$loop->last ? 'padding-bottom:12px;border-bottom:1px solid var(--border-light)' : '' }}">
-          <div style="font-weight:700;font-size:12px;color:var(--green);margin-bottom:6px">Order #{{ $orderNum }} — Seller {{ $sid }}</div>
+          @php $coStore = ''; try { $coStore = \App\Models\Seller::nameFor($sid); } catch (\Throwable $e) {} @endphp
+          <div style="font-weight:700;font-size:12px;color:var(--green);margin-bottom:6px">Order {{ $orderNum }}@if($coStore && $coStore !== 'Store') — {{ $coStore }}@endif</div>
           @php $orderNum++; @endphp
           @foreach($group['lines'] as $gl)
             @php $p = $gl['product']; $qty = $gl['qty']; @endphp

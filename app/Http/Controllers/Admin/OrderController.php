@@ -62,7 +62,23 @@ class OrderController extends Controller
         ]);
 
         $from = $order->status;
+
+        // Shipped / on-the-way / delivered orders can never be cancelled.
+        if (($request->status ?? null) === 'cancelled' && \App\Support\Stock::isShipped($from)) {
+            $msg = 'This order is already ' . str_replace('_', ' ', $from) . ' and can no longer be cancelled.';
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $msg], 422);
+            }
+            return redirect()->back()->withErrors(['status' => $msg]);
+        }
+
         $order->update($request->only(['status', 'delivery_status']));
+
+        // Cancelling before shipment returns the deducted stock;
+        // shipped/delivered orders keep their stock deducted.
+        if (($request->status ?? null) === 'cancelled' && $from !== 'cancelled') {
+            \App\Support\Stock::restoreOrder($order->load('items'));
+        }
 
         // Keep the buyer timeline corresponding: every status change writes history.
         if ($request->filled('status') && $request->status !== $from) {

@@ -27,7 +27,7 @@ tailwind.config = { theme: { extend: {
 <body class="mesh min-h-screen flex items-center justify-center p-4">
 <div class="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-soft ring-1 ring-black/5">
   <div class="bg-gradient-to-br from-teal via-teal-dark to-[#0B3B46] p-8 text-center text-white">
-    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-2xl backdrop-blur">✉️</div>
+    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 text-white backdrop-blur"><svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.9 5.3a2 2 0 002.2 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>
     <h1 class="mt-4 text-xl font-extrabold">Check your Gmail</h1>
     <p class="mt-1 text-sm text-white/75">We sent a 6-digit code to<br><b class="text-white">{{ $email }}</b></p>
   </div>
