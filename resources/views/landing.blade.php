@@ -211,24 +211,39 @@ body{overflow-x:hidden}
 <div class="card-hover rounded-3xl border border-gray-100 bg-white p-4 shadow-sm hover:shadow-card"><span class="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal to-teal-dark text-sm font-extrabold text-white">{{ $i+1 }}</span><p class="mt-3 text-sm font-extrabold">{{ $s }}</p></div>
 @endforeach
 </div></div></section>
-<section id="rider" class="pb-12"><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+<section id="logistics" class="pb-12"><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 <div class="relative grid gap-6 overflow-hidden rounded-3xl border-2 border-teal/25 bg-white p-6 shadow-soft sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
 <div class="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-teal-light blur-2xl" aria-hidden="true"></div>
 <div class="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-amber-light blur-2xl" aria-hidden="true"></div>
 <div class="relative">
-<p class="inline-flex items-center gap-2 rounded-full bg-teal-light px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-teal-dark"><svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Rider community</p>
-<h2 class="mt-3 text-2xl font-extrabold tracking-tight text-charcoal">Want to earn delivering with INVOIZ?</h2>
-<p class="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Riders deliver orders through the rider app. Tap below on a phone with the app installed, or continue in the browser.</p>
+<p class="inline-flex items-center gap-2 rounded-full bg-teal-light px-3 py-1 text-xs font-extrabold uppercase tracking-wider text-teal-dark"><svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Logistics Network</p>
+<h2 class="mt-3 text-2xl font-extrabold tracking-tight text-charcoal">Want to earn delivering with INVOIZ Logistics?</h2>
+<p class="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Manage deliveries, track packages, and earn through our logistics network. Tap below to access the logistics platform.</p>
 <ul class="mt-4 flex flex-wrap gap-2 text-xs font-bold text-teal-dark">
-<li class="inline-flex items-center gap-1.5 rounded-full bg-teal-light px-3 py-1.5"><span class="text-teal">✓</span>Flexible hours</li>
-<li class="inline-flex items-center gap-1.5 rounded-full bg-teal-light px-3 py-1.5"><span class="text-teal">✓</span>Serve your neighborhood</li>
-<li class="inline-flex items-center gap-1.5 rounded-full bg-teal-light px-3 py-1.5"><span class="text-teal">✓</span>Track every delivery</li>
+<li class="inline-flex items-center gap-1.5 rounded-full bg-teal-light px-3 py-1.5"><span class="text-teal">✓</span>Manage deliveries & pickups</li>
+<li class="inline-flex items-center gap-1.5 rounded-full bg-teal-light px-3 py-1.5"><span class="text-teal">✓</span>Real-time tracking</li>
+<li class="inline-flex items-center gap-1.5 rounded-full bg-teal-light px-3 py-1.5"><span class="text-teal">✓</span>Earn per delivery</li>
 </ul>
+        </div>
+        <div class="mt-4">
+            <a href="{{ url('/logistics') }}" class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-teal px-6 text-sm font-extrabold text-white shadow-card transition hover:-translate-y-0.5 hover:bg-teal-dark">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 01-2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6 19.5 19.5 0 01-3.1-8.7A2 2 0 014.1 2h3a2 2 0 012 1.7c.1 1 .4 2 .8 2.9a2 2 0 01-.6 2.1L8.1 9.9a2 2 0 012.1-.6c.9.4 1.9.7 2.9.8a2 2 0 012.1-.6c.9.4 1.9.7 2.9.8a2 2 0 012.1-.6c.9.4 1.9.7 2.9.8a2 2 0 012.1-.6c.9.4 1.9.7 2.9.8a2 2 0 012.1-.6c.9.4 1.9.7 2.9.8a2 2 0 012.1-.6c.9.4 1.9.7 2.9.8a2 2 0 012.1-.6z"/>
+                </svg>
+                Open Logistics Website
+            </a>
+        </div>
+        <div class="grid gap-4">
+<div class="rounded-3xl bg-teal p-5 text-white"><p class="text-xs font-bold uppercase text-white/70">Flash Deal</p><p class="mt-2 text-3xl font-extrabold">Up to 40% off</p><p class="mt-2 text-sm text-white/80">Daily finds from local sellers.</p><a href="#deals" class="mt-3 inline-block rounded-xl bg-white/15 px-4 py-2 text-xs font-extrabold hover:bg-white/25">See today's deals</a></div>
+<div class="rounded-3xl bg-amber-light p-5"><p class="text-xs font-bold uppercase text-amber-700">Doorstep delivery</p><p class="mt-2 text-lg font-extrabold">Packed, picked up, sorted, delivered.</p></div>
 </div>
-<div class="relative grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-<a href="invoizrider://login" class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-teal px-6 text-sm font-extrabold text-white shadow-card transition hover:-translate-y-0.5 hover:bg-teal-dark"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>Open Rider App</a>
-<a href="{{ url('/login') }}" class="inline-flex min-h-[48px] items-center justify-center rounded-2xl border-2 border-teal/30 px-6 text-sm font-extrabold text-teal-dark transition hover:-translate-y-0.5 hover:border-teal hover:bg-teal-light">Continue on Web</a>
-</div></div></div></section>
+<div x-show="total > 1" class="mt-3 flex items-center justify-center gap-2">
+@for($d = 0; $d < count($deals ?? []); $d++)
+<button type="button" aria-label="Slide {{ $d + 1 }}" @click="active = {{ $d }}" :class="active === {{ $d }} ? 'bg-teal w-8' : 'bg-teal/30 w-2'" class="h-2 rounded-full transition"></button>
+@endfor
+</div>
+</div></div>
+</div></section>
 </main>
 <footer id="help" class="bg-charcoal text-white"><div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
 <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">

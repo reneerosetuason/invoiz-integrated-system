@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -37,7 +37,7 @@ use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
-| INVOIZ Unified — single backend for buyer + seller + admin
+| INVOIZ Unified â€” single backend for buyer + seller + admin
 | DB: invoizdb (shared). Register -> buyer. Login -> role redirect.
 |--------------------------------------------------------------------------
 */
@@ -99,7 +99,7 @@ Route::get('/', function () {
 Route::get('/sell', function () {
     $uid = session('buyer.id') ?? (Auth::check() ? Auth::id() : null);
     if (! $uid) {
-        return redirect('/register')->with('success', 'Create your buyer account first — then apply as a seller.');
+        return redirect('/register')->with('success', 'Create your buyer account first â€” then apply as a seller.');
     }
     $user = \App\Models\User::findOrFail($uid);
     $existing = \App\Models\Seller::where('user_id', $uid)->first();
@@ -431,13 +431,13 @@ Route::post('/checkout', function(Request $request){
     });
   } catch(\Throwable $e){ \Log::error('Checkout failed: '.$e->getMessage()); return back()->with('error','Checkout failed: '.$e->getMessage()); }
   session()->forget(['checkout_single','checkout_seller_id','checkout_all','checkout_selected']);
-  return redirect('/orders')->with('success', $ordersCreated > 1 ? "Placed {$ordersCreated} orders — Cash on Delivery — thank you!" : 'Order placed — Cash on Delivery — thank you!');
+  return redirect('/orders')->with('success', $ordersCreated > 1 ? "Placed {$ordersCreated} orders â€” Cash on Delivery â€” thank you!" : 'Order placed â€” Cash on Delivery â€” thank you!');
 });
 
 Route::get('/store/{id}', function($id, Request $request){
   $sellerId = (int)$id;
   $sellerUser = \App\Models\User::find($sellerId);
-  // Accept sellers.id too (admin/seller links) — resolve to the same store.
+  // Accept sellers.id too (admin/seller links) â€” resolve to the same store.
   if(! $sellerUser) {
     $s = \App\Models\Seller::find($sellerId);
     if($s) { $sellerId = (int) $s->user_id; $sellerUser = \App\Models\User::find($sellerId); }
@@ -445,7 +445,7 @@ Route::get('/store/{id}', function($id, Request $request){
   if(!$sellerUser) return redirect('/shop')->with('error','Store not found');
   $name = \App\Models\Seller::nameFor($sellerId);
   $pq = Product::with('category')->whereIn('seller_id', [$sellerId])->where('status','active');
-  // Sellers rows may use sellers.id convention — include those products too.
+  // Sellers rows may use sellers.id convention â€” include those products too.
   try {
     $alt = \App\Models\Seller::where('user_id',$sellerId)->first();
     if($alt) $pq = Product::with('category')->whereIn('seller_id', [$sellerId, $alt->id])->where('status','active');
@@ -511,7 +511,7 @@ Route::post('/profile', function(Request $request){
   $request->validate(['first_name'=>'required|string|max:100','last_name'=>'required|string|max:100','email'=>'required|email|max:150|unique:users,email,'.$u->id,'phone'=>'nullable|string|max:30']);
   $u->update(['first_name'=>$request->first_name,'last_name'=>$request->last_name,'email'=>$request->email,'phone'=>$request->phone ?? $u->phone]);
   $request->session()->put('buyer',['id'=>$u->id,'first_name'=>$u->first_name,'last_name'=>$u->last_name,'email'=>$u->email]);
-  return redirect('/profile')->with('success','Profile updated — same name now shows in shop, orders and chat.');
+  return redirect('/profile')->with('success','Profile updated â€” same name now shows in shop, orders and chat.');
 });
 
 Route::get('/orders', function(Request $request){
@@ -540,16 +540,16 @@ Route::post('/orders/{id}/cancel', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $order = \App\Models\Order::with('items')->where('buyer_id',$buyer['id'])->findOrFail($id);
-  if(! $order->isCancellableByBuyer()) return back()->with('error','This order can no longer be cancelled — it is already being prepared or on its way to you.');
+  if(! $order->isCancellableByBuyer()) return back()->with('error','This order can no longer be cancelled â€” it is already being prepared or on its way to you.');
   $from = $order->status;
   $order->update(['status'=>'cancelled']);
   \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>$from,'to_status'=>'cancelled','note'=>'Order cancelled by buyer.']);
-  // Never shipped (pending/confirmed only reach here) → give the stock back.
+  // Never shipped (pending/confirmed only reach here) â†’ give the stock back.
   \App\Support\Stock::restoreOrder($order->fresh('items'));
-  return redirect('/orders/'.$order->id)->with('success','Order cancelled — stock restored and seller/admin see the same status.');
+  return redirect('/orders/'.$order->id)->with('success','Order cancelled â€” stock restored and seller/admin see the same status.');
 })->whereNumber('id');
 
-// ---- Buyer ↔ seller chat (same threads the seller and admin see) ----
+// ---- Buyer â†” seller chat (same threads the seller and admin see) ----
 Route::get('/messages', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
@@ -700,6 +700,10 @@ Route::prefix('buyer')->middleware('buyer')->group(function () {
     Route::get('/chat/{user}/messages', [BuyerChatController::class, 'messages'])->name('buyer.chat.messages');
 });
 
+
+// Logistics routes are included via require __DIR__.'/logistics/web.php';
+// The /logistics route is defined in logistics/web.php and goes to CentralEntryController
+
 Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('dashboard', function () {
         $orders = \App\Models\Order::query();
@@ -777,5 +781,14 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::put('settings/policy/{policy}', [SettingsController::class, 'updatePolicy'])->name('admin.settings.policy.update');
     Route::get('chat', [ChatController::class, 'index'])->name('admin.chat');
     Route::post('chat/send', [ChatController::class, 'send'])->name('admin.chat.send');
-    Route::get('chat/{user}/messages', [ChatController::class, 'messages'])->name('admin.chat.messages');
+    // Route::get('/logistics', function () {
+    // return redirect('http://127.0.0.1:8000');
+// })->name('logistics');
+
 });
+
+
+
+
+require __DIR__.'/logistics/web.php';
+

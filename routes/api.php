@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -9,11 +9,11 @@ use App\Http\Controllers\StoreController;
 use App\Http\Controllers\Admin\SellerController;
 use App\Http\Controllers\Admin\OrderController;
 
-// Unified API — single backend, same invoizdb.
+// Unified API â€” single backend, same invoizdb.
 Route::post('auth/login', [AuthController::class, 'login']);
 Route::post('auth/register', [AuthController::class, 'register']);
 
-// Buyer mobile/API (from buyer apps) — public browse
+// Buyer mobile/API (from buyer apps) â€” public browse
 Route::get('/categories', [App\Http\Controllers\Api\CategoryController::class, 'index']);
 Route::get('/products', [App\Http\Controllers\Api\ProductController::class, 'index']);
 Route::get('/products/{id}', [App\Http\Controllers\Api\ProductController::class, 'show']);
@@ -44,3 +44,6 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::get('/user', fn (Request $request) => $request->user())->middleware('auth:sanctum');
+
+require __DIR__.'/logistics/api.php';
+

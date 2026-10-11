@@ -41,6 +41,7 @@ class User extends Authenticatable
         'otp',
         'otp_expires_at',
         'email_verified_at',
+        'center_id',
     ];
 
     protected $hidden = [
@@ -88,6 +89,66 @@ class User extends Authenticatable
     public function seller()
     {
         return $this->hasOne(Seller::class);
+    }
+
+    // ---------------------------------------------------------------
+    // Logistics (shared invoizdb; used by the /logistics center)
+    // ---------------------------------------------------------------
+    public function rider()
+    {
+        return $this->hasOne(\App\Models\Rider::class);
+    }
+
+    public function logisticsCenter()
+    {
+        return $this->belongsTo(\App\Models\LogisticsCenter::class, 'center_id');
+    }
+
+    public function isStaff(): bool
+    {
+        return $this->role === 'staff';
+    }
+
+    /**
+     * Human-readable role label used across the Logistics UI.
+     */
+    public function roleLabel(): string
+    {
+        return match ($this->role) {
+            'admin' => 'Logistics Manager',
+            'logistics_admin' => 'Logistics Admin',
+            'staff' => 'Logistics Staff',
+            'logistics_staff' => 'Logistics Staff',
+            'rider' => 'Rider',
+            default => ucfirst((string) $this->role),
+        };
+    }
+
+    public function isLogisticsAdmin(): bool
+    {
+        return in_array($this->role, ['admin', 'logistics_admin'], true);
+    }
+
+    public function isLogisticsStaff(): bool
+    {
+        return in_array($this->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true);
+    }
+
+    /**
+     * Profile photo URL (stored per-user in logistics_settings),
+     * or null so callers fall back to the initial-letter avatar.
+     */
+    public function profilePhotoUrl(): ?string
+    {
+        try {
+            $path = \App\Models\LogisticsSetting::where('user_id', $this->id)->value('photo_path');
+        } catch (\Throwable $e) {
+            return null;
+        }
+        if (! $path || ! file_exists(public_path($path))) {
+            return null;
+        }
+        return asset($path);
     }
 
     public function products()
