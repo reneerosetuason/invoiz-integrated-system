@@ -34,4 +34,24 @@
     </div>
   </form>
 </div>
+@php $sellerApp = $sellerApp ?? null; @endphp
+<div style="max-width:720px;margin:0 auto 20px;background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden">
+  <div style="padding:20px 24px">
+    <h3 style="margin:0;font-size:15px">Become a Seller</h3>
+    @if(empty($sellerApp))
+      <p style="color:var(--text-secondary);font-size:12px;margin:6px 0 12px">Open your own store: fill the application with your details, address, business info and documents.</p>
+      <a href="{{ url('/sell') }}" style="display:inline-block;padding:10px 18px;background:var(--primary);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px">Apply as Seller →</a>
+    @elseif($sellerApp->approval_status === 'pending')
+      <div style="margin-top:10px;background:#FFF8E1;border:1px solid #F5D47A;border-radius:10px;padding:12px;font-size:12px;color:#8a5a00"><b>Application under review.</b><br>Please wait for the administrator's approval, which will be sent to <b>{{ $user->email }}</b>.</div>
+    @elseif($sellerApp->isApproved())
+      <div style="margin-top:10px;background:#E8F5EE;border:1px solid #BFE3D0;border-radius:10px;padding:12px;font-size:12px;color:#1D6B43"><b>You're an approved seller ({{ $sellerApp->display_name }}).</b></div>
+      <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+        <a href="{{ url('/seller/dashboard') }}" style="flex:1;text-align:center;padding:11px;background:var(--primary);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;min-width:150px">Switch to Seller →</a>
+        <a href="{{ url('/shop') }}" style="flex:1;text-align:center;padding:11px;background:#fff;border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--text-primary);font-weight:700;font-size:13px;min-width:150px">Switch to Buyer →</a>
+      </div>
+    @else
+      <div style="margin-top:10px;background:#FDECEC;border:1px solid #FECACA;border-radius:10px;padding:12px;font-size:12px;color:#B91C1C"><b>Application not approved.</b> You may fix your details and <a href="{{ url('/sell') }}" style="font-weight:700">apply again</a>.</div>
+    @endif
+  </div>
+</div>
 @endsection

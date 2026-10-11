@@ -113,6 +113,9 @@
             <a href="{{ route('seller.account') }}" title="Account Management" class="{{ request()->routeIs('seller.account') ? 'active' : '' }}">
                 <x-icon name="user" class="h-4 w-4 shrink-0" /><span class="sb-label">Account Management</span>
             </a>
+            <a href="{{ url('/shop') }}" title="Switch to Buyer">
+                <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label">Switch to Buyer</span>
+            </a>
 
             <div class="mt-4">
                 <form method="POST" action="{{ route('seller.logout') }}">

@@ -61,13 +61,27 @@ class SellerController extends Controller
         $seller->status = 'active';
         $seller->save();
 
+        $mailed = false;
+        if ($seller->user) {
+            try {
+                Mail::to($seller->user->email)->send(new \App\Mail\SellerDecisionMail(
+                    'approved',
+                    $seller->user->displayName(),
+                    $seller->display_name,
+                ));
+                $mailed = true;
+            } catch (\Throwable $e) {
+                \Log::warning('Seller approval mail failed: ' . $e->getMessage());
+            }
+        }
+
         NotificationsLog::create([
             'user_id' => $seller->user_id,
             'type' => 'registration_approved',
             'subject' => 'Your Seller Registration Has Been Approved',
             'body' => "Dear {$seller->user->name},\n\nCongratulations! Your seller account for \"{$seller->store_name}\" has been approved. You can now start listing products on our platform.",
             'email' => $seller->user->email,
-            'sent' => true,
+            'sent' => $mailed,
         ]);
 
         if ($request->wantsJson()) {
@@ -84,13 +98,28 @@ class SellerController extends Controller
         $seller->status = 'inactive';
         $seller->save();
 
+        $mailed = false;
+        if ($seller->user) {
+            try {
+                Mail::to($seller->user->email)->send(new \App\Mail\SellerDecisionMail(
+                    'rejected',
+                    $seller->user->displayName(),
+                    $seller->display_name,
+                    (string) $request->input('reason', ''),
+                ));
+                $mailed = true;
+            } catch (\Throwable $e) {
+                \Log::warning('Seller rejection mail failed: ' . $e->getMessage());
+            }
+        }
+
         NotificationsLog::create([
             'user_id' => $seller->user_id,
             'type' => 'registration_rejected',
             'subject' => 'Your Seller Registration Update',
             'body' => "Dear {$seller->user->name},\n\nWe regret to inform you that your seller registration for \"{$seller->store_name}\" was not approved." . ($request->reason ? "\n\nReason: {$request->reason}" : ''),
             'email' => $seller->user->email,
-            'sent' => true,
+            'sent' => $mailed,
         ]);
 
         if ($request->wantsJson()) {

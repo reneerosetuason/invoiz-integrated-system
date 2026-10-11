@@ -101,8 +101,10 @@ Route::get('/sell', function () {
     if (! $uid) {
         return redirect('/register')->with('success', 'Create your buyer account first — then apply as a seller.');
     }
+    $user = \App\Models\User::findOrFail($uid);
     $existing = \App\Models\Seller::where('user_id', $uid)->first();
-    return view('sell', ['existing' => $existing]);
+    $categories = \App\Models\Category::active()->orderBy('name')->get();
+    return view('sell', ['existing' => $existing, 'user' => $user, 'categories' => $categories]);
 })->name('sell');
 
 Route::post('/sell', function (Request $request) {
@@ -110,26 +112,65 @@ Route::post('/sell', function (Request $request) {
     if (! $uid) {
         return redirect('/login')->with('error', 'Please log in first.');
     }
-    if (\App\Models\Seller::where('user_id', $uid)->exists()) {
+    $user = \App\Models\User::findOrFail($uid);
+    $existing = \App\Models\Seller::where('user_id', $uid)->first();
+    if ($existing && $existing->approval_status !== 'rejected') {
         return back()->with('error', 'You already have a seller application.');
     }
     $data = $request->validate([
+        'last_name' => 'required|string|max:100',
+        'first_name' => 'required|string|max:100',
+        'middle_initial' => 'nullable|string|max:10',
+        'sex' => 'required|in:male,female,other',
+        'phone' => 'required|string|max:30',
+        'birthday' => 'required|date|before:today',
+        'province' => 'nullable|string|max:100',
+        'municipality' => 'nullable|string|max:100',
+        'barangay' => 'nullable|string|max:100',
+        'address_line' => 'nullable|string|max:255',
         'business_name' => 'required|string|max:150',
         'line_of_business' => 'required|string|max:100',
         'id_image' => 'nullable|image|max:5120',
         'business_permit' => 'nullable|image|max:5120',
         'logo' => 'nullable|image|max:5120',
     ]);
-    $idPath = $request->hasFile('id_image') ? $request->file('id_image')->store('seller-ids', 'public') : null;
-    $permitPath = $request->hasFile('business_permit') ? $request->file('business_permit')->store('seller-permits', 'public') : null;
-    $logoPath = $request->hasFile('logo') ? $request->file('logo')->store('logos', 'public') : null;
-    \App\Models\Seller::create([
-        'user_id' => $uid, 'business_name' => $data['business_name'],
-        'line_of_business' => $data['line_of_business'],
-        'id_image' => $idPath, 'business_permit' => $permitPath, 'logo' => $logoPath,
-        'approval_status' => 'pending', 'status' => 'active',
+    try {
+        $age = \Carbon\Carbon::parse($data['birthday'])->diffInYears(now());
+    } catch (\Throwable $e) {
+        $age = null;
+    }
+    $user->update([
+        'last_name' => $data['last_name'], 'first_name' => $data['first_name'],
+        'middle_initial' => $data['middle_initial'] ?? $user->middle_initial,
+        'sex' => $data['sex'], 'phone' => $data['phone'], 'birthday' => $data['birthday'], 'age' => $age,
+        'province' => $data['province'] ?? $user->province,
+        'municipality' => $data['municipality'] ?? $user->municipality,
+        'barangay' => $data['barangay'] ?? $user->barangay,
+        'address_line' => $data['address_line'] ?? $user->address_line,
     ]);
-    return back()->with('success', 'Application submitted! An admin will review it in Seller Management.');
+    $request->session()->put('buyer', [
+        'id' => $user->id, 'first_name' => $user->first_name,
+        'last_name' => $user->last_name, 'email' => $user->email,
+    ]);
+    $attrs = [
+        'business_name' => $data['business_name'],
+        'line_of_business' => $data['line_of_business'],
+        'approval_status' => 'pending', 'status' => 'active',
+    ];
+    foreach (['id_image' => 'seller-ids', 'business_permit' => 'seller-permits', 'logo' => 'logos'] as $field => $dir) {
+        if ($request->hasFile($field)) {
+            if ($existing && $existing->$field) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($existing->$field);
+            }
+            $attrs[$field] = $request->file($field)->store($dir, 'public');
+        }
+    }
+    if ($existing) {
+        $existing->update($attrs);
+    } else {
+        \App\Models\Seller::create(array_merge(['user_id' => $uid], $attrs));
+    }
+    return back()->with('success', "Application submitted! Please wait for the administrator's approval, which will be sent to {$user->email}.");
 })->name('sell.post');
 
 // ---- Unified auth (single login/register for everyone) ----
@@ -458,7 +499,8 @@ Route::get('/profile', function(Request $request){
   $b = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$b && !Auth::check()) return redirect('/login')->with('error','Please login');
   $u = \App\Models\User::find($b['id'] ?? Auth::id());
-  return view('profile',['user'=>$u]);
+  $sellerApp = \App\Models\Seller::where('user_id', $u->id)->first();
+  return view('profile',['user'=>$u,'sellerApp'=>$sellerApp]);
 });
 
 Route::post('/profile', function(Request $request){
