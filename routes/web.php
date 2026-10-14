@@ -228,6 +228,7 @@ Route::get('/cart/add/{id}', function($id, Request $request){
     $line->update(['quantity' => min($line->quantity + $qty, $available)]);
   }
   else { CartItem::create(['cart_id'=>$cart->id,'product_id'=>$id,'variant_id'=>$variant ? $variant->id : null,'quantity'=>$qty]); }
+  $product->trackCartAddition();
   return redirect('/cart')->with('success','Added to cart');
 });
 
@@ -374,7 +375,7 @@ Route::get('/checkout', function(Request $request){
 });
 
 Route::post('/checkout', function(Request $request){
-  $request->validate(['payment_method'=>'required|in:cod']);
+  $request->validate(['payment_method'=>'required|in:cod','voucher_code'=>'nullable|string|max:50']);
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id(),'first_name'=>Auth::user()->first_name ?? '','last_name'=>Auth::user()->last_name ?? ''] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $addr = \App\Models\Address::where('buyer_id',$buyer['id'])->first();
@@ -393,13 +394,32 @@ Route::post('/checkout', function(Request $request){
       $variant = Cart::resolveVariant($product, $raw['variant_id'] ?? null);
       $qty = max(1, min(200, (int)($raw['qty'] ?? 1)));
       $unit = Cart::unitFor($product, $variant);
-      $total = $unit * $qty;
+      $subtotal = $unit * $qty;
+      // Shipping: flat fee once per shop. Voucher (merchandise or free
+      // shipping) validated here; the seller absorbs it, never the rider.
+      $voucher = null; $merch = 0.0; $waived = 0.0;
+      $code = trim((string) $request->input('voucher_code', ''));
+      if ($code !== '') {
+        $voucher = \App\Models\Voucher::active()->where('code', $code)->first();
+        if (! $voucher) throw new \Exception('Invalid or expired voucher code.');
+        $resolved = \App\Support\Shipping::resolveVoucher($voucher, $subtotal, [(int) $product->seller_id]);
+        if ($resolved['error']) throw new \Exception($resolved['error']);
+        $merch = $resolved['merch'];
+        $waived = round(array_sum($resolved['waived']), 2);
+      }
+      $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
+      $total = round($subtotal - $merch + $shipping - $waived, 2);
       if(! \App\Support\Stock::deduct($product->id, $variant?->id, $qty)) throw new \Exception('Not enough stock for "'.$product->name.'".');
-      $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'status'=>'pending']);
+      $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
       \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-      if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'status'=>'waiting_for_rider']);
-      \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$product->id,'product_variant_id'=>$variant?->id,'seller_id'=>$product->seller_id,'product_name'=>$product->name,'variant_label'=>Cart::labelFor($variant),'quantity'=>$qty,'price'=>$unit,'unit_price'=>$unit,'total_price'=>$total]);
+      if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
+      \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$product->id,'product_variant_id'=>$variant?->id,'seller_id'=>$product->seller_id,'product_name'=>$product->name,'variant_label'=>Cart::labelFor($variant),'quantity'=>$qty,'price'=>$unit,'unit_price'=>$unit,'total_price'=>$subtotal]);
+      if ($voucher) {
+        \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$voucher->id,'discount_amount'=>round($merch + $waived, 2)]);
+        $voucher->increment('used_count');
+      }
       if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
+      \App\Support\Payments::recordCheckout($order);
       Cart::itemsFor($buyer['id'])->where('product_id',$product->id)->where('variant_id', $variant ? $variant->id : null)->delete();
       $ordersCreated = 1;
     } else {
@@ -411,21 +431,56 @@ Route::post('/checkout', function(Request $request){
         $lines = $lines->filter(fn($l) => in_array($l['item']->id, $idArr) || in_array($l['product']->id, $idArr))->values();
       }
       if($lines->isEmpty()) throw new \Exception('Cart is empty');
+      // Optional voucher: validated up front, then applied to the first
+      // eligible seller group only (single use per checkout).
+      $voucher = null;
+      $voucherCode = trim((string) $request->input('voucher_code', ''));
+      if ($voucherCode !== '') {
+        $voucher = \App\Models\Voucher::active()->where('code', $voucherCode)->first();
+        if (! $voucher) throw new \Exception('Invalid or expired voucher code.');
+      }
+      $voucherConsumed = false;
+      $voucherError = null;
       $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [0 => $lines];
       foreach($bySeller as $sLines){
         foreach($sLines as $l){
           if(! \App\Support\Stock::deduct($l['product']->id, $l['variant']?->id, $l['qty'])) throw new \Exception('Not enough stock for "'.$l['product']->name.'".');
         }
-        $total = $sLines->sum('line');
-        $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'status'=>'pending']);
+        $subtotal = $sLines->sum('line');
+        $sellerIds = $sLines->map(fn($l) => (int) $l['product']->seller_id)->unique()->values()->all();
+        $merch = 0.0; $waived = 0.0; $usedVoucher = null;
+        if ($voucher && ! $voucherConsumed) {
+          $resolved = \App\Support\Shipping::resolveVoucher($voucher, $subtotal, $sellerIds);
+          if ($resolved['error']) {
+            $voucherError = $resolved['error'];
+          } elseif ($resolved['merch'] > 0 || array_sum($resolved['waived']) > 0) {
+            $merch = $resolved['merch'];
+            $waived = round(array_sum($resolved['waived']), 2);
+            $usedVoucher = $voucher;
+            $voucherConsumed = true;
+          } else {
+            $voucherError = 'This voucher does not apply to the items in your order.';
+          }
+        }
+        $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
+        $total = round($subtotal - $merch + $shipping - $waived, 2);
+        $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
         \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-        if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'status'=>'waiting_for_rider']);
+        if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
         foreach($sLines as $l){
           \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$l['product']->id,'product_variant_id'=>$l['variant']?->id,'seller_id'=>$l['product']->seller_id,'product_name'=>$l['product']->name,'variant_label'=>$l['label'],'quantity'=>$l['qty'],'price'=>$l['unit'],'unit_price'=>$l['unit'],'total_price'=>$l['line']]);
           $l['item']->delete();
         }
+        if ($usedVoucher) {
+          \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$usedVoucher->id,'discount_amount'=>round($merch + $waived, 2)]);
+          $usedVoucher->increment('used_count');
+        }
         if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
+        \App\Support\Payments::recordCheckout($order);
         $ordersCreated++;
+      }
+      if ($voucher && ! $voucherConsumed) {
+        throw new \Exception($voucherError ?? 'This voucher does not apply to the items in your order.');
       }
     }
     });
@@ -546,6 +601,8 @@ Route::post('/orders/{id}/cancel', function($id, Request $request){
   \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>$from,'to_status'=>'cancelled','note'=>'Order cancelled by buyer.']);
   // Never shipped (pending/confirmed only reach here) â†’ give the stock back.
   \App\Support\Stock::restoreOrder($order->fresh('items'));
+  // COD money never moved: void the pending ledger row.
+  \App\Support\Payments::voidForCancel($order);
   return redirect('/orders/'.$order->id)->with('success','Order cancelled â€” stock restored and seller/admin see the same status.');
 })->whereNumber('id');
 
@@ -632,6 +689,46 @@ Route::post('/notifications/read-all', function(Request $request){
   \App\Support\BuyerNotifications::dismissAll($buyer['id']);
   return back()->with('success','All notifications marked as read');
 });
+
+// ---- Help center: FAQ + chatbot data (public) + customer-service contact ----
+Route::get('/help', function(Request $request){
+  $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
+  $orders = collect();
+  $complaints = collect();
+  if ($buyer) {
+    $orders = \App\Models\Order::where('buyer_id', $buyer['id'])->latest()->take(20)->get(['id', 'status', 'created_at']);
+    $complaints = \App\Models\Complaint::where('buyer_id', $buyer['id'])->latest()->take(10)->get();
+  }
+  return view('help', [
+    'support' => config('support'),
+    'buyer' => $buyer,
+    'orders' => $orders,
+    'complaints' => $complaints,
+  ]);
+})->name('help');
+
+Route::post('/help/complaint', function(Request $request){
+  $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
+  if(!$buyer) return redirect('/login')->with('error','Please login to file a complaint');
+  $data = $request->validate([
+    'subject'     => 'required|string|max:150',
+    'description' => 'required|string|max:2000',
+    'order_id'    => 'nullable|integer|exists:orders,id',
+  ]);
+  $orderId = $data['order_id'] ?? null;
+  if ($orderId && ! \App\Models\Order::where('id', $orderId)->where('buyer_id', $buyer['id'])->exists()) {
+    return back()->with('error','That order does not belong to your account.');
+  }
+  \App\Models\Complaint::create([
+    'buyer_id'    => $buyer['id'],
+    'order_id'    => $orderId,
+    'subject'     => $data['subject'],
+    'description' => $data['description'],
+    'type'        => $orderId ? 'order' : 'other',
+    'status'      => 'open',
+  ]);
+  return back()->with('success','Complaint received. Our team will review it and reply by email within 24 hours on business days.');
+})->name('help.complaint');
 
 // ---- Seller Center: exact original seller app (same pages + functions) ----
 Route::get('/seller/login', [SellerAppAuth::class, 'showLogin'])->name('seller.login');

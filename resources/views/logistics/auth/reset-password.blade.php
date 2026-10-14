@@ -109,7 +109,7 @@
         </form>
 
         <p class="mt-6 text-center text-sm text-gray-500">
-            <a href="{{ route('login') }}"
+            <a href="/logistics/login"
                class="font-semibold text-teal-dark hover:text-teal underline underline-offset-2 rounded focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-1">
                 Back to Sign In
             </a>

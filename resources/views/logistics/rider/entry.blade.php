@@ -63,7 +63,7 @@
             </a>
         </div>
 
-        <form method="POST" action="{{ route('logout') }}" class="mt-5 text-center">
+        <form method="POST" action="/logistics/logout" class="mt-5 text-center" onsubmit="var b=this.querySelector('button[type=submit]');if(b.disabled)return false;b.disabled=true;">
             @csrf
             <button type="submit" class="text-xs font-semibold text-gray-400 hover:text-gray-600 underline underline-offset-2 min-h-[44px] px-4">Sign out</button>
         </form>

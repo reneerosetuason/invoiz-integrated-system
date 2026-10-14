@@ -42,6 +42,7 @@ class HomeController extends Controller {
   }
   public function show($id){
     $p = Product::with(['category','variants'])->findOrFail($id);
+    $p->trackView();
     return view('product', ['p'=>$p]);
   }
 

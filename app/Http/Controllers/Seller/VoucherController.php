@@ -24,7 +24,7 @@ class VoucherController extends Controller
             'code'           => ['required', 'string', 'max:50', 'unique:vouchers,code'],
             'name'           => ['required', 'string', 'max:150'],
             'description'    => ['nullable', 'string', 'max:1000'],
-            'discount_type'  => ['required', 'in:fixed,percent'],
+            'discount_type'  => ['required', 'in:fixed,percent,free_shipping'],
             'discount_value' => ['required', 'numeric', 'min:0'],
             'min_spend'      => ['nullable', 'numeric', 'min:0'],
             'max_discount'   => ['nullable', 'numeric', 'min:0'],
@@ -61,7 +61,7 @@ class VoucherController extends Controller
         $validated = $request->validate([
             'name'           => ['required', 'string', 'max:150'],
             'description'    => ['nullable', 'string', 'max:1000'],
-            'discount_type'  => ['required', 'in:fixed,percent'],
+            'discount_type'  => ['required', 'in:fixed,percent,free_shipping'],
             'discount_value' => ['required', 'numeric', 'min:0'],
             'min_spend'      => ['nullable', 'numeric', 'min:0'],
             'max_discount'   => ['nullable', 'numeric', 'min:0'],

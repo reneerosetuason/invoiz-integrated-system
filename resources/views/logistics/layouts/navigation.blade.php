@@ -39,12 +39,11 @@
                         </x-dropdown-link>
 
                         <!-- Authentication -->
-                        <form method="POST" action="{{ route('logout') }}">
+                        <form method="POST" action="/logistics/logout" onsubmit="if(this.dataset.done)return false;this.dataset.done=1;">
                             @csrf
 
-                            <x-dropdown-link :href="route('logout')"
-                                    onclick="event.preventDefault();
-                                                this.closest('form').submit();">
+                            <x-dropdown-link :href="'/logistics/logout'"
+                                    onclick="event.preventDefault();var f=this.closest('form');if(f.dataset.done)return false;f.dataset.done=1;f.submit();">
                                 {{ __('Log Out') }}
                             </x-dropdown-link>
                         </form>
@@ -85,12 +84,11 @@
                 </x-responsive-nav-link>
 
                 <!-- Authentication -->
-                <form method="POST" action="{{ route('logout') }}">
+                <form method="POST" action="/logistics/logout" onsubmit="if(this.dataset.done)return false;this.dataset.done=1;">
                     @csrf
 
-                    <x-responsive-nav-link :href="route('logout')"
-                            onclick="event.preventDefault();
-                                        this.closest('form').submit();">
+                    <x-responsive-nav-link :href="'/logistics/logout'"
+                            onclick="event.preventDefault();var f=this.closest('form');if(f.dataset.done)return false;f.dataset.done=1;f.submit();">
                         {{ __('Log Out') }}
                     </x-responsive-nav-link>
                 </form>

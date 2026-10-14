@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Complaint;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\NotificationRead;
@@ -68,6 +69,29 @@ class BuyerNotifications
                 'body' => Str::limit($last->body, 80),
                 'time' => $last->created_at,
                 'url' => url('/chat/seller/' . $c->seller_id),
+            ]);
+        }
+
+        // 3) Support updates on the buyer's complaints — only once staff
+        // has acted (in review / resolved / closed or a note was written).
+        // The key includes the update time so a NEW reply re-notifies.
+        $complaints = Complaint::where('buyer_id', $buyerId)->latest()->limit(10)->get();
+        foreach ($complaints as $c) {
+            if ($c->status === 'open' && empty($c->resolution)) {
+                continue;
+            }
+            $stamp = $c->updated_at ? $c->updated_at->timestamp : $c->id;
+            $rev = substr(md5((string) $c->status . '|' . (string) $c->resolution), 0, 6);
+            $state = ucfirst(str_replace('_', ' ', $c->status));
+            $items->push([
+                'key' => "complaint:{$c->id}:{$stamp}:{$rev}",
+                'icon' => '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
+                'title' => "Support update ({$state}): {$c->subject}",
+                'body' => $c->resolution
+                    ? Str::limit($c->resolution, 100)
+                    : "Our team marked your report as {$state}. Open Help Center for details.",
+                'time' => $c->updated_at ?? $c->created_at,
+                'url' => url('/help'),
             ]);
         }
 

@@ -61,7 +61,7 @@
             </div>
 
             {{-- Back to Login --}}
-            <a href="{{ route('login') }}"
+            <a href="/logistics/login"
                class="mt-7 inline-flex items-center justify-center gap-2 w-full bg-teal text-white rounded-xl py-3.5 font-semibold hover:bg-teal-dark transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />

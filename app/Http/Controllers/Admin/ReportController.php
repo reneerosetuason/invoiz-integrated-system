@@ -111,11 +111,29 @@ class ReportController extends Controller
                 ->selectRaw('categories.name, SUM(order_items.total_price) as sales, SUM(order_items.quantity) as units')
                 ->groupBy('categories.name')->orderByDesc('sales')->get();
 
-            $bySeller = DB::table('orders')
-                ->join('sellers', 'orders.seller_id', '=', 'sellers.id')
-                ->whereIn('orders.id', $orderIds)
-                ->selectRaw('sellers.store_name, COUNT(*) as orders, SUM(orders.total) as sales, SUM(orders.commission_amount) as commission')
-                ->groupBy('sellers.store_name')->orderByDesc('sales')->get();
+            // Attribute via order_items.seller_id (orders.seller_id is
+            // never set by checkout). Store names resolve both conventions.
+            $sellerAgg = [];
+            $scoped = Order::with(['items', 'orderVouchers.voucher'])->whereIn('id', $orderIds)->get();
+            foreach ($scoped as $so) {
+                foreach (\App\Support\Payments::splitForSellers($so) as $sid => $share) {
+                    $sid = (int) $sid;
+                    if (! isset($sellerAgg[$sid])) {
+                        $sellerAgg[$sid] = ['orders' => [], 'sales' => 0.0, 'commission' => 0.0];
+                    }
+                    $sellerAgg[$sid]['orders'][$so->id] = true;
+                    $sellerAgg[$sid]['sales'] += $so->sellerSubtotal($sid);
+                    $sellerAgg[$sid]['commission'] += $share['commission'];
+                }
+            }
+            $bySeller = collect($sellerAgg)->map(function ($a, $sid) {
+                return (object) [
+                    'store_name' => Seller::nameFor((int) $sid),
+                    'orders'     => count($a['orders']),
+                    'sales'      => round($a['sales'], 2),
+                    'commission' => round($a['commission'], 2),
+                ];
+            })->sortByDesc('sales')->values();
 
             $byProduct = DB::table('order_items')
                 ->join('orders', 'orders.id', '=', 'order_items.order_id')
@@ -171,14 +189,42 @@ class ReportController extends Controller
 
     private function sellersData(Request $request): array
     {
+        // NOTE: orders.seller_id is never set by checkout, so attribute via
+        // order_items.seller_id (always set) using the canonical split.
+        $paidOrders = Order::with(['items', 'orderVouchers.voucher'])
+            ->where('payment_status', 'paid')
+            ->get();
+        $agg = [];
+        foreach ($paidOrders as $po) {
+            foreach (\App\Support\Payments::splitForSellers($po) as $sid => $share) {
+                $sid = (int) $sid;
+                if (! isset($agg[$sid])) {
+                    $agg[$sid] = ['orders' => [], 'revenue' => 0.0, 'commission' => 0.0];
+                }
+                $agg[$sid]['orders'][$po->id] = true;
+                $agg[$sid]['revenue'] += $po->sellerSubtotal($sid);
+                $agg[$sid]['commission'] += $share['commission'];
+            }
+        }
         $sellers = Seller::with('user')
-            ->withCount(['products'])
             ->get()
-            ->map(function ($s) {
-                $paid = Order::where('seller_id', $s->id)->where('payment_status', 'paid');
-                $s->paid_orders = (clone $paid)->count();
-                $s->revenue = (clone $paid)->sum('total');
-                $s->commission = (clone $paid)->sum('commission_amount');
+            ->map(function ($s) use ($agg) {
+                $paidOrders = 0;
+                $revenue = 0.0;
+                $commission = 0.0;
+                foreach ($s->catalogIds() as $cid) {
+                    $cid = (int) $cid;
+                    if (isset($agg[$cid])) {
+                        $paidOrders += count($agg[$cid]['orders']);
+                        $revenue += $agg[$cid]['revenue'];
+                        $commission += $agg[$cid]['commission'];
+                    }
+                }
+                // Products live under either id convention.
+                $s->products_count = \App\Models\Product::whereIn('seller_id', $s->catalogIds())->count();
+                $s->paid_orders = $paidOrders;
+                $s->revenue = round($revenue, 2);
+                $s->commission = round($commission, 2);
                 $s->avg_order = $s->paid_orders ? $s->revenue / $s->paid_orders : 0;
                 $s->payouts_pending = SellerPayout::where('seller_id', $s->id)->whereIn('status', ['pending', 'processing'])->sum('amount');
                 $s->payouts_paid = SellerPayout::where('seller_id', $s->id)->where('status', 'paid')->sum('amount');
@@ -218,15 +264,22 @@ class ReportController extends Controller
                 ->pluck('order_items.product_id'))
             ->limit(10)->get();
 
+        // Stock counts variant stock when a product HAS variants (their
+        // stock is tracked per variation), otherwise the base stock.
+        // Products without any variant row previously summed to 0 and every
+        // product wrongly showed "Out of Stock".
         $stock = Product::leftJoin('product_variants', 'product_variants.product_id', '=', 'products.id')
-            ->selectRaw('products.name,
-                COALESCE(SUM(product_variants.stock), 0) as stock')
-            ->groupBy('products.name')
+            ->selectRaw("products.id, products.name,
+                CASE WHEN COUNT(product_variants.id) > 0
+                     THEN COALESCE(SUM(product_variants.stock), 0)
+                     ELSE COALESCE(MAX(products.stock), 0) END as stock,
+                COALESCE(MAX(products.low_stock_threshold), 10) as threshold")
+            ->groupBy('products.id', 'products.name')
             ->orderBy('stock')
             ->limit(15)
             ->get()
             ->map(function ($p) {
-                $p->stock_status = $p->stock <= 0 ? 'Out of Stock' : ($p->stock <= 10 ? 'Low Stock' : 'In Stock');
+                $p->stock_status = $p->stock <= 0 ? 'Out of Stock' : ($p->stock <= $p->threshold ? 'Low Stock' : 'In Stock');
                 return $p;
             });
 

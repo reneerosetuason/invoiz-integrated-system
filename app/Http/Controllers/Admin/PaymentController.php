@@ -64,6 +64,20 @@ class PaymentController extends Controller
 
     public function approveWithdrawal(Request $request, WithdrawalRequest $withdrawal)
     {
+        // Never approve more than the seller has actually earned (settled
+        // ledger earnings minus already committed payouts/withdrawals).
+        try {
+            $sellerUserId = optional($withdrawal->seller)->user_id;
+            if ($sellerUserId) {
+                $available = \App\Support\Payments::availableBalanceForUser((int) $sellerUserId);
+                if ((float) $withdrawal->amount > $available + 0.005) {
+                    return redirect()->back()->with('status', 'Cannot approve: requested ₱' . number_format((float) $withdrawal->amount, 2) . ' exceeds the seller\'s available balance of ₱' . number_format($available, 2) . '.');
+                }
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Withdrawal balance check failed: ' . $e->getMessage());
+        }
+
         $withdrawal->status = 'approved';
         $withdrawal->processed_at = now();
         $withdrawal->save();
@@ -106,6 +120,10 @@ class PaymentController extends Controller
             if ($dispute->order && $dispute->order->payment_status === 'paid') {
                 $dispute->order->payment_status = 'refunded';
                 $dispute->order->save();
+
+                if ($dispute->order->payment) {
+                    $dispute->order->payment->update(['status' => 'refunded']);
+                }
 
                 $tx = PaymentTransaction::where('order_id', $dispute->order_id)->first();
                 if ($tx) {

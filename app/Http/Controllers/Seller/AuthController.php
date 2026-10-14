@@ -37,6 +37,18 @@ class AuthController extends Controller
 
             $user = Auth::user();
 
+            // Logistics accounts have their own dedicated login page.
+            // (Explicit redirect: the session is invalidated below, which
+            // would wipe the "previous URL" that back() relies on.)
+            if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
+                Auth::logout();
+                $request->session()->invalidate();
+
+                return redirect('/seller/login')->withErrors([
+                    'email' => 'Logistics accounts must use the Logistics login page.',
+                ])->onlyInput('email');
+            }
+
             if (! $user->seller) {
                 Auth::logout();
                 $request->session()->invalidate();

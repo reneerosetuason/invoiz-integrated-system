@@ -110,6 +110,7 @@
           <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase;">Store</th>
           <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase;">Sales</th>
           <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; text-align:right;">Commission</th>
+          <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; text-align:right;">Absorbed</th>
           <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase;">Pending</th>
           <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase;">Paid</th>
         </tr>
@@ -120,11 +121,12 @@
           <td style="padding:11px 14px; font-weight:600; font-size:13px;">{{ $sc->store_name }}</td>
           <td style="padding:11px 14px; font-size:13px;">₱{{ number_format($sc->total_sales, 2) }}</td>
           <td style="padding:11px 14px; font-size:13px; font-weight:700; text-align:right;">₱{{ number_format($sc->total_commission, 2) }}</td>
+          <td style="padding:11px 14px; font-size:13px; text-align:right; color:#6E6E73;" title="Voucher discounts + waived shipping absorbed by this seller">₱{{ number_format($sc->absorbed ?? 0, 2) }}</td>
           <td style="padding:11px 14px; font-size:13px; color:#6E6E73;">₱{{ number_format($sc->payouts_pending, 2) }}</td>
           <td style="padding:11px 14px; font-size:13px; color:#6E6E73;">₱{{ number_format($sc->payouts_paid, 2) }}</td>
         </tr>
         @empty
-        <tr><td colspan="5" style="padding:20px;text-align:center;color:#6E6E73; font-size:13px;">No data.</td></tr>
+        <tr><td colspan="6" style="padding:20px;text-align:center;color:#6E6E73; font-size:13px;">No data.</td></tr>
         @endforelse
       </tbody>
     </table>

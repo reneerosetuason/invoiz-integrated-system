@@ -73,6 +73,17 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // Main-marketplace administrators have their own login page and
+        // must not enter through the Logistics login (legacy Logistics
+        // accounts keep is_admin false and are unaffected).
+        if ($user->is_admin) {
+            Auth::guard('web')->logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Administrator accounts must use the main admin login page.',
+            ]);
+        }
+
         $statusMessage = match ($user->status) {
             'active' => null,
             'inactive' => 'Your account is currently inactive. Please contact an administrator.',

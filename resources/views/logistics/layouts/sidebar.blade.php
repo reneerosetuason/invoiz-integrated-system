@@ -468,7 +468,7 @@
             <span class="pointer-events-none absolute left-full ml-3 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-white text-[#1F2933] text-xs font-medium rounded-lg border border-teal/20 shadow-lg whitespace-nowrap z-50 opacity-0 group-hover:opacity-100 transition-opacity"
                   x-show="!sidebarHover" role="tooltip" aria-hidden="true">{{ $accountTitle }} · Profile</span>
         </a>
-        <form method="POST" action="{{ route('logout') }}">
+        <form method="POST" action="/logistics/logout" onsubmit="var b=this.querySelector('button[type=submit]');if(b.disabled)return false;b.disabled=true;">
             @csrf
             <button type="submit" aria-label="Log out"
                     class="relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3 text-teal-dark hover:bg-teal-light hover:text-teal-dark"

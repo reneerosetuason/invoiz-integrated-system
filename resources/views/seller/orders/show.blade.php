@@ -120,16 +120,24 @@
             </table>
             <div class="space-y-1.5 border-t border-borderline px-6 py-4 text-sm">
                 <div class="flex justify-between"><span class="text-ink-light">Subtotal (your items)</span><span class="font-semibold">{{ peso($order->seller_subtotal) }}</span></div>
-                @foreach($order->orderVouchers as $ov)
+                <div class="flex justify-between"><span class="text-ink-light">Shipping (your shop)</span><span class="font-semibold">{{ peso(\App\Models\Order::SHIPPING_FEE_PER_SELLER) }}</span></div>
+                @if(($order->seller_discount ?? 0) > 0)
                     <div class="flex justify-between">
-                        <span class="text-ink-light">Voucher {{ $ov->voucher->code }}</span>
-                        <span class="font-semibold text-successc">− {{ peso($ov->discount_amount) }}</span>
+                        <span class="text-ink-light">Voucher discount absorbed by you</span>
+                        <span class="font-semibold text-successc">− {{ peso($order->seller_discount) }}</span>
                     </div>
-                @endforeach
+                @endif
+                @if(($order->seller_shipping_waived ?? 0) > 0)
+                    <div class="flex justify-between">
+                        <span class="text-ink-light">Free-shipping absorbed by you</span>
+                        <span class="font-semibold text-successc">− {{ peso($order->seller_shipping_waived) }}</span>
+                    </div>
+                @endif
                 <div class="flex justify-between border-t border-borderline pt-2 text-base">
-                    <span class="font-bold">Order Total</span>
-                    <span class="font-extrabold">{{ peso($order->total_amount) }}</span>
+                    <span class="font-bold">Your Net Earnings</span>
+                    <span class="font-extrabold">{{ peso($order->seller_net ?? $order->seller_subtotal) }}</span>
                 </div>
+                <p class="mt-1 text-right text-[11px] text-ink-light">Buyer paid {{ peso($order->total_amount) }} in total · rider pay is unaffected by vouchers.</p>
             </div>
         </div>
 

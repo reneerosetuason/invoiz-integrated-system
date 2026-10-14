@@ -9,7 +9,7 @@
         <div class="flex items-center gap-2.5">
             <div class="stat-icon" style="background:#E6F4EC;color:#2E8B57;"><x-icon name="dollar" class="h-4 w-4"/></div>
             <div>
-                <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Revenue</div>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Revenue (net of vouchers)</div>
                 <div class="text-base font-extrabold">{{ peso($totals['revenue']) }}</div>
             </div>
         </div>

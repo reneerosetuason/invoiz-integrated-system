@@ -70,7 +70,7 @@
             </thead>
             <tbody>
                 @forelse($products as $product)
-                    <tr class="{{ $product->stock <= 5 && $product->status !== 'inactive' ? '!bg-amber-50' : '' }}">
+                    <tr class="{{ $product->isLowStock() && $product->status !== 'inactive' ? '!bg-amber-50' : '' }}">
                         <td>
                             <div class="flex items-center gap-3">
                                 <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-soft">
@@ -97,8 +97,8 @@
                             @endif
                         </td>
                         <td class="text-center">
-                            <span class="font-bold {{ $product->stock <= 5 ? 'text-warnc' : 'text-successc' }}">{{ $product->stock }}</span>
-                            @if($product->stock <= 5)<span class="ml-1 text-[10px] font-bold uppercase text-warnc">low</span>@endif
+                            <span class="font-bold {{ $product->isLowStock() ? 'text-warnc' : 'text-successc' }}" title="Alert level: {{ $product->lowStockThreshold() }}">{{ $product->stock }}</span>
+                            @if($product->isLowStock())<span class="ml-1 text-[10px] font-bold uppercase text-warnc">low</span>@endif
                         </td>
                         <td class="text-center text-ink-light">{{ $product->variants_count }}</td>
                         <td class="text-center">

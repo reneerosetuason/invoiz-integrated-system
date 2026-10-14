@@ -41,6 +41,11 @@ class OrderController extends Controller
         $orders = $query->get()->map(function (Order $order) use ($sellerId) {
             $order->seller_items = $order->items->where('seller_id', $sellerId)->values();
             $order->seller_subtotal = round($order->seller_items->sum('subtotal'), 2);
+            // Costs absorbed by this seller (pro-rata voucher share + waived
+            // shipping for their group) + net earnings.
+            $order->seller_discount = $order->voucherDiscountForSeller($sellerId);
+            $order->seller_shipping_waived = $order->shippingWaivedForSeller($sellerId);
+            $order->seller_net = $order->sellerNetForSeller($sellerId);
 
             return $order;
         });
@@ -78,6 +83,11 @@ class OrderController extends Controller
 
         $order->seller_items = $order->items->where('seller_id', $sellerId)->values();
         $order->seller_subtotal = round($order->seller_items->sum('subtotal'), 2);
+        // Costs absorbed by this seller (pro-rata voucher share + waived
+        // shipping for their group) + net earnings.
+        $order->seller_discount = $order->voucherDiscountForSeller($sellerId);
+        $order->seller_shipping_waived = $order->shippingWaivedForSeller($sellerId);
+        $order->seller_net = $order->sellerNetForSeller($sellerId);
 
         return view('seller.orders.show', compact('order'));
     }
@@ -126,6 +136,8 @@ class OrderController extends Controller
             // Cancelling before shipment returns the deducted stock.
             if ($target === 'cancelled') {
                 \App\Support\Stock::restoreOrder($order->load('items'));
+                // COD money never moved: void the pending ledger row.
+                \App\Support\Payments::voidForCancel($order);
             }
 
             $this->syncDelivery($order, $target, $action);
@@ -218,6 +230,10 @@ class OrderController extends Controller
                     'paid_at' => now(),
                 ]);
             }
+            // COD cash is in: flip the order flag and settle the ledger
+            // (seller earning + platform commission + rider fee = total).
+            $order->update(['payment_status' => 'paid']);
+            \App\Support\Payments::settleForDelivery($order);
         }
     }
 

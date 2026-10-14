@@ -456,7 +456,7 @@
     <div class="lg:w-1/2 bg-gradient-to-br from-[#16697A] via-[#0E4A57] to-[#0B3B46] text-white flex flex-col p-8 sm:p-12 xl:p-16">
         <div class="flex-1 flex flex-col justify-center max-w-xl mx-auto lg:mx-0 w-full">
             {{-- Brand --}}
-            <a href="{{ route('login') }}" class="inline-flex items-center gap-4 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
+            <a href="/logistics/login" class="inline-flex items-center gap-4 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
                 <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl object-cover ring-1 ring-white/25 shadow-lg">
                 <div>
                     <p class="text-2xl sm:text-3xl font-extrabold tracking-tight">Logistics</p>
@@ -497,7 +497,7 @@
         {{-- Footer --}}
         <div class="pt-10 flex flex-wrap items-center justify-between gap-3 max-w-xl mx-auto lg:mx-0 w-full">
             <p class="text-xs sm:text-sm text-white/50">Logistics &middot; v1.0 &middot; Logistics</p>
-            <a href="{{ route('login') }}" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-white/80 hover:text-white underline underline-offset-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
+            <a href="/logistics/login" class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-white/80 hover:text-white underline underline-offset-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                 Back to Login
             </a>

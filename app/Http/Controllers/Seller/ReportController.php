@@ -19,22 +19,31 @@ class ReportController extends Controller
         $from = $request->input('from', now()->startOfMonth()->toDateString());
         $to = $request->input('to', now()->toDateString());
 
-        $query = DB::table('order_items')
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->where('order_items.seller_id', $sellerId)
-            ->where('orders.status', 'delivered')
-            ->whereDate('orders.created_at', '>=', $from)
-            ->whereDate('orders.created_at', '<=', $to);
+        // Delivered orders in range with items + vouchers loaded once;
+        // every figure below nets out the seller's absorbed voucher share.
+        $scopedOrders = Order::with(['items', 'orderVouchers'])
+            ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
+            ->where('status', 'delivered')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->get();
 
-        $revenue = (float) $query->sum('order_items.subtotal');
+        $revenue = round($scopedOrders->sum(fn ($o) => $o->sellerNetForSeller($sellerId)), 2);
+        $voucherAbsorbed = round($scopedOrders->sum(fn ($o) => $o->voucherDiscountForSeller($sellerId)), 2);
 
         // Cost of goods sold = current product cost_price x quantity sold.
-        $cogs = (float) $query
-            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
-            ->sum(DB::raw('order_items.quantity * COALESCE(products.cost_price, 0)'));
+        $costs = Product::where('seller_id', $sellerId)->pluck('cost_price', 'id');
+        $cogs = 0.0;
+        $unitsSold = 0;
+        foreach ($scopedOrders as $order) {
+            foreach ($order->items->where('seller_id', $sellerId) as $item) {
+                $unitsSold += (int) $item->quantity;
+                $cogs += (int) $item->quantity * (float) ($costs[$item->product_id] ?? 0);
+            }
+        }
+        $cogs = round($cogs, 2);
 
         $profit = round($revenue - $cogs, 2);
-        $unitsSold = (int) $query->sum('order_items.quantity');
 
         $orderCount = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
             ->where('status', 'delivered')
@@ -51,45 +60,39 @@ class ReportController extends Controller
         $totalCount = (clone $allOrders)->count();
         $cancellationRate = $totalCount > 0 ? round($cancelledCount / $totalCount * 100, 1) : 0;
 
-        // Per-product performance.
-        $productRows = DB::table('order_items')
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
-            ->where('order_items.seller_id', $sellerId)
-            ->where('orders.status', 'delivered')
-            ->whereDate('orders.created_at', '>=', $from)
-            ->whereDate('orders.created_at', '<=', $to)
-            ->select(
-                'order_items.product_id',
-                'order_items.product_name',
-                DB::raw('SUM(order_items.quantity) as units'),
-                DB::raw('SUM(order_items.subtotal) as sales'),
-                DB::raw('SUM(order_items.quantity * COALESCE(products.cost_price, 0)) as cogs')
-            )
-            ->groupBy('order_items.product_id', 'order_items.product_name')
-            ->orderByDesc('sales')
-            ->get()
+        // Per-product performance (sales net of absorbed voucher share,
+        // apportioned per order by each line's share of the order subtotal).
+        $byProduct = [];
+        foreach ($scopedOrders as $order) {
+            $orderSubtotal = $order->itemsSubtotal();
+            $share = $orderSubtotal > 0 ? min(1, $order->voucherDiscountTotal() / $orderSubtotal) : 0;
+            foreach ($order->items->where('seller_id', $sellerId) as $item) {
+                $line = $item->lineTotal ?? ((float) ($item->unit_price ?? $item->price ?? 0)) * ((int) ($item->quantity ?? 0));
+                $key = (int) $item->product_id;
+                if (! isset($byProduct[$key])) {
+                    $byProduct[$key] = ['product_id' => $key, 'product_name' => $item->product_name, 'units' => 0, 'sales' => 0.0, 'cogs' => 0.0];
+                }
+                $byProduct[$key]['units'] += (int) $item->quantity;
+                $byProduct[$key]['sales'] += $line * (1 - $share);
+                $byProduct[$key]['cogs'] += (int) $item->quantity * (float) ($costs[$item->product_id] ?? 0);
+            }
+        }
+        $productRows = collect($byProduct)->sortByDesc('sales')->values()
             ->map(fn ($row) => (object) [
-                'product_id'   => $row->product_id,
-                'product_name' => $row->product_name,
-                'units'        => (int) $row->units,
-                'sales'        => (float) $row->sales,
-                'cogs'         => (float) $row->cogs,
-                'profit'       => round((float) $row->sales - (float) $row->cogs, 2),
+                'product_id'   => $row['product_id'],
+                'product_name' => $row['product_name'],
+                'units'        => (int) $row['units'],
+                'sales'        => round((float) $row['sales'], 2),
+                'cogs'         => round((float) $row['cogs'], 2),
+                'profit'       => round((float) $row['sales'] - (float) $row['cogs'], 2),
             ]);
 
-        // Daily sales series within the range.
-        $daily = DB::table('order_items')
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->where('order_items.seller_id', $sellerId)
-            ->where('orders.status', 'delivered')
-            ->whereDate('orders.created_at', '>=', $from)
-            ->whereDate('orders.created_at', '<=', $to)
-            ->select(DB::raw('DATE(orders.created_at) as day'), DB::raw('SUM(order_items.subtotal) as sales'))
-            ->groupBy('day')
-            ->orderBy('day')
-            ->get()
-            ->keyBy('day');
+        // Daily net sales series within the range.
+        $dailyNet = [];
+        foreach ($scopedOrders as $order) {
+            $day = $order->created_at->toDateString();
+            $dailyNet[$day] = ($dailyNet[$day] ?? 0) + $order->sellerNetForSeller($sellerId);
+        }
 
         $labels = [];
         $sales = [];
@@ -97,7 +100,7 @@ class ReportController extends Controller
         $end = \Carbon\Carbon::parse($to);
         while ($period->lte($end)) {
             $labels[] = $period->format('M j');
-            $sales[] = round((float) ($daily[$period->toDateString()]->sales ?? 0), 2);
+            $sales[] = round((float) ($dailyNet[$period->toDateString()] ?? 0), 2);
             $period->addDay();
         }
 
@@ -107,28 +110,24 @@ class ReportController extends Controller
             $q->where('seller_id', $sellerId);
         }])->orderBy('name')->get();
 
-        $categoryBreakdown = $categories->map(function ($category) use ($sellerId, $from, $to) {
-            $sales = 0;
+        // Net category sales, aggregated from the net per-product rows above.
+        $netByProduct = $productRows->keyBy('product_id');
+        $categoryBreakdown = $categories->map(function ($category) use ($netByProduct) {
+            $sales = 0.0;
             foreach ($category->products as $product) {
-                $sales += DB::table('order_items')
-                    ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                    ->where('order_items.product_id', $product->id)
-                    ->where('order_items.seller_id', $sellerId)
-                    ->where('orders.status', 'delivered')
-                    ->whereDate('orders.created_at', '>=', $from)
-                    ->whereDate('orders.created_at', '<=', $to)
-                    ->sum('order_items.subtotal');
+                $sales += (float) ($netByProduct[$product->id]->sales ?? 0);
             }
 
             return (object) [
                 'name'     => $category->name,
                 'products' => $category->products->count(),
-                'sales'    => (float) $sales,
+                'sales'    => round($sales, 2),
             ];
         });
 
         $summary = [
             'revenue'           => $revenue,
+            'voucher_absorbed'  => $voucherAbsorbed,
             'cogs'              => $cogs,
             'profit'            => $profit,
             'profit_margin'     => $revenue > 0 ? round($profit / $revenue * 100, 1) : 0,
@@ -151,7 +150,8 @@ class ReportController extends Controller
                 ['To', $to],
                 [],
                 ['Metric', 'Value'],
-                ['Revenue', $revenue],
+                ['Revenue (net of vouchers)', $revenue],
+                ['Voucher discounts absorbed', $voucherAbsorbed],
                 ['Cost of Goods Sold', $cogs],
                 ['Profit', $profit],
                 ['Profit Margin %', $summary['profit_margin']],

@@ -61,7 +61,7 @@
             <h1 class="text-sm font-bold text-gray-900">Logistics Support</h1>
             <p class="text-xs text-gray-500 truncate">Chat with the Logistics team · {{ $user->name }}</p>
         </div>
-        <form method="POST" action="{{ route('logout') }}">
+        <form method="POST" action="/logistics/logout" onsubmit="var b=this.querySelector('button[type=submit]');if(b.disabled)return false;b.disabled=true;">
             @csrf
             <button type="submit" class="text-xs font-semibold text-gray-400 hover:text-red-500 transition">Log Out</button>
         </form>

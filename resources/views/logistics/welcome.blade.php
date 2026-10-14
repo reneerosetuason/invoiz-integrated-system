@@ -1,3 +1,3 @@
 @php
-    redirect()->route('login')->send();
+    redirect('/logistics/login')->send();
 @endphp

@@ -166,6 +166,10 @@
         Notifications
         @if($notifCount > 0)<span style="margin-left:auto;background:var(--primary,#16697A);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px">{{ $notifCount > 99 ? '99+' : $notifCount }}</span>@endif
       </a>
+      <a class="side-link {{ request()->is('help') ? 'active' : '' }}" href="{{ url('/help') }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Help &amp; FAQ
+      </a>
       <div class="sidebar-footer">
         <div style="font-weight:600;color:var(--text2)">Invoiz v1</div>
         <div style="margin-top:2px">Desktop</div>
@@ -182,5 +186,6 @@
     </div>
   </div>
   <script src="{{ asset('frontend/js/app.js') }}"></script>
+  @include('partials.support-chat')
 </body>
 </html>

@@ -23,6 +23,7 @@ class Delivery extends Model
         'order_id',
         'rider_id',
         'status',
+        'delivery_fee',
         'assigned_at',
         'picked_up_at',
         'delivered_at',

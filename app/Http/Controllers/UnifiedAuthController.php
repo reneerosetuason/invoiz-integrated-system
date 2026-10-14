@@ -203,6 +203,11 @@ class UnifiedAuthController extends Controller
             return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
         }
 
+        // Logistics accounts have their own dedicated login page.
+        if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
+            return back()->withErrors(['email' => 'This is a Logistics account. Please sign in on the Logistics login page.'])->withInput();
+        }
+
         if (! $user->email_verified_at) {
             $this->sendOtp($user);
             return redirect('/verify?email=' . urlencode($user->email))
@@ -298,6 +303,10 @@ class UnifiedAuthController extends Controller
         if ($user) {
             if (! $user->isActive()) {
                 return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+            }
+            // Logistics accounts have their own dedicated login page.
+            if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
+                return redirect('/login')->withErrors(['email' => 'This is a Logistics account. Please sign in on the Logistics login page.']);
             }
             // Google proved ownership of this email.
             $user->update(['email_verified_at' => $user->email_verified_at ?? now(), 'otp' => null, 'otp_expires_at' => null]);

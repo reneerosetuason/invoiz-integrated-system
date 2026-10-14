@@ -254,7 +254,7 @@ body{overflow-x:hidden}
 </div>
 <div class="mt-8 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex sm:items-center sm:justify-between">
 <p>© 2026 INVOIZ. All rights reserved.</p>
-<p class="mt-2 flex gap-4 sm:mt-0"><a href="{{ url('/shop') }}" class="hover:text-white">Shop</a><a href="{{ url('/sell') }}" class="hover:text-white">Sell</a><a href="{{ url('/login') }}" class="hover:text-white">Login</a></p>
+<p class="mt-2 flex gap-4 sm:mt-0"><a href="{{ url('/shop') }}" class="hover:text-white">Shop</a><a href="{{ url('/sell') }}" class="hover:text-white">Sell</a><a href="{{ url('/help') }}" class="hover:text-white">Help &amp; FAQ</a><a href="{{ url('/login') }}" class="hover:text-white">Login</a></p>
 </div>
 </div></footer>
 <button id="toTop" aria-label="Back to top" class="fixed bottom-5 right-5 z-50 hidden h-11 w-11 items-center justify-center rounded-full bg-teal text-white shadow-soft transition hover:bg-teal-dark">↑</button>

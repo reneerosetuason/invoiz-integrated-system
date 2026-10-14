@@ -8,6 +8,7 @@ use App\Models\Delivery;
 use App\Models\DeliveryFailure;
 use App\Models\DeliveryProof;
 use App\Models\DeliveryStatusLog;
+use App\Models\Order;
 use App\Models\Rider;
 use App\Models\RiderEarning;
 use Illuminate\Http\JsonResponse;
@@ -300,10 +301,11 @@ class RiderDeliveryController extends Controller
         // NOT duplicate transaction creation ??? it only reports completion.
         app(TransactionController::class)->storeForDelivery($delivery);
 
-        // Record rider earnings for this delivery.
+        // Record rider earnings for this delivery: the flat per-delivery
+        // fee, fully independent of any voucher or discount on the order.
         $earned = $delivery->delivery_fee !== null
             ? (float) $delivery->delivery_fee
-            : 50.00;
+            : Order::SHIPPING_FEE_PER_SELLER;
 
         RiderEarning::create([
             'rider_id' => $delivery->rider_id,

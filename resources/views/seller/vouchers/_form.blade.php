@@ -21,14 +21,16 @@
         <div>
             <label class="field-label">Discount Type</label>
             <select name="discount_type" class="select">
-                <option value="fixed" {{ old('discount_type', $v?->discount_type) === 'fixed' ? 'selected' : '' }}>Fixed (₱)</option>
-                <option value="percent" {{ old('discount_type', $v?->discount_type) === 'percent' ? 'selected' : '' }}>Percent (%)</option>
+                <option value="fixed" {{ old('discount_type', $v?->discount_type) === 'fixed' ? 'selected' : '' }}>Fixed (₱ off items)</option>
+                <option value="percent" {{ old('discount_type', $v?->discount_type) === 'percent' ? 'selected' : '' }}>Percent (% off items)</option>
+                <option value="free_shipping" {{ old('discount_type', $v?->discount_type) === 'free_shipping' ? 'selected' : '' }}>Free shipping</option>
             </select>
         </div>
         <div>
             <label class="field-label">Discount Value</label>
             <input type="number" name="discount_value" step="0.01" min="0" class="input"
                    value="{{ old('discount_value', $v?->discount_value) }}" required>
+            <p class="mt-1 text-[11px] text-ink-light">For free shipping: max shipping covered in ₱ (0 = full ₱50/shop covered). You absorb it — the rider still earns ₱50.</p>
         </div>
     </div>
     <div class="grid grid-cols-2 gap-3">

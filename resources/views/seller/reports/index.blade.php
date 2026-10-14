@@ -39,11 +39,11 @@
         <div class="flex items-center gap-3">
             <div class="stat-icon" style="background:#E6F4EC;color:#2E8B57;"><x-icon name="dollar" class="h-5 w-5"/></div>
             <div>
-                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-light">Revenue</div>
+                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-light">Revenue (net of vouchers)</div>
                 <div class="text-lg font-extrabold">{{ peso($summary['revenue']) }}</div>
             </div>
         </div>
-        <div class="mt-2 text-[11px] text-ink-light">{{ $summary['units_sold'] }} units sold</div>
+        <div class="mt-2 text-[11px] text-ink-light">{{ $summary['units_sold'] }} units sold · <span class="font-semibold text-successc">{{ peso($summary['voucher_absorbed'] ?? 0) }}</span> voucher discounts absorbed</div>
     </div>
     <div class="stat-card">
         <div class="flex items-center gap-3">

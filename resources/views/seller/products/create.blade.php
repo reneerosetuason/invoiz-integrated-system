@@ -63,6 +63,11 @@
                     <label class="field-label">Stock Quantity</label>
                     <input type="number" name="stock" min="0" value="{{ old('stock', 0) }}" class="input" required>
                 </div>
+                <div>
+                    <label class="field-label">Low Stock Alert At</label>
+                    <input type="number" name="low_stock_threshold" min="0" max="1000000" value="{{ old('low_stock_threshold', 5) }}" class="input" placeholder="e.g. 10">
+                    <p class="mt-1 text-[11px] text-ink-light">Notify me when stock drops to this level.</p>
+                </div>
             </div>
             <p class="mt-3 text-xs text-ink-light">
                 If your product has color/size variants, set a base price here and add the variations below — their stock is tracked separately.

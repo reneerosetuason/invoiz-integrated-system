@@ -88,6 +88,8 @@ class CartController extends Controller
             ]);
         }
 
+        $product->trackCartAddition();
+
         return response()->json(['message' => 'Item added to cart.']);
     }
 

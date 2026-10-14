@@ -110,7 +110,7 @@
                     <a href="#deals" class="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white text-teal transition hover:border-teal/30 hover:bg-teal-light" aria-label="Cart">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l2.2 10.5a2 2 0 002 1.6h6.8a2 2 0 001.9-1.4L20 7H6m4 13a1 1 0 100-2 1 1 0 000 2zm7 0a1 1 0 100-2 1 1 0 000 2z"/></svg>
                     </a>
-                    <a href="{{ route('login') }}" class="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 transition hover:bg-gray-50">Login</a>
+                    <a href="/logistics/login" class="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 text-sm font-bold text-gray-700 transition hover:bg-gray-50">Login</a>
                     <a href="{{ route('register') }}" class="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber px-4 text-sm font-extrabold text-charcoal shadow-sm transition hover:brightness-95">Sign Up</a>
                 </nav>
 
@@ -158,7 +158,7 @@
                     <a href="#how-it-works" @click="open=false" class="rounded-lg px-3 py-2 hover:bg-gray-50">How It Works</a>
                     <a href="#help" @click="open=false" class="rounded-lg px-3 py-2 hover:bg-gray-50">Help &amp; Support</a>
                     <div class="mt-2 grid grid-cols-2 gap-2">
-                        <a href="{{ route('login') }}" class="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 font-bold">Login</a>
+                        <a href="/logistics/login" class="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-200 bg-white px-4 font-bold">Login</a>
                         <a href="{{ route('register') }}" class="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-amber px-4 font-extrabold text-charcoal">Sign Up</a>
                     </div>
                 </nav>
@@ -342,7 +342,7 @@
                     </div>
                     <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
                         <button @click="tried=true; fallback=false; window.location.href='{{ $riderDeeplink }}'; setTimeout(()=>{ if(!document.hidden) fallback=true; }, 1200)" class="inline-flex min-h-[48px] items-center justify-center rounded-2xl bg-white px-6 text-sm font-extrabold text-teal-dark transition hover:bg-gray-50">Try Opening Rider App</button>
-                        <a href="{{ route('login') }}" class="inline-flex min-h-[48px] items-center justify-center rounded-2xl border border-white/25 px-6 text-sm font-extrabold text-white transition hover:bg-white/10">Access Platform via Web Login</a>
+                        <a href="/logistics/login" class="inline-flex min-h-[48px] items-center justify-center rounded-2xl border border-white/25 px-6 text-sm font-extrabold text-white transition hover:bg-white/10">Access Platform via Web Login</a>
                     </div>
                 </div>
             </div>
@@ -355,7 +355,7 @@
                         <p class="text-xs font-extrabold uppercase tracking-wider text-teal">Powered by INVOIZ Logistics</p>
                         <h2 class="mt-2 landing-section-title font-extrabold">The delivery engine behind every order.</h2>
                         <p class="mt-3 text-sm leading-relaxed text-gray-600">Behind every order is a connected logistics system that helps track, sort, assign, and deliver parcels. Shoppers do not need to pick a logistics portal; it works behind the buying experience.</p>
-                        <a href="{{ route('login') }}" class="mt-5 inline-flex min-h-[46px] items-center justify-center rounded-2xl border border-teal/20 bg-white px-5 text-sm font-extrabold text-teal-dark transition hover:bg-teal-light">Learn More</a>
+                        <a href="/logistics/login" class="mt-5 inline-flex min-h-[46px] items-center justify-center rounded-2xl border border-teal/20 bg-white px-5 text-sm font-extrabold text-teal-dark transition hover:bg-teal-light">Learn More</a>
                     </div>
                     <div class="grid gap-3 sm:grid-cols-3">
                         @foreach([['Scan','Parcels are verified.'],['Sort','Centers prepare routes.'],['Assign','Riders receive deliveries.']] as $item)
@@ -440,7 +440,7 @@
                 <div>
                     <h3 class="text-sm font-extrabold">Help &amp; Support</h3>
                     <ul class="mt-3 space-y-2 text-sm text-white/65">
-                        <li><a href="{{ route('login') }}" class="hover:text-white">Login</a></li>
+                        <li><a href="/logistics/login" class="hover:text-white">Login</a></li>
                         <li><a href="{{ route('register') }}" class="hover:text-white">Sign Up</a></li>
                         <li><a href="#how-it-works" class="hover:text-white">How It Works</a></li>
                     </ul>

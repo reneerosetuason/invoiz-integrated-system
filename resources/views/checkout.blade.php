@@ -36,9 +36,14 @@
         <span style="margin-left:auto;color:var(--green);font-size:11px;font-weight:700"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-3px"><polyline points="20 6 9 17 4 12"/></svg> Selected</span>
       </label>
       <div style="margin-top:12px;padding:10px;background:#f0fdf4;border:1px solid var(--green);border-radius:8px;font-size:11px;color:var(--green-dark)">COD only: Pay when your order is delivered.</div>
+      <div style="margin-top:10px">
+        <label style="font-size:12px;font-weight:700">Voucher code <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
+        <input type="text" name="voucher_code" value="{{ old('voucher_code') }}" placeholder="e.g. SAVE10 or FREESHIP" style="width:100%;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:13px;text-transform:uppercase">
+        <div style="font-size:11px;color:var(--text2);margin-top:4px">Discount vouchers cut the item total · free-shipping vouchers waive the ₱50/shop delivery fee. Applied when you place the order.</div>
+      </div>
       <button type="submit" style="width:100%;margin-top:14px;padding:12px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-weight:800;cursor:pointer;font-size:13px">
         @if(in_array($checkoutMode, ['all','selected']))
-          Place {{ count($sellerGroups) }} Order(s) — ₱{{ number_format($grandTotal,2) }}
+          Place {{ count($sellerGroups) }} Order(s) — ₱{{ number_format($grandTotal + count($sellerGroups) * \App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}
         @else
           Place Order
         @endif
@@ -65,11 +70,15 @@
             <span>Subtotal</span>
             <span style="color:var(--green)">₱{{ number_format($group['total'],2) }}</span>
           </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
+            <span>Shipping (1 shop)</span>
+            <span>₱{{ number_format(\App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span>
+          </div>
         </div>
       @endforeach
       <div style="display:flex;justify-content:space-between;margin-top:8px;font-weight:800;font-size:14px;border-top:2px solid var(--green);padding-top:8px">
-        <span>Grand Total ({{ count($sellerGroups) }} orders)</span>
-        <span style="color:var(--green)">₱{{ number_format($grandTotal,2) }}</span>
+        <span>Grand Total ({{ count($sellerGroups) }} orders, incl. shipping)</span>
+        <span style="color:var(--green)">₱{{ number_format($grandTotal + count($sellerGroups) * \App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span>
       </div>
     @else
       @php
@@ -105,7 +114,8 @@
         </div>
       @endforeach
       @endif
-      <div style="display:flex;justify-content:space-between;margin-top:10px;font-weight:800;font-size:14px">Total <span style="color:var(--green)">₱{{ number_format($total,2) }}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--text2)"><span>Shipping (1 shop)</span><span>₱{{ number_format(\App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:800;font-size:14px">Total <span style="color:var(--green)">₱{{ number_format($total + \App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span></div>
     @endif
   </div>
 </div>

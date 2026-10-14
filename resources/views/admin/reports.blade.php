@@ -210,8 +210,9 @@ $queryString = http_build_query(array_filter(['type' => $type, 'period' => $peri
         </table>
 
     @elseif ($type === 'products')
-        <h2 style="font-size:17px;margin-bottom:12px;display:flex;align-items:center;gap:8px;"><x-ui-icon name="trophy" :size="18" /> Best-Selling Products</h2>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:20px;">
+        <h2 style="font-size:17px;margin:0 0 12px;display:flex;align-items:center;gap:8px;"><x-ui-icon name="trophy" :size="18" /> Best-Selling Products</h2>
+        <table style="width:100%;border-collapse:collapse;">
             <thead><tr style="border-bottom:2px solid #E8E6E0;text-align:left;"><th style="padding:11px 8px;">Product</th><th style="padding:11px 8px;">Units Sold</th><th style="padding:11px 8px;">Sales</th></tr></thead>
             <tbody>
                 @forelse($best as $p)
@@ -225,9 +226,11 @@ $queryString = http_build_query(array_filter(['type' => $type, 'period' => $peri
                 @endforelse
             </tbody>
         </table>
+      </div>
 
-        <h2 style="font-size:17px;margin-bottom:12px;display:flex;align-items:center;gap:8px;"><x-ui-icon name="trending-down" :size="18" /> Low-Selling Products (≤2 units or unsold)</h2>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:28px;">
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:20px;">
+        <h2 style="font-size:17px;margin:0 0 12px;display:flex;align-items:center;gap:8px;"><x-ui-icon name="trending-down" :size="18" /> Low-Selling Products (≤2 units or unsold)</h2>
+        <table style="width:100%;border-collapse:collapse;">
             <thead><tr style="border-bottom:2px solid #E8E6E0;text-align:left;"><th style="padding:11px 8px;">Product</th><th style="padding:11px 8px;">Views</th><th style="padding:11px 8px;">Cart Additions</th></tr></thead>
             <tbody>
                 @forelse($low as $p)
@@ -241,8 +244,10 @@ $queryString = http_build_query(array_filter(['type' => $type, 'period' => $peri
                 @endforelse
             </tbody>
         </table>
+      </div>
 
-        <h2 style="font-size:17px;margin-bottom:12px;">Stock Status</h2>
+      <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:20px;">
+        <h2 style="font-size:17px;margin:0 0 12px;">Stock Status</h2>
         <table style="width:100%;border-collapse:collapse;">
             <thead><tr style="border-bottom:2px solid #E8E6E0;text-align:left;"><th style="padding:11px 8px;">Product</th><th style="padding:11px 8px;">Stock</th><th style="padding:11px 8px;">Status</th></tr></thead>
             <tbody>
@@ -259,6 +264,7 @@ $queryString = http_build_query(array_filter(['type' => $type, 'period' => $peri
                 @endforelse
             </tbody>
         </table>
+      </div>
 
     @else
         <h2 style="font-size:17px;margin-bottom:12px;">Financial Breakdown by Month</h2>

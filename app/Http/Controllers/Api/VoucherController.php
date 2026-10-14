@@ -34,6 +34,23 @@ class VoucherController extends Controller
             ], 422);
         }
 
+        $type = $voucher->discount_type ?? $voucher->type;
+        if ($type === 'free_shipping') {
+            $cap = (float) ($voucher->discount_value ?? 0) > 0
+                ? (float) $voucher->discount_value
+                : \App\Models\Order::SHIPPING_FEE_PER_SELLER;
+            if ($voucher->max_discount !== null) {
+                $cap = min($cap, (float) $voucher->max_discount);
+            }
+
+            return response()->json([
+                'message'             => 'Voucher is valid.',
+                'voucher'             => $voucher,
+                'discount'            => 0,
+                'free_shipping_cover' => round($cap, 2),
+            ]);
+        }
+
         $discount = $voucher->discount_type === 'fixed'
             ? $voucher->discount_value
             : round($validated['subtotal'] * $voucher->discount_value / 100, 2);

@@ -27,7 +27,7 @@ class DashboardController extends Controller
             'to_ship'       => (clone $orders)->whereIn('status', ['processing', 'ready_for_delivery'])->count(),
             'delivered'     => (clone $orders)->where('status', 'delivered')->count(),
             'products'      => Product::forSeller($sellerId)->count(),
-            'low_stock'     => Product::forSeller($sellerId)->where('status', '!=', 'inactive')->where('stock', '<=', 5)->count(),
+            'low_stock'     => Product::forSeller($sellerId)->where('status', '!=', 'inactive')->whereRaw('stock <= COALESCE(low_stock_threshold, 5)')->count(),
             'revenue'       => $this->revenue($sellerId, ['delivered']),
             'revenue_today' => $this->revenue($sellerId, ['delivered'], today()->startOfDay(), today()->endOfDay()),
             'rating'        => round(Product::forSeller($sellerId)->whereNotNull('rating')->avg('rating') ?? 0, 1),
@@ -43,16 +43,21 @@ class DashboardController extends Controller
             ->pluck('total', 'status')
             ->toArray();
 
-        // Top 5 products by units sold.
+        // Top 5 products by units sold (sales shown net of absorbed vouchers).
+        $topStatuses = ['delivered', 'out_for_delivery', 'ready_for_delivery'];
         $topProducts = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('order_items.seller_id', $sellerId)
-            ->whereIn('orders.status', ['delivered', 'out_for_delivery', 'ready_for_delivery'])
+            ->whereIn('orders.status', $topStatuses)
             ->select('order_items.product_id', 'order_items.product_name', DB::raw('SUM(order_items.quantity) as units'), DB::raw('SUM(order_items.subtotal) as sales'))
             ->groupBy('order_items.product_id', 'order_items.product_name')
             ->orderByDesc('units')
             ->limit(5)
-            ->get();
+            ->get()
+            ->map(function ($row) use ($sellerId, $topStatuses) {
+                $row->sales = $this->productNetSales($sellerId, (int) $row->product_id, $topStatuses);
+                return $row;
+            });
 
         $recentOrders = (clone $orders)
             ->with(['buyer', 'items', 'delivery'])
@@ -80,43 +85,71 @@ class DashboardController extends Controller
         ));
     }
 
+    /**
+     * Net merchandise earnings: seller subtotal minus the seller's
+     * pro-rata share of any voucher discounts (the seller absorbs them;
+     * rider pay is computed separately and never touched).
+     */
     private function revenue(int $sellerId, array $statuses, $from = null, $to = null): float
     {
-        $query = DB::table('order_items')
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->where('order_items.seller_id', $sellerId)
-            ->whereIn('orders.status', $statuses);
+        $orders = Order::with(['items', 'orderVouchers'])
+            ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
+            ->whereIn('status', $statuses)
+            ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
+            ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
+            ->get();
 
-        if ($from) {
-            $query->where('orders.created_at', '>=', $from);
-        }
-
-        if ($to) {
-            $query->where('orders.created_at', '<=', $to);
-        }
-
-        return (float) $query->sum('order_items.subtotal');
+        return round($orders->sum(fn ($o) => $o->sellerNetForSeller($sellerId)), 2);
     }
 
     private function salesSeries(int $sellerId, int $days): array
     {
+        $from = today()->subDays($days - 1)->startOfDay();
+        $orders = Order::with(['items', 'orderVouchers'])
+            ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
+            ->where('status', 'delivered')
+            ->where('created_at', '>=', $from)
+            ->get();
+
+        $byDay = [];
+        foreach ($orders as $order) {
+            $key = $order->created_at->toDateString();
+            $byDay[$key] = ($byDay[$key] ?? 0) + $order->sellerNetForSeller($sellerId);
+        }
+
         $labels = [];
         $values = [];
-
         for ($i = $days - 1; $i >= 0; $i--) {
             $day = today()->subDays($i);
-            $total = DB::table('order_items')
-                ->join('orders', 'orders.id', '=', 'order_items.order_id')
-                ->where('order_items.seller_id', $sellerId)
-                ->where('orders.status', 'delivered')
-                ->whereDate('orders.created_at', $day->toDateString())
-                ->sum('order_items.subtotal');
-
             $labels[] = $day->format('M j');
-            $values[] = round((float) $total, 2);
+            $values[] = round((float) ($byDay[$day->toDateString()] ?? 0), 2);
         }
 
         return ['labels' => $labels, 'values' => $values];
+    }
+
+    /** Net sales for one product (voucher share apportioned per order). */
+    private function productNetSales(int $sellerId, int $productId, array $statuses): float
+    {
+        $orders = Order::with(['items', 'orderVouchers'])
+            ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId)->where('product_id', $productId))
+            ->whereIn('status', $statuses)
+            ->get();
+
+        $net = 0.0;
+        foreach ($orders as $order) {
+            $orderSubtotal = $order->itemsSubtotal();
+            if ($orderSubtotal <= 0) {
+                continue;
+            }
+            $share = min(1, $order->voucherDiscountTotal() / $orderSubtotal);
+            foreach ($order->items->where('seller_id', $sellerId)->where('product_id', $productId) as $item) {
+                $line = $item->lineTotal ?? ((float) ($item->unit_price ?? $item->price ?? 0)) * ((int) ($item->quantity ?? 0));
+                $net += $line * (1 - $share);
+            }
+        }
+
+        return round($net, 2);
     }
 
     private function syncNotifications(int $sellerId): void
@@ -168,6 +201,15 @@ class DashboardController extends Controller
                 'title'      => 'New customer review',
                 'body'       => "{$review->buyer->full_name} rated {$review->product->name} {$review->rating}/5.",
             ]);
+        }
+
+        // Backstop: anything already at/below its alert level gets one
+        // unread low-stock alert (deduped inside checkLowStock).
+        $lowProducts = Product::forSeller($sellerId)->where('status', '!=', 'inactive')
+            ->whereRaw('stock <= COALESCE(low_stock_threshold, 5)')
+            ->limit(50)->get(['id']);
+        foreach ($lowProducts as $lowProduct) {
+            \App\Support\Stock::checkLowStock($lowProduct->id);
         }
     }
 }

@@ -38,4 +38,30 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+        // Logging out with a stale/expired CSRF token (double-clicks,
+        // back-button resubmits, long-idle tabs) must never strand users on
+        // a 419 page: the intent is to end the session, so end it and send
+        // them to the matching login screen instead. NOTE: the handler
+        // converts TokenMismatchException to HttpException(419) before
+        // render callbacks run, so match on that.
+        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, Request $request) {
+            if ($e->getStatusCode() !== 419 || ! $request->isMethod('post')) {
+                return null;
+            }
+            if ($request->is('logistics/logout')) {
+                $target = '/logistics/login';
+            } elseif ($request->is('logout') || $request->is('admin/logout') || $request->is('seller/logout') || $request->is('buyer/logout')) {
+                $target = '/login';
+            } else {
+                return null;
+            }
+            try {
+                \Illuminate\Support\Facades\Auth::guard('web')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            } catch (\Throwable $ignored) {
+            }
+
+            return redirect($target)->with('error', 'Your session had expired, so you have been signed out. Please sign in again.');
+        });
     })->create();

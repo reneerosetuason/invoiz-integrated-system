@@ -105,7 +105,7 @@
                     return '';
                 }
             }">
-                <form method="POST" action="{{ url('/logistics/login') }}"
+                <form method="POST" action="/logistics/login"
                       class="bg-white rounded-2xl border border-gray-100 shadow-xl shadow-[#0E4A57]/10 p-5 sm:p-6"
                       x-on:submit="if (!email || !password || emailError || passwordError) { $event.preventDefault(); emailTouched = true; passwordTouched = true; } else { submitting = true }"
                       novalidate>

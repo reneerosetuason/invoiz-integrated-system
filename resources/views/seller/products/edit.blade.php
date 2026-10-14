@@ -64,6 +64,11 @@
                     <label class="field-label">Stock Quantity</label>
                     <input type="number" name="stock" min="0" value="{{ old('stock', $product->stock) }}" class="input" required>
                 </div>
+                <div>
+                    <label class="field-label">Low Stock Alert At</label>
+                    <input type="number" name="low_stock_threshold" min="0" max="1000000" value="{{ old('low_stock_threshold', $product->low_stock_threshold ?? 5) }}" class="input" placeholder="e.g. 10">
+                    <p class="mt-1 text-[11px] text-ink-light">Notify me when stock drops to this level.</p>
+                </div>
             </div>
         </div>
 

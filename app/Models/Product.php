@@ -31,6 +31,7 @@ class Product extends Model
         'compare_at_price',
         'cost_price',
         'stock',
+        'low_stock_threshold',
         'image',
         'rating',
     ];
@@ -40,8 +41,21 @@ class Product extends Model
         'compare_at_price' => 'float',
         'cost_price' => 'float',
         'stock' => 'integer',
+        'low_stock_threshold' => 'integer',
         'rating' => 'float',
     ];
+
+    /** Alert level for this product (seller-configurable, defaults to 5). */
+    public function lowStockThreshold(): int
+    {
+        return max(0, (int) ($this->low_stock_threshold ?? 5));
+    }
+
+    /** True when current base stock is at or below the alert level. */
+    public function isLowStock(): bool
+    {
+        return (int) $this->stock <= $this->lowStockThreshold();
+    }
 
     protected static function booted(): void
     {
@@ -75,6 +89,28 @@ class Product extends Model
             }
         }
         return null;
+    }
+
+    /**
+     * Analytics counters backing the admin product reports.
+     * Fire-and-forget: analytics must never break shopping.
+     */
+    public function trackView(): void
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('products', 'views_count')) {
+                $this->increment('views_count');
+            }
+        } catch (\Throwable $e) {}
+    }
+
+    public function trackCartAddition(): void
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('products', 'cart_additions')) {
+                $this->increment('cart_additions');
+            }
+        } catch (\Throwable $e) {}
     }
 
     /** Discount % from compare_at_price, for deal badges. */

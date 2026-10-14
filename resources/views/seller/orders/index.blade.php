@@ -56,7 +56,7 @@
                             <div class="font-semibold">{{ $order->seller_items->sum('quantity') }}</div>
                             <div class="text-[11px] text-ink-light">{{ $order->seller_items->count() }} line(s)</div>
                         </td>
-                        <td class="font-bold">{{ peso($order->seller_subtotal) }}</td>
+                        <td class="font-bold">{{ peso($order->seller_net ?? $order->seller_subtotal) }}@if((($order->seller_discount ?? 0) + ($order->seller_shipping_waived ?? 0)) > 0)<div class="text-[11px] font-semibold text-successc">−{{ peso(($order->seller_discount ?? 0) + ($order->seller_shipping_waived ?? 0)) }} voucher</div>@endif</td>
                         <td><span class="badge badge-{{ $order->status }}">{{ order_status_label($order->status) }}</span></td>
                         <td class="text-ink-light">{{ $order->created_at->format('M j, g:i A') }}</td>
                         <td class="text-right">

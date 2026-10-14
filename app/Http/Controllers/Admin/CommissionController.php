@@ -30,21 +30,45 @@ class CommissionController extends Controller
         // ------------------------------------------------------------------
         // Commission per seller (+ payout status)
         // ------------------------------------------------------------------
-        $sellerCommissions = Order::where('payment_status', 'paid')
-            ->join('sellers', 'orders.seller_id', '=', 'sellers.id')
-            ->selectRaw('sellers.id as seller_id, sellers.store_name,
-                         SUM(orders.sub_total) as total_sales,
-                         SUM(orders.commission_amount) as total_commission')
-            ->groupBy('sellers.id', 'sellers.store_name')
-            ->orderByDesc('total_commission')
-            ->get()
-            ->map(function ($row) {
-                $row->payouts_pending = SellerPayout::where('seller_id', $row->seller_id)
-                    ->whereIn('status', ['pending', 'processing'])->sum('amount');
-                $row->payouts_paid = SellerPayout::where('seller_id', $row->seller_id)
-                    ->where('status', 'paid')->sum('amount');
-                return $row;
-            });
+        // NOTE: orders.seller_id is NOT set by checkout, so joining on it
+        // always yields zero rows. Attribute via order_items.seller_id
+        // instead, using the canonical per-seller split (gross sales,
+        // commission on net merch, absorbed voucher share).
+        $paidForSellers = Order::with(['items', 'orderVouchers.voucher'])
+            ->where('payment_status', 'paid')
+            ->when($request->filled('from'), fn ($q) => $q->whereDate('created_at', '>=', $request->from))
+            ->when($request->filled('to'), fn ($q) => $q->whereDate('created_at', '<=', $request->to))
+            ->get();
+        $perSeller = [];
+        foreach ($paidForSellers as $po) {
+            foreach (\App\Support\Payments::splitForSellers($po) as $sid => $share) {
+                $sid = (int) $sid;
+                if (! isset($perSeller[$sid])) {
+                    $perSeller[$sid] = ['sales' => 0.0, 'commission' => 0.0, 'absorbed' => 0.0];
+                }
+                $perSeller[$sid]['sales'] += $share['merch'] + $po->voucherDiscountForSeller($sid);
+                $perSeller[$sid]['commission'] += $share['commission'];
+                $perSeller[$sid]['absorbed'] += $share['waived'] + $po->voucherDiscountForSeller($sid);
+            }
+        }
+        $sellerCommissions = collect($perSeller)
+            ->map(function ($agg, $sid) {
+                $sellerRow = Seller::where('user_id', $sid)->first();
+                $catalogIds = $sellerRow ? $sellerRow->catalogIds() : [$sid];
+                return (object) [
+                    'seller_id'       => $sellerRow ? $sellerRow->id : $sid,
+                    'store_name'      => $sellerRow ? $sellerRow->display_name : Seller::nameFor($sid),
+                    'total_sales'     => round($agg['sales'], 2),
+                    'total_commission'=> round($agg['commission'], 2),
+                    'absorbed'        => round($agg['absorbed'], 2),
+                    'payouts_pending' => (float) SellerPayout::whereIn('seller_id', $catalogIds)
+                        ->whereIn('status', ['pending', 'processing'])->sum('amount'),
+                    'payouts_paid'    => (float) SellerPayout::whereIn('seller_id', $catalogIds)
+                        ->where('status', 'paid')->sum('amount'),
+                ];
+            })
+            ->sortByDesc('total_commission')
+            ->values();
 
         // ------------------------------------------------------------------
         // Commission per order (recent paid orders)

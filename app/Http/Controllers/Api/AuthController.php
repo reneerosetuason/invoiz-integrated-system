@@ -70,6 +70,11 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid email or password.'], 401);
         }
 
+        // Logistics accounts have their own dedicated login page / API.
+        if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
+            return response()->json(['message' => 'Logistics accounts must use the Logistics login page.'], 403);
+        }
+
         if ($user->approval_status === 'pending') {
             return response()->json([
                 'message' => 'Your account is still pending approval. Please wait for the administrator.',

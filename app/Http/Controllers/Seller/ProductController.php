@@ -34,7 +34,7 @@ class ProductController extends Controller
         }
 
         if ($request->filled('low_stock')) {
-            $query->where('stock', '<=', 5);
+            $query->whereRaw('stock <= COALESCE(low_stock_threshold, 5)');
         }
 
         $products = $query->latest()->get();
@@ -64,6 +64,7 @@ class ProductController extends Controller
             'price'        => ['required', 'numeric', 'min:0'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
             'stock'        => ['required', 'integer', 'min:0'],
+            'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'weight'       => ['nullable', 'string', 'max:50'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
             'image'        => ['nullable', 'image', 'max:5120'],
@@ -71,6 +72,7 @@ class ProductController extends Controller
         ]);
 
         $validated['seller_id'] = auth()->id();
+        $validated['low_stock_threshold'] ??= 5;
 
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
@@ -83,6 +85,8 @@ class ProductController extends Controller
 
             return $product;
         });
+
+        \App\Support\Stock::checkLowStock($product->id);
 
         return redirect()->route('seller.products.edit', $product->id)
             ->with('success', 'Product added successfully.');
@@ -110,11 +114,14 @@ class ProductController extends Controller
             'price'        => ['required', 'numeric', 'min:0'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
             'stock'        => ['required', 'integer', 'min:0'],
+            'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'weight'       => ['nullable', 'string', 'max:50'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
             'image'        => ['nullable', 'image', 'max:5120'],
             'status'       => ['required', 'in:active,inactive,out_of_stock'],
         ]);
+
+        $validated['low_stock_threshold'] ??= 5;
 
         if ($request->hasFile('image')) {
             if ($product->image) {
@@ -127,6 +134,13 @@ class ProductController extends Controller
             $product->update($validated);
             $this->saveVariants($product, $request);
         });
+
+        // Alert (or resolve) based on the new stock / alert level,
+        // including per-variation stock.
+        \App\Support\Stock::checkLowStock($product->id);
+        foreach ($product->variants()->get(['id']) as $variant) {
+            \App\Support\Stock::checkLowStock($product->id, $variant->id);
+        }
 
         return back()->with('success', 'Product updated successfully.');
     }

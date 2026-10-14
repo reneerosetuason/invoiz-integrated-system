@@ -16,6 +16,7 @@ use App\Models\Review;
 use App\Models\Voucher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Shipping;
 
 class OrderController extends Controller
 {
@@ -82,42 +83,42 @@ class OrderController extends Controller
             ];
         }
 
-        // Voucher / discount calculation.
+        // Shipping: flat fee once per seller group (never per item).
+        // The rider earns it once per delivery; vouchers never touch it.
+        $groupIds = Shipping::groups(array_column($lineItems, 'seller_id'));
+        $shippingTotal = Shipping::totalForGroups($groupIds);
+
+        // Voucher / discount calculation (merchandise and/or free shipping).
         $discount = 0.00;
+        $waived = [];
         $voucher = null;
         if (! empty($validated['voucher_code'])) {
             $voucher = Voucher::active()->where('code', $validated['voucher_code'])->first();
             if (! $voucher) {
                 return response()->json(['message' => 'Invalid or expired voucher code.'], 422);
             }
-            if ($subtotal < $voucher->min_spend) {
-                return response()->json([
-                    'message' => "This voucher requires a minimum spend of ₱{$voucher->min_spend}.",
-                ], 422);
+            $resolved = Shipping::resolveVoucher($voucher, $subtotal, $groupIds);
+            if ($resolved['error']) {
+                return response()->json(['message' => $resolved['error']], 422);
             }
-            if ($voucher->discount_type === 'fixed') {
-                $discount = $voucher->discount_value;
-            } else {
-                $discount = round($subtotal * $voucher->discount_value / 100, 2);
-                if ($voucher->max_discount && $discount > $voucher->max_discount) {
-                    $discount = $voucher->max_discount;
-                }
-            }
-            if ($discount > $subtotal) {
-                $discount = $subtotal;
-            }
+            $discount = $resolved['merch'];
+            $waived = $resolved['waived'];
         }
+        $waivedTotal = round(array_sum($waived), 2);
 
-        $total = round($subtotal - $discount, 2);
+        $total = round($subtotal - $discount + $shippingTotal - $waivedTotal, 2);
 
         try {
-            $order = DB::transaction(function () use ($user, $address, $cart, $lineItems, $subtotal, $discount, $total, $voucher, $validated) {
+            $order = DB::transaction(function () use ($user, $address, $cart, $lineItems, $subtotal, $discount, $shippingTotal, $waivedTotal, $total, $voucher, $validated, $groupIds) {
                 $order = Order::create([
-                    'buyer_id'     => $user->id,
-                    'address_id'   => $address->id,
-                    'total_amount' => $total,
-                    'status'       => 'pending',
-                    'notes'        => $validated['notes'] ?? null,
+                    'buyer_id'       => $user->id,
+                    'address_id'     => $address->id,
+                    'total_amount'   => $total,
+                    'sub_total'      => $subtotal,
+                    'discount_total' => round($discount + $waivedTotal, 2),
+                    'shipping_fee'   => round($shippingTotal - $waivedTotal, 2),
+                    'status'         => 'pending',
+                    'notes'          => $validated['notes'] ?? null,
                 ]);
 
                 foreach ($lineItems as $li) {
@@ -131,7 +132,18 @@ class OrderController extends Controller
                     'amount'   => $total,
                 ]);
 
-                Delivery::create(['order_id' => $order->id]);
+                // Open the money ledger row (pending until delivery settles it).
+                \App\Support\Payments::recordCheckout($order);
+
+                // One delivery per seller group: the rider earns the flat
+                // fee once per delivery, independent of any voucher.
+                foreach ($groupIds as $sid) {
+                    Delivery::create([
+                        'order_id'     => $order->id,
+                        'status'       => 'waiting_for_rider',
+                        'delivery_fee' => Order::SHIPPING_FEE_PER_SELLER,
+                    ]);
+                }
 
                 OrderStatusHistory::create([
                     'order_id'   => $order->id,
@@ -144,7 +156,7 @@ class OrderController extends Controller
                     OrderVoucher::create([
                         'order_id'        => $order->id,
                         'voucher_id'      => $voucher->id,
-                        'discount_amount' => $discount,
+                        'discount_amount' => round($discount + $waivedTotal, 2),
                     ]);
                     $voucher->increment('used_count');
                 }

@@ -38,7 +38,12 @@
                                 @if($voucher->description)<div class="max-w-[260px] truncate text-[11px] text-ink-light">{{ $voucher->description }}</div>@endif
                             </td>
                             <td class="font-semibold">
-                                {{ $voucher->discount_type === 'percent' ? $voucher->discount_value.'%' : peso($voucher->discount_value) }}
+                                @if($voucher->discount_type === 'free_shipping')
+                                    Free shipping
+                                    <div class="text-[11px] font-normal text-ink-light">covers up to {{ peso($voucher->discount_value > 0 ? $voucher->discount_value : \App\Models\Order::SHIPPING_FEE_PER_SELLER) }} · you absorb it</div>
+                                @else
+                                    {{ $voucher->discount_type === 'percent' ? $voucher->discount_value.'%' : peso($voucher->discount_value) }}
+                                @endif
                                 @if($voucher->discount_type === 'percent' && $voucher->max_discount)
                                     <div class="text-[11px] font-normal text-ink-light">up to {{ peso($voucher->max_discount) }}</div>
                                 @endif

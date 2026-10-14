@@ -22,6 +22,11 @@ class AdminAuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
+            // Logistics accounts have their own dedicated login page.
+            if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
+                Auth::logout();
+                return back()->withErrors(['email' => 'Logistics accounts must use the Logistics login page.']);
+            }
             if (! $user->is_admin) {
                 Auth::logout();
                 return back()->withErrors(['email' => 'Not authorized as admin']);
