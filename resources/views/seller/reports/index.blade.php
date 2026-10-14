@@ -39,7 +39,7 @@
         <div class="flex items-center gap-3">
             <div class="stat-icon" style="background:#E6F4EC;color:#2E8B57;"><x-icon name="dollar" class="h-5 w-5"/></div>
             <div>
-                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-light">Revenue (net of vouchers)</div>
+                <div class="text-[11px] font-bold uppercase tracking-wider text-ink-light">Revenue (confirmed sales)</div>
                 <div class="text-lg font-extrabold">{{ peso($summary['revenue']) }}</div>
             </div>
         </div>

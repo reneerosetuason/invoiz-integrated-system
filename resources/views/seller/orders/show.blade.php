@@ -138,6 +138,9 @@
                     <span class="font-extrabold">{{ peso($order->seller_net ?? $order->seller_subtotal) }}</span>
                 </div>
                 <p class="mt-1 text-right text-[11px] text-ink-light">Buyer paid {{ peso($order->total_amount) }} in total · rider pay is unaffected by vouchers.</p>
+                @if($order->status === 'delivered' && $order->payment_status !== 'paid')
+                    <p class="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-right text-[11px] font-semibold text-amber-800">Awaiting your cash confirmation — not counted in earnings yet. Confirm it under Remittances.</p>
+                @endif
             </div>
         </div>
 

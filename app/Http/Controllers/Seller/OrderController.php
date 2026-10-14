@@ -38,7 +38,8 @@ class OrderController extends Controller
             $query->where('status', $status);
         }
 
-        $orders = $query->get()->map(function (Order $order) use ($sellerId) {
+        $orders = $query->paginate(10);
+        $orders->setCollection($orders->getCollection()->map(function (Order $order) use ($sellerId) {
             $order->seller_items = $order->items->where('seller_id', $sellerId)->values();
             $order->seller_subtotal = round($order->seller_items->sum('subtotal'), 2);
             // Costs absorbed by this seller (pro-rata voucher share + waived
@@ -48,7 +49,7 @@ class OrderController extends Controller
             $order->seller_net = $order->sellerNetForSeller($sellerId);
 
             return $order;
-        });
+        }));
 
         $counts = [
             'all'               => Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))->count(),
@@ -224,16 +225,10 @@ class OrderController extends Controller
                 'delivered_at' => now(),
             ]);
 
-            if ($order->payment) {
-                $order->payment->update([
-                    'status'  => 'paid',
-                    'paid_at' => now(),
-                ]);
-            }
-            // COD cash is in: flip the order flag and settle the ledger
-            // (seller earning + platform commission + rider fee = total).
-            $order->update(['payment_status' => 'paid']);
-            \App\Support\Payments::settleForDelivery($order);
+            // Cash is with the rider now, NOT the seller yet: open the
+            // handoff record instead of settling. The sale books (payment
+            // paid, ledger split) only after the seller confirms receipt.
+            \App\Support\Remittances::ensureForOrder($order->fresh(['items', 'orderVouchers.voucher', 'deliveries']));
         }
     }
 

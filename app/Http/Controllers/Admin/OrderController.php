@@ -29,7 +29,7 @@ class OrderController extends Controller
             $query->where('status', $request->status);
         }
 
-        $orders = $query->withCount('items')->orderBy('created_at', 'desc')->get();
+        $orders = $query->withCount('items')->orderBy('created_at', 'desc')->paginate(10);
         $stats = [
             'all' => Order::count(),
             'new' => Order::whereIn('status', ['new','pending'])->count(),

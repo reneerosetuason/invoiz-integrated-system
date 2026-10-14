@@ -21,7 +21,11 @@ class DashboardController extends Controller
 
         $orders = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId));
 
+        $remittanceKeys = \App\Support\Remittances::sellerKeys($sellerId);
         $totals = [
+            'remittance_pending' => (int) \App\Models\Remittance::whereIn('seller_id', $remittanceKeys)->whereIn('status', ['pending', 'sent'])->count(),
+            'remittance_amount'  => round(\App\Models\Remittance::whereIn('seller_id', $remittanceKeys)->whereIn('status', ['pending', 'sent'])->sum('amount'), 2),
+            'remittance_confirmed' => round(\App\Models\Remittance::whereIn('seller_id', $remittanceKeys)->where('status', 'confirmed')->sum('amount'), 2),
             'orders'        => (clone $orders)->count(),
             'pending'       => (clone $orders)->whereIn('status', ['pending', 'confirmed'])->count(),
             'to_ship'       => (clone $orders)->whereIn('status', ['processing', 'ready_for_delivery'])->count(),
@@ -43,12 +47,14 @@ class DashboardController extends Controller
             ->pluck('total', 'status')
             ->toArray();
 
-        // Top 5 products by units sold (sales shown net of absorbed vouchers).
-        $topStatuses = ['delivered', 'out_for_delivery', 'ready_for_delivery'];
+        // Top 5 products by units sold, settled sales only (seller must
+        // have confirmed the cash handoff for it to count as earnings).
+        $topStatuses = ['delivered'];
         $topProducts = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->where('order_items.seller_id', $sellerId)
             ->whereIn('orders.status', $topStatuses)
+            ->where('orders.payment_status', 'paid')
             ->select('order_items.product_id', 'order_items.product_name', DB::raw('SUM(order_items.quantity) as units'), DB::raw('SUM(order_items.subtotal) as sales'))
             ->groupBy('order_items.product_id', 'order_items.product_name')
             ->orderByDesc('units')
@@ -64,6 +70,15 @@ class DashboardController extends Controller
             ->latest()
             ->limit(8)
             ->get();
+
+        // Shopper interest: most viewed + most added to cart, so the
+        // seller sees what to stock more of (tracked on page views / adds).
+        $mostViewed = Product::forSeller($sellerId)->where('status', '!=', 'inactive')
+            ->orderByDesc('views_count')->orderByDesc('id')->limit(5)
+            ->get(['id', 'name', 'views_count']);
+        $mostAdded = Product::forSeller($sellerId)->where('status', '!=', 'inactive')
+            ->orderByDesc('cart_additions')->orderByDesc('id')->limit(5)
+            ->get(['id', 'name', 'cart_additions']);
 
         $notifications = \App\Models\SellerNotification::forSeller($sellerId)
             ->latest()
@@ -82,6 +97,8 @@ class DashboardController extends Controller
             'recentOrders',
             'notifications',
             'unreadNotifications',
+            'mostViewed',
+            'mostAdded',
         ));
     }
 
@@ -92,9 +109,12 @@ class DashboardController extends Controller
      */
     private function revenue(int $sellerId, array $statuses, $from = null, $to = null): float
     {
+        // Earnings record only SETTLED sales: the seller must have confirmed
+        // the rider's cash handoff (payment_status paid) first.
         $orders = Order::with(['items', 'orderVouchers'])
             ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
             ->whereIn('status', $statuses)
+            ->where('payment_status', 'paid')
             ->when($from, fn ($q) => $q->where('created_at', '>=', $from))
             ->when($to, fn ($q) => $q->where('created_at', '<=', $to))
             ->get();
@@ -108,6 +128,7 @@ class DashboardController extends Controller
         $orders = Order::with(['items', 'orderVouchers'])
             ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
             ->where('status', 'delivered')
+            ->where('payment_status', 'paid')
             ->where('created_at', '>=', $from)
             ->get();
 
@@ -128,12 +149,16 @@ class DashboardController extends Controller
         return ['labels' => $labels, 'values' => $values];
     }
 
-    /** Net sales for one product (voucher share apportioned per order). */
+    /**
+     * Net sales for one product: merchandise share minus the line's
+     * pro-rata part of absorbed shipping + logistics fee.
+     */
     private function productNetSales(int $sellerId, int $productId, array $statuses): float
     {
-        $orders = Order::with(['items', 'orderVouchers'])
+        $orders = Order::with(['items', 'orderVouchers.voucher'])
             ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId)->where('product_id', $productId))
             ->whereIn('status', $statuses)
+            ->where('payment_status', 'paid')
             ->get();
 
         $net = 0.0;
@@ -143,13 +168,18 @@ class DashboardController extends Controller
                 continue;
             }
             $share = min(1, $order->voucherDiscountTotal() / $orderSubtotal);
+            $sellerSub = $order->sellerSubtotal($sellerId);
+            if ($sellerSub <= 0) {
+                continue;
+            }
+            $extra = $order->shippingWaivedForSeller($sellerId) + $order->logisticsFeeForSeller($sellerId);
             foreach ($order->items->where('seller_id', $sellerId)->where('product_id', $productId) as $item) {
                 $line = $item->lineTotal ?? ((float) ($item->unit_price ?? $item->price ?? 0)) * ((int) ($item->quantity ?? 0));
-                $net += $line * (1 - $share);
+                $net += $line * (1 - $share) - $extra * $line / $sellerSub;
             }
         }
 
-        return round($net, 2);
+        return round(max(0, $net), 2);
     }
 
     private function syncNotifications(int $sellerId): void

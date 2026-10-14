@@ -99,14 +99,8 @@
                     </tbody>
                 </table>
             </div>
-            @if($staff->total() > 0)
-                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <p class="text-xs text-gray-500">Showing {{ $staff->firstItem() }}–{{ $staff->lastItem() }} of {{ $staff->total() }} staff</p>
-                    <p class="text-xs text-gray-400">Page {{ $staff->currentPage() }} of {{ $staff->lastPage() }}</p>
-                </div>
-            @endif
         </div>
 
-        <div class="mt-6">{{ $staff->links() }}</div>
+        @include('admin.partials.pager', ['paginator' => $staff])
     </div>
 </x-app-layout>

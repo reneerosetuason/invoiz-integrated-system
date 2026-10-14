@@ -168,5 +168,6 @@
       </div>
     @endforeach
   @endif
+  @include('admin.partials.pager', ['paginator' => $products])
 </div>
 @endsection

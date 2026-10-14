@@ -25,7 +25,7 @@ class TransactionController extends Controller
         $query = Transaction::with(['delivery', 'rider', 'logisticsCenter', 'serviceArea']);
 
         $user = Auth::user();
-        if ($user->isStaff() && $user->center_id) {
+        if ($user && $user->isLogisticsStaff() && $user->center_id) {
             $query->where('logistics_center_id', $user->center_id);
         }
 
@@ -59,6 +59,7 @@ class TransactionController extends Controller
             COUNT(*) as total_count,
             COALESCE(SUM(amount), 0) as total_amount,
             COALESCE(SUM(rider_fee), 0) as total_rider_fee,
+            COALESCE(SUM(logistics_fee), 0) as total_logistics_fee,
             COALESCE(SUM(admin_commission), 0) as total_commission
         ')->first();
 
@@ -81,9 +82,11 @@ class TransactionController extends Controller
                 return;
             }
 
-            $amount = (float) ($delivery->delivery_fee ?? 0);
-            $riderFee = Transaction::RIDER_FEE_PER_PARCEL;
-            $commission = round($amount * Transaction::ADMIN_COMMISSION_RATE, 2);
+            // Approved money rule per delivery: flat ₱50 rider payout +
+            // flat ₱15 logistics operations fee. The platform's 10% lives
+            // ONLY on payment_transactions (merchandise-based) so the
+            // seller is never double-charged.
+            $amount = (float) ($delivery->delivery_fee ?? \App\Models\Order::SHIPPING_FEE_PER_SELLER);
 
             Transaction::create([
                 'delivery_id' => $delivery->id,
@@ -92,8 +95,9 @@ class TransactionController extends Controller
                 'logistics_center_id' => $delivery->center_id,
                 'service_area_id' => $delivery->service_area_id,
                 'amount' => $amount,
-                'rider_fee' => $riderFee,
-                'admin_commission' => $commission,
+                'rider_fee' => $amount,
+                'logistics_fee' => \App\Models\Order::LOGISTICS_FEE_PER_DELIVERY,
+                'admin_commission' => 0,
                 'status' => 'completed',
             ]);
         });

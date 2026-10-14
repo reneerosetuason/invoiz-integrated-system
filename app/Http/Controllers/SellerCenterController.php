@@ -622,7 +622,7 @@ class SellerCenterController extends Controller
         $reviews = \App\Models\Review::with(['product', 'buyer'])
             ->whereHas('product', fn ($q) => $q->whereIn('seller_id', $ids))
             ->latest()
-            ->paginate(15);
+            ->paginate(10);
         $reviews->getCollection()->each(fn ($r) => $r->setAttribute('review', $r->review ?? $r->comment));
 
         $allRatings = \App\Models\Review::whereHas('product', fn ($q) => $q->whereIn('seller_id', $ids))->pluck('rating');
@@ -783,7 +783,7 @@ class SellerCenterController extends Controller
     {
         $notifications = \App\Models\SellerNotification::forSeller(Auth::id())
             ->latest()
-            ->paginate(30);
+            ->paginate(10);
 
         return $this->page(compact('notifications'), 'notifications', 'Notifications');
     }

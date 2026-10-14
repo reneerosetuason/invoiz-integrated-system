@@ -28,8 +28,8 @@ class ProductController extends Controller
             });
         }
 
-        $products = $query->orderBy('created_at', 'desc')->get();
-        $grouped = $products->groupBy(function ($p) { return $p->category->name ?? 'Uncategorized'; })->sortKeys();
+        $products = $query->orderBy('created_at', 'desc')->paginate(10);
+        $grouped = $products->getCollection()->groupBy(function ($p) { return $p->category->name ?? 'Uncategorized'; })->sortKeys();
         // Stats split: shop-visible (approved sellers) vs needing attention.
         $categories = \App\Models\Category::withCount(['products' => function ($q) {
             $q->whereHas('seller', fn ($qq) => $qq->approved());

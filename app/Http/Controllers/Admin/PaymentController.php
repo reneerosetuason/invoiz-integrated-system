@@ -3,11 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
-use App\Models\PaymentDispute;
 use App\Models\PaymentTransaction;
-use App\Models\SellerPayout;
-use App\Models\WithdrawalRequest;
 use Illuminate\Http\Request;
 
 class PaymentController extends Controller
@@ -35,110 +31,12 @@ class PaymentController extends Controller
         ];
 
         $status = $request->query('status');
-        $transactions = (clone $txQuery)->orderByDesc('created_at')->get();
+        // Stat cards stay global; the list honors the status pill server-side
+        // (the old client-side row filter only saw the current page).
+        $transactions = (clone $txQuery)
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->orderByDesc('created_at')->paginate(10, ['*'], 'tx_page');
 
-        $payouts = SellerPayout::with('seller')->orderByDesc('created_at')->get();
-        $payoutStats = [
-            'paid_total' => (clone $payouts)->where('status', 'paid')->sum('amount'),
-            'pending_total' => (clone $payouts)->where('status', 'pending')->sum('amount'),
-        ];
-
-        $withdrawals = WithdrawalRequest::with('seller')->orderByDesc('created_at')->get();
-
-        $disputes = PaymentDispute::with('order', 'buyer', 'seller')->orderByDesc('created_at')->get();
-
-        return view('admin.payments', compact(
-            'stats', 'transactions', 'status', 'payouts', 'payoutStats', 'withdrawals', 'disputes'
-        ));
-    }
-
-    public function markPayoutPaid(Request $request, SellerPayout $payout)
-    {
-        $payout->status = 'paid';
-        $payout->paid_at = now();
-        $payout->reference = $payout->reference ?: 'PAYOUT-' . str_pad($payout->id, 4, '0', STR_PAD_LEFT);
-        $payout->save();
-
-        return redirect()->back()->with('status', "Payout of ₱" . number_format($payout->amount, 2) . " marked as paid.");
-    }
-
-    public function approveWithdrawal(Request $request, WithdrawalRequest $withdrawal)
-    {
-        // Never approve more than the seller has actually earned (settled
-        // ledger earnings minus already committed payouts/withdrawals).
-        try {
-            $sellerUserId = optional($withdrawal->seller)->user_id;
-            if ($sellerUserId) {
-                $available = \App\Support\Payments::availableBalanceForUser((int) $sellerUserId);
-                if ((float) $withdrawal->amount > $available + 0.005) {
-                    return redirect()->back()->with('status', 'Cannot approve: requested ₱' . number_format((float) $withdrawal->amount, 2) . ' exceeds the seller\'s available balance of ₱' . number_format($available, 2) . '.');
-                }
-            }
-        } catch (\Throwable $e) {
-            \Log::warning('Withdrawal balance check failed: ' . $e->getMessage());
-        }
-
-        $withdrawal->status = 'approved';
-        $withdrawal->processed_at = now();
-        $withdrawal->save();
-
-        SellerPayout::create([
-            'seller_id' => $withdrawal->seller_id,
-            'amount' => $withdrawal->amount,
-            'status' => 'pending',
-            'method' => $withdrawal->method,
-        ]);
-
-        return redirect()->back()->with('status', 'Withdrawal approved and queued for payout.');
-    }
-
-    public function rejectWithdrawal(Request $request, WithdrawalRequest $withdrawal)
-    {
-        $withdrawal->status = 'rejected';
-        $withdrawal->processed_at = now();
-        $withdrawal->note = $request->input('reason', $withdrawal->note);
-        $withdrawal->save();
-
-        return redirect()->back()->with('status', 'Withdrawal request rejected.');
-    }
-
-    public function resolveDispute(Request $request, PaymentDispute $dispute)
-    {
-        $request->validate([
-            'resolution' => 'required|in:refund_buyer,reject_claim,under_review',
-        ]);
-
-        if ($request->resolution === 'under_review') {
-            $dispute->status = 'under_review';
-        } elseif ($request->resolution === 'reject_claim') {
-            $dispute->status = 'rejected';
-            $dispute->resolved_at = now();
-        } else {
-            $dispute->status = 'resolved';
-            $dispute->resolved_at = now();
-
-            if ($dispute->order && $dispute->order->payment_status === 'paid') {
-                $dispute->order->payment_status = 'refunded';
-                $dispute->order->save();
-
-                if ($dispute->order->payment) {
-                    $dispute->order->payment->update(['status' => 'refunded']);
-                }
-
-                $tx = PaymentTransaction::where('order_id', $dispute->order_id)->first();
-                if ($tx) {
-                    $tx->status = 'refunded';
-                    $tx->refunded_amount = $tx->amount;
-                    $tx->seller_earning = 0;
-                    $tx->platform_commission = 0;
-                    $tx->save();
-                }
-            }
-        }
-
-        $dispute->resolution_note = $request->input('note', $dispute->resolution_note);
-        $dispute->save();
-
-        return redirect()->back()->with('status', 'Dispute updated.');
+        return view('admin.payments', compact('stats', 'transactions', 'status'));
     }
 }

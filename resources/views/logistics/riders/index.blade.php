@@ -181,19 +181,6 @@
             </table>
         </div>
 
-        @if($riders->count() > 0)
-            <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
-                <p class="text-xs text-gray-500">
-                    Showing <span class="font-semibold text-gray-700">{{ $riders->firstItem() }}–{{ $riders->lastItem() }}</span>
-                    of <span class="font-semibold text-gray-700">{{ $riders->total() }}</span> riders
-                </p>
-                <p class="text-xs text-gray-400">Page {{ $riders->currentPage() }} of {{ $riders->lastPage() }}</p>
-            </div>
-        @endif
-    </div>
-
-    {{-- Pagination --}}
-    <div class="mt-6">
-        {{ $riders->onEachSide(2)->links() }}
-    </div>
+        {{-- Pagination --}}
+        @include('admin.partials.pager', ['paginator' => $riders])
 </x-app-layout>

@@ -144,6 +144,7 @@
                 @endforelse
             </tbody>
         </table>
+        @include('admin.partials.pager', ['paginator' => $products])
     </div>
 </div>
 @endsection

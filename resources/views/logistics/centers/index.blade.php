@@ -89,14 +89,8 @@
                     </tbody>
                 </table>
             </div>
-            @if($centers->total() > 0)
-                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <p class="text-xs text-gray-500">Showing {{ $centers->firstItem() }}–{{ $centers->lastItem() }} of {{ $centers->total() }} centers</p>
-                    <p class="text-xs text-gray-400">Page {{ $centers->currentPage() }} of {{ $centers->lastPage() }}</p>
-                </div>
-            @endif
         </div>
 
-        <div class="mt-6">{{ $centers->links() }}</div>
+        @include('admin.partials.pager', ['paginator' => $centers])
     </div>
 </x-app-layout>

@@ -44,7 +44,7 @@
     <a href="{{ url('/') }}" style="display:inline-block;margin-top:14px;padding:9px 16px;background:var(--green);color:#fff;border-radius:999px;text-decoration:none;font-weight:700;font-size:13px">Shop now</a>
   </div>
 @else
-  <div style="color:var(--text3);font-size:12px;margin-bottom:12px">{{ $orders->count() }} order(s)</div>
+  <div style="color:var(--text3);font-size:12px;margin-bottom:12px">{{ $orders->total() }} order(s)</div>
   @foreach($orders as $o)
     @php
       [$pillLabel, $pillBg, $pillFg, $pillBd] = $pillFor($o->status);
@@ -92,5 +92,6 @@
       @endforeach
     </a>
   @endforeach
+  @include('admin.partials.pager', ['paginator' => $orders])
 @endif
 @endsection

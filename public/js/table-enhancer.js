@@ -90,27 +90,9 @@
     }
 
     function ensurePager(total) {
-      if (!pager) {
-        pager = document.createElement('div');
-        pager.className = 'tbl-pager';
-        pager.innerHTML =
-          '<button type="button" data-p="prev">\u2039 Prev</button>' +
-          '<span class="tbl-info"></span>' +
-          '<button type="button" data-p="next">Next \u203A</button>';
-        if (table.nextSibling) {
-          table.parentNode.insertBefore(pager, table.nextSibling);
-        } else {
-          table.parentNode.appendChild(pager);
-        }
-        pager.addEventListener('click', function (e) {
-          var b = e.target.closest('button');
-          if (!b) return;
-          if (b.dataset.p === 'prev') state.page = Math.max(1, state.page - 1);
-          if (b.dataset.p === 'next') state.page = Math.min(totalPagesFor(items.length), state.page + 1);
-          render();
-        });
-      }
-      pager.style.display = total > PAGE_SIZE ? 'flex' : 'none';
+      // Client-side paging disabled: server-side pagination owns paging now
+      // (a second pager bar used to appear above the server one).
+      if (pager) pager.style.display = 'none';
     }
 
     function render() {
@@ -135,8 +117,8 @@
       if (state.page > pages) state.page = pages;
       ensurePager(total);
 
-      var start = (state.page - 1) * PAGE_SIZE;
-      var slice = sorted.slice(start, start + PAGE_SIZE);
+      var start = 0;
+      var slice = sorted;
 
       Array.prototype.slice.call(tbody.rows).forEach(function (tr) { tbody.removeChild(tr); });
       slice.forEach(function (it) { tbody.appendChild(it.tr); });

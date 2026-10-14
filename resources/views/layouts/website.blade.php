@@ -130,14 +130,10 @@
             }
           } catch (\Throwable $e) {}
         @endphp
-        @if($switchStore)
+        @if($switchStore && auth()->check() && auth()->user()->isBuyer())
           <a class="side-link" href="{{ url('/seller/dashboard') }}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 22V12h6v10"/></svg>
             Switch to Seller
-          </a>
-          <a class="side-link {{ request()->is('shop') ? 'active' : '' }}" href="{{ url('/shop') }}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-            Switch to Buyer
           </a>
         @endif
         <a class="side-link" href="{{ url('/logout') }}">

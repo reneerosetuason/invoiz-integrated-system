@@ -125,6 +125,7 @@
           @endforelse
         </tbody>
       </table>
+      @include('admin.partials.pager', ['paginator' => $categories])
       </div>
     </div>
 
@@ -165,11 +166,11 @@
     </div>
   </div>
 
-  @if($archived->count())
+  @if($archived->total())
   <div class="archived-card">
     <div class="archived-header">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-      <strong>Archived Categories ({{ $archived->count() }})</strong>
+      <strong>Archived Categories ({{ $archived->total() }})</strong>
       <span style="font-size:12px; color:#92400e; background:#fff; padding:3px 8px; border-radius:999px; border:1px solid #FDE68A; font-weight:600;">Hidden — can be restored anytime</span>
     </div>
     <p style="color:#92400e; font-size:12.5px; margin:10px 18px 0;">Archived categories are hidden from the store but never permanently deleted. Restore them anytime to bring back their products.</p>
@@ -207,13 +208,14 @@
       </tbody>
     </table>
     </div>
+    @include('admin.partials.pager', ['paginator' => $archived])
     </div>
   @endif
 </div>
 
 <script>
   (function(){
-    const cats = @json($categories->map(fn($c) => ['id' => $c->id, 'name' => $c->name])->values());
+    const cats = @json(($allCategories ?? collect())->map(fn($c) => ['id' => $c->id, 'name' => $c->name])->values());
     const input = document.getElementById('parentSearch');
     const hidden = document.getElementById('parentId');
     const dropdown = document.getElementById('parentDropdown');

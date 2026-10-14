@@ -7,12 +7,12 @@
   .dash-head h2{ font-size:20px; font-weight:800; margin:0; letter-spacing:-.4px; }
   .dash-head p{ font-size:13px; color:rgba(255,255,255,.85); margin:4px 0 0; }
   .dash-head .date{ background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.2); padding:8px 14px; border-radius:999px; font-size:12px; font-weight:600; backdrop-filter:blur(6px); }
-  .cards{ display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-bottom:18px; }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin-bottom:18px; }
   .sum-card{ background:#fff; border:1px solid #E5E7EB; border-radius:14px; padding:14px; position:relative; overflow:hidden; transition:transform .15s, box-shadow .15s; }
   .sum-card:hover{ transform:translateY(-3px); box-shadow:0 10px 24px rgba(16,24,40,.08); }
   .sum-card::before{ content:''; position:absolute; top:0; left:0; right:0; height:3px; }
   .sum-card:nth-child(1)::before{ background:#2E8B57; } .sum-card:nth-child(2)::before{ background:#16697A; } .sum-card:nth-child(3)::before{ background:#F59E0B; }
-  .sum-card:nth-child(4)::before{ background:#8B5CF6; } .sum-card:nth-child(5)::before{ background:#0E4A57; } .sum-card:nth-child(6)::before{ background:#F59E0B; }
+  .sum-card:nth-child(4)::before{ background:#8B5CF6; } .sum-card:nth-child(5)::before{ background:#0E4A57; } .sum-card:nth-child(6)::before{ background:#F59E0B; } .sum-card:nth-child(7)::before{ background:#2E8B57; }
   .sum-ico{ width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:10px; }
   .sum-ico svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.8; }
   .c-green{ background:#E6F5EE; color:#2E8B57; } .c-teal{ background:#E6F1F2; color:#16697A; } .c-orange{ background:#FEF3C7; color:#92400e; }
@@ -72,7 +72,13 @@
     <div class="sum-ico c-green"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 6.5C17 4.6 14.8 3 12 3S7 4.6 7 6.5c0 4.5 10 4 10 11 0 1.9-2.2 3.5-5 3.5s-5-1.6-5-3.5"/></svg></div>
     <div class="sum-label">Revenue</div>
     <div class="sum-value" style="color:#065F46;">₱{{ number_format($stats['revenue'], 2) }}</div>
-    <div class="sum-sub">Delivered orders · exact</div>
+    <div class="sum-sub">Settled sales · exact</div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-ico c-teal"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 6.5C17 4.6 14.8 3 12 3S7 4.6 7 6.5c0 4.5 10 4 10 11 0 1.9-2.2 3.5-5 3.5s-5-1.6-5-3.5"/></svg></div>
+    <div class="sum-label">Platform Cut</div>
+    <div class="sum-value" style="color:#065F46;">₱{{ number_format($stats['commission_earned'], 2) }}</div>
+    <div class="sum-sub">10% commission · logistics ₱{{ number_format($stats['logistics_earned'], 2) }}</div>
   </div>
   <div class="sum-card">
     <div class="sum-ico c-teal"><svg viewBox="0 0 24 24"><path d="M6 2h12l1 6H5l1-6Z"/><path d="M5 8h14l-1 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 8Z"/></svg></div>

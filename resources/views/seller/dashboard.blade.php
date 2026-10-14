@@ -9,11 +9,19 @@
         <div class="flex items-center gap-2.5">
             <div class="stat-icon" style="background:#E6F4EC;color:#2E8B57;"><x-icon name="dollar" class="h-4 w-4"/></div>
             <div>
-                <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Revenue (net of vouchers)</div>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Revenue (confirmed sales)</div>
                 <div class="text-base font-extrabold">{{ peso($totals['revenue']) }}</div>
             </div>
         </div>
         <div class="mt-1.5 text-[10px] text-ink-light">Today: <span class="font-semibold text-successc">{{ peso($totals['revenue_today']) }}</span></div>
+        <div class="mt-1 text-[10px] text-ink-light">
+            @if(($totals['remittance_pending'] ?? 0) > 0)
+                <a href="{{ route('seller.remittances.index') }}" class="font-semibold text-warnc hover:underline">Cash to confirm: {{ peso($totals['remittance_amount'] ?? 0) }}</a>
+            @else
+                <span class="font-semibold text-successc">Cash settled</span>
+            @endif
+            <span> · Confirmed: <a href="{{ route('seller.remittances.index') }}" class="font-semibold text-successc hover:underline">{{ peso($totals['remittance_confirmed'] ?? 0) }}</a></span>
+        </div>
     </div>
     <div class="stat-card">
         <div class="flex items-center gap-2.5">
@@ -157,6 +165,53 @@
             @empty
                 <p class="py-6 text-center text-xs text-ink-light">No sales yet.</p>
             @endforelse
+        </div>
+    </div>
+
+    <div class="card overflow-hidden xl:col-span-3">
+        <div class="px-4 pt-4 pb-2.5">
+            <h3 class="text-sm font-bold">What Shoppers Want</h3>
+            <p class="text-[11px] text-ink-light">Stock more of what gets attention</p>
+        </div>
+        <div class="grid gap-4 px-4 pb-4 md:grid-cols-2">
+            <div>
+                <div class="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-light">Most viewed</div>
+                @forelse($mostViewed->where('views_count', '>', 0) as $product)
+                    <div class="flex items-center gap-2.5 py-1">
+                        <div class="avatar h-8 w-8 text-[10px]">{{ strtoupper(substr($product->name, 0, 1)) }}</div>
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate text-xs font-semibold">{{ $product->name }}</div>
+                            <div class="text-[11px] text-ink-light">{{ number_format($product->views_count) }} views</div>
+                        </div>
+                        <div class="w-12">
+                            <div class="h-1.5 w-full overflow-hidden rounded-full" style="background:#F0EEE9;">
+                                <div class="h-full rounded-full" style="background:#F0A202;width:{{ $mostViewed->max('views_count') ? round($product->views_count / $mostViewed->max('views_count') * 100) : 0 }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-2 text-xs text-ink-light">No product views yet.</p>
+                @endforelse
+            </div>
+            <div>
+                <div class="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-ink-light">Most added to cart</div>
+                @forelse($mostAdded->where('cart_additions', '>', 0) as $product)
+                    <div class="flex items-center gap-2.5 py-1">
+                        <div class="avatar h-8 w-8 text-[10px]">{{ strtoupper(substr($product->name, 0, 1)) }}</div>
+                        <div class="min-w-0 flex-1">
+                            <div class="truncate text-xs font-semibold">{{ $product->name }}</div>
+                            <div class="text-[11px] text-ink-light">{{ number_format($product->cart_additions) }} adds</div>
+                        </div>
+                        <div class="w-12">
+                            <div class="h-1.5 w-full overflow-hidden rounded-full" style="background:#F0EEE9;">
+                                <div class="h-full rounded-full" style="background:#2E8B57;width:{{ $mostAdded->max('cart_additions') ? round($product->cart_additions / $mostAdded->max('cart_additions') * 100) : 0 }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <p class="py-2 text-xs text-ink-light">No cart additions yet.</p>
+                @endforelse
+            </div>
         </div>
     </div>
 </div>

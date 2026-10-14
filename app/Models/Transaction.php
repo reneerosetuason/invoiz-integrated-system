@@ -12,7 +12,7 @@ class Transaction extends Model
 
     protected $fillable = [
         'delivery_id', 'tracking_number', 'rider_id', 'logistics_center_id',
-        'service_area_id', 'amount', 'rider_fee', 'admin_commission', 'status',
+        'service_area_id', 'amount', 'rider_fee', 'logistics_fee', 'admin_commission', 'status',
     ];
 
     protected function casts(): array

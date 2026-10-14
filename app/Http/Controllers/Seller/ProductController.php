@@ -37,7 +37,7 @@ class ProductController extends Controller
             $query->whereRaw('stock <= COALESCE(low_stock_threshold, 5)');
         }
 
-        $products = $query->latest()->get();
+        $products = $query->latest()->paginate(10);
 
         $categories = Category::where('status', 'active')->orderBy('name')->get();
 

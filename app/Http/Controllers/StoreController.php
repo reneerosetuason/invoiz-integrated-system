@@ -16,7 +16,7 @@ class StoreController extends Controller
             $query->where('store_name', 'like', "%{$request->search}%");
         }
 
-        $stores = $query->paginate(20);
+        $stores = $query->paginate(10);
 
         return $stores->through(function ($seller) {
             return $this->storePayload($seller);

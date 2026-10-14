@@ -54,5 +54,6 @@
             @endforelse
         </tbody>
     </table>
+    @include('admin.partials.pager', ['paginator' => $riders])
 </div>
 @endsection

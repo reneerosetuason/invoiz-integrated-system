@@ -140,6 +140,7 @@ class OrderController extends Controller
                 foreach ($groupIds as $sid) {
                     Delivery::create([
                         'order_id'     => $order->id,
+                        'seller_id'    => $sid,
                         'status'       => 'waiting_for_rider',
                         'delivery_fee' => Order::SHIPPING_FEE_PER_SELLER,
                     ]);

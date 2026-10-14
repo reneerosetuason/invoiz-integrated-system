@@ -86,6 +86,9 @@
             <a href="{{ route('seller.orders.index') }}" title="Orders" class="{{ request()->routeIs('seller.orders.*') ? 'active' : '' }}">
                 <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label">Orders</span>
             </a>
+            <a href="{{ route('seller.remittances.index') }}" title="Cash Remittances" class="{{ request()->routeIs('seller.remittances.*') ? 'active' : '' }}">
+                <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label">Remittances</span>
+            </a>
 
             <div class="nav-section sb-hide-collapsed">Store</div>
             <a href="{{ route('seller.products.index') }}" title="Inventory" class="{{ request()->routeIs('seller.products.*') ? 'active' : '' }}">
@@ -113,9 +116,11 @@
             <a href="{{ route('seller.account') }}" title="Account Management" class="{{ request()->routeIs('seller.account') ? 'active' : '' }}">
                 <x-icon name="user" class="h-4 w-4 shrink-0" /><span class="sb-label">Account Management</span>
             </a>
+            @if(auth()->check() && auth()->user()->isBuyer())
             <a href="{{ url('/shop') }}" title="Switch to Buyer">
                 <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label">Switch to Buyer</span>
             </a>
+            @endif
 
             <div class="mt-4">
                 <form method="POST" action="{{ route('seller.logout') }}">

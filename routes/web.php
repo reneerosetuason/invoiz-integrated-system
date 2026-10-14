@@ -412,7 +412,7 @@ Route::post('/checkout', function(Request $request){
       if(! \App\Support\Stock::deduct($product->id, $variant?->id, $qty)) throw new \Exception('Not enough stock for "'.$product->name.'".');
       $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
       \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-      if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
+      if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $product->seller_id,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
       \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$product->id,'product_variant_id'=>$variant?->id,'seller_id'=>$product->seller_id,'product_name'=>$product->name,'variant_label'=>Cart::labelFor($variant),'quantity'=>$qty,'price'=>$unit,'unit_price'=>$unit,'total_price'=>$subtotal]);
       if ($voucher) {
         \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$voucher->id,'discount_amount'=>round($merch + $waived, 2)]);
@@ -441,8 +441,8 @@ Route::post('/checkout', function(Request $request){
       }
       $voucherConsumed = false;
       $voucherError = null;
-      $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [0 => $lines];
-      foreach($bySeller as $sLines){
+      $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [(int) $lines->first()['product']->seller_id => $lines];
+      foreach($bySeller as $groupSid => $sLines){
         foreach($sLines as $l){
           if(! \App\Support\Stock::deduct($l['product']->id, $l['variant']?->id, $l['qty'])) throw new \Exception('Not enough stock for "'.$l['product']->name.'".');
         }
@@ -466,7 +466,7 @@ Route::post('/checkout', function(Request $request){
         $total = round($subtotal - $merch + $shipping - $waived, 2);
         $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
         \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-        if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
+        if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $groupSid,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
         foreach($sLines as $l){
           \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$l['product']->id,'product_variant_id'=>$l['variant']?->id,'seller_id'=>$l['product']->seller_id,'product_name'=>$l['product']->name,'variant_label'=>$l['label'],'quantity'=>$l['qty'],'price'=>$l['unit'],'unit_price'=>$l['unit'],'total_price'=>$l['line']]);
           $l['item']->delete();
@@ -580,7 +580,7 @@ Route::get('/orders', function(Request $request){
     $needle = '%'.$request->input('q').'%';
     $q->whereHas('items', fn($iq) => $iq->where('product_name','like',$needle));
   }
-  $orders = $q->latest()->get();
+  $orders = $q->latest()->paginate(10);
   return view('orders',['orders'=>$orders,'activeTab'=>$tab,'q'=>$request->input('q','')]);
 })->name('orders');
 
@@ -671,7 +671,15 @@ Route::get('/notifications', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
   if (! class_exists(\App\Support\BuyerNotifications::class)) return view('notifications',['items'=>[]]);
-  $items = \App\Support\BuyerNotifications::for($buyer['id'], 30);
+  // Merged feed (orders + messages + resolutions): slice the current page
+  // manually so the full feed stays pageable.
+  $feed = \App\Support\BuyerNotifications::for($buyer['id'], 200);
+  $page = max(1, (int) $request->input('page', 1));
+  $per = 10;
+  $items = new \Illuminate\Pagination\LengthAwarePaginator(
+    $feed->forPage($page, $per)->values(), $feed->count(), $per, $page,
+    ['path' => $request->url(), 'query' => $request->query()]
+  );
   return view('notifications',['items'=>$items]);
 });
 
@@ -745,6 +753,11 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     Route::post('/orders/{order}/pickup', [SellerAppOrders::class, 'schedulePickup'])->name('seller.orders.pickup');
     Route::get('/orders/{order}/waybill', [SellerAppOrders::class, 'waybill'])->name('seller.orders.waybill');
 
+    // Cash handoffs: rider -> seller bank transfers the seller must verify
+    // before each sale settles.
+    Route::get('/remittances', [\App\Http\Controllers\Seller\RemittanceController::class, 'index'])->name('seller.remittances.index');
+    Route::post('/remittances/{remittance}/confirm', [\App\Http\Controllers\Seller\RemittanceController::class, 'confirm'])->name('seller.remittances.confirm');
+
     // Products
     Route::get('/products', [SellerAppProducts::class, 'index'])->name('seller.products.index');
     Route::get('/products/create', [SellerAppProducts::class, 'create'])->name('seller.products.create');
@@ -804,9 +817,18 @@ Route::prefix('buyer')->middleware('buyer')->group(function () {
 Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('dashboard', function () {
         $orders = \App\Models\Order::query();
+        // Revenue counts SETTLED sales only: delivered AND cash handoff
+        // confirmed by the seller (payment_status paid). Anything less
+        // is still the rider's cash, not platform money.
+        $settledBase = \App\Models\Order::where('status', 'delivered')->where('payment_status', 'paid');
+        $paidTotal = fn () => \Illuminate\Support\Facades\DB::raw('COALESCE(total_amount, total, 0)');
         $stats = [
-            'revenue' => (clone $orders)->where('status', 'delivered')->sum('total'),
-            'today_revenue' => (clone $orders)->where('status', 'delivered')->whereDate('created_at', today())->sum('total'),
+            'revenue' => (clone $settledBase)->sum($paidTotal()),
+            'today_revenue' => (clone $settledBase)->whereDate('created_at', today())->sum($paidTotal()),
+            'commission_earned' => (float) \App\Models\PaymentTransaction::where('status', 'successful')->sum('platform_commission'),
+            'logistics_earned' => \Illuminate\Support\Facades\Schema::hasColumn('payment_transactions', 'logistics_fee')
+                ? (float) \App\Models\PaymentTransaction::where('status', 'successful')->sum('logistics_fee')
+                : 0.0,
             'orders' => (clone $orders)->count(),
             'delivered' => (clone $orders)->where('status', 'delivered')->count(),
             'to_action' => (clone $orders)->whereIn('status', ['new', 'pending'])->count(),
@@ -822,12 +844,28 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         $chart = [];
         for ($i = 29; $i >= 0; $i--) {
             $day = now()->subDays($i);
-            $chart[] = ['label' => $day->format('M d'), 'value' => round((clone $orders)->where('status', 'delivered')->whereDate('created_at', $day->toDateString())->sum('total'), 2)];
+            $chart[] = ['label' => $day->format('M d'), 'value' => round((clone $settledBase)->whereDate('created_at', $day->toDateString())->sum($paidTotal()), 2)];
         }
         $recentOrders = \App\Models\Order::with(['buyer', 'seller'])->latest()->take(5)->get();
-        $topProducts = \App\Models\OrderItem::join('orders', 'orders.id', '=', 'order_items.order_id')->join('products', 'products.id', '=', 'order_items.product_id')->selectRaw('products.name, SUM(order_items.quantity) as units, SUM(order_items.total_price) as sales')->groupBy('products.name')->orderByDesc('sales')->take(5)->get();
+        $topProducts = \App\Models\OrderItem::join('orders', 'orders.id', '=', 'order_items.order_id')->join('products', 'products.id', '=', 'order_items.product_id')->where('orders.status', 'delivered')->where('orders.payment_status', 'paid')->selectRaw('products.name, SUM(order_items.quantity) as units, SUM(order_items.total_price) as sales')->groupBy('products.name')->orderByDesc('sales')->take(5)->get();
+        $statusCounts = (clone $orders)->select('status', \Illuminate\Support\Facades\DB::raw('COUNT(*) as total'))->groupBy('status')->pluck('total', 'status')->map(fn ($v) => (int) $v)->toArray();
+        $statusMeta = [
+            'pending' => ['Pending', '#F59E0B'], 'confirmed' => ['Confirmed', '#0EA5E9'],
+            'processing' => ['Processing', '#3B82F6'], 'ready_for_delivery' => ['Ready', '#8B5CF6'],
+            'out_for_delivery' => ['In Transit', '#F97316'], 'shipped' => ['Shipped', '#06B6D4'],
+            'delivered' => ['Delivered', '#10B981'], 'cancelled' => ['Cancelled', '#EF4444'],
+            'new' => ['New', '#F59E0B'],
+        ];
+        $statusTotal = array_sum($statusCounts) ?: 1;
         $statusStats = [];
-        return view('admin.dashboard', compact('stats', 'chart', 'statusStats', 'recentOrders', 'topProducts'));
+        foreach ($statusCounts as $status => $count) {
+            [$label, $color] = $statusMeta[$status] ?? [ucfirst(str_replace('_', ' ', $status)), '#94A3B8'];
+            $statusStats[] = [
+                'status' => $status, 'label' => $label, 'count' => $count,
+                'color' => $color, 'percent' => round($count / $statusTotal * 100),
+            ];
+        }
+        return view('admin.dashboard', compact('stats', 'chart', 'statusStats', 'statusCounts', 'recentOrders', 'topProducts'));
     })->name('admin.dashboard');
 
     Route::get('sellers', [SellerController::class, 'index'])->name('admin.sellers');
@@ -839,11 +877,11 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('buyers', function (\Illuminate\Http\Request $request) {
         $query = \App\Models\User::where('role', 'buyer')->withCount('orders');
         if ($request->filled('search')) { $s = $request->search; $query->where(fn($qq) => $qq->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%")); }
-        $buyers = $query->orderBy('created_at', 'desc')->get();
+        $buyers = $query->orderBy('created_at', 'desc')->paginate(10);
         $stats = ['all' => \App\Models\User::where('role','buyer')->count(), 'active' => \App\Models\User::where('role','buyer')->where('account_status','active')->count(), 'suspended' => 0];
         return view('admin.buyers', compact('buyers','stats'));
     })->name('admin.buyers');
-    Route::get('riders', fn (\Illuminate\Http\Request $request) => view('admin.riders', ['riders' => \App\Models\User::where('role','rider')->orderBy('created_at','desc')->get()]))->name('admin.riders');
+    Route::get('riders', function (\Illuminate\Http\Request $request) { $r = \App\Models\User::where('role','rider')->orderBy('created_at','desc')->paginate(10); return view('admin.riders', ['riders' => $r]); })->name('admin.riders');
     Route::get('products', [ProductController::class, 'index'])->name('admin.products');
     Route::post('products/{product}/status', [ProductController::class, 'updateStatus'])->name('admin.product.status');
     Route::get('categories', [CategoryController::class, 'index'])->name('admin.categories');
@@ -855,10 +893,6 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('orders/{order}', [OrderController::class, 'show'])->name('admin.order.show');
     Route::post('orders/{order}/update', [OrderController::class, 'update'])->name('admin.order.update');
     Route::get('payments', [PaymentController::class, 'index'])->name('admin.payments');
-    Route::post('payments/payouts/{payout}/mark-paid', [PaymentController::class, 'markPayoutPaid'])->name('admin.payments.payout.paid');
-    Route::post('payments/withdrawals/{withdrawal}/approve', [PaymentController::class, 'approveWithdrawal'])->name('admin.payments.withdrawal.approve');
-    Route::post('payments/withdrawals/{withdrawal}/reject', [PaymentController::class, 'rejectWithdrawal'])->name('admin.payments.withdrawal.reject');
-    Route::post('payments/disputes/{dispute}/resolve', [PaymentController::class, 'resolveDispute'])->name('admin.payments.dispute.resolve');
     Route::get('manage-accounts', [UserManagementController::class, 'index'])->name('admin.manage-accounts');
     Route::post('manage-accounts/{user}/action', [UserManagementController::class, 'toggleStatus'])->name('admin.manage-accounts.action');
     Route::get('complaints', [ComplaintController::class, 'index'])->name('admin.complaints');

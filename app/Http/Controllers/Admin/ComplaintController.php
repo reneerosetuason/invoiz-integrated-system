@@ -28,7 +28,7 @@ class ComplaintController extends Controller
             $query->where('status', $request->status);
         }
 
-        $complaints = $query->orderBy('created_at', 'desc')->get();
+        $complaints = $query->orderBy('created_at', 'desc')->paginate(10);
         $stats = [
             'all' => Complaint::count(),
             'open' => Complaint::where('status','open')->count(),

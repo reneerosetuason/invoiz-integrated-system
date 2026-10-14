@@ -40,7 +40,7 @@ class SellerController extends Controller
             };
         }
 
-        $sellers = $query->withCount('products')->orderBy('created_at', 'desc')->get();
+        $sellers = $query->withCount('products')->orderBy('created_at', 'desc')->paginate(10);
         $stats = [
             'all' => Seller::count(),
             'pending' => Seller::where('approval_status', 'pending')->count(),

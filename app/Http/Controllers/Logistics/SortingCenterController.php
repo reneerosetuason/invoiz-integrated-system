@@ -94,7 +94,7 @@ class SortingCenterController extends Controller
 
         return view('logistics.sorting-center.index', [
             'counts' => $counts,
-            'deliveries' => $query->latest()->paginate(15)->withQueryString(),
+            'deliveries' => $query->latest()->paginate(10)->withQueryString(),
             'tab' => $tab,
             'search' => $search,
             'centerId' => $centerId,

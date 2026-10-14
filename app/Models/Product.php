@@ -34,6 +34,8 @@ class Product extends Model
         'low_stock_threshold',
         'image',
         'rating',
+        'views_count',
+        'cart_additions',
     ];
 
     protected $casts = [

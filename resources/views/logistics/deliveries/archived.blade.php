@@ -112,20 +112,9 @@
                 </table>
             </div>
 
-            @if($deliveries->count() > 0)
-                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <p class="text-xs text-gray-500">
-                        Showing <span class="font-semibold text-gray-700">{{ $deliveries->firstItem() }}–{{ $deliveries->lastItem() }}</span>
-                        of <span class="font-semibold text-gray-700">{{ $deliveries->total() }}</span> archived deliveries
-                    </p>
-                    <p class="text-xs text-gray-400">Page {{ $deliveries->currentPage() }} of {{ $deliveries->lastPage() }}</p>
-                </div>
-            @endif
         </div>
 
-        <div class="mt-4">
-            {{ $deliveries->onEachSide(2)->links() }}
-        </div>
+        @include('admin.partials.pager', ['paginator' => $deliveries])
 
         {{-- Restore Modal --}}
         <div x-show="restoreOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>

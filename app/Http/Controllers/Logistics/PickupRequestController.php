@@ -35,7 +35,7 @@ class PickupRequestController extends Controller
             })
             ->orderBy('status')
             ->latest('requested_at')
-            ->paginate(15)
+            ->paginate(10)
             ->withQueryString();
 
         return view('logistics.pickup-requests.index', [

@@ -13,7 +13,7 @@ class NotificationController extends Controller
     {
         $notifications = SellerNotification::forSeller(auth()->id())
             ->latest()
-            ->paginate(30);
+            ->paginate(10);
 
         return view('seller.notifications.index', compact('notifications'));
     }

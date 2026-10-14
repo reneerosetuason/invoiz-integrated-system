@@ -621,6 +621,9 @@ class DeliveryController extends Controller
 
         if ($target === 'delivered') {
             app(TransactionController::class)->storeForDelivery($delivery);
+            // Cash is with the rider now: open the handoff the seller must
+            // verify before the sale settles.
+            \App\Support\Remittances::ensureForDelivery($delivery->fresh());
         }
 
         $riderName = $rider->name ?? 'Rider';

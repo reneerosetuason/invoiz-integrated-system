@@ -99,24 +99,29 @@ class Payments
         $out = [];
         foreach ($groups as $sid => $g) {
             // Canonical per-seller math (capped shares, loaded relations).
+            // The seller funds the flat logistics fee per delivery so the
+            // admin cut stays exactly the configured rate.
             $merchNet = round($g['sub'] - $order->voucherDiscountForSeller($sid), 2);
             $commission = round($merchNet * $rate / 100, 2);
             $waived = $order->shippingWaivedForSeller($sid);
+            $logistics = $order->logisticsFeeForSeller($sid);
             $out[$sid] = [
                 'merch'      => $merchNet,
                 'commission' => $commission,
                 'waived'     => $waived,
-                'earning'    => round(max(0, $merchNet - $commission - $waived), 2),
+                'logistics'  => $logistics,
+                'earning'    => round(max(0, $merchNet - $commission - $waived - $logistics), 2),
             ];
         }
         return $out;
     }
 
     /**
-     * Settle on delivery (COD cash collected): payment + order flag flip
-     * to paid and the ledger row books the final split. Idempotent.
+     * Settle when the seller confirms the rider's cash handoff (COD cash
+     * verified in hand): payment + order flag flip to paid and the ledger
+     * row books the final split. Idempotent unless forced.
      */
-    public static function settleForDelivery(Order $order): void
+    public static function settleForDelivery(Order $order, bool $force = false): void
     {
         try {
             $order->loadMissing(['items', 'orderVouchers.voucher']);
@@ -124,6 +129,7 @@ class Payments
             $sellerEarning = round(array_sum(array_column($split, 'earning')), 2);
             $commission = round(array_sum(array_column($split, 'commission')), 2);
             $riderFee = round($order->shippingTotal(), 2);
+            $logisticsFee = round(count($order->shippingGroupIds()) * Order::LOGISTICS_FEE_PER_DELIVERY, 2);
 
             $tx = self::transactionFor($order);
             if (! $tx) {
@@ -135,7 +141,7 @@ class Payments
                     'status'          => 'pending',
                 ]);
             }
-            if ($tx->status === 'successful') {
+            if ($tx->status === 'successful' && ! $force) {
                 return;
             }
             $tx->update([
@@ -143,6 +149,7 @@ class Payments
                 'seller_earning'      => $sellerEarning,
                 'platform_commission' => $commission,
                 'rider_fee'           => $riderFee,
+                'logistics_fee'       => $logisticsFee,
                 'paid_at'             => now(),
             ]);
             $order->update([

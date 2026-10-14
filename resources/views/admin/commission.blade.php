@@ -130,6 +130,7 @@
         @endforelse
       </tbody>
     </table>
+    @include('admin.partials.pager', ['paginator' => $sellerCommissions])
   </div>
 
   <h2 style="font-size:15px; font-weight:700; margin:0 0 8px;">Commission per Order</h2>
@@ -160,6 +161,7 @@
         @endforelse
       </tbody>
     </table>
+    @include('admin.partials.pager', ['paginator' => $orderCommissions])
   </div>
 </div>
 @endsection

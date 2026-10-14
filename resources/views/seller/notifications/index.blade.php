@@ -53,10 +53,8 @@
         </div>
     @endforelse
 
-    @if($notifications->hasPages())
-        <div class="border-t border-borderline px-6 py-4">
-            {{ $notifications->links() }}
-        </div>
-    @endif
+    <div class="border-t border-borderline px-6 py-4">
+        @include('admin.partials.pager', ['paginator' => $notifications])
+    </div>
 </div>
 @endsection

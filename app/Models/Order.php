@@ -64,6 +64,13 @@ class Order extends Model
      */
     public const SHIPPING_FEE_PER_SELLER = 50.0;
 
+    /**
+     * Flat logistics operations fee per delivery, funded out of the
+     * seller's share so the admin cut stays exactly 10% and the rider
+     * keeps the full ₱50.
+     */
+    public const LOGISTICS_FEE_PER_DELIVERY = 15.0;
+
     public function isCancellableByBuyer(): bool
     {
         return in_array($this->status, self::BUYER_CANCELLABLE, true);
@@ -109,6 +116,12 @@ class Order extends Model
     public function delivery()
     {
         return $this->hasOne(Delivery::class, 'order_id');
+    }
+
+    /** One delivery row per seller group (each funds one rider handoff). */
+    public function deliveries()
+    {
+        return $this->hasMany(Delivery::class, 'order_id');
     }
 
     public function statusHistories()
@@ -195,12 +208,26 @@ class Order extends Model
 
     /**
      * What this seller actually earns on the order: subtotal minus the
-     * absorbed voucher discount AND any waived shipping for their group.
+     * absorbed voucher discount, minus waived shipping for their group,
+     * minus the flat logistics fee per delivery they benefited from.
      * Buyer shipping paid in full and rider pay are never part of this.
      */
     public function sellerNetForSeller($sellerId): float
     {
-        return round(max(0, $this->sellerSubtotal($sellerId) - $this->voucherDiscountForSeller($sellerId) - $this->shippingWaivedForSeller($sellerId)), 2);
+        $hasGroup = $this->relationLoaded('items')
+            ? $this->items->whereIn('seller_id', $sellerId instanceof Seller ? $sellerId->catalogIds() : [(int) $sellerId])->isNotEmpty()
+            : $this->itemsForSeller($sellerId)->exists();
+        $logistics = $hasGroup ? self::LOGISTICS_FEE_PER_DELIVERY : 0.0;
+        return round(max(0, $this->sellerSubtotal($sellerId) - $this->voucherDiscountForSeller($sellerId) - $this->shippingWaivedForSeller($sellerId) - $logistics), 2);
+    }
+
+    /** Logistics fee attributable to this seller on this order (per group). */
+    public function logisticsFeeForSeller($sellerId): float
+    {
+        $hasGroup = $this->relationLoaded('items')
+            ? $this->items->whereIn('seller_id', $sellerId instanceof Seller ? $sellerId->catalogIds() : [(int) $sellerId])->isNotEmpty()
+            : $this->itemsForSeller($sellerId)->exists();
+        return $hasGroup ? self::LOGISTICS_FEE_PER_DELIVERY : 0.0;
     }
 
     /** Net shipping the buyer pays on this order (after free-shipping waivers). */

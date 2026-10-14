@@ -142,6 +142,7 @@
       @endforelse
     </tbody>
   </table>
+  @include('admin.partials.pager', ['paginator' => $complaints])
   </div>
 </div>
 @endsection

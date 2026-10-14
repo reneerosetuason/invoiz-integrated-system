@@ -90,6 +90,7 @@
                     @endforelse
                 </tbody>
             </table>
+            @include('admin.partials.pager', ['paginator' => $vouchers])
         </div>
     </div>
 
@@ -182,7 +183,7 @@
 
 @push('scripts')
 @php
-    $voucherJson = $vouchers->keyBy('id')->map(fn ($v) => [
+    $voucherJson = $voucherMap->keyBy('id')->map(fn ($v) => [
         'code' => $v->code,
         'name' => $v->name,
         'description' => $v->description,

@@ -23,7 +23,7 @@ class ProductController extends Controller
             $query->where('name', 'like', "%{$request->search}%");
         }
 
-        $products = $query->paginate(20);
+        $products = $query->paginate(10);
         $this->attachShop($products);
 
         return $products;

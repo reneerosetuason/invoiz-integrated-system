@@ -12,11 +12,24 @@ use App\Models\SellerPayout;
 use App\Models\PaymentTransaction;
 use App\Support\Money;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
+    private function paginateCollection($items, Request $request, int $per, string $pageName): LengthAwarePaginator
+    {
+        $page = max(1, (int) $request->query($pageName, 1));
+        return new LengthAwarePaginator(
+            $items->forPage($page, $per)->values(),
+            $items->count(),
+            $per,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query(), 'pageName' => $pageName]
+        );
+    }
+
     private function range(Request $request, $query)
     {
         if ($request->filled('from')) {
@@ -66,11 +79,11 @@ class ReportController extends Controller
         if ($type === 'sales') {
             $data += $this->salesData($request, $period);
         } elseif ($type === 'customers') {
-            $data += $this->customersData($request);
+            $data += $this->customersData($request, false);
         } elseif ($type === 'sellers') {
-            $data += $this->sellersData($request);
+            $data += $this->sellersData($request, false);
         } elseif ($type === 'products') {
-            $data += $this->productsData($request);
+            $data += $this->productsData($request, false);
         } else {
             $data += $this->financialData($request);
         }
@@ -159,7 +172,7 @@ class ReportController extends Controller
         ];
     }
 
-    private function customersData(Request $request): array
+    private function customersData(Request $request, bool $paginate = true): array
     {
         $customers = User::where('role', 'buyer')
             ->withCount(['orders' => fn ($q) => $q->where('payment_status', 'paid')])
@@ -183,11 +196,11 @@ class ReportController extends Controller
                 'Total Revenue' => Money::format($customers->sum('total_spent')),
                 'Avg. Spend / Customer' => Money::format($customers->count() ? $customers->sum('total_spent') / $customers->count() : 0),
             ],
-            'customers' => $customers,
+            'customers' => $paginate ? $this->paginateCollection($customers, $request, 10, 'customers_page') : $customers,
         ];
     }
 
-    private function sellersData(Request $request): array
+    private function sellersData(Request $request, bool $paginate = true): array
     {
         // NOTE: orders.seller_id is never set by checkout, so attribute via
         // order_items.seller_id (always set) using the canonical split.
@@ -240,48 +253,62 @@ class ReportController extends Controller
                 'Total Commission' => Money::format($sellers->sum('commission')),
                 'Best Store' => $sellers->first()?->store_name ?? '—',
             ],
-            'sellers' => $sellers,
+            'sellers' => $paginate ? $this->paginateCollection($sellers, $request, 10, 'sellers_page') : $sellers,
+            // Performance bars scale against the global max, not the page max.
+            'sellersMaxRevenue' => $sellers->max('revenue') ?: 1,
         ];
     }
 
-    private function productsData(Request $request): array
+    private function productsData(Request $request, bool $paginate = true): array
     {
-        $best = DB::table('order_items')
+        $bestBase = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
             ->join('products', 'products.id', '=', 'order_items.product_id')
             ->where('orders.payment_status', 'paid')
             ->selectRaw('products.name, SUM(order_items.quantity) as units, SUM(order_items.total_price) as sales, MAX(products.views_count) as views, MAX(products.cart_additions) as carts')
-            ->groupBy('products.name')->orderByDesc('units')->limit(10)->get();
+            ->groupBy('products.name')->orderByDesc('units');
+        $best = $paginate
+            ? (clone $bestBase)->paginate(10, ['*'], 'best_page')
+            : (clone $bestBase)->limit(10)->get();
 
         $soldProductIds = DB::table('order_items')->select('product_id')->distinct()->pluck('product_id');
-        $low = Product::whereNotIn('id', $soldProductIds)
+        $lowBase = Product::whereNotIn('id', $soldProductIds)
             ->orWhereIn('id', DB::table('order_items')
                 ->join('orders', 'orders.id', '=', 'order_items.order_id')
                 ->where('orders.payment_status', 'paid')
                 ->selectRaw('order_items.product_id')
                 ->groupBy('order_items.product_id')
                 ->havingRaw('SUM(order_items.quantity) <= 2')
-                ->pluck('order_items.product_id'))
-            ->limit(10)->get();
+                ->pluck('order_items.product_id'));
+        $low = $paginate
+            ? (clone $lowBase)->paginate(10, ['*'], 'low_page')
+            : (clone $lowBase)->limit(10)->get();
 
         // Stock counts variant stock when a product HAS variants (their
         // stock is tracked per variation), otherwise the base stock.
         // Products without any variant row previously summed to 0 and every
         // product wrongly showed "Out of Stock".
-        $stock = Product::leftJoin('product_variants', 'product_variants.product_id', '=', 'products.id')
+        $stockBase = Product::leftJoin('product_variants', 'product_variants.product_id', '=', 'products.id')
             ->selectRaw("products.id, products.name,
                 CASE WHEN COUNT(product_variants.id) > 0
                      THEN COALESCE(SUM(product_variants.stock), 0)
                      ELSE COALESCE(MAX(products.stock), 0) END as stock,
                 COALESCE(MAX(products.low_stock_threshold), 10) as threshold")
             ->groupBy('products.id', 'products.name')
-            ->orderBy('stock')
-            ->limit(15)
-            ->get()
-            ->map(function ($p) {
-                $p->stock_status = $p->stock <= 0 ? 'Out of Stock' : ($p->stock <= $p->threshold ? 'Low Stock' : 'In Stock');
-                return $p;
-            });
+            ->orderBy('stock');
+        $stock = $paginate
+            ? (clone $stockBase)->paginate(10, ['*'], 'stock_page')
+            : (clone $stockBase)->limit(15)->get();
+        $stockStatus = function ($p) {
+            $p->stock_status = $p->stock <= 0 ? 'Out of Stock' : ($p->stock <= $p->threshold ? 'Low Stock' : 'In Stock');
+            return $p;
+        };
+        // through() exists on paginators, map() on plain collections.
+        if ($stock instanceof \Illuminate\Pagination\LengthAwarePaginator) {
+            $stock->setCollection($stock->getCollection()->map($stockStatus));
+        } else {
+            $stock = $stock->map($stockStatus);
+        }
 
         $totalViews = Product::sum('views_count');
         $totalCarts = Product::sum('cart_additions');
@@ -377,7 +404,7 @@ class ReportController extends Controller
             'customers' => [
                 'title' => 'Customer Report',
                 'headings' => ['Customer', 'Email', 'Registered', 'Paid Orders', 'Total Spent', 'Avg. Order', 'Last Order'],
-                'rows' => $this->customersData($request)['customers']
+                'rows' => $this->customersData($request, false)['customers']
                     ->map(fn ($u) => [
                         $u->name,
                         $u->email,
@@ -388,12 +415,12 @@ class ReportController extends Controller
                         optional($u->last_order)->format('M d, Y') ?? '-',
                     ])
                     ->toArray(),
-                'totals' => [3 => $this->customersData($request)['customers']->sum('orders_count'), 4 => number_format($this->customersData($request)['customers']->sum('total_spent'), 2)],
+                'totals' => [3 => $this->customersData($request, false)['customers']->sum('orders_count'), 4 => number_format($this->customersData($request, false)['customers']->sum('total_spent'), 2)],
             ],
             'sellers' => [
                 'title' => 'Seller Report',
                 'headings' => ['Store', 'Owner Email', 'Products', 'Paid Orders', 'Revenue', 'Commission', 'Pending Payout', 'Paid Payout', 'Avg. Order'],
-                'rows' => $this->sellersData($request)['sellers']
+                'rows' => $this->sellersData($request, false)['sellers']
                     ->map(fn ($s) => [
                         $s->store_name,
                         $s->user->email ?? '',
@@ -407,21 +434,21 @@ class ReportController extends Controller
                     ])
                     ->toArray(),
                 'totals' => [
-                    2 => $this->sellersData($request)['sellers']->sum('products_count'),
-                    3 => $this->sellersData($request)['sellers']->sum('paid_orders'),
-                    4 => number_format($this->sellersData($request)['sellers']->sum('revenue'), 2),
-                    5 => number_format($this->sellersData($request)['sellers']->sum('commission'), 2),
+                    2 => $this->sellersData($request, false)['sellers']->sum('products_count'),
+                    3 => $this->sellersData($request, false)['sellers']->sum('paid_orders'),
+                    4 => number_format($this->sellersData($request, false)['sellers']->sum('revenue'), 2),
+                    5 => number_format($this->sellersData($request, false)['sellers']->sum('commission'), 2),
                 ],
             ],
             'products' => [
                 'title' => 'Product Report (Best Sellers)',
                 'headings' => ['Product', 'Units Sold', 'Sales', 'Product Views', 'Cart Additions'],
-                'rows' => $this->productsData($request)['best']
+                'rows' => $this->productsData($request, false)['best']
                     ->map(fn ($p) => [$p->name, $p->units, number_format($p->sales, 2), number_format($p->views), number_format($p->carts)])
                     ->toArray(),
                 'totals' => [
-                    1 => $this->productsData($request)['best']->sum('units'),
-                    2 => number_format($this->productsData($request)['best']->sum('sales'), 2),
+                    1 => $this->productsData($request, false)['best']->sum('units'),
+                    2 => number_format($this->productsData($request, false)['best']->sum('sales'), 2),
                 ],
             ],
             'financial' => [

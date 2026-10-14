@@ -172,11 +172,7 @@
                 </div>
             </div>
 
-            @if($deliveries->hasPages())
-                <div class="mt-4">
-                    {{ $deliveries->links() }}
-                </div>
-            @endif
+            @include('admin.partials.pager', ['paginator' => $deliveries])
         </div>
     </div>
 </x-app-layout>

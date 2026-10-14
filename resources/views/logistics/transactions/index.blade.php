@@ -2,7 +2,7 @@
     <div class="space-y-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Transactions</h1>
-            <p class="text-sm text-gray-500 mt-1">Delivery fees, rider fees (₱15/parcel), and management commissions (10%)</p>
+            <p class="text-sm text-gray-500 mt-1">Delivery fees (₱50/parcel to the rider), logistics operations (₱15/parcel). Platform 10% commission lives on the order ledger, never here.</p>
         </div>
 
         @php
@@ -25,8 +25,8 @@
                 <p class="text-3xl font-bold text-gray-900">₱{{ number_format($totalsArray['total_rider_fee'] ?? 0, 2) }}</p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Total Commissions</p>
-                <p class="text-3xl font-bold text-teal-dark">₱{{ number_format($totalsArray['total_commission'] ?? 0, 2) }}</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Total Logistics Fees</p>
+                <p class="text-3xl font-bold text-teal-dark">₱{{ number_format($totalsArray['total_logistics_fee'] ?? 0, 2) }}</p>
             </div>
         </div>
 
@@ -73,7 +73,7 @@
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Center</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Rider Fee</th>
-                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>
+                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Logistics Fee</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                         </tr>
@@ -88,7 +88,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $tx->logisticsCenter?->name ?? '—' }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">₱{{ number_format((float) $tx->amount, 2) }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-500">₱{{ number_format((float) $tx->rider_fee, 2) }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-teal-dark font-semibold">₱{{ number_format((float) $tx->admin_commission, 2) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-teal-dark font-semibold">₱{{ number_format((float) $tx->logistics_fee, 2) }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($tx->status === 'completed')
                                         <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200">Completed</span>
@@ -113,14 +113,8 @@
                     </tbody>
                 </table>
             </div>
-            @if($transactions->total() > 0)
-                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <p class="text-xs text-gray-500">Showing {{ $transactions->firstItem() }}–{{ $transactions->lastItem() }} of {{ $transactions->total() }} transactions</p>
-                    <p class="text-xs text-gray-400">Page {{ $transactions->currentPage() }} of {{ $transactions->lastPage() }}</p>
-                </div>
-            @endif
         </div>
 
-        <div class="mt-6">{{ $transactions->links() }}</div>
+        @include('admin.partials.pager', ['paginator' => $transactions])
     </div>
 </x-app-layout>

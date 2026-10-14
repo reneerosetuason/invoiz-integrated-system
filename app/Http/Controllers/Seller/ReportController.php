@@ -21,9 +21,12 @@ class ReportController extends Controller
 
         // Delivered orders in range with items + vouchers loaded once;
         // every figure below nets out the seller's absorbed voucher share.
+        // Earnings record only SETTLED sales: delivered AND cash handoff
+        // confirmed by the seller (payment_status paid).
         $scopedOrders = Order::with(['items', 'orderVouchers'])
             ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
             ->where('status', 'delivered')
+            ->where('payment_status', 'paid')
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->get();
@@ -47,6 +50,7 @@ class ReportController extends Controller
 
         $orderCount = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
             ->where('status', 'delivered')
+            ->where('payment_status', 'paid')
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->count();
@@ -66,6 +70,10 @@ class ReportController extends Controller
         foreach ($scopedOrders as $order) {
             $orderSubtotal = $order->itemsSubtotal();
             $share = $orderSubtotal > 0 ? min(1, $order->voucherDiscountTotal() / $orderSubtotal) : 0;
+            $sellerSub = $order->sellerSubtotal($sellerId);
+            $extra = $sellerSub > 0
+                ? ($order->shippingWaivedForSeller($sellerId) + $order->logisticsFeeForSeller($sellerId)) / $sellerSub
+                : 0;
             foreach ($order->items->where('seller_id', $sellerId) as $item) {
                 $line = $item->lineTotal ?? ((float) ($item->unit_price ?? $item->price ?? 0)) * ((int) ($item->quantity ?? 0));
                 $key = (int) $item->product_id;
@@ -73,7 +81,7 @@ class ReportController extends Controller
                     $byProduct[$key] = ['product_id' => $key, 'product_name' => $item->product_name, 'units' => 0, 'sales' => 0.0, 'cogs' => 0.0];
                 }
                 $byProduct[$key]['units'] += (int) $item->quantity;
-                $byProduct[$key]['sales'] += $line * (1 - $share);
+                $byProduct[$key]['sales'] += max(0, $line * (1 - $share) - $line * $extra);
                 $byProduct[$key]['cogs'] += (int) $item->quantity * (float) ($costs[$item->product_id] ?? 0);
             }
         }

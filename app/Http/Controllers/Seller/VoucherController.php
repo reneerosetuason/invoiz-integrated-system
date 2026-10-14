@@ -11,11 +11,14 @@ class VoucherController extends Controller
 {
     public function index()
     {
-        $vouchers = Voucher::where(function ($q) {
+        $scope = Voucher::where(function ($q) {
             $q->whereNull('seller_id')->orWhere('seller_id', auth()->id());
-        })->latest()->get();
+        });
+        $vouchers = (clone $scope)->latest()->paginate(10);
+        // Full map for the edit modal (the table only holds one page).
+        $voucherMap = (clone $scope)->latest()->get();
 
-        return view('seller.vouchers.index', compact('vouchers'));
+        return view('seller.vouchers.index', compact('vouchers', 'voucherMap'));
     }
 
     public function store(Request $request)

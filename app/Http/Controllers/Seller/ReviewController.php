@@ -26,17 +26,19 @@ class ReviewController extends Controller
             $query->where('status', $request->input('status'));
         }
 
-        $reviews = $query->get();
-
+        // Stat cards use the full filtered set: compute BEFORE paginate()
+        // (paginate adds limit/offset to the builder).
         $stats = [
-            'avg'         => round($reviews->avg('rating') ?? 0, 1),
-            'total'       => $reviews->count(),
-            'five'        => $reviews->where('rating', 5)->count(),
-            'four'        => $reviews->where('rating', 4)->count(),
-            'three'       => $reviews->where('rating', 3)->count(),
-            'two'         => $reviews->where('rating', 2)->count(),
-            'one'         => $reviews->where('rating', 1)->count(),
+            'avg'         => round((clone $query)->avg('rating') ?? 0, 1),
+            'total'       => (clone $query)->count(),
+            'five'        => (clone $query)->where('rating', 5)->count(),
+            'four'        => (clone $query)->where('rating', 4)->count(),
+            'three'       => (clone $query)->where('rating', 3)->count(),
+            'two'         => (clone $query)->where('rating', 2)->count(),
+            'one'         => (clone $query)->where('rating', 1)->count(),
         ];
+
+        $reviews = $query->paginate(10);
 
         return view('seller.reviews.index', [
             'reviews' => $reviews,

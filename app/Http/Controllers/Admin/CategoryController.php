@@ -18,7 +18,7 @@ class CategoryController extends Controller
                 $q->where('name', 'like', "%{$s}%")->orWhere('slug', 'like', "%{$s}%");
             });
         }
-        $categories = $query->orderBy('name')->get();
+        $categories = $query->orderBy('name')->paginate(10, ['*'], 'categories_page');
         $archivedQuery = Category::onlyTrashed()->with(['parent'])->withCount('products');
         if ($request->filled('search')) {
             $s = $request->search;
@@ -26,14 +26,17 @@ class CategoryController extends Controller
                 $q->where('name', 'like', "%{$s}%")->orWhere('slug', 'like', "%{$s}%");
             });
         }
-        $archived = $archivedQuery->orderBy('name')->get();
+        $archived = $archivedQuery->orderBy('name')->paginate(10, ['*'], 'archived_page');
         $stats = [
             'all' => Category::count() + Category::onlyTrashed()->count(),
             'active' => Category::count(),
             'archived' => Category::onlyTrashed()->count(),
             'with_products' => Category::has('products')->count(),
         ];
-        return view('admin.categories', compact('categories', 'archived', 'stats'));
+        // Full id/name list for the parent-category search dropdown
+        // (the main table is paginated, so it only holds one page).
+        $allCategories = Category::orderBy('name')->get(['id', 'name']);
+        return view('admin.categories', compact('categories', 'archived', 'stats', 'allCategories'));
     }
 
     public function store(Request $request)

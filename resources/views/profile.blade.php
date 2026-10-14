@@ -45,10 +45,11 @@
       <div style="margin-top:10px;background:#FFF8E1;border:1px solid #F5D47A;border-radius:10px;padding:12px;font-size:12px;color:#8a5a00"><b>Application under review.</b><br>Please wait for the administrator's approval, which will be sent to <b>{{ $user->email }}</b>.</div>
     @elseif($sellerApp->isApproved())
       <div style="margin-top:10px;background:#E8F5EE;border:1px solid #BFE3D0;border-radius:10px;padding:12px;font-size:12px;color:#1D6B43"><b>You're an approved seller ({{ $sellerApp->display_name }}).</b></div>
+      @if($user->isBuyer())
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
         <a href="{{ url('/seller/dashboard') }}" style="flex:1;text-align:center;padding:11px;background:var(--primary);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;min-width:150px">Switch to Seller →</a>
-        <a href="{{ url('/shop') }}" style="flex:1;text-align:center;padding:11px;background:#fff;border:1px solid var(--border);border-radius:10px;text-decoration:none;color:var(--text-primary);font-weight:700;font-size:13px;min-width:150px">Switch to Buyer →</a>
       </div>
+      @endif
     @else
       <div style="margin-top:10px;background:#FDECEC;border:1px solid #FECACA;border-radius:10px;padding:12px;font-size:12px;color:#B91C1C"><b>Application not approved.</b> You may fix your details and <a href="{{ url('/sell') }}" style="font-weight:700">apply again</a>.</div>
     @endif

@@ -108,5 +108,6 @@
             <p class="text-sm text-ink-light">Buyers' ratings will appear here after they receive their orders.</p>
         </div>
     @endforelse
+    @include('admin.partials.pager', ['paginator' => $reviews])
 </div>
 @endsection

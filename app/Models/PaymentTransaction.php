@@ -15,6 +15,7 @@ class PaymentTransaction extends Model
         'seller_earning',
         'platform_commission',
         'rider_fee',
+        'logistics_fee',
         'refunded_amount',
         'paid_at',
     ];

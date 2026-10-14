@@ -14,6 +14,7 @@ use App\Http\Controllers\Logistics\Api\RiderConversationController;
 use App\Http\Controllers\Logistics\Api\RiderMessageController;
 use App\Http\Controllers\Logistics\Api\RiderNotificationController;
 use App\Http\Controllers\Logistics\Api\RiderPasswordController;
+use App\Http\Controllers\Logistics\Api\RiderRemittanceController;
 use App\Http\Controllers\Logistics\Api\VehicleTypeController;
 use Illuminate\Support\Facades\Route;
 
@@ -65,6 +66,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/earnings', [RiderEarningsController::class, 'index']);
         Route::get('/history', [RiderHistoryController::class, 'index']);
+
+        // Cash handoffs rider -> seller (bank-to-bank, verified by seller).
+        Route::get('/remittances', [RiderRemittanceController::class, 'index']);
+        Route::post('/remittances/{remittance}/sent', [RiderRemittanceController::class, 'markSent']);
 
         Route::get('/notifications', [RiderNotificationController::class, 'index']);
         Route::patch('/notifications/read-all', [RiderNotificationController::class, 'markAllRead']);

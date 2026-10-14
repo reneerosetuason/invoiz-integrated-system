@@ -9,6 +9,7 @@ use App\Models\Category;
 use App\Models\SellerPayout;
 use App\Models\CommissionRate;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class CommissionController extends Controller
@@ -69,14 +70,16 @@ class CommissionController extends Controller
             })
             ->sortByDesc('total_commission')
             ->values();
+        // In-memory aggregate: slice the current page manually. Totals and
+        // cards above always use the full set.
+        $sellerCommissions = $this->paginateCollection($sellerCommissions, $request, 10, 'sellers_page');
 
         // ------------------------------------------------------------------
         // Commission per order (recent paid orders)
         // ------------------------------------------------------------------
         $orderCommissions = (clone $query)->with('seller', 'buyer')
             ->orderByDesc('created_at')
-            ->take(20)
-            ->get();
+            ->paginate(10, ['*'], 'orders_page');
 
         // ------------------------------------------------------------------
         // Commission per category (uses per-category rates)
@@ -141,5 +144,17 @@ class CommissionController extends Controller
         CommissionRate::create($request->only('category_id', 'rate'));
 
         return redirect()->back()->with('status', 'Commission rate added.');
+    }
+
+    private function paginateCollection($items, Request $request, int $per, string $pageName): LengthAwarePaginator
+    {
+        $page = max(1, (int) $request->query($pageName, 1));
+        return new LengthAwarePaginator(
+            $items->forPage($page, $per)->values(),
+            $items->count(),
+            $per,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query(), 'pageName' => $pageName]
+        );
     }
 }

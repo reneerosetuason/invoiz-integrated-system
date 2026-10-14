@@ -296,10 +296,15 @@ class RiderDeliveryController extends Controller
 
         $this->logStatus($delivery, 'delivered', 'Package delivered to customer.');
 
-        // Logistics generates the transaction (???15 rider fee + 10% admin
-        // commission) using the existing business rules. The Rider System must
-        // NOT duplicate transaction creation ??? it only reports completion.
+        // Logistics generates the transaction (flat ₱50 rider payout + ₱15
+        // logistics fee per delivery) using the existing business rules.
+        // The Rider System must NOT duplicate transaction creation — it
+        // only reports completion.
         app(TransactionController::class)->storeForDelivery($delivery);
+
+        // Cash is with the rider now: open the handoff the seller must
+        // verify before the sale settles.
+        \App\Support\Remittances::ensureForDelivery($delivery->fresh());
 
         // Record rider earnings for this delivery: the flat per-delivery
         // fee, fully independent of any voucher or discount on the order.

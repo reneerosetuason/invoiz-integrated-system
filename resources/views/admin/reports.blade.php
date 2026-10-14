@@ -189,7 +189,7 @@ $queryString = http_build_query(array_filter(['type' => $type, 'period' => $peri
             </thead>
             <tbody>
                 @forelse($sellers as $s)
-                @php $maxRev = $sellers->max('revenue') ?: 1; @endphp
+                @php $maxRev = $sellersMaxRevenue ?? 1; @endphp
                 <tr style="border-bottom:1px solid #F7F6F2;">
                     <td style="padding:12px 8px;font-weight:600;">{{ $s->store_name }}</td>
                     <td style="padding:12px 8px;">{{ $s->products_count }}</td>

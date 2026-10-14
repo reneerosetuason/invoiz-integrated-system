@@ -37,5 +37,8 @@
       </div>
     </div>
   @endif
+  @if($items instanceof \Illuminate\Pagination\LengthAwarePaginator)
+    @include('admin.partials.pager', ['paginator' => $items])
+  @endif
 </div>
 @endsection

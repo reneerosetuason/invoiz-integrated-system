@@ -134,16 +134,11 @@
             </div>
 
             @if($conversations->count() > 0)
-                <div class="px-4 py-2.5 border-t border-gray-200 bg-white flex items-center justify-between gap-2 flex-wrap">
-                    <p class="text-[11px] text-gray-500">
-                        Showing {{ $conversations->firstItem() }}–{{ $conversations->lastItem() }} of {{ $conversations->total() }} conversations
-                    </p>
+                <div class="px-4 py-2.5 border-t border-gray-200 bg-white flex items-center justify-end gap-2 flex-wrap">
                     <x-per-page route="messages.index" align=""/>
                 </div>
-                <div class="border-t border-gray-100 bg-gray-50 px-2 py-1.5">
-                    {{ $conversations->onEachSide(1)->links() }}
-                </div>
             @endif
+            @include('admin.partials.pager', ['paginator' => $conversations])
         </div>
 
         {{-- ================= Chat Panel ================= --}}
