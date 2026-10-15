@@ -69,7 +69,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 </head>
 <body class="font-sans bg-ivory text-ink antialiased text-[15px] md:text-base leading-relaxed">
 <header x-data="{open:false}" class="sticky top-0 z-50">
-<div id="navbar" class="border-b" style="min-height:72px;background:rgba(251,249,246,.8);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-color:rgba(15,76,92,.12)">
+<div id="navbar" style="min-height:72px;background:rgba(251,249,246,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(15,76,92,.12);padding-top:12px;padding-bottom:12px">
 <div class="mx-auto px-4 sm:px-6 lg:px-8" style="max-width:1200px">
 <div class="flex items-center gap-3" style="min-height:inherit">
 <a href="{{ url('/') }}" class="flex shrink-0 items-center gap-2.5">
@@ -138,7 +138,6 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 <p class="rv mt-3 text-base md:text-lg" style="transition-delay:160ms"><span class="font-bold tnum">₱{{ number_format($d['price']) }}</span><span class="text-muted"> · {{ $d['store'] ?: 'Local seller' }}</span>@if(!empty($d['pct']))<span class="ml-2 font-bold text-teal-dark tnum">−{{ $d['pct'] }}% today</span>@endif</p>
 <div class="rv mt-5 flex flex-wrap items-center gap-4" style="transition-delay:240ms">
 <a href="{{ url('/shop') }}" class="press shine rounded-full bg-teal-dark px-7 text-sm font-bold text-white" style="height:48px;line-height:48px">Start shopping</a>
-<a href="{{ url('/sell') }}" class="lnk text-sm font-semibold text-teal-dark">Become a seller</a>
 </div>
 </div>
 <div class="relative">
@@ -157,7 +156,6 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 <p class="rv mt-3 max-w-md text-base md:text-lg" style="transition-delay:160ms">Everyday goods from local sellers, delivered cash-on-delivery.</p>
 <div class="rv mt-5 flex flex-wrap items-center gap-4" style="transition-delay:240ms">
 <a href="{{ url('/shop') }}" class="press shine rounded-full bg-teal-dark px-7 text-sm font-bold text-white" style="height:48px;line-height:48px">Start shopping</a>
-<a href="{{ url('/sell') }}" class="lnk text-sm font-semibold text-teal-dark">Become a seller</a>
 </div>
 </div>
 <div class="rv relative" style="transition-delay:120ms">
@@ -173,7 +171,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 <div class="flex items-center gap-2" role="tablist" aria-label="Slides">
 @foreach($slides as $i => $d)
 <button type="button" role="tab" :aria-selected="active==={{ $i }}" aria-label="Go to slide {{ $i+1 }}" @click="go({{ $i }})" class="h-1.5 overflow-hidden rounded-full bg-teal/15" style="width:2rem">
-<span class="block h-full" style="background:var(--accent-amber)" x-bind:key="'p'+active" :class="active==={{ $i }} && !paused && !reducedMotion ? 'fillbar' : ''" :style="active==={{ $i }} ? 'width:100%' : 'width:0'"></span>
+<span class="block h-full bg-teal" x-bind:key="'p'+active" :class="active==={{ $i }} && !paused && !reducedMotion ? 'fillbar' : ''" :style="active==={{ $i }} ? 'width:100%' : 'width:0'"></span>
 </button>
 @endforeach
 </div>
@@ -219,7 +217,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 <a href="{{ url('/product/'.$d['id']) }}" class="count-card block min-w-[68%] snap-start overflow-hidden rounded-[14px] bg-white sm:min-w-[42%] md:min-w-0 rv" style="border:1px solid rgba(15,76,92,.12)">
 <div class="relative overflow-hidden">
 @if(!empty($d['image']))<img src="{{ $d['image'] }}" alt="{{ $d['name'] }}" loading="lazy" class="zoom aspect-[4/5] w-full object-cover">@else<span class="flex aspect-[4/5] w-full flex-col items-center justify-center gap-1 px-3 text-center" style="background:linear-gradient(180deg,#FDFCF8,#EAF4F3)"><span class="font-display font-bold text-teal-dark" style="font-size:1.25rem">INVOIZ</span><span class="text-[11px] text-muted">Product image coming soon</span></span>@endif
-@if(!empty($d['pct']))<span class="absolute left-2.5 top-2.5 rounded-full bg-teal-dark px-2 py-0.5 text-[13px] font-bold text-white tnum">−{{ $d['pct'] }}%</span>@endif
+@if(!empty($d['pct']))<span class="absolute left-2.5 top-2.5 rounded-full bg-amber px-2 py-0.5 text-[13px] font-bold text-ink tnum">−{{ $d['pct'] }}%</span>@endif
 </div>
 <div class="p-3.5">
 <h3 class="font-display font-medium leading-snug line-clamp-2 min-h-[2.75rem" style="font-size:1.02rem">{{ $d['name'] }}</h3>

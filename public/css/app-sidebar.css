@@ -1,0 +1,128 @@
+/* Shared sidebar primitives for the Seller Center and Buyer sidebars.
+   Both asides carry .sb2 and use the same hooks; only items/labels differ.
+   Tokens: deep teal #0E4A57 (primary dark / Log in button), teal #16697A,
+   tint #EAF4F3, ivory #FBF9F6, ink #1B1B1E, muted #6E6E73. Flat fills only. */
+.sb2{display:flex;flex-direction:column;background:linear-gradient(180deg,#FBF9F6 70%,#EDF3F1);border-right:1px solid rgba(15,76,92,.12)}
+.sb2 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.sb2 .sb-eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:rgba(14,74,87,.8)}
+.sb2 .sidebar-nav{flex:1;min-height:0;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(14,74,87,.25) transparent;padding:8px 10px 24px;-webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 32px),transparent 100%) /* taste-skill-ignore: spec-required 32px fade above pinned footer */;mask-image:linear-gradient(180deg,#000 calc(100% - 32px),transparent 100%) /* taste-skill-ignore: spec-required 32px fade above pinned footer */}
+.sb2 .sidebar-nav::-webkit-scrollbar{width:6px}
+.sb2 .sidebar-nav::-webkit-scrollbar-thumb{background:rgba(14,74,87,.2);border-radius:999px}
+.sb2 .sidebar-nav a{position:relative;display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 12px;border-radius:10px;color:#0E4A57;font-size:14px;font-weight:500;text-decoration:none;transition:background-color .2s ease,color .2s ease}
+@media(min-width:1024px){.sb2 .sidebar-nav a{min-height:40px}}
+.sb2 .sidebar-nav a svg{color:rgba(22,105,122,.65);stroke-width:1.5;flex-shrink:0;transition:transform .2s ease,color .2s ease}
+.sb2 .sidebar-nav a:hover{background:rgba(22,105,122,.05);color:#0E4A57}
+.sb2 .sidebar-nav a:hover svg{transform:translateX(2px);color:#0E4A57}
+.sb2 .sidebar-nav a.active{background:rgba(22,105,122,.1);color:#0E4A57;font-weight:600}
+.sb2 .sidebar-nav a.active svg{color:#0E4A57}
+.sb2 .sidebar-nav a.active::before{content:"";position:absolute;left:-9px;top:8px;bottom:8px;width:3px;border-radius:999px;background:#0E4A57}
+.sb2 .sidebar-nav a:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+.sb2 .nav-section{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:rgba(14,74,87,.8);padding:0 12px;margin:16px 0 8px}
+.sb2 .sidebar-nav>.nav-section:first-child,.sb2 .sidebar-nav>div[role="group"]:first-child>.nav-section{margin-top:4px}
+/* Category text-only rows: no icon, labels align with item labels (12px pad + 18px icon + 12px gap). */
+.sb2 .sb-cat{display:flex;align-items:center;min-height:44px;padding:8px 12px 8px 42px;font-size:13.5px;font-weight:500;color:rgba(14,74,87,.78);border-radius:10px;text-decoration:none;transition:background-color .2s ease,color .2s ease}
+@media(min-width:1024px){.sb2 .sb-cat{min-height:40px}}
+.sb2 .sb-cat:hover{background:rgba(22,105,122,.05);color:#0E4A57}
+.sb2 .sb-cat:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+.sb2 .sb-cat span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Unified badge: deep teal pill, white tabular numerals. Number lives in .sb-num so JS can re-cap per state. */
+.sb2 .sb-badge{margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;min-height:18px;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;background:#0E4A57;color:#fff;border-radius:999px;padding:1px 8px}
+/* Pinned footer stack: pill + version with reserved height so it never overlaps nav items. */
+.sb2 .sb-foot{padding:12px 12px 10px}
+.sb2 .sb-pillwrap{position:relative;z-index:5}
+.sb2 .sb-pill{display:flex;align-items:center;gap:10px;height:56px;border-radius:20px;background:#0E4A57;color:#fff;padding:0 6px 0 10px;box-shadow:0 10px 30px rgba(10,47,58,.25) /* taste-skill-ignore: spec-required floating-pill shadow */;transition:transform .25s cubic-bezier(.22,1,.36,1),width .25s cubic-bezier(.22,1,.36,1),border-radius .25s cubic-bezier(.22,1,.36,1)}
+.sb2 .sb-pill:hover{transform:translateY(-1px)}
+.sb2 .sb-who{display:flex;align-items:center;gap:10px;min-width:0;flex:1;min-height:44px;border-radius:12px;color:#fff;text-decoration:none}
+.sb2 .sb-who:focus-visible,.sb2 .sb-logout:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.sb2 .sb-avatar{width:36px;height:36px;border-radius:999px;flex-shrink:0;object-fit:cover;box-shadow:0 0 0 2px rgba(255,255,255,.35) /* taste-skill-ignore: spec-required translucent white avatar ring */;display:flex;align-items:center;justify-content:center;background:#16697A;color:#fff;font-size:13px;font-weight:700}
+.sb2 .sb-fade{display:block;min-width:0;flex:1;transition:opacity .25s ease,max-width .25s ease}
+.sb2 .sb-name{display:block;font-size:14px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25}
+.sb2 .sb-role{display:block;font-size:12px;color:rgba(255,255,255,.75);line-height:1.3}
+.sb2 .sb-logout{width:44px;height:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border-radius:999px;color:#fff;background:none;border:none;cursor:pointer;font:inherit;transition:background-color .2s ease;text-decoration:none}
+.sb2 .sb-logout .sb-logout-circle{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;transition:background-color .2s ease}
+.sb2 .sb-logout svg{transition:transform .2s ease}
+.sb2 .sb-logout:hover .sb-logout-circle{background:rgba(255,255,255,.12)}
+.sb2 .sb-logout:hover svg{transform:translateX(2px)}
+.sb2 .sb-logout:focus-visible{outline:2px solid #fff;outline-offset:2px}
+.sb2 .sb-version{margin-top:8px;min-height:18px;font-size:11px;color:#6E6E73}
+/* Fixed portal tooltip for the collapsed rail (never clipped by nav overflow). */
+.sb-tip{position:fixed;z-index:100;background:#0E4A57;color:#fff;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s ease;box-shadow:0 8px 24px rgba(10,47,58,.3) /* taste-skill-ignore: floating overlay tooltip, overlays may carry shadow */}
+.sb-tip.show{opacity:1}
+/* Collapsed rail. NOTE: .sidebar-collapsed and .sb2 are on the SAME aside
+   element, so these selectors must compound (.sb2.sidebar-collapsed). */
+@media(min-width:1024px){
+    .sidebar-collapsed .sb-hide-collapsed{display:none !important}
+    .sb2.sidebar-collapsed .sidebar-nav{display:grid;justify-items:center;gap:8px;align-content:start}
+    .sb2.sidebar-collapsed .sidebar-nav a{width:44px;height:44px;min-height:44px;padding:0;justify-content:center}
+    .sb2.sidebar-collapsed .sidebar-nav a svg{margin:0}
+    .sb2.sidebar-collapsed .sidebar-nav a.active{border-radius:12px;background:rgba(22,105,122,.1)}
+    .sb2.sidebar-collapsed .sidebar-nav a.active::before{left:-14px;top:10px;bottom:10px}
+    .sb2.sidebar-collapsed .sb-badge{position:absolute;top:1px;right:1px;margin:0;min-height:16px;min-width:16px;padding:0 4px;font-size:10px;display:flex;align-items:center;justify-content:center;line-height:1}
+    .sb2.sidebar-collapsed .sb-cat{display:none}
+    .sb2.sidebar-collapsed .sb-brand-header .sb-logo-row{justify-content:center}
+    .sb2.sidebar-collapsed .sb-brand-header .sb-logo{display:flex;align-items:center;justify-content:center;width:44px;height:44px}
+    .sb2.sidebar-collapsed .sb-brand-header .sb-logo img{height:36px;width:36px}
+    .sb2.sidebar-collapsed .sb-foot{padding:12px 8px 10px;display:flex;flex-direction:column;align-items:center}
+    /* Rail pill: logout icon only in a narrow rectangular pill, centered on the axis. */
+    .sb2.sidebar-collapsed .sb-pill{width:56px;height:auto;min-height:56px;border-radius:20px;padding:8px 0;margin:0 auto;justify-content:center}
+    .sb2.sidebar-collapsed .sb-who{display:none}
+}
+/* Entrance + motion. */
+@media (prefers-reduced-motion: no-preference){
+    .sb2.sb-enter .sidebar-nav a{opacity:0;animation:sbIn .45s cubic-bezier(.22,1,.36,1) forwards}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(1){animation-delay:.02s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(2){animation-delay:.06s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(3){animation-delay:.1s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(4){animation-delay:.14s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(5){animation-delay:.18s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(6){animation-delay:.22s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(7){animation-delay:.26s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(8){animation-delay:.3s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(9){animation-delay:.34s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(10){animation-delay:.38s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(11){animation-delay:.42s}
+    .sb2.sb-enter .sidebar-nav a:nth-of-type(12){animation-delay:.46s}
+    .sb2.sb-enter .sb-pill{opacity:0;animation:sbPillIn .4s cubic-bezier(.22,1,.36,1) forwards}
+}
+@keyframes sbIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes sbPillIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.sb2 .sb-pill.sb-pill-in{animation:none;opacity:1}
+@media (prefers-reduced-motion: reduce){
+    .sb2.sb-enter .sidebar-nav a{opacity:1;animation:none}
+}
+/* Buyer shell positioning: under the 56px topbar on desktop, off-canvas drawer on mobile. */
+.sb-scrim[hidden]{display:none}
+@media(min-width:1024px){
+    .sb-scrim{display:none}
+    .sb2--buyer{position:sticky;top:56px;height:calc(100vh - 56px);height:calc(100dvh - 56px);width:256px;flex-shrink:0;transition:width .2s ease}
+    .sb2--buyer.sidebar-collapsed{width:72px}
+    .sb2--buyer .sidebar-nav a svg{width:18px;height:18px}
+}
+@media(max-width:1023.98px){
+    .sb2--buyer{position:fixed;top:0;bottom:0;left:0;z-index:60;width:min(300px,88vw);transform:translateX(-106%);transition:transform .25s cubic-bezier(.22,1,.36,1)}
+    .sb2--buyer.drawer-open{transform:none}
+    .sb-scrim{position:fixed;inset:0;z-index:55;background:rgba(14,74,87,.32)}
+}
+@media (prefers-reduced-motion: reduce){
+    .sb2--buyer{transition:none}
+}
+/* ---- Logistics shell hooks (.sb2--log). Aside carries .sb2 so all shared
+   primitives apply; below are logistics-only sizing and submenu rules. ---- */
+.sb2--log .sidebar-nav a svg{width:18px;height:18px}
+.sb2--log .sb-brand-header .sb-hamb{width:36px;height:36px;border-radius:999px;display:flex;align-items:center;justify-content:center;color:#0E4A57;flex-shrink:0;transition:background-color .2s ease}
+.sb2--log .sb-brand-header .sb-hamb:hover{background:rgba(22,105,122,.08)}
+.sb2--log .sb-brand-header .sb-hamb:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+/* Expandable groups: children indent to the parent label line with a guide. */
+.sb2--log .sb-sub{position:relative}
+.sb2--log .sb-sub::before{content:"";position:absolute;left:31px;top:8px;bottom:8px;width:1px;background:rgba(15,76,92,.14) /* taste-skill-ignore: spec-required submenu guide hairline */}
+.sb2--log .sb-sub a{min-height:36px;font-size:13.5px;font-weight:500;color:rgba(14,74,87,.78);padding:8px 12px 8px 42px}
+@media(min-width:1024px){.sb2--log .sb-sub a{min-height:36px}}
+.sb2--log .sb-sub a span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb2--log .sb-parent.is-active{background:rgba(22,105,122,.1)}
+.sb2--log .sb-parent.is-active::before{content:"";position:absolute;left:-9px;top:8px;bottom:8px;width:3px;border-radius:999px;background:#0E4A57}
+.sb2--log .sb-avatar-fallback{background:#EAF4F3;color:#0E4A57}
+@media(min-width:1024px){
+    .sb2.sidebar-collapsed .sb-sub{display:none}
+    .sb2.sidebar-collapsed .sb-parent{justify-content:center}
+    .sb2.sidebar-collapsed .sb-parent>a{flex:none;margin:0 auto}
+}

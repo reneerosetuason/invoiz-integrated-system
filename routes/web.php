@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
@@ -186,6 +186,12 @@ Route::get('/home', fn () => redirect('/shop'));
 Route::get('/verify', [UnifiedAuthController::class, 'showVerify'])->name('verify');
 Route::post('/verify', [UnifiedAuthController::class, 'verifyCode'])->name('verify.post');
 Route::post('/verify/resend', [UnifiedAuthController::class, 'resendCode'])->name('verify.resend');
+
+// Password reset (one shared flow for buyer, seller, admin and logistics logins)
+Route::get('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetController::class, 'showLinkForm'])->name('auth.password.request');
+Route::post('/forgot-password', [\App\Http\Controllers\Auth\PasswordResetController::class, 'sendLink'])->name('auth.password.email');
+Route::get('/reset-password/{token}', [\App\Http\Controllers\Auth\PasswordResetController::class, 'showResetForm'])->name('auth.password.reset');
+Route::post('/reset-password', [\App\Http\Controllers\Auth\PasswordResetController::class, 'reset'])->name('auth.password.update');
 
 // Continue with Gmail (Google OAuth)
 Route::get('/auth/google', [UnifiedAuthController::class, 'googleRedirect'])->name('google.redirect');

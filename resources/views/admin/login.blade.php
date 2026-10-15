@@ -115,6 +115,7 @@
             <label class="remember">
               <input type="checkbox" name="remember" /> Remember me
             </label>
+            <p style="text-align:right;margin:10px 0 0;font-size:12.5px"><a href="{{ url('/forgot-password') }}" style="color:#0E4A57;font-weight:700;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">Forgot password?</a></p>
             <button type="submit" class="btn">Sign in to Admin Center</button>
           </form>
       </div>

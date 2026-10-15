@@ -1,102 +1,138 @@
 @extends('layouts.website')
 @section('content')
 @php
-  function cFor($n){ $h=array_sum(array_map('ord', str_split($n))); $pal=['#0F766E','#1D4ED8','#7C3AED','#DB2777','#EA580C','#16A34A','#0891B2','#4F46E5']; return $pal[$h%count($pal)]; }
   $buyer = session('buyer');
   $inCart = false;
   if($buyer){
     $inCart = \App\Models\Cart::itemsFor($buyer['id'])->where('product_id',$p->id)->exists();
   }
+  $hasDeal = $p->compare_at_price && $p->compare_at_price > $p->price;
+  $backQs = request('category') ? '?category='.request('category').(request('search') ? '&search='.urlencode(request('search')) : '') : (request('search') ? '?search='.urlencode(request('search')) : '');
 @endphp
-<a href="{{ url('/'.(request('category') ? '?category='.request('category').(request('search') ? '&search='.urlencode(request('search')) : '') : (request('search') ? '?search='.urlencode(request('search')) : ''))) }}" style="color:var(--text2);text-decoration:none;font-weight:600">← Back to store</a>
-@if(session('success'))
-  <div style="margin-top:10px;padding:10px 14px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:8px;font-size:13px;font-weight:600">{{ session('success') }}</div>
-@endif
-@if(session('error'))
-  <div style="margin-top:10px;padding:10px 14px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;font-size:13px;font-weight:600">{{ session('error') }}</div>
-@endif
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
-  @php $hasPImg = $p->image && file_exists(storage_path('app/public/'.$p->image)); @endphp
-  <div style="height:420px;background:#f3f4f6;border-radius:10px;overflow:hidden;border:1px solid var(--border)">
-    @if($hasPImg)
-      <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}" style="width:100%;height:100%;object-fit:cover;display:block">
-    @else
-      <div style="width:100%;height:100%;background:{{ cFor($p->name) }};border-radius:10px;display:grid;place-items:center;color:#fff;padding:20px">
-        <div>
-          <div style="width:80px;height:80px;background:rgba(255,255,255,.22);border-radius:18px;display:grid;place-items:center;margin:0 auto;font-weight:800;font-size:28px">{{ strtoupper(substr($p->name,0,2)) }}</div>
-          <div style="margin-top:12px;font-weight:700;font-size:18px">{{ $p->name }}</div>
-          <div style="opacity:.9">{{ $p->brand }}</div>
-        </div>
-      </div>
-    @endif
-  </div>
-  <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px">
-    <div style="color:var(--green);font-weight:800;font-size:24px">₱{{ number_format($p->price,2) }}</div>
-    @if($p->compare_at_price && $p->compare_at_price > $p->price)
-      <div style="display:flex;align-items:center;gap:8px;margin-top:2px">
-        <span style="color:var(--text3);font-size:13px;text-decoration:line-through">₱{{ number_format($p->compare_at_price,2) }}</span>
-        <span style="background:var(--danger);color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:999px">−{{ (int) round((1 - (float)$p->price/(float)$p->compare_at_price)*100) }}%</span>
-      </div>
-    @endif
-    <div style="font-weight:700;margin-top:6px;font-size:16px">{{ $p->name }}</div>
-    @if($p->brand)
-      <div style="color:var(--text2);font-size:12px;margin-top:2px">{{ $p->brand }}</div>
-    @endif
-    <div style="color:var(--text3);font-size:12px;margin-top:4px">{{ $p->stock }} left · {{ $p->category->name ?? '' }} · COD Available</div>
-    <div style="font-size:12px;margin-top:4px;color:var(--text2)">Sold by <a href="{{ url('/store/'.$p->seller_id) }}" style="color:var(--primary-dark,#0E4A57);font-weight:700;text-decoration:none">{{ \App\Models\Seller::nameFor($p->seller_id) }}</a></div>
-    @if($p->description)
-      <div style="margin-top:10px;color:var(--text2);font-size:13px;line-height:1.6">{{ $p->description }}</div>
-    @endif
-    @php $vgroups = $p->variants->where('status','active')->groupBy('variant_type'); @endphp
-    @if($vgroups->isNotEmpty())
-      <div style="margin-top:10px;font-size:12px;color:var(--text3)">Available variations: {{ $vgroups->keys()->implode(', ') }} (choose in options)</div>
-    @endif
-    <div style="margin-top:16px;display:flex;gap:10px">
-      @if($inCart)
-        <a href="{{ url('/cart') }}" style="flex:1;text-align:center;background:#f0fdf4;color:var(--green);border:1.5px solid var(--green);padding:11px 16px;border-radius:999px;text-decoration:none;font-weight:700"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-3px"><polyline points="20 6 9 17 4 12"/></svg> In Cart — View Cart</a>
-      @else
-        <button type="button" onclick="openOpt()" style="flex:1;background:#fff;color:var(--green);border:1.5px solid var(--green);padding:11px 16px;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg> Add to Cart</button>
-      @endif
-      <button type="button" onclick="openOpt(true)" style="flex:1;background:var(--green);color:#fff;padding:11px 16px;border:none;border-radius:999px;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Buy Now</button>
-    </div>
-    <a href="{{ url('/chat/seller/'.$p->seller_id) }}" style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:10px;padding:10px;background:#fff;border:1px solid var(--border);border-radius:999px;text-decoration:none;color:var(--green-dark);font-weight:700;font-size:13px;transition:all .15s" onmouseover="this.style.borderColor='var(--green)';this.style.background='#f0fdf4'" onmouseout="this.style.borderColor='var(--border)';this.style.background='#fff'">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Message Seller
-    </a>
-  </div>
-</div>
+<div class="shopx">
+<div class="wrap">
 
-@php
-  $specs = [
-    'Brand' => $p->brand, 'Model' => $p->model, 'SKU' => $p->sku,
-    'Material' => $p->material, 'Dimensions' => $p->dimensions, 'Weight' => $p->weight,
-    'Warranty' => $p->warranty, 'Origin' => $p->origin,
-  ];
-@endphp
-<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:16px">
-  <div style="font-weight:800;font-size:14px;margin-bottom:8px">Product details</div>
-  @if($p->description)
-    <p style="color:var(--text2);font-size:13px;line-height:1.65;margin:0 0 12px">{{ $p->description }}</p>
+  <div class="backrow rv">
+    <a href="{{ url('/'.$backQs) }}" class="backlink"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to store</a>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="{{ url('/shop') }}" class="u-line">Shop</a>
+      <span aria-hidden="true">/</span>
+      @if($p->category)
+        <a href="{{ url('/shop?category='.$p->category->id) }}" class="u-line">{{ $p->category->name }}</a>
+        <span aria-hidden="true">/</span>
+      @endif
+      <span class="here" aria-current="page">{{ $p->name }}</span>
+    </nav>
+  </div>
+
+  @if(session('success'))
+    <div class="rv" role="status" style="margin-bottom:14px;padding:10px 14px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:8px;font-size:13px;font-weight:600">{{ session('success') }}</div>
   @endif
-  <div style="display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:12.5px">
-    @foreach($specs as $label => $val)
-      @if(!empty($val))
-        <div style="color:var(--text3)">{{ $label }}</div>
-        <div style="font-weight:600">{{ $val }}</div>
+  @if(session('error'))
+    <div class="rv" role="alert" style="margin-bottom:14px;padding:10px 14px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca;border-radius:8px;font-size:13px;font-weight:600">{{ session('error') }}</div>
+  @endif
+
+  <div class="pdetail">
+    @php $hasPImg = $p->image && file_exists(storage_path('app/public/'.$p->image)); @endphp
+    <div class="gallery rv">
+      <div class="gmain">
+        @if($hasPImg)
+          <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}" fetchpriority="high">
+        @else
+          <div class="pimg-fallback" role="img" aria-label="{{ $p->name }} — product image coming soon">
+            <div class="mark">INVOIZ</div>
+            <div class="soon">Product image coming soon</div>
+          </div>
+        @endif
+      </div>
+    </div>
+
+    <div class="pinfo rv">
+      @if($p->category)
+        <div class="eyebrow">{{ $p->category->name }}</div>
       @endif
-    @endforeach
-    <div style="color:var(--text3)">Category</div>
-    <div style="font-weight:600">{{ $p->category->name ?? '—' }}</div>
-    <div style="color:var(--text3)">Stock</div>
-    <div style="font-weight:600">{{ $p->stock }} available · Cash on Delivery</div>
+      <h1 class="ptitle">{{ $p->name }}</h1>
+      @if($p->brand)
+        <div class="pbrandline">{{ $p->brand }}</div>
+      @endif
+      <div class="soldby">Sold by <a href="{{ url('/store/'.$p->seller_id) }}" class="u-line">{{ \App\Models\Seller::nameFor($p->seller_id) }}</a></div>
+
+      <div class="pricerow">
+        <span class="bignum">₱{{ number_format($p->price,2) }}</span>
+        @if($hasDeal)
+          <span class="pwas">₱{{ number_format($p->compare_at_price,2) }}</span>
+          <span class="poff">−{{ (int) round((1 - (float)$p->price/(float)$p->compare_at_price)*100) }}%</span>
+        @endif
+      </div>
+
+      @if($p->description)
+        <p class="pdesc">{{ $p->description }}</p>
+      @endif
+
+      <div class="prow">
+        <span>{{ $p->stock }} left</span>
+        <span class="codpill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>Cash on delivery</span>
+      </div>
+
+      @php $vgroups = $p->variants->where('status','active')->groupBy('variant_type'); @endphp
+      @if($vgroups->isNotEmpty())
+        <div class="vhelper">Available variations: {{ $vgroups->keys()->implode(', ') }} (choose in options)</div>
+      @endif
+
+      <div class="p-actions">
+        @if($inCart)
+          <a href="{{ url('/cart') }}" class="btn-p btn-line"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>In Cart — View Cart</a>
+        @else
+          <button type="button" onclick="openOpt()" class="btn-p btn-line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Add to Cart</button>
+        @endif
+        <button type="button" onclick="openOpt(true)" class="btn-p btn-solid"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Buy Now</button>
+      </div>
+
+      <a href="{{ url('/chat/seller/'.$p->seller_id) }}" class="msglink u-line">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Message Seller
+      </a>
+
+      <div class="trust">
+        <div class="ti"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg><div><b>Cash on delivery</b><span>Pay at your door, no prepayment.</span></div></div>
+        <div class="ti"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><div><b>Rider-tracked delivery</b><span>Follow your parcel to arrival.</span></div></div>
+        <div class="ti"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg><div><b>Easy returns</b><span>Report a problem, we make it right.</span></div></div>
+      </div>
+    </div>
   </div>
+
+  @php
+    $specs = [
+      'Brand' => $p->brand, 'Model' => $p->model, 'SKU' => $p->sku,
+      'Material' => $p->material, 'Dimensions' => $p->dimensions, 'Weight' => $p->weight,
+      'Warranty' => $p->warranty, 'Origin' => $p->origin,
+    ];
+  @endphp
+  <section class="details rv" aria-labelledby="pdetails-h">
+    <div class="eyebrow">Details</div>
+    <h2 id="pdetails-h">Product details</h2>
+    @if($p->description)
+      <p class="desc">{{ $p->description }}</p>
+    @endif
+    <dl class="specs">
+      @foreach($specs as $label => $val)
+        @if(!empty($val))
+          <div class="row"><dt>{{ $label }}</dt><dd>{{ $val }}</dd></div>
+        @endif
+      @endforeach
+      <div class="row"><dt>Category</dt><dd>{{ $p->category->name ?? '—' }}</dd></div>
+      <div class="row"><dt>Stock</dt><dd>{{ $p->stock }} available · Cash on Delivery</dd></div>
+    </dl>
+  </section>
+
+</div>
 </div>
 
-{{-- Options modal: quantity + variation --}}
-<div id="optModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.45);align-items:center;justify-content:center;padding:16px">
-  <div style="background:#fff;border-radius:14px;max-width:420px;width:100%;padding:20px;max-height:90vh;overflow:auto">
+{{-- Options modal: quantity + variation (ids, classes, data attrs and JS unchanged) --}}
+<div id="optModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(10,47,58,.45);align-items:center;justify-content:center;padding:16px">
+  <div style="border-radius:20px;max-width:420px;width:100%;padding:20px;max-height:90vh;overflow:auto" role="dialog" aria-modal="true" aria-label="Order options">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
       <div style="font-weight:800;font-size:15px">Order options</div>
-      <button type="button" onclick="closeOpt()" style="background:transparent;border:none;cursor:pointer;color:var(--text3);padding:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button type="button" onclick="closeOpt()" aria-label="Close options" style="background:transparent;border:none;cursor:pointer;color:var(--text3);padding:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
     <div style="font-size:12px;color:var(--text2);margin-bottom:12px">{{ $p->name }} · <b id="optBasePrice" style="color:var(--green)">₱{{ number_format($p->price,2) }}</b></div>
     @if($vgroups->isNotEmpty())
@@ -113,9 +149,9 @@
     @endif
     <div style="font-size:12px;font-weight:700;margin:14px 0 6px">Quantity</div>
     <div style="display:flex;align-items:center;gap:10px">
-      <button type="button" onclick="optQty(-1)" style="width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--border);font-weight:800;font-size:14px;cursor:pointer">−</button>
+      <button type="button" onclick="optQty(-1)" aria-label="Decrease quantity" style="width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--border);font-weight:800;font-size:14px;cursor:pointer">−</button>
       <span id="optQtyVal" style="min-width:30px;text-align:center;font-weight:800">1</span>
-      <button type="button" onclick="optQty(1)" style="width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer">+</button>
+      <button type="button" onclick="optQty(1)" aria-label="Increase quantity" style="width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer">+</button>
       <span id="optAvail" style="font-size:11px;color:var(--text3)">{{ $p->stock }} available</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-weight:800">Total <span id="optTotal" style="color:var(--green);font-size:16px">₱{{ number_format($p->price,2) }}</span></div>

@@ -100,6 +100,7 @@
                                 <input type="checkbox" name="remember" class="h-4 w-4 rounded border-borderline text-[#16697A]" style="accent-color:#16697A;">
                                 Remember me
                             </label>
+                            <a href="{{ url('/forgot-password') }}" class="text-sm font-semibold text-[#16697A] hover:underline">Forgot password?</a>
                         </div>
                         <button type="submit" class="btn btn-primary w-full !py-3.5 text-[15px]">Sign in</button>
                     </form>

@@ -8,16 +8,54 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('frontend/css/app.css') }}">
   <link rel="stylesheet" href="{{ asset('frontend/css/theme.css') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ asset('css/app-sidebar.css') }}?v={{ filemtime(public_path('css/app-sidebar.css')) }}">
+  <link rel="stylesheet" href="{{ asset('css/shop.css') }}?v={{ filemtime(public_path('css/shop.css')) }}">
+  <script>document.documentElement.classList.add('js')</script>
+  <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}" defer></script>
+  <script src="{{ asset('js/shop.js') }}?v={{ filemtime(public_path('js/shop.js')) }}" defer></script>
+  <style>
+    /* Buyer navbar — taste-page language (ivory ground, deep teal primary,
+       flat fills only). Scoped under .buyerbar so landing/shop styles keep theirs. */
+    .buyerbar.topbar{height:60px;background:#FBF9F6;border-bottom:1px solid rgba(15,76,92,.12);gap:14px;padding:0 20px}
+    .buyerbar .hamburger{width:36px;height:36px;border-radius:999px;border:1px solid transparent;color:#0E4A57;font-size:15px}
+    .buyerbar .hamburger:hover{background:rgba(22,105,122,.08);border-color:transparent;color:#0E4A57}
+    .buyerbar .hamburger:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+    .buyerbar .brand{gap:10px}
+    .buyerbar .brand-icon{width:34px;height:34px;border-radius:10px;border:1px solid rgba(15,76,92,.14);background:#fff}
+    .buyerbar .brand-text{color:#0E4A57;font-weight:800;font-size:17px;letter-spacing:-.02em}
+    .buyerbar .brand-sub{color:rgba(14,74,87,.68);font-size:10px;font-weight:700;letter-spacing:.14em;margin-left:2px}
+    .buyerbar .search{height:42px;max-width:560px;background:#F0EEE9;border:1px solid transparent;border-radius:999px;padding:0 6px 0 14px;gap:8px}
+    .buyerbar .search:focus-within{background:#fff;border-color:rgba(22,105,122,.4)}
+    .buyerbar .search input{font-size:13px;color:#1B1B1E}
+    .buyerbar .search-btn{background:#0E4A57;border-radius:999px;padding:9px 20px;font-size:13px}
+    .buyerbar .search-btn:hover{background:#0B3D48}
+    .buyerbar .topbar-link{color:#0E4A57;font-size:13px;font-weight:600;padding:8px 12px;border-radius:10px}
+    .buyerbar .topbar-link svg{color:rgba(22,105,122,.7);transition:transform .2s ease,color .2s ease}
+    .buyerbar .topbar-link:hover{background:rgba(22,105,122,.07);color:#0E4A57}
+    .buyerbar .topbar-link:hover svg{transform:translateX(2px);color:#0E4A57}
+    .buyerbar .topbar-link:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+    .buyerbar .badge{background:#0E4A57;font-variant-numeric:tabular-nums;min-width:18px;height:18px;font-size:10px;font-weight:700}
+    .buyerbar .btn-login{border:1px solid rgba(15,76,92,.25);border-radius:999px;padding:9px 18px;color:#0E4A57;font-weight:700}
+    .buyerbar .btn-login:hover{border-color:#0E4A57;background:rgba(22,105,122,.06);color:#0E4A57}
+    .buyerbar .btn-register{background:#0E4A57;border-radius:999px;padding:10px 20px}
+    .buyerbar .btn-register:hover{background:#0B3D48}
+    .buyerbar .profile-btn{border:1px solid rgba(15,76,92,.16);background:#fff;padding:4px 12px 4px 4px;gap:9px}
+    .buyerbar .profile-btn:hover{border-color:rgba(22,105,122,.45);background:#fff}
+    .buyerbar .profile-btn:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+    .buyerbar .profile-avatar{box-shadow:0 0 0 2px #EAF4F3}
+    .buyerbar #profileDrop{border:1px solid rgba(15,76,92,.12);border-radius:16px;box-shadow:0 10px 30px rgba(10,47,58,.18)}
+  </style>
 </head>
 <body>
   @php
     $hideSidebar = (request()->is('/') || request()->is('products')) && !session('buyer');
   @endphp
-  <header class="topbar">
-    @if(!$hideSidebar)<button class="hamburger" onclick="toggleSidebar()" title="Toggle menu">&#9776;</button>@endif
+  <header class="topbar buyerbar">
+    @if(!$hideSidebar)<button id="buyerMenuBtn" class="hamburger" title="Toggle menu" aria-label="Toggle menu" aria-expanded="true">&#9776;</button>@endif
     <a href="{{ url('/shop') }}" class="brand">
       <div class="brand-icon"><img src="{{ asset('storage/logos/logo.png') }}" onerror="this.onerror=null;this.src='{{ asset('images/logo.png') }}'" alt="Invoiz" style="width:100%;height:100%;object-fit:cover;"></div>
-      <span class="brand-text">Invoiz</span>
+      <span class="brand-text">INVOIZ</span>
       <span class="brand-sub">ONLINE SHOPPING</span>
     </a>
     <form method="GET" action="{{ url('/shop') }}" class="search">
@@ -42,8 +80,11 @@
       $notifCount = $buyer ? \App\Support\BuyerNotifications::count($buyer['id']) : 0;
     @endphp
     <a href="{{ url('/cart') }}" class="topbar-link" style="position:relative">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-      Cart @if($cartCount > 0)<span class="badge">{{ $cartBadge }}</span>@endif
+      <span style="position:relative;display:inline-flex;line-height:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        @if($cartCount > 0)<span class="badge">{{ $cartBadge }}</span>@endif
+      </span>
+      Cart
     </a>
     <a href="{{ url('/orders') }}" class="topbar-link">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -88,87 +129,119 @@
   </header>
   <div class="shell">
     @if(!$hideSidebar)
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-label" style="margin-top:0">Menu</div>
-      <a class="side-link {{ request()->is('shop') ? 'active' : '' }}" href="{{ url('/shop') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        Home
-      </a>
-      <a class="side-link {{ request()->is('sale','products','product','product/*') ? 'active' : '' }}" href="{{ url('/sale') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.12 10.13 13.87 3.88a2 2 0 0 0-2.83 0L2.05 12.87a2 2 0 0 0 0 2.83l6.25 6.25a2 2 0 0 0 2.83 0l8.99-8.99a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
-        Sale
-      </a>
-      <a class="side-link {{ request()->is('cart') ? 'active' : '' }}" href="{{ url('/cart') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-        Cart
-        @if($cartCount > 0)<span style="margin-left:auto;background:var(--danger);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px">{{ $cartBadge }}</span>@endif
-      </a>
-      <div class="sidebar-label">Categories</div>
-      @foreach(\App\Models\Category::active()->orderBy('name')->limit(8)->get() as $sc)
-        <a class="side-link {{ (string)request('category')===(string)$sc->id ? 'active' : '' }}" href="{{ url('/shop?category='.$sc->id) }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41 11 3H4v7l9.59 9.59a2 2 0 0 0 2.82 0l4.18-4.18a2 2 0 0 0 0-2.82z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
-          {{ $sc->name }}
-        </a>
-      @endforeach
-      @if($buyer)
-        <div class="sidebar-label">Account</div>
-        <a class="side-link {{ request()->is('orders') ? 'active' : '' }}" href="{{ url('/orders') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          My Orders
-          @if($pendingOrders > 0)<span style="margin-left:auto;background:var(--accent,#F0A202);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px">{{ $pendingOrders }}</span>@endif
-        </a>
-        <a class="side-link {{ request()->is('profile') ? 'active' : '' }}" href="{{ url('/profile') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-          My Profile
-        </a>
-        @php
-          $switchStore = null;
-          try {
-            if (auth()->check()) {
-              $ss = \App\Models\Seller::where('user_id', auth()->id())->first();
-              if ($ss && $ss->isApproved()) $switchStore = $ss;
-            }
-          } catch (\Throwable $e) {}
-        @endphp
-        @if($switchStore && auth()->check() && auth()->user()->isBuyer())
-          <a class="side-link" href="{{ url('/seller/dashboard') }}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 22V12h6v10"/></svg>
-            Switch to Seller
+    <div class="sb-scrim" id="buyerScrim" hidden></div>
+    <aside id="sidebar" class="sb2 sb2--buyer" aria-label="Buyer sidebar">
+      <nav class="sidebar-nav" aria-label="Buyer navigation">
+        <div role="group" aria-labelledby="bbLblMenu">
+          <div class="nav-section sb-hide-collapsed" id="bbLblMenu">Menu</div>
+          <a href="{{ url('/shop') }}" title="Home" class="{{ request()->is('shop') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+            <span class="sb-label sb-hide-collapsed">Home</span>
           </a>
+          <a href="{{ url('/sale') }}" title="Sale" class="{{ request()->is('sale','products','product','product/*') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.12 10.13 13.87 3.88a2 2 0 0 0-2.83 0L2.05 12.87a2 2 0 0 0 0 2.83l6.25 6.25a2 2 0 0 0 2.83 0l8.99-8.99a2 2 0 0 0 0-2.83z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg>
+            <span class="sb-label sb-hide-collapsed">Sale</span>
+          </a>
+          <a href="{{ url('/cart') }}" title="Cart" class="{{ request()->is('cart') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            <span class="sb-label sb-hide-collapsed">Cart</span>
+            @if($cartCount > 0)<span class="sb-badge" data-count="{{ $cartCount }}"><span class="sb-num">{{ $cartBadge }}</span><span class="sr-only"> items in cart</span></span>@endif
+          </a>
+        </div>
+        <div role="group" aria-labelledby="bbLblCat">
+          <div class="nav-section sb-hide-collapsed" id="bbLblCat">Categories</div>
+          @foreach(\App\Models\Category::active()->orderBy('name')->limit(8)->get() as $sc)
+            <a class="sb-cat {{ (string)request('category')===(string)$sc->id ? 'active' : '' }}" href="{{ url('/shop?category='.$sc->id) }}" title="{{ $sc->name }}">
+              <span>{{ $sc->name }}</span>
+            </a>
+          @endforeach
+        </div>
+        @if($buyer)
+          <div role="group" aria-labelledby="bbLblAcct">
+            <div class="nav-section sb-hide-collapsed" id="bbLblAcct">Account</div>
+            <a href="{{ url('/orders') }}" title="My Orders" class="{{ request()->is('orders') ? 'active' : '' }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span class="sb-label sb-hide-collapsed">My Orders</span>
+              @if($pendingOrders > 0)<span class="sb-badge" data-count="{{ $pendingOrders }}"><span class="sb-num">{{ $pendingOrders > 99 ? '99+' : $pendingOrders }}</span><span class="sr-only"> pending orders</span></span>@endif
+            </a>
+            <a href="{{ url('/profile') }}" title="My Profile" class="{{ request()->is('profile') ? 'active' : '' }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span class="sb-label sb-hide-collapsed">My Profile</span>
+            </a>
+            @php
+              $switchStore = null;
+              try {
+                if (auth()->check()) {
+                  $ss = \App\Models\Seller::where('user_id', auth()->id())->first();
+                  if ($ss && $ss->isApproved()) $switchStore = $ss;
+                }
+              } catch (\Throwable $e) {}
+            @endphp
+            @if($switchStore && auth()->check() && auth()->user()->isBuyer())
+              <a href="{{ url('/seller/dashboard') }}" title="Switch to Seller">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 22V12h6v10"/></svg>
+                <span class="sb-label sb-hide-collapsed">Switch to Seller</span>
+              </a>
+            @endif
+          </div>
+        @else
+          <div role="group" aria-labelledby="bbLblAcct">
+            <div class="nav-section sb-hide-collapsed" id="bbLblAcct">Account</div>
+            <a href="{{ url('/login') }}" title="Login" class="{{ request()->is('login') ? 'active' : '' }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+              <span class="sb-label sb-hide-collapsed">Login</span>
+            </a>
+            <a href="{{ url('/register') }}" title="Register" class="{{ request()->is('register') ? 'active' : '' }}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+              <span class="sb-label sb-hide-collapsed">Register</span>
+            </a>
+          </div>
         @endif
-        <a class="side-link" href="{{ url('/logout') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          Logout
-        </a>
-      @else
-        <div class="sidebar-label">Account</div>
-        <a class="side-link {{ request()->is('login') ? 'active' : '' }}" href="{{ url('/login') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-          Login
-        </a>
-        <a class="side-link {{ request()->is('register') ? 'active' : '' }}" href="{{ url('/register') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-          Register
-        </a>
-      @endif
-      <div class="sidebar-label">More</div>
-      <a class="side-link {{ request()->is('messages','chat','chat/*') ? 'active' : '' }}" href="{{ url('/messages') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        Messages
-        @if($unreadMsgs > 0)<span style="margin-left:auto;background:var(--danger);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px">{{ $unreadMsgs > 99 ? '99+' : $unreadMsgs }}</span>@endif
-      </a>
-      <a class="side-link {{ request()->is('notifications') ? 'active' : '' }}" href="{{ url('/notifications') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        Notifications
-        @if($notifCount > 0)<span style="margin-left:auto;background:var(--primary,#16697A);color:#fff;font-size:9px;font-weight:800;padding:2px 6px;border-radius:999px">{{ $notifCount > 99 ? '99+' : $notifCount }}</span>@endif
-      </a>
-      <a class="side-link {{ request()->is('help') ? 'active' : '' }}" href="{{ url('/help') }}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Help &amp; FAQ
-      </a>
-      <div class="sidebar-footer">
-        <div style="font-weight:600;color:var(--text2)">Invoiz v1</div>
-        <div style="margin-top:2px">Desktop</div>
+        <div role="group" aria-labelledby="bbLblMore">
+          <div class="nav-section sb-hide-collapsed" id="bbLblMore">More</div>
+          <a href="{{ url('/messages') }}" title="Messages" class="{{ request()->is('messages','chat','chat/*') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="sb-label sb-hide-collapsed">Messages</span>
+            @if($unreadMsgs > 0)<span class="sb-badge" data-count="{{ $unreadMsgs }}"><span class="sb-num">{{ $unreadMsgs > 99 ? '99+' : $unreadMsgs }}</span><span class="sr-only"> unread messages</span></span>@endif
+          </a>
+          <a href="{{ url('/notifications') }}" title="Notifications" class="{{ request()->is('notifications') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="sb-label sb-hide-collapsed">Notifications</span>
+            @if($notifCount > 0)<span class="sb-badge" data-count="{{ $notifCount }}"><span class="sb-num">{{ $notifCount > 99 ? '99+' : $notifCount }}</span><span class="sr-only"> unread notifications</span></span>@endif
+          </a>
+          <a href="{{ url('/help') }}" title="Help &amp; FAQ" class="{{ request()->is('help') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span class="sb-label sb-hide-collapsed">Help &amp; FAQ</span>
+          </a>
+        </div>
+      </nav>
+      <div class="sb-foot">
+        @if($buyer)
+          @php($bName = trim(($buyer['first_name'] ?? '').' '.($buyer['last_name'] ?? '')))
+          @php($bInitials = strtoupper(substr($buyer['first_name'] ?? '', 0, 1).substr($buyer['last_name'] ?? '', 0, 1)) ?: 'B')
+          <div class="sb-pillwrap">
+            <div class="sb-pill">
+              <a href="{{ url('/profile') }}" class="sb-who" data-tip="{{ $bName }} · Buyer">
+                @if($bName)
+                  <img src="https://ui-avatars.com/api/?name={{ urlencode($bName) }}&background=16697A&color=fff&size=72" alt="" class="sb-avatar">
+                @else
+                  <span class="sb-avatar" aria-hidden="true">{{ $bInitials }}</span>
+                @endif
+                <span class="sb-fade">
+                  <span class="sb-name" title="{{ $bName }}">{{ $bName }}</span>
+                  <span class="sb-role">Buyer</span>
+                </span>
+              </a>
+              <form method="POST" action="{{ route('logout') }}" style="margin:0;flex-shrink:0">
+                @csrf
+                <button type="submit" class="sb-logout" data-tip="Log out" aria-label="Log out">
+                  <span class="sb-logout-circle"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></span>
+                </button>
+              </form>
+            </div>
+          </div>
+        @endif
+        <div class="sb-version sb-hide-collapsed no-print">INVOIZ v1</div>
       </div>
     </aside>
     @endif
@@ -176,7 +249,8 @@
       <main class="container" style="padding-top:0;flex:1">
         @yield('content')
       </main>
-      <footer class="footer">
+      <footer class="footer buyerfoot">
+        <div class="buyerfoot-mark">INVOIZ</div>
         <div>&copy; 2026 Invoiz Online Shopping. All rights reserved.</div>
       </footer>
     </div>

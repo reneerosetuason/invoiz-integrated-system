@@ -30,6 +30,7 @@
         }
     </script>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app-sidebar.css') }}?v={{ filemtime(public_path('css/app-sidebar.css')) }}">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     @stack('styles')
@@ -42,98 +43,114 @@
     {{-- ===================== SIDEBAR ===================== --}}
     <div x-show="sidebarOpen" x-cloak x-transition.opacity
          @click="sidebarOpen = false"
-         class="fixed inset-0 z-40 bg-black/40 lg:hidden no-print"></div>
+         class="fixed inset-0 z-40 bg-[#0E4A57]/30 backdrop-blur-sm lg:hidden no-print"></div>
 
     <aside x-show="sidebarOpen" x-transition
-           :class="sidebarCollapsed ? 'sidebar-collapsed lg:w-[60px]' : ''"
-           class="fixed inset-y-0 left-0 z-50 flex w-[230px] flex-col bg-white border-r border-borderline
-                  lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:z-auto print:hidden no-print transition-[width] duration-200"
-           x-cloak>
+           @keydown.tab="if (sidebarOpen && window.innerWidth < 1024) { const items = [...$el.querySelectorAll('a[href], button:not([disabled])')].filter(e => e.getClientRects().length); if (items.length) { const first = items[0], last = items[items.length - 1]; if ($event.shiftKey && document.activeElement === first) { $event.preventDefault(); last.focus(); } else if (!$event.shiftKey && document.activeElement === last) { $event.preventDefault(); first.focus(); } } }"
+           :class="sidebarCollapsed ? 'sidebar-collapsed lg:w-[72px]' : ''"
+            class="sb2 fixed inset-y-0 left-0 z-50 flex w-64 flex-col
+                   lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:z-auto print:hidden no-print transition-[width] duration-200"
+            aria-label="Seller Center sidebar"
+            x-cloak>
         {{-- Brand header --}}
-        <div class="sb-brand-header relative px-4 pb-4 pt-5"
-             style="background: linear-gradient(135deg, #16697A, #0E4A57);">
-            <div class="flex items-center gap-2.5">
-                <div class="sb-logo-wrap flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white">
-                    <img src="{{ asset('images/invoiz-mark.png') }}" alt="Invoiz" class="h-7 w-7 object-contain">
-                </div>
-                <div class="sb-hide-collapsed">
-                    <div class="text-base font-extrabold tracking-wide text-white">Invoiz</div>
-                    <div class="text-[9.5px] font-semibold uppercase tracking-widest text-white/70">Seller Center</div>
+        <div class="sb-brand-header relative px-4 pb-3 pt-4">
+            <div class="sb-logo-row flex items-center gap-2.5">
+                <span class="sb-logo"><img src="{{ asset('images/logo.png') }}" alt="INVOIZ" class="h-9 w-9 shrink-0 rounded-xl object-cover"></span>
+                <div class="sb-hide-collapsed min-w-0">
+                    <div class="text-xl font-extrabold tracking-tight text-[#0E4A57]">INVOIZ</div>
+                    <div class="sb-eyebrow mt-0.5">Seller Center</div>
                 </div>
             </div>
 
-            <div class="sb-hide-collapsed mt-3.5 flex items-center gap-2.5 rounded-xl bg-white/10 px-3 py-2.5">
-                @if(auth()->user()->seller?->logo)
-                    <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="Shop" class="h-8 w-8 rounded-full bg-white/90 object-cover">
-                @else
-                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-xs font-bold text-[#0E4A57]">
-                        {{ strtoupper(substr(auth()->user()->seller->business_name ?? 'S', 0, 1)) }}
+            <div class="sb-store sb-hide-collapsed mt-2 border-y py-2.5" style="border-color:rgba(15,76,92,.12)">
+                <div class="flex items-center gap-2.5">
+                    @if(auth()->user()->seller?->logo)
+                        <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="" class="h-9 w-9 shrink-0 rounded-full object-cover" style="outline:2px solid rgba(22,105,122,.25);outline-offset:1px">
+                    @else
+                        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF4F3] text-xs font-bold text-[#0E4A57]" style="outline:2px solid rgba(22,105,122,.25);outline-offset:1px">
+                            {{ strtoupper(substr(auth()->user()->seller->business_name ?? 'S', 0, 1)) }}
+                        </div>
+                    @endif
+                    <div class="min-w-0">
+                        <div class="truncate text-sm font-semibold text-[#0E4A57]" title="{{ auth()->user()->seller->business_name ?? 'Store' }}">{{ auth()->user()->seller->business_name }}</div>
+                        <div class="truncate text-xs text-[#6E6E73]">{{ auth()->user()->seller->line_of_business }}</div>
                     </div>
-                @endif
-                <div class="min-w-0">
-                    <div class="truncate text-xs font-bold text-white">{{ auth()->user()->seller->business_name }}</div>
-                    <div class="truncate text-[11px] text-white/70">{{ auth()->user()->seller->line_of_business }}</div>
                 </div>
             </div>
         </div>
 
         {{-- Nav --}}
-        <nav class="sidebar-nav min-h-0 flex-1 px-2.5 py-3">
+        <nav class="sidebar-nav" aria-label="Seller navigation">
             <div class="nav-section sb-hide-collapsed">Main</div>
             <a href="{{ route('seller.dashboard') }}" title="Dashboard" class="{{ request()->routeIs('seller.dashboard') ? 'active' : '' }}">
-                <x-icon name="home" class="h-4 w-4 shrink-0" /><span class="sb-label">Dashboard</span>
+                <x-icon name="home" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Dashboard</span>
             </a>
             <a href="{{ route('seller.orders.index') }}" title="Orders" class="{{ request()->routeIs('seller.orders.*') ? 'active' : '' }}">
-                <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label">Orders</span>
+                <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Orders</span>
             </a>
             <a href="{{ route('seller.remittances.index') }}" title="Cash Remittances" class="{{ request()->routeIs('seller.remittances.*') ? 'active' : '' }}">
-                <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label">Remittances</span>
+                <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Remittances</span>
             </a>
 
             <div class="nav-section sb-hide-collapsed">Store</div>
             <a href="{{ route('seller.products.index') }}" title="Inventory" class="{{ request()->routeIs('seller.products.*') ? 'active' : '' }}">
-                <x-icon name="box" class="h-4 w-4 shrink-0" /><span class="sb-label">Inventory</span>
+                <x-icon name="box" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Inventory</span>
             </a>
             <a href="{{ route('seller.vouchers.index') }}" title="Vouchers" class="{{ request()->routeIs('seller.vouchers.*') ? 'active' : '' }}">
-                <x-icon name="ticket" class="h-4 w-4 shrink-0" /><span class="sb-label">Vouchers</span>
+                <x-icon name="ticket" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Vouchers</span>
             </a>
             <a href="{{ route('seller.feedback.index') }}" title="Customer Feedback" class="{{ request()->routeIs('seller.feedback.*') ? 'active' : '' }}">
-                <x-icon name="star" class="h-4 w-4 shrink-0" /><span class="sb-label">Customer Feedback</span>
+                <x-icon name="star" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Customer Feedback</span>
             </a>
             <a href="{{ route('seller.reports') }}" title="Reports" class="{{ request()->routeIs('seller.reports') ? 'active' : '' }}">
-                <x-icon name="chart" class="h-4 w-4 shrink-0" /><span class="sb-label">Reports</span>
+                <x-icon name="chart" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Reports</span>
             </a>
 
             <div class="nav-section sb-hide-collapsed">Support</div>
             <a href="{{ route('seller.chat.index') }}" title="Chat / Messaging" class="{{ request()->routeIs('seller.chat.*') ? 'active' : '' }}">
-                <x-icon name="chat" class="h-4 w-4 shrink-0" /><span class="sb-label">Chat / Messaging</span>
+                <x-icon name="chat" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Chat / Messaging</span>
             </a>
 
             <div class="nav-section sb-hide-collapsed">Account</div>
             <a href="{{ route('seller.notifications.index') }}" title="Notifications" class="{{ request()->routeIs('seller.notifications.*') ? 'active' : '' }}">
-                <x-icon name="bell" class="h-4 w-4 shrink-0" /><span class="sb-label">Notifications</span>
+                <x-icon name="bell" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Notifications</span>@if(($layoutUnreadCount ?? 0) > 0)<span class="sb-badge" data-count="{{ $layoutUnreadCount }}"><span class="sb-num">{{ $layoutUnreadCount > 99 ? '99+' : $layoutUnreadCount }}</span><span class="sr-only"> unread notification{{ $layoutUnreadCount == 1 ? '' : 's' }}</span></span>@endif
             </a>
             <a href="{{ route('seller.account') }}" title="Account Management" class="{{ request()->routeIs('seller.account') ? 'active' : '' }}">
-                <x-icon name="user" class="h-4 w-4 shrink-0" /><span class="sb-label">Account Management</span>
+                <x-icon name="user" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Account Management</span>
             </a>
             @if(auth()->check() && auth()->user()->isBuyer())
             <a href="{{ url('/shop') }}" title="Switch to Buyer">
-                <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label">Switch to Buyer</span>
+                <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Switch to Buyer</span>
             </a>
             @endif
-
-            <div class="mt-4">
-                <form method="POST" action="{{ route('seller.logout') }}">
-                    @csrf
-                    <button type="submit" class="sb-logout flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-warnc transition hover:bg-red-50">
-                        <x-icon name="logout" class="h-4 w-4 shrink-0" /><span class="sb-label">Logout</span>
-                    </button>
-                </form>
-            </div>
         </nav>
 
-        <div class="sb-footer px-3.5 py-2.5 text-[10px] text-ink-light border-t border-borderline no-print">
-            Invoiz Seller · v1.0
+        {{-- Pinned footer stack: pill + version with reserved height, never overlapping nav items. --}}
+        <div class="sb-foot">
+            @php($sbName = auth()->user()->full_name ?: (auth()->user()->seller->business_name ?? ''))
+            @php($sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(auth()->user()->last_name ?? '', 0, 1)))
+            <div class="sb-pillwrap">
+                <div class="sb-pill">
+                    <a href="{{ route('seller.account') }}" class="sb-who" data-tip="{{ $sbName }} · Seller">
+                        @if(auth()->user()->seller?->logo)
+                            <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="" class="sb-avatar">
+                        @else
+                            <span class="sb-avatar" aria-hidden="true">{{ $sbInitials }}</span>
+                        @endif
+                        <span class="sb-fade">
+                            <span class="sb-name" title="{{ $sbName }}">{{ $sbName }}</span>
+                            <span class="sb-role">Seller</span>
+                        </span>
+                    </a>
+                    <form method="POST" action="{{ route('seller.logout') }}" class="shrink-0">
+                        @csrf
+                        <button type="submit" class="sb-logout" data-tip="Log out" aria-label="Log out">
+                            <span class="sb-logout-circle"><x-icon name="logout" class="h-4 w-4 shrink-0" /></span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <div class="sb-version sb-hide-collapsed no-print">Invoiz Seller · v1.0</div>
         </div>
     </aside>
 
@@ -264,6 +281,7 @@
 <style>
     [x-cloak] { display: none !important; }
 </style>
+<script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}"></script>
 @stack('scripts')
 </body>
 </html>

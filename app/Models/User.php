@@ -191,6 +191,14 @@ class User extends Authenticatable
         return (bool) $this->is_admin || $this->role === 'admin';
     }
 
+    public function sendPasswordResetNotification($token)
+    {
+        // Unified reset page for every role. (The framework default would
+        // build route('password.reset'), which collides with the logistics
+        // auth route names.)
+        $this->notify(new \App\Notifications\ResetPasswordMail($token));
+    }
+
     public function isSeller()
     {
         return $this->role === 'seller';

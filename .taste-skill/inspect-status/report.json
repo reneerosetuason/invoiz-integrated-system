@@ -1,0 +1,900 @@
+{
+ "url": "http://127.0.0.1:8000/logistics/logistics-center/application-status",
+ "at": "2026-10-15T09:20:22.271Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1280,
+   "height": 800,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.15
+   ],
+   "motion": {
+    "elements": 12,
+    "css": 1,
+    "transitions": 11,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1280,
+     "h": 800
+    },
+    "page": {
+     "height": 800,
+     "screens": 1,
+     "words": 59,
+     "img": 2,
+     "video": 0,
+     "canvas": 0,
+     "svg": 3,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": []
+    },
+    "hero": {
+     "text": "Track your application.",
+     "words": 3,
+     "chars": 23,
+     "lines": 2,
+     "size": 51.2,
+     "vw": 4,
+     "font": "Fraunces",
+     "weight": 560,
+     "tracking": -0.02,
+     "leading": 1.05,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "left",
+     "widthRatio": 0.44,
+     "top": 342,
+     "tag": "p",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Application status",
+     "words": 2,
+     "lines": 1,
+     "size": 30,
+     "font": "Fraunces"
+    },
+    "headings": [
+     {
+      "text": "Application status",
+      "words": 2,
+      "chars": 18,
+      "lines": 1,
+      "size": 30,
+      "vw": 2.3,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.31,
+      "top": 262,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Track your application.",
+      "words": 3,
+      "chars": 23,
+      "lines": 2,
+      "size": 51.2,
+      "vw": 4,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.05,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.44,
+      "top": 342,
+      "tag": "p",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 2,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": 2,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.89,
+       "mono": false
+      },
+      {
+       "family": "Fraunces",
+       "share": 0.11,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      20,
+      30,
+      51
+     ],
+     "sizeCount": 8,
+     "notLoaded": [],
+     "body": {
+      "font": "Inter",
+      "size": 15,
+      "leading": 1.63,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": null
+     },
+     "measureChars": 60,
+     "max": {
+      "size": 51.2,
+      "vw": 4,
+      "font": "Fraunces",
+      "text": "Track your"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 2,
+     "microLabelShare": 0.084,
+     "microSamples": [
+      "Application status",
+      "Check status"
+     ],
+     "upperShare": 0.14,
+     "centerShare": 0.15,
+     "smallText": 4
+    },
+    "eyebrows": [
+     {
+      "text": "Check status",
+      "above": "Application status",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 230
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#ffffff",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 1
+     },
+     "dark": false,
+     "sectionBgs": [],
+     "textColors": [
+      {
+       "color": "#6e6e73",
+       "share": 0.65
+      },
+      {
+       "color": "#0e4a57",
+       "share": 0.26
+      },
+      {
+       "color": "#1b1b1e",
+       "share": 0.05
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.03
+      }
+     ],
+     "button": {
+      "bg": "#0e4a57",
+      "hsl": {
+       "h": 191,
+       "s": 0.72,
+       "l": 0.2
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 1,
+     "inHero": 1,
+     "radius": 12,
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Check Status"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "div.bg-drift.pointer-events-none → linear-gradient(115deg, rgb(251, 249, 246) 0%, rgb(244, 245, 239) 48%, rgb(239, 244, 241) 100%)"
+     ],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 1,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "bg-image",
+      "ratio": 1
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": [
+     "fraunces",
+     "inter"
+    ]
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.13
+   ],
+   "motion": {
+    "elements": 6,
+    "css": 1,
+    "transitions": 5,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 1024,
+     "screens": 1,
+     "words": 35,
+     "img": 2,
+     "video": 0,
+     "canvas": 0,
+     "svg": 3,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": []
+    },
+    "hero": {
+     "text": "Track your application.",
+     "words": 3,
+     "chars": 23,
+     "lines": 1,
+     "size": 26.4,
+     "vw": 3.4,
+     "font": "Fraunces",
+     "weight": 560,
+     "tracking": -0.02,
+     "leading": 1.1,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.73,
+     "top": 80,
+     "tag": "p",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Application status",
+     "words": 2,
+     "lines": 1,
+     "size": 25.6,
+     "font": "Fraunces"
+    },
+    "headings": [
+     {
+      "text": "Track your application.",
+      "words": 3,
+      "chars": 23,
+      "lines": 1,
+      "size": 26.4,
+      "vw": 3.4,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.73,
+      "top": 80,
+      "tag": "p",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 1,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": null,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.8,
+       "mono": false
+      },
+      {
+       "family": "Fraunces",
+       "share": 0.2,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      18,
+      26
+     ],
+     "sizeCount": 6,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 26.4,
+      "vw": 3.4,
+      "font": "Fraunces",
+      "text": "Track your application."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 1,
+     "microLabelShare": 0.058,
+     "microSamples": [
+      "Check status"
+     ],
+     "upperShare": 0.15,
+     "centerShare": 0.26,
+     "smallText": 2
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#ffffff",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 1
+     },
+     "dark": false,
+     "sectionBgs": [],
+     "textColors": [
+      {
+       "color": "#6e6e73",
+       "share": 0.49
+      },
+      {
+       "color": "#0e4a57",
+       "share": 0.37
+      },
+      {
+       "color": "#1b1b1e",
+       "share": 0.09
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.06
+      }
+     ],
+     "button": {
+      "bg": "#0e4a57",
+      "hsl": {
+       "h": 191,
+       "s": 0.72,
+       "l": 0.2
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 1,
+     "inHero": 1,
+     "radius": 12,
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Check Status"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "div.bg-drift.pointer-events-none → linear-gradient(115deg, rgb(251, 249, 246) 0%, rgb(244, 245, 239) 48%, rgb(239, 244, 241) 100%)"
+     ],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 1,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "bg-image",
+      "ratio": 1
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": [
+     "fraunces",
+     "inter"
+    ]
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 375,
+   "height": 812,
+   "load": "load",
+   "screens": 1,
+   "filled": [
+    0.2
+   ],
+   "motion": {
+    "elements": 6,
+    "css": 1,
+    "transitions": 5,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 375,
+     "h": 812
+    },
+    "page": {
+     "height": 812,
+     "screens": 1,
+     "words": 35,
+     "img": 2,
+     "video": 0,
+     "canvas": 0,
+     "svg": 3,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 0,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": []
+    },
+    "hero": {
+     "text": "Track your application.",
+     "words": 3,
+     "chars": 23,
+     "lines": 1,
+     "size": 26.4,
+     "vw": 7,
+     "font": "Fraunces",
+     "weight": 560,
+     "tracking": -0.02,
+     "leading": 1.1,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.83,
+     "top": 80,
+     "tag": "p",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Application status",
+     "words": 2,
+     "lines": 1,
+     "size": 25.6,
+     "font": "Fraunces"
+    },
+    "headings": [
+     {
+      "text": "Track your application.",
+      "words": 3,
+      "chars": 23,
+      "lines": 1,
+      "size": 26.4,
+      "vw": 7,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.83,
+      "top": 80,
+      "tag": "p",
+      "kind": "heading"
+     },
+     {
+      "text": "Application status",
+      "words": 2,
+      "chars": 18,
+      "lines": 1,
+      "size": 25.6,
+      "vw": 6.8,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.83,
+      "top": 422,
+      "tag": "h1",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 2,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": 2,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.8,
+       "mono": false
+      },
+      {
+       "family": "Fraunces",
+       "share": 0.2,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      11,
+      12,
+      13,
+      14,
+      18,
+      26
+     ],
+     "sizeCount": 6,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 26.4,
+      "vw": 7,
+      "font": "Fraunces",
+      "text": "Track your application."
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 1,
+     "microLabelShare": 0.058,
+     "microSamples": [
+      "Check status"
+     ],
+     "upperShare": 0.15,
+     "centerShare": 0.26,
+     "smallText": 2
+    },
+    "eyebrows": [
+     {
+      "text": "Check status",
+      "above": "Application status",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 396
+     }
+    ],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#ffffff",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 1
+     },
+     "dark": false,
+     "sectionBgs": [],
+     "textColors": [
+      {
+       "color": "#6e6e73",
+       "share": 0.49
+      },
+      {
+       "color": "#0e4a57",
+       "share": 0.37
+      },
+      {
+       "color": "#1b1b1e",
+       "share": 0.09
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.06
+      }
+     ],
+     "button": {
+      "bg": "#0e4a57",
+      "hsl": {
+       "h": 191,
+       "s": 0.72,
+       "l": 0.2
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 1,
+     "inHero": 1,
+     "radius": 12,
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Check Status"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 1,
+     "scrims": 0,
+     "gradientSamples": [
+      "div.bg-drift.pointer-events-none → linear-gradient(115deg, rgb(251, 249, 246) 0%, rgb(244, 245, 239) 48%, rgb(239, 244, 241) 100%)"
+     ],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 0,
+     "boxRadius": 0,
+     "squareMedia": 1,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "bg-image",
+      "ratio": 1
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": [
+     "fraunces",
+     "inter"
+    ]
+   },
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "FAIL",
+   "id": "eyebrow",
+   "width": 1280,
+   "message": "1 eyebrow/kicker label(s) above headings: \"Check status\" above \"Application status\"",
+   "fix": "Delete them. If the label carried real information, fold it into the headline or the supporting sentence.",
+   "alsoAt": [
+    375
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "micro-label",
+   "width": 1280,
+   "message": "2 tiny uppercase letter-spaced label(s): \"Application status\", \"Check status\"",
+   "fix": "Prefer sentence case at body size.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "gradient",
+   "width": 1280,
+   "message": "1 gradient fill(s): div.bg-drift.pointer-events-none → linear-gradient(115deg, rgb(251, 249, 246) 0%, rgb(244, 245, 239) 48%, rgb(239, 244, 241) 100%)",
+   "fix": "Use a flat colour or a real image. The only gradient allowed by default is a neutral scrim over a photo for legibility.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "body-size",
+   "width": 1280,
+   "message": "Body text is 15px.",
+   "fix": "Body copy 16–20px."
+  },
+  {
+   "level": "FAIL",
+   "id": "few-pictures",
+   "width": 1280,
+   "message": "Only 0 picture(s) on the page (0 photographs, footage or raster images, 0 interface fragments). Drawings in SVG do not count.",
+   "fix": "Find real pictures of the subject's world with scripts/assets.mjs (photographs, archival images, maps, engravings, footage), download them to assets/ and give them room: a hero picture, one per section that has a subject, a full-width band. At least four, usually six to twelve."
+  },
+  {
+   "level": "WARN",
+   "id": "no-footage",
+   "width": 1280,
+   "message": "No video anywhere on the page.",
+   "fix": "Look for one honest clip with scripts/assets.mjs --video (the place, the material, the process) and use it as a muted loop with a poster frame. Defend its absence only if no clip fits the subject."
+  },
+  {
+   "level": "FAIL",
+   "id": "small-text",
+   "width": 1280,
+   "message": "4 text blocks under 13px.",
+   "fix": "Nothing meant to be read goes below 13px."
+  },
+  {
+   "level": "WARN",
+   "id": "still-page",
+   "width": 1280,
+   "message": "Little motion: 12 element(s) moved while the page loaded and scrolled.",
+   "fix": "Give every section an entrance for its parts (not one fade of the whole block) and add one moving picture: a looping clip or a slow move on a photograph."
+  },
+  {
+   "level": "WARN",
+   "id": "small-text",
+   "width": 768,
+   "message": "2 text block(s) under 13px.",
+   "fix": "Nothing meant to be read goes below 13px.",
+   "alsoAt": [
+    375
+   ]
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1280,
+   "fold": "C:\\Invoiz\\.taste-skill\\inspect-status\\desktop-fold.jpg",
+   "pages": [
+    "C:\\Invoiz\\.taste-skill\\inspect-status\\desktop-page-01.jpg"
+   ]
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "C:\\Invoiz\\.taste-skill\\inspect-status\\tablet-fold.jpg",
+   "pages": [
+    "C:\\Invoiz\\.taste-skill\\inspect-status\\tablet-page-01.jpg"
+   ]
+  },
+  {
+   "viewport": "mobile",
+   "width": 375,
+   "fold": "C:\\Invoiz\\.taste-skill\\inspect-status\\mobile-fold.jpg",
+   "pages": [
+    "C:\\Invoiz\\.taste-skill\\inspect-status\\mobile-page-01.jpg"
+   ]
+  }
+ ]
+}

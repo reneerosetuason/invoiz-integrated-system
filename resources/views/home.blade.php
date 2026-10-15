@@ -1,66 +1,88 @@
 @extends('layouts.website')
 @section('content')
 
-<div class="hero">
-  <div class="hero-left">
-    <div style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;display:inline-block;width:fit-content;color:#fff">✓ Trusted by 10,000+ buyers • COD nationwide</div>
-    <div style="font-size:20px;font-weight:800;margin-top:10px;color:#fff;line-height:1.2">Invoiz — Curated for you</div>
-    <div style="font-size:12px;margin-top:6px;opacity:.9;line-height:1.5;color:#fff">Premium essentials at honest prices. Vouchers & verified sellers.</div>
-    <div style="margin-top:16px">
-      <a href="{{ url('/shop') }}" class="btn" style="background:#fff;color:var(--green);font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,.1)">Shop collection</a>
+<div class="shopx">
+<div class="wrap">
+
+  <section class="hero rv" aria-labelledby="shop-hero-h">
+    <div>
+      <span class="chip">Cash on delivery nationwide</span>
+      <h1 id="shop-hero-h">Curated for you</h1>
+      <p class="lede">Premium essentials at honest prices. Vouchers &amp; verified sellers.</p>
+      <div class="hero-cta">
+        <a href="{{ url('/shop') }}" class="btn-p btn-solid">Shop collection
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+      </div>
     </div>
-  </div>
-  <div class="hero-right">
-    <img src="{{ asset('storage/logos/logo.png') }}" alt="Invoiz" style="width:64px;height:64px;border-radius:14px">
-    <div style="font-size:12px;color:var(--text2);margin-top:10px;font-weight:500">Desktop Store • Curated for you</div>
-    <div style="margin-top:10px;background:var(--green);color:#fff;padding:8px 18px;border-radius:999px;font-size:11px;font-weight:700;text-align:center">Welcome Save 15 COD</div>
-  </div>
-</div>
+    <div class="vcard">
+      <img src="{{ asset('storage/logos/logo.png') }}" onerror="this.onerror=null;this.src='{{ asset('images/logo.png') }}'" alt="Invoiz" loading="lazy">
+      <div class="vstore">Desktop Store</div>
+      <div><span class="ticket">Welcome Save 15 COD</span></div>
+    </div>
+  </section>
 
-<div class="cat-pills">
-  <a href="{{ url('/shop') }}" class="cat-pill {{ request('category')?'':'active' }}">All</a>
-  @foreach($categories as $c)
-    <a href="{{ url('/shop?category='.$c->id) }}" class="cat-pill {{ (string)request('category')===(string)$c->id ? 'active':'' }}">{{ $c->name }}</a>
-  @endforeach
-</div>
+  <nav class="chips rv" aria-label="Filter by category">
+    <a href="{{ url('/shop') }}" class="chip-f {{ request('category')?'':'on' }}">All</a>
+    @foreach($categories as $c)
+      <a href="{{ url('/shop?category='.$c->id) }}" class="chip-f {{ (string)request('category')===(string)$c->id ? 'on':'' }}">{{ $c->name }}</a>
+    @endforeach
+  </nav>
 
-<div class="grid" style="margin-top:16px">
-  @foreach($products as $p)
-    @php $hasRealImage = $p->image && file_exists(storage_path('app/public/'.$p->image)); $qs = request('category') ? '?category='.request('category').(request('search') ? '&search='.urlencode(request('search')) : '') : (request('search') ? '?search='.urlencode(request('search')) : ''); @endphp
-    <a href="{{ url('/product/'.$p->id.$qs) }}" style="text-decoration:none;color:inherit">
-      <div class="card">
-        <div class="card-thumb">
+  <div class="shead rv">
+    <div class="eyebrow">Shop</div>
+    @php $activeCat = $categories->firstWhere('id', (int) request('category')); @endphp
+    <h2>{{ $activeCat ? $activeCat->name : 'All products' }}</h2>
+    <div class="count">{{ $products->count() }} {{ $products->count() === 1 ? 'product' : 'products' }}</div>
+  </div>
+
+  <div class="pgrid">
+    @foreach($products as $p)
+      @php
+        $hasRealImage = $p->image && file_exists(storage_path('app/public/'.$p->image));
+        $qs = request('category') ? '?category='.request('category').(request('search') ? '&search='.urlencode(request('search')) : '') : (request('search') ? '?search='.urlencode(request('search')) : '');
+        $hasDeal = $p->compare_at_price && $p->compare_at_price > $p->price;
+      @endphp
+      <a href="{{ url('/product/'.$p->id.$qs) }}" class="pcard rv">
+        <div class="pimg">
           @if($hasRealImage)
-            <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}">
+            <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}" loading="lazy" decoding="async">
           @else
-            <div style="text-align:center;padding:12px">
-              <div style="font-weight:700;font-size:13px;color:var(--green)">{{ $p->name }}</div>
+            <div class="pimg-fallback" role="img" aria-label="{{ $p->name }} — product image coming soon">
+              <div class="mark">INVOIZ</div>
+              <div class="soon">Product image coming soon</div>
             </div>
           @endif
         </div>
-        <div class="card-body">
-          <h3>{{ $p->name }}</h3>
-          <div class="card-price">₱{{ number_format($p->price,2) }}</div>
-          <div class="card-meta">
-            @if($p->brand)
-              <span>{{ $p->brand }}</span>
-              <span>•</span>
+        <div class="pbody">
+          @if($p->brand)
+            <div class="pbrand">{{ $p->brand }}</div>
+          @endif
+          <div class="pname">{{ $p->name }}</div>
+          <div class="pprice-row">
+            <span class="pprice">₱{{ number_format($p->price,2) }}</span>
+            @if($hasDeal)
+              <span class="pwas">₱{{ number_format($p->compare_at_price,2) }}</span>
+              <span class="poff">−{{ (int) round((1 - (float)$p->price/(float)$p->compare_at_price)*100) }}%</span>
             @endif
+          </div>
+          <div class="pmeta">
             <span>{{ $p->stock }} left</span>
-            <span>•</span>
-            <span class="cod">COD</span>
+            <span class="codpill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>COD</span>
           </div>
         </div>
-      </div>
-    </a>
-  @endforeach
-</div>
-
-@if($products->isEmpty())
-  <div style="text-align:center;padding:60px 20px">
-    <div style="font-weight:700;font-size:16px;color:var(--text)">No products found</div>
-    <div style="font-size:13px;color:var(--text3);margin-top:6px">Try adjusting your search or filter</div>
+      </a>
+    @endforeach
   </div>
-@endif
+
+  @if($products->isEmpty())
+    <div class="empty rv">
+      <div class="t1">No products found</div>
+      <div class="t2">Try adjusting your search or filter</div>
+    </div>
+  @endif
+
+</div>
+</div>
 
 @endsection

@@ -14,11 +14,11 @@
   }
 @endphp
 <button id="supportChatBtn" onclick="toggleSupportChat()" aria-label="Chat with support"
-        style="position:fixed;right:18px;bottom:18px;z-index:9999;width:52px;height:52px;border-radius:50%;background:var(--green,#16697A);color:#fff;border:none;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center">
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-  <span id="supportChatDot" style="position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;background:#F0A202;border:2px solid #fff"></span>
+        style="position:fixed;right:18px;bottom:18px;z-index:9999;width:52px;height:52px;border-radius:50%;background:#FBF9F6;color:#0E4A57;border:1px solid rgba(15,76,92,.2);cursor:pointer;box-shadow:0 10px 28px rgba(10,47,58,.28);display:flex;align-items:center;justify-content:center">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  <span id="supportChatDot" style="position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;background:#F0A202;border:2px solid #FBF9F6"></span>
 </button>
-<div id="supportChatPanel" style="display:none;position:fixed;right:18px;bottom:78px;z-index:9999;width:min(360px,calc(100vw - 36px));height:480px;max-height:calc(100vh - 110px);background:#fff;border:1px solid var(--border,#e5e5e5);border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.22);overflow:hidden;display:none;flex-direction:column">
+<div id="supportChatPanel" style="display:none;position:fixed;right:18px;bottom:78px;z-index:9999;width:min(360px,calc(100vw - 36px));height:480px;max-height:calc(100vh - 110px);background:#FBF9F6;border:1px solid rgba(15,76,92,.14);border-radius:16px;box-shadow:0 18px 50px rgba(10,47,58,.3);overflow:hidden;display:none;flex-direction:column">
   <div style="background:var(--green,#16697A);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px">
     <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:800">I</div>
     <div style="flex:1">
