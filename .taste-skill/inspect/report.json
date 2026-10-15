@@ -1,0 +1,1847 @@
+{
+ "url": "http://127.0.0.1:8000/",
+ "at": "2026-10-15T03:35:27.374Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1280,
+   "height": 800,
+   "load": "load",
+   "screens": 6,
+   "filled": [
+    0.66,
+    0.43,
+    0.64,
+    0.27,
+    0.48,
+    0.4
+   ],
+   "motion": {
+    "elements": 42,
+    "css": 2,
+    "transitions": 38,
+    "scripted": 2,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1280,
+     "h": 800
+    },
+    "page": {
+     "height": 4082,
+     "screens": 5.1,
+     "words": 314,
+     "img": 21,
+     "video": 0,
+     "canvas": 0,
+     "svg": 17,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 15,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "p10_1.jpg",
+      "yiNoWJrwSjwBECoyIXqFuHCsfLON3InTMkUhXTSZ.jpg",
+      "p10_1.jpg",
+      "p11_1.jpg",
+      "p12_1.jpg",
+      "p13_1.jpg",
+      "p14_1.jpg",
+      "p10_1.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": []
+    },
+    "hero": {
+     "text": "Noise-Cancelling Headphones Pro",
+     "words": 3,
+     "chars": 31,
+     "lines": 2,
+     "size": 64,
+     "vw": 5,
+     "font": "Fraunces",
+     "weight": 560,
+     "tracking": -0.02,
+     "leading": 1.05,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "left",
+     "widthRatio": 0.41,
+     "top": 256,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": null,
+    "headings": [
+     {
+      "text": "Noise-Cancelling Headphones Pro",
+      "words": 3,
+      "chars": 31,
+      "lines": 2,
+      "size": 64,
+      "vw": 5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.05,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.41,
+      "top": 256,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "4",
+      "words": 1,
+      "chars": 1,
+      "lines": 1,
+      "size": 38.4,
+      "vw": 3,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 0.63,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "left",
+      "widthRatio": 0.09,
+      "top": 868,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "19",
+      "words": 1,
+      "chars": 2,
+      "lines": 1,
+      "size": 38.4,
+      "vw": 3,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 0.63,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.09,
+      "top": 868,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "6",
+      "words": 1,
+      "chars": 1,
+      "lines": 1,
+      "size": 38.4,
+      "vw": 3,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 0.63,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "right",
+      "widthRatio": 0.09,
+      "top": 868,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Today's deals",
+      "words": 2,
+      "chars": 13,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.8,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.17,
+      "top": 1048,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Shop by category",
+      "words": 3,
+      "chars": 16,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.8,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.89,
+      "top": 1674,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Stores",
+      "words": 1,
+      "chars": 6,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.8,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.89,
+      "top": 2492,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "How it works",
+      "words": 3,
+      "chars": 12,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.8,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.89,
+      "top": 2930,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Sell on INVOIZ",
+      "words": 3,
+      "chars": 14,
+      "lines": 1,
+      "size": 32,
+      "vw": 2.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.37,
+      "top": 3445,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Ride with us",
+      "words": 3,
+      "chars": 12,
+      "lines": 1,
+      "size": 32,
+      "vw": 2.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.37,
+      "top": 3445,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 10,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 3,
+     "centered": 3,
+     "medianWords": 2,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.77,
+       "mono": false
+      },
+      {
+       "family": "Fraunces",
+       "share": 0.23,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      32,
+      36,
+      38,
+      64
+     ],
+     "sizeCount": 14,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 64,
+      "vw": 5,
+      "font": "Fraunces",
+      "text": "Noise-Cancelling Headphones Pro"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 17,
+     "microLabelShare": 0.106,
+     "microSamples": [
+      "Today's deal",
+      "Local sellers",
+      "Products live",
+      "Orders placed",
+      "Limited time",
+      "Browse"
+     ],
+     "upperShare": 0.13,
+     "centerShare": 0.03,
+     "smallText": 11
+    },
+    "eyebrows": [
+     {
+      "text": "Today's deal",
+      "above": "Noise-Cancelling Headphones Pro",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 220
+     },
+     {
+      "text": "Limited time",
+      "above": "Today's deals",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 1016
+     },
+     {
+      "text": "Browse",
+      "above": "Shop by category",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 1642
+     },
+     {
+      "text": "Local sellers",
+      "above": "Stores",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 2460
+     },
+     {
+      "text": "Process",
+      "above": "How it works",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 2898
+     },
+     {
+      "text": "Sell",
+      "above": "Sell on INVOIZ",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 3413
+     },
+     {
+      "text": "Deliver",
+      "above": "Ride with us",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 3413
+     }
+    ],
+    "numbered": [
+     {
+      "text": "/ 04",
+      "size": 13,
+      "top": 616
+     },
+     {
+      "text": "02",
+      "size": 13,
+      "top": 620
+     }
+    ],
+    "color": {
+     "bodyBg": "#fbf9f6",
+     "bodyBgHsl": {
+      "h": 36,
+      "s": 0.38,
+      "l": 0.97
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#fbf9f6",
+       "top": 3717,
+       "hsl": {
+        "h": 36,
+        "s": 0.38,
+        "l": 0.97
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#6e6e73",
+       "share": 0.48
+      },
+      {
+       "color": "#1b1b1e",
+       "share": 0.36
+      },
+      {
+       "color": "#0e4a57",
+       "share": 0.1
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.05
+      },
+      {
+       "color": "#16697a",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#0e4a57",
+      "hsl": {
+       "h": 191,
+       "s": 0.72,
+       "l": 0.2
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 5,
+     "inHero": 3,
+     "radius": "pill",
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Login",
+      "Sign Up",
+      "Start shopping"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 5,
+     "scrims": 1,
+     "gradientSamples": [
+      "div.relative.overflow-hidden → linear-gradient(100deg, rgb(253, 252, 248) 0%, rgb(244, 240, 231) 52%, rgb(226, 238, 235) 100%)",
+      "div.rv.relative → linear-gradient(160deg, rgb(253, 252, 248), rgb(241, 236, 225))",
+      "div.orb-drift.pointer-events-none → radial-gradient(circle, rgba(190, 170, 140, 0.28), rgba(0, 0, 0, 0) 65%)",
+      "div.rv.relative → linear-gradient(160deg, rgb(242, 248, 247), rgb(226, 239, 236))"
+     ],
+     "gradientText": 0,
+     "hairlines": 14,
+     "hairlineSamples": [
+      "div#navbar.border-b 1280px",
+      "div.rv.mt-12 1136px",
+      "div.flex.items-center 270px",
+      "div.flex.items-center 270px",
+      "div.flex.items-center 270px"
+     ],
+     "outlinedBoxes": 20,
+     "dashed": 0,
+     "blurred": 2,
+     "roundedBoxes": 20,
+     "boxRadius": 14,
+     "squareMedia": 0,
+     "roundedMedia": 9,
+     "mediaRadius": 14,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 6,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 1120
+      },
+      {
+       "count": 8,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 1746
+      },
+      {
+       "count": 3,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 2563
+      }
+     ]
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.19
+     }
+    ],
+    "nav": {
+     "links": 8,
+     "fixed": true,
+     "height": 72,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "fraunces",
+     "inter"
+    ]
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 6,
+   "filled": [
+    0.73,
+    0.64,
+    0.66,
+    0.31,
+    0.42,
+    0.44
+   ],
+   "motion": {
+    "elements": 55,
+    "css": 2,
+    "transitions": 51,
+    "scripted": 2,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 5438,
+     "screens": 5.3,
+     "words": 304,
+     "img": 21,
+     "video": 0,
+     "canvas": 0,
+     "svg": 17,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 15,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "p10_1.jpg",
+      "yiNoWJrwSjwBECoyIXqFuHCsfLON3InTMkUhXTSZ.jpg",
+      "p10_1.jpg",
+      "p11_1.jpg",
+      "p12_1.jpg",
+      "p13_1.jpg",
+      "p14_1.jpg",
+      "p10_1.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": []
+    },
+    "hero": {
+     "text": "Noise-Cancelling Headphones Pro",
+     "words": 3,
+     "chars": 31,
+     "lines": 1,
+     "size": 38.4,
+     "vw": 5,
+     "font": "Fraunces",
+     "weight": 560,
+     "tracking": -0.02,
+     "leading": 1.05,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.85,
+     "top": 205,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": null,
+    "headings": [
+     {
+      "text": "Noise-Cancelling Headphones Pro",
+      "words": 3,
+      "chars": 31,
+      "lines": 1,
+      "size": 38.4,
+      "vw": 5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.05,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.85,
+      "top": 205,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "4",
+      "words": 1,
+      "chars": 1,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 0.86,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "left",
+      "widthRatio": 0.15,
+      "top": 1100,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "19",
+      "words": 1,
+      "chars": 2,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 0.86,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.15,
+      "top": 1100,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "6",
+      "words": 1,
+      "chars": 1,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 0.86,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "right",
+      "widthRatio": 0.15,
+      "top": 1100,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Today's deals",
+      "words": 2,
+      "chars": 13,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.22,
+      "top": 1280,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Shop by category",
+      "words": 3,
+      "chars": 16,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 2369,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Stores",
+      "words": 1,
+      "chars": 6,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 3447,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "How it works",
+      "words": 3,
+      "chars": 12,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.94,
+      "top": 4036,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 8,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 3,
+     "centered": 3,
+     "medianWords": 1,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.76,
+       "mono": false
+      },
+      {
+       "family": "Fraunces",
+       "share": 0.24,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      24,
+      28,
+      38
+     ],
+     "sizeCount": 13,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 38.4,
+      "vw": 5,
+      "font": "Fraunces",
+      "text": "Noise-Cancelling Headphones Pro"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 17,
+     "microLabelShare": 0.109,
+     "microSamples": [
+      "Today's deal",
+      "Local sellers",
+      "Products live",
+      "Orders placed",
+      "Limited time",
+      "Browse"
+     ],
+     "upperShare": 0.14,
+     "centerShare": 0.03,
+     "smallText": 11
+    },
+    "eyebrows": [
+     {
+      "text": "Today's deal",
+      "above": "Noise-Cancelling Headphones Pro",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 169
+     },
+     {
+      "text": "Limited time",
+      "above": "Today's deals",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 1248
+     },
+     {
+      "text": "Browse",
+      "above": "Shop by category",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 2337
+     },
+     {
+      "text": "Local sellers",
+      "above": "Stores",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 3415
+     },
+     {
+      "text": "Process",
+      "above": "How it works",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 4004
+     }
+    ],
+    "numbered": [
+     {
+      "text": "/ 04",
+      "size": 13,
+      "top": 824
+     },
+     {
+      "text": "02",
+      "size": 13,
+      "top": 828
+     }
+    ],
+    "color": {
+     "bodyBg": "#fbf9f6",
+     "bodyBgHsl": {
+      "h": 36,
+      "s": 0.38,
+      "l": 0.97
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#fbf9f6",
+       "top": 4929,
+       "hsl": {
+        "h": 36,
+        "s": 0.38,
+        "l": 0.97
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#6e6e73",
+       "share": 0.5
+      },
+      {
+       "color": "#1b1b1e",
+       "share": 0.35
+      },
+      {
+       "color": "#0e4a57",
+       "share": 0.09
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.05
+      },
+      {
+       "color": "#16697a",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#0e4a57",
+      "hsl": {
+       "h": 191,
+       "s": 0.72,
+       "l": 0.2
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 3,
+     "inHero": 1,
+     "radius": "pill",
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Start shopping"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 5,
+     "scrims": 1,
+     "gradientSamples": [
+      "div.relative.overflow-hidden → linear-gradient(100deg, rgb(253, 252, 248) 0%, rgb(244, 240, 231) 52%, rgb(226, 238, 235) 100%)",
+      "div.rv.relative → linear-gradient(160deg, rgb(253, 252, 248), rgb(241, 236, 225))",
+      "div.orb-drift.pointer-events-none → radial-gradient(circle, rgba(190, 170, 140, 0.28), rgba(0, 0, 0, 0) 65%)",
+      "div.rv.relative → linear-gradient(160deg, rgb(242, 248, 247), rgb(226, 239, 236))"
+     ],
+     "gradientText": 0,
+     "hairlines": 6,
+     "hairlineSamples": [
+      "div#navbar.border-b 768px",
+      "div.rv.mt-12 720px",
+      "div.mt-4.flex 310px",
+      "div.mt-4.flex 310px",
+      "div.mt-4.flex 310px"
+     ],
+     "outlinedBoxes": 20,
+     "dashed": 0,
+     "blurred": 2,
+     "roundedBoxes": 20,
+     "boxRadius": 14,
+     "squareMedia": 0,
+     "roundedMedia": 15,
+     "mediaRadius": 14,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 6,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 1343
+      },
+      {
+       "count": 8,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 2432
+      },
+      {
+       "count": 3,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 3510
+      }
+     ]
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.32
+     }
+    ],
+    "nav": {
+     "links": 1,
+     "fixed": true,
+     "height": 72,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "fraunces",
+     "inter"
+    ]
+   },
+   "consoleErrors": []
+  },
+  {
+   "width": 375,
+   "height": 812,
+   "load": "load",
+   "screens": 8,
+   "filled": [
+    0.74,
+    0.53,
+    0.61,
+    0.63,
+    0.34,
+    0.47,
+    0.44,
+    0.17
+   ],
+   "motion": {
+    "elements": 51,
+    "css": 2,
+    "transitions": 47,
+    "scripted": 2,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 375,
+     "h": 812
+    },
+    "page": {
+     "height": 6017,
+     "screens": 7.4,
+     "words": 304,
+     "img": 21,
+     "video": 0,
+     "canvas": 0,
+     "svg": 17,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 14,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "p10_1.jpg",
+      "yiNoWJrwSjwBECoyIXqFuHCsfLON3InTMkUhXTSZ.jpg",
+      "p10_1.jpg",
+      "p11_1.jpg",
+      "p12_1.jpg",
+      "p14_1.jpg",
+      "p10_1.jpg",
+      "p14_1.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 1,
+     "brokenImages": [],
+     "emoji": []
+    },
+    "hero": {
+     "text": "Noise-Cancelling Headphones Pro",
+     "words": 3,
+     "chars": 31,
+     "lines": 2,
+     "size": 36,
+     "vw": 9.6,
+     "font": "Fraunces",
+     "weight": 560,
+     "tracking": -0.02,
+     "leading": 1.05,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.8,
+     "top": 171,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": null,
+    "headings": [
+     {
+      "text": "Noise-Cancelling Headphones Pro",
+      "words": 3,
+      "chars": 31,
+      "lines": 2,
+      "size": 36,
+      "vw": 9.6,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.05,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.8,
+      "top": 171,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "4",
+      "words": 1,
+      "chars": 1,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 1.63,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "left",
+      "widthRatio": 0.3,
+      "top": 1050,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "19",
+      "words": 1,
+      "chars": 2,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 1.63,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "right",
+      "widthRatio": 0.3,
+      "top": 1050,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "6",
+      "words": 1,
+      "chars": 1,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": 0,
+      "leading": 1.63,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.31,
+      "top": 1134,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Today's deals",
+      "words": 2,
+      "chars": 13,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.45,
+      "top": 1283,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Shop by category",
+      "words": 3,
+      "chars": 16,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.91,
+      "top": 1918,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Stores",
+      "words": 1,
+      "chars": 6,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.91,
+      "top": 3049,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "How it works",
+      "words": 3,
+      "chars": 12,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.5,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.91,
+      "top": 3702,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Sell on INVOIZ",
+      "words": 3,
+      "chars": 14,
+      "lines": 1,
+      "size": 24,
+      "vw": 6.4,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.74,
+      "top": 4738,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Ride with us",
+      "words": 3,
+      "chars": 12,
+      "lines": 1,
+      "size": 24,
+      "vw": 6.4,
+      "font": "Fraunces",
+      "weight": 560,
+      "tracking": -0.02,
+      "leading": 1.1,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.74,
+      "top": 5057,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 10,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 3,
+     "centered": 3,
+     "medianWords": 2,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Inter",
+       "share": 0.76,
+       "mono": false
+      },
+      {
+       "family": "Fraunces",
+       "share": 0.24,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      9,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      20,
+      24,
+      28,
+      36
+     ],
+     "sizeCount": 13,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 36,
+      "vw": 9.6,
+      "font": "Fraunces",
+      "text": "Noise-Cancelling Headphones Pro"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 17,
+     "microLabelShare": 0.109,
+     "microSamples": [
+      "Today's deal",
+      "Local sellers",
+      "Products live",
+      "Orders placed",
+      "Limited time",
+      "Browse"
+     ],
+     "upperShare": 0.14,
+     "centerShare": 0.03,
+     "smallText": 11
+    },
+    "eyebrows": [
+     {
+      "text": "Today's deal",
+      "above": "Noise-Cancelling Headphones Pro",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 141
+     },
+     {
+      "text": "Limited time",
+      "above": "Today's deals",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 1257
+     },
+     {
+      "text": "Browse",
+      "above": "Shop by category",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 1892
+     },
+     {
+      "text": "Local sellers",
+      "above": "Stores",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 3023
+     },
+     {
+      "text": "Process",
+      "above": "How it works",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 3676
+     },
+     {
+      "text": "Sell",
+      "above": "Sell on INVOIZ",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 4712
+     },
+     {
+      "text": "Deliver",
+      "above": "Ride with us",
+      "upper": true,
+      "tracked": true,
+      "mono": false,
+      "pill": false,
+      "size": 11,
+      "top": 5031
+     }
+    ],
+    "numbered": [
+     {
+      "text": "/ 04",
+      "size": 13,
+      "top": 700
+     },
+     {
+      "text": "02",
+      "size": 13,
+      "top": 702
+     }
+    ],
+    "color": {
+     "bodyBg": "#fbf9f6",
+     "bodyBgHsl": {
+      "h": 36,
+      "s": 0.38,
+      "l": 0.97
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#ffffff",
+       "top": 1378,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      },
+      {
+       "color": "#fbf9f6",
+       "top": 5273,
+       "hsl": {
+        "h": 36,
+        "s": 0.38,
+        "l": 0.97
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#6e6e73",
+       "share": 0.5
+      },
+      {
+       "color": "#1b1b1e",
+       "share": 0.35
+      },
+      {
+       "color": "#0e4a57",
+       "share": 0.09
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.05
+      },
+      {
+       "color": "#16697a",
+       "share": 0.01
+      }
+     ],
+     "button": {
+      "bg": "#0e4a57",
+      "hsl": {
+       "h": 191,
+       "s": 0.72,
+       "l": 0.2
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 3,
+     "inHero": 1,
+     "radius": "pill",
+     "height": 44,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Start shopping"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 5,
+     "scrims": 1,
+     "gradientSamples": [
+      "div.relative.overflow-hidden → linear-gradient(100deg, rgb(253, 252, 248) 0%, rgb(244, 240, 231) 52%, rgb(226, 238, 235) 100%)",
+      "div.rv.relative → linear-gradient(160deg, rgb(253, 252, 248), rgb(241, 236, 225))",
+      "div.orb-drift.pointer-events-none → radial-gradient(circle, rgba(190, 170, 140, 0.28), rgba(0, 0, 0, 0) 65%)",
+      "div.rv.relative → linear-gradient(160deg, rgb(242, 248, 247), rgb(226, 239, 236))"
+     ],
+     "gradientText": 0,
+     "hairlines": 6,
+     "hairlineSamples": [
+      "div#navbar.border-b 375px",
+      "div.rv.mt-12 343px",
+      "div.mt-4.flex 301px",
+      "div.mt-4.flex 301px",
+      "div.mt-4.flex 301px"
+     ],
+     "outlinedBoxes": 20,
+     "dashed": 0,
+     "blurred": 1,
+     "roundedBoxes": 20,
+     "boxRadius": 14,
+     "squareMedia": 0,
+     "roundedMedia": 7,
+     "mediaRadius": 14,
+     "textShadow": 0,
+     "cardRows": [
+      {
+       "count": 6,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 1378
+      },
+      {
+       "count": 8,
+       "iconTopped": false,
+       "rounded": true,
+       "top": 1980
+      }
+     ]
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.28
+     }
+    ],
+    "nav": {
+     "links": 1,
+     "fixed": true,
+     "height": 72,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "fraunces",
+     "inter"
+    ]
+   },
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "FAIL",
+   "id": "eyebrow",
+   "width": 1280,
+   "message": "7 eyebrow/kicker label(s) above headings: \"Today's deal\" above \"Noise-Cancelling Headphones Pro\"; \"Limited time\" above \"Today's deals\"; \"Browse\" above \"Shop by category\"; \"Local sellers\" above \"Stores\"; \"Process\" above \"How it works\"",
+   "fix": "Delete them. If the label carried real information, fold it into the headline or the supporting sentence.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "numbering",
+   "width": 1280,
+   "message": "Decorative index numbers: \"/ 04\", \"02\"",
+   "fix": "Remove them. If order truly matters, write it into the words (\"First, …\") or use a real <ol>.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "micro-label",
+   "width": 1280,
+   "message": "17 tiny uppercase letter-spaced labels (e.g. \"Today's deal\", \"Local sellers\", \"Products live\", \"Orders placed\").",
+   "fix": "Use sentence-case text at a readable size, or delete the label.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "gradient",
+   "width": 1280,
+   "message": "5 gradient fill(s): div.relative.overflow-hidden → linear-gradient(100deg, rgb(253, 252, 248) 0%, rgb(244, 240, 231) 52%, rgb(226, 238, 235) 100%) | div.rv.relative → linear-gradient(160deg, rgb(253, 252, 248), rgb(241, 236, 225)) | div.orb-drift.pointer-events-none → radial-gradient(circle, rgba(190, 170, 140, 0.28), rgba(0, 0, 0, 0) 65%)",
+   "fix": "Use a flat colour or a real image. The only gradient allowed by default is a neutral scrim over a photo for legibility.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "hairline",
+   "width": 1280,
+   "message": "14 thin rule(s)/divider line(s): div#navbar.border-b 1280px | div.rv.mt-12 1136px | div.flex.items-center 270px | div.flex.items-center 270px",
+   "fix": "Delete. Separate with space, a tone change, or scale. Lines are only for real tables and form fields.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "FAIL",
+   "id": "outlined-box",
+   "width": 1280,
+   "message": "20 boxes drawn with a 1px outline.",
+   "fix": "Define a surface by its fill (one tone step from the page) or leave the content unboxed.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "glass",
+   "width": 1280,
+   "message": "2 backdrop-blur surfaces.",
+   "fix": "One blurred sticky bar at most; glass cards are a tell.",
+   "alsoAt": [
+    768
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "card-rows",
+   "width": 1280,
+   "message": "3 rows of identical boxed cards.",
+   "fix": "Vary the composition; not every section is a card grid.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "palette-cream",
+   "width": 1280,
+   "message": "Yellow-cream background (page background #fbf9f6, section #fbf9f6).",
+   "fix": "Use the drawn palette. If you want warmth, take a low-chroma stone or bone, not a yellow cream.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "size-count",
+   "width": 1280,
+   "message": "14 different font sizes (9, 11, 12, 13, 14, 15, 16, 17, 18, 20, 32, 36, 38, 64).",
+   "fix": "A page needs about five: display, heading, lead, body, small.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "no-footage",
+   "width": 1280,
+   "message": "No video anywhere on the page.",
+   "fix": "Look for one honest clip with scripts/assets.mjs --video (the place, the material, the process) and use it as a muted loop with a poster frame. Defend its absence only if no clip fits the subject."
+  },
+  {
+   "level": "FAIL",
+   "id": "small-text",
+   "width": 1280,
+   "message": "11 text blocks under 13px.",
+   "fix": "Nothing meant to be read goes below 13px.",
+   "alsoAt": [
+    768,
+    375
+   ]
+  },
+  {
+   "level": "WARN",
+   "id": "side-scroll",
+   "width": 375,
+   "message": "1 row(s) scroll sideways with content past their edge.",
+   "fix": "Jurors and most visitors read a row cut at the edge as clipped, not as scrollable. Wrap it onto more lines, or end it inside the grid."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1280,
+   "fold": "C:\\Invoiz\\.taste-skill\\inspect\\desktop-fold.jpg",
+   "pages": [
+    "C:\\Invoiz\\.taste-skill\\inspect\\desktop-page-01.jpg",
+    "C:\\Invoiz\\.taste-skill\\inspect\\desktop-page-02.jpg"
+   ]
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "C:\\Invoiz\\.taste-skill\\inspect\\tablet-fold.jpg",
+   "pages": [
+    "C:\\Invoiz\\.taste-skill\\inspect\\tablet-page-01.jpg"
+   ]
+  },
+  {
+   "viewport": "mobile",
+   "width": 375,
+   "fold": "C:\\Invoiz\\.taste-skill\\inspect\\mobile-fold.jpg",
+   "pages": [
+    "C:\\Invoiz\\.taste-skill\\inspect\\mobile-page-01.jpg"
+   ]
+  }
+ ]
+}
