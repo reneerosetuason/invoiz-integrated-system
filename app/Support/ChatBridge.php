@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Conversation;
 use App\Models\Message;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Bridges admin/seller-center direct messages (sender_id/receiver_id)
@@ -17,6 +18,29 @@ use App\Models\User;
  */
 class ChatBridge
 {
+    /** Attach older direct-message rows to the buyer inbox when it is opened. */
+    public static function linkExistingForBuyer(int $buyerId): void
+    {
+        Message::whereNull('conversation_id')
+            ->where(fn ($q) => $q->where('sender_id', $buyerId)->orWhere('receiver_id', $buyerId))
+            ->orderBy('id')->chunkById(100, function ($messages) use ($buyerId) {
+                foreach ($messages as $message) {
+                    $otherId = (int) $message->sender_id === $buyerId
+                        ? (int) $message->receiver_id
+                        : (int) $message->sender_id;
+                    if ($otherId < 1) continue;
+                    $conversation = Conversation::firstOrCreate(
+                        ['buyer_id' => $buyerId, 'seller_id' => $otherId],
+                        ['subject' => 'Support']
+                    );
+                    DB::table('messages')->where('id', $message->id)->update([
+                        'conversation_id' => $conversation->id,
+                    ]);
+                    $conversation->touch();
+                }
+            });
+    }
+
     public static function link(Message $message): void
     {
         if ($message->conversation_id) {

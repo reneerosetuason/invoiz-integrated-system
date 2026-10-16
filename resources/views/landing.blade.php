@@ -138,6 +138,7 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 <p class="rv mt-3 text-base md:text-lg" style="transition-delay:160ms"><span class="font-bold tnum">₱{{ number_format($d['price']) }}</span><span class="text-muted"> · {{ $d['store'] ?: 'Local seller' }}</span>@if(!empty($d['pct']))<span class="ml-2 font-bold text-teal-dark tnum">−{{ $d['pct'] }}% today</span>@endif</p>
 <div class="rv mt-5 flex flex-wrap items-center gap-4" style="transition-delay:240ms">
 <a href="{{ url('/shop') }}" class="press shine rounded-full bg-teal-dark px-7 text-sm font-bold text-white" style="height:48px;line-height:48px">Start shopping</a>
+<form method="POST" action="{{ url('/wishlist/'.$d['id'].'/toggle') }}">@csrf<button type="submit" class="press rounded-full bg-white px-5 text-sm font-bold text-teal-dark" style="height:48px;border:1px solid rgba(15,76,92,.18)">{{ in_array((int)$d['id'], $favoriteIds ?? [], true) ? '♥ Saved' : '♡ Save product' }}</button></form>
 </div>
 </div>
 <div class="relative">
@@ -212,20 +213,36 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 <p class="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold tnum" style="border:1px solid rgba(15,76,92,.12)">ENDS IN <span id="deal-countdown" class="text-ink">--:--:--</span></p>
 <a href="{{ url('/sale') }}" class="group ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-teal-dark">View all <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1">→</span></a>
 </div>
+<form method="GET" action="{{ url('/') }}" style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:16px">
+<label for="landing-sort" class="text-xs font-semibold text-muted">Sort featured products</label>
+<select id="landing-sort" name="sort" style="padding:8px 12px;border:1px solid rgba(15,76,92,.18);border-radius:999px;background:#fff;font-size:12px">
+<option value="recommended" @selected(($sort ?? 'recommended') === 'recommended')>Recommended</option>
+<option value="newest" @selected(($sort ?? '') === 'newest')>Newest</option>
+<option value="price_asc" @selected(($sort ?? '') === 'price_asc')>Price: Low to High</option>
+<option value="price_desc" @selected(($sort ?? '') === 'price_desc')>Price: High to Low</option>
+<option value="rating" @selected(($sort ?? '') === 'rating')>Top Rated</option>
+<option value="most_reviewed" @selected(($sort ?? '') === 'most_reviewed')>Most Reviewed</option>
+</select>
+<button type="submit" class="rounded-full px-4 py-2 text-xs font-bold text-white" style="background:#0E4A57">Apply</button>
+</form>
 <div class="mt-8 flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-3 md:overflow-visible xl:grid-cols-6">
 @forelse(($deals ?? []) as $d)
-<a href="{{ url('/product/'.$d['id']) }}" class="count-card block min-w-[68%] snap-start overflow-hidden rounded-[14px] bg-white sm:min-w-[42%] md:min-w-0 rv" style="border:1px solid rgba(15,76,92,.12)">
+<div class="relative min-w-[68%] snap-start sm:min-w-[42%] md:min-w-0 rv">
+<a href="{{ url('/product/'.$d['id'].'?'.http_build_query(array_filter(['source_landing'=>1,'sort'=>$sort ?? null]))) }}" class="count-card block h-full overflow-hidden rounded-[14px] bg-white" style="border:1px solid rgba(15,76,92,.12)">
 <div class="relative overflow-hidden">
 @if(!empty($d['image']))<img src="{{ $d['image'] }}" alt="{{ $d['name'] }}" loading="lazy" class="zoom aspect-[4/5] w-full object-cover">@else<span class="flex aspect-[4/5] w-full flex-col items-center justify-center gap-1 px-3 text-center" style="background:linear-gradient(180deg,#FDFCF8,#EAF4F3)"><span class="font-display font-bold text-teal-dark" style="font-size:1.25rem">INVOIZ</span><span class="text-[11px] text-muted">Product image coming soon</span></span>@endif
 @if(!empty($d['pct']))<span class="absolute left-2.5 top-2.5 rounded-full bg-amber px-2 py-0.5 text-[13px] font-bold text-ink tnum">−{{ $d['pct'] }}%</span>@endif
 </div>
 <div class="p-3.5">
 <h3 class="font-display font-medium leading-snug line-clamp-2 min-h-[2.75rem" style="font-size:1.02rem">{{ $d['name'] }}</h3>
+@if(!empty($d['rating']))<p class="mt-1 text-xs font-semibold text-amber-dark">★ {{ number_format((float)$d['rating'],1) }} <span class="font-normal text-muted">product rating</span></p>@endif
 <div class="mt-1.5 flex items-baseline gap-2">
 <span class="text-base font-bold tnum">₱{{ number_format($d['price']) }}</span>
 @if(!empty($d['compare_at']))<span class="text-xs text-muted line-through tnum">₱{{ number_format($d['compare_at']) }}</span>@endif
 </div>
 </div></a>
+<form method="POST" action="{{ url('/wishlist/'.$d['id'].'/toggle') }}" class="absolute right-2 top-2 z-10">@csrf<button type="submit" aria-label="{{ in_array((int)$d['id'], $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-lg text-red-600 shadow">{{ in_array((int)$d['id'], $favoriteIds ?? [], true) ? '♥' : '♡' }}</button></form>
+</div>
 @empty
 <p class="col-span-full rounded-[14px] bg-white p-6 text-base" style="border:1px solid rgba(15,76,92,.12)">No deals right now — <a href="{{ url('/shop') }}" class="lnk font-semibold text-teal-dark">browse the shop</a>.</p>
 @endforelse

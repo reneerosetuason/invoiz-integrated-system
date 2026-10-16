@@ -17,6 +17,14 @@
 .sb2 .sidebar-nav a.active svg{color:#0E4A57}
 .sb2 .sidebar-nav a.active::before{content:"";position:absolute;left:-9px;top:8px;bottom:8px;width:3px;border-radius:999px;background:#0E4A57}
 .sb2 .sidebar-nav a:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+.sb2 .sidebar-nav .role-switch-form{margin:0}
+.sb2 .sidebar-nav .role-switch-link{position:relative;display:flex;align-items:center;gap:12px;width:100%;min-height:44px;padding:8px 12px;border:0;border-radius:10px;background:transparent;color:#0E4A57;text-align:left;font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:background-color .2s ease,color .2s ease}
+@media(min-width:1024px){.sb2 .sidebar-nav .role-switch-link{min-height:40px}}
+.sb2 .sidebar-nav .role-switch-link svg{color:rgba(22,105,122,.65);stroke-width:1.5;flex-shrink:0;transition:transform .2s ease,color .2s ease}
+.sb2--buyer .sidebar-nav .role-switch-link svg{width:18px;height:18px}
+.sb2 .sidebar-nav .role-switch-link:hover{background:rgba(22,105,122,.05);color:#0E4A57}
+.sb2 .sidebar-nav .role-switch-link:hover svg{transform:translateX(2px);color:#0E4A57}
+.sb2 .sidebar-nav .role-switch-link:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
 .sb2 .nav-section{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:rgba(14,74,87,.8);padding:0 12px;margin:16px 0 8px}
 .sb2 .sidebar-nav>.nav-section:first-child,.sb2 .sidebar-nav>div[role="group"]:first-child>.nav-section{margin-top:4px}
 /* Category text-only rows: no icon, labels align with item labels (12px pad + 18px icon + 12px gap). */
@@ -55,6 +63,9 @@
     .sb2.sidebar-collapsed .sidebar-nav{display:grid;justify-items:center;gap:8px;align-content:start}
     .sb2.sidebar-collapsed .sidebar-nav a{width:44px;height:44px;min-height:44px;padding:0;justify-content:center}
     .sb2.sidebar-collapsed .sidebar-nav a svg{margin:0}
+    .sb2.sidebar-collapsed .sidebar-nav .role-switch-form{width:44px;height:44px}
+    .sb2.sidebar-collapsed .sidebar-nav .role-switch-link{width:44px;height:44px;min-height:44px;padding:0;justify-content:center}
+    .sb2.sidebar-collapsed .sidebar-nav .role-switch-link svg{margin:0}
     .sb2.sidebar-collapsed .sidebar-nav a.active{border-radius:12px;background:rgba(22,105,122,.1)}
     .sb2.sidebar-collapsed .sidebar-nav a.active::before{left:-14px;top:10px;bottom:10px}
     .sb2.sidebar-collapsed .sb-badge{position:absolute;top:1px;right:1px;margin:0;min-height:16px;min-width:16px;padding:0 4px;font-size:10px;display:flex;align-items:center;justify-content:center;line-height:1}

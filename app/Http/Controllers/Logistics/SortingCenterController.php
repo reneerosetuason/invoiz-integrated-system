@@ -7,6 +7,8 @@ use App\Models\LogisticsCenter;
 use App\Models\ServiceArea;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 /**
@@ -29,9 +31,19 @@ class SortingCenterController extends Controller
 
     public function index(Request $request): View
     {
+        $hasReturnedAt = Schema::hasColumn('deliveries', 'returned_at');
+        $hasReattemptRequestedAt = Schema::hasColumn('deliveries', 'reattempt_requested_at');
+        $availableTabs = ['all', 'incoming', 'received', 'scanned', 'sorted', 'dispatched'];
+        if ($hasReturnedAt) {
+            $availableTabs[] = 'returned';
+        }
+        if ($hasReattemptRequestedAt) {
+            $availableTabs[] = 'reattempt';
+        }
+
         $validated = $request->validate([
             'search' => 'sometimes|string|max:255',
-            'tab' => 'sometimes|string|in:all,incoming,received,scanned,sorted,dispatched,returned,reattempt',
+            'tab' => ['sometimes', 'string', Rule::in($availableTabs)],
             'center_id' => 'sometimes|integer',
             'service_area_id' => 'sometimes|integer',
         ]);
@@ -51,9 +63,13 @@ class SortingCenterController extends Controller
             'sorted' => (clone $base)->where('parcel_status', 'sorted')->count(),
             'dispatched' => (clone $base)->where('parcel_status', 'dispatched')->count(),
             'assigned' => (clone $base)->where('status', 'assigned')->count(),
-            'returned' => (clone $base)->whereNotNull('returned_at')->count(),
-            'reattempt' => (clone $base)->whereNotNull('reattempt_requested_at')->count(),
         ];
+        if ($hasReturnedAt) {
+            $counts['returned'] = (clone $base)->whereNotNull('returned_at')->count();
+        }
+        if ($hasReattemptRequestedAt) {
+            $counts['reattempt'] = (clone $base)->whereNotNull('reattempt_requested_at')->count();
+        }
 
         $query = Delivery::with(['rider', 'logisticsCenter', 'destinationCenter', 'serviceArea'])
             ->notArchived();
@@ -77,8 +93,8 @@ class SortingCenterController extends Controller
             'scanned' => $query->where('parcel_status', 'scanned'),
             'sorted' => $query->where('parcel_status', 'sorted'),
             'dispatched' => $query->where('parcel_status', 'dispatched'),
-            'returned' => $query->whereNotNull('returned_at'),
-            'reattempt' => $query->whereNotNull('reattempt_requested_at'),
+            'returned' => $hasReturnedAt ? $query->whereNotNull('returned_at') : null,
+            'reattempt' => $hasReattemptRequestedAt ? $query->whereNotNull('reattempt_requested_at') : null,
             default => null,
         };
 
@@ -92,15 +108,23 @@ class SortingCenterController extends Controller
             $query->where('service_area_id', $serviceAreaId);
         }
 
+        $centers = LogisticsCenter::where('is_active', true)->orderBy('name');
+        if ($staffCenterId) {
+            $centers->whereKey($staffCenterId);
+        }
+
         return view('logistics.sorting-center.index', [
             'counts' => $counts,
             'deliveries' => $query->latest()->paginate(10)->withQueryString(),
             'tab' => $tab,
+            'availableTabs' => $availableTabs,
+            'hasReturnedAt' => $hasReturnedAt,
+            'hasReattemptRequestedAt' => $hasReattemptRequestedAt,
             'search' => $search,
             'centerId' => $centerId,
             'serviceAreaId' => $serviceAreaId,
-            'centers' => LogisticsCenter::orderBy('name')->get(),
-            'serviceAreas' => ServiceArea::orderBy('name')->get(),
+            'centers' => $centers->get(),
+            'serviceAreas' => ServiceArea::where('is_active', true)->orderBy('name')->get(),
             'staffCenterId' => $staffCenterId,
         ]);
     }

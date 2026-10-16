@@ -3,6 +3,7 @@
 @section('title', 'Order #'.$order->id)
 
 @section('content')
+@php($shippingAddress = (object) ($order->shipping_address ?: ($order->address?->toShippingSnapshot() ?? [])))
 <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
         <a href="{{ route('seller.orders.index') }}" class="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-ink-light hover:text-primary">
@@ -182,11 +183,11 @@
                     <x-icon name="map-pin" class="h-4 w-4" /> Shipping Address
                 </div>
                 <p class="mt-2 text-sm leading-relaxed">
-                    {{ $order->address?->recipient_name }}<br>
-                    {{ $order->address?->address_line }}<br>
-                    {{ $order->address?->barangay }}, {{ $order->address?->city }}<br>
-                    {{ $order->address?->province }} {{ $order->address?->postal_code }}<br>
-                    <span class="text-ink-light">{{ $order->address?->phone }}</span>
+                    {{ $shippingAddress->recipient_name ?? '' }}<br>
+                    {{ $shippingAddress->address_line ?? '' }}<br>
+                    {{ $shippingAddress->barangay ?? '' }}, {{ $shippingAddress->city ?? '' }}<br>
+                    {{ $shippingAddress->province ?? '' }} {{ $shippingAddress->region ?? '' }} {{ $shippingAddress->postal_code ?? '' }}<br>
+                    <span class="text-ink-light">{{ $shippingAddress->phone ?? '' }}</span>
                 </p>
             </div>
             @if($order->notes)

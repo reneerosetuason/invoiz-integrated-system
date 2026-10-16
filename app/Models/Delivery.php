@@ -20,24 +20,70 @@ class Delivery extends Model
     ];
 
     protected $fillable = [
+        'tracking_number',
         'order_id',
         'seller_id',
         'rider_id',
+        'center_id',
+        'destination_center_id',
+        'service_area_id',
+        'sender_name',
+        'sender_phone',
+        'sender_address',
+        'sender_lat',
+        'sender_lng',
+        'recipient_name',
+        'recipient_phone',
+        'recipient_address',
+        'recipient_lat',
+        'recipient_lng',
         'status',
+        'parcel_status',
+        'weight',
+        'notes',
+        'package_type',
+        'package_description',
+        'priority',
+        'payment_method',
+        'amount_to_collect',
         'delivery_fee',
+        'pickup_pin',
+        'estimated_delivery_at',
         'assigned_at',
+        'accepted_at',
         'picked_up_at',
         'delivered_at',
-        'delivery_notes',
-        'tracking_number',
+        'cancelled_at',
+        'failed_at',
+        'failure_reason',
+        'returned_at',
+        'return_reason',
+        'cancellation_reason',
+        'created_by',
         'archived_at',
         'archived_by',
         'archive_note',
+        'delivery_notes',
+        'received_at',
+        'scanned_at',
+        'sorted_at',
+        'dispatched_at',
+        'sorting_center_handoff_at',
+        'sorting_center_handoff_rider_id',
+        'sorting_center_pickup_at',
+        'sorting_center_pickup_rider_id',
     ];
 
     protected function casts(): array
     {
         return [
+            'weight' => 'decimal:2',
+            'amount_to_collect' => 'decimal:2',
+            'delivery_fee' => 'decimal:2',
+            'sender_lat' => 'decimal:7',
+            'sender_lng' => 'decimal:7',
+            'recipient_lat' => 'decimal:7',
+            'recipient_lng' => 'decimal:7',
             'status' => 'string',
             'assigned_at' => 'datetime',
             'accepted_at' => 'datetime',
@@ -55,6 +101,31 @@ class Delivery extends Model
             'sorting_center_handoff_at' => 'datetime',
             'sorting_center_pickup_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Delivery $delivery): void {
+            if (empty($delivery->tracking_number)) {
+                do {
+                    $candidate = 'TRK-' . now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
+                } while (static::where('tracking_number', $candidate)->exists());
+
+                $delivery->tracking_number = $candidate;
+            }
+        });
+
+        static::saving(function (Delivery $delivery): void {
+            if ($delivery->isDirty('status') && $delivery->status === 'picked_up') {
+                $pickupRequest = $delivery->pickupRequest()->first();
+                if ($pickupRequest && $pickupRequest->status !== 'completed') {
+                    $pickupRequest->update([
+                        'status' => 'completed',
+                        'reviewed_at' => now(),
+                    ]);
+                }
+            }
+        });
     }
 
     public function order()

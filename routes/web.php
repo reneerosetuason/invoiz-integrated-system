@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\UnifiedAuthController;
+use App\Http\Controllers\SellerApplicationController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\AdminAuthController;
 use App\Http\Controllers\SellerAuthController;
 use App\Http\Controllers\SellerCenterController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\Seller\ReportController as SellerAppReports;
 use App\Http\Controllers\Seller\ReviewController as SellerAppReviews;
 use App\Http\Controllers\Seller\VoucherController as SellerAppVouchers;
 use App\Http\Controllers\BuyerChatController;
+use App\Http\Controllers\BuyerFeaturesController;
 use App\Http\Controllers\Admin\PaymentController;
 use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\AuthController as BuyerWebAuth;
@@ -43,28 +46,46 @@ use Illuminate\Http\Request;
 */
 
 // ---- Landing (live marketplace data) ----
-Route::get('/', function () {
+Route::get('/', function (Request $request) {
     $deals = [];
     $categories = collect();
     $stores = collect();
+    $sort = $request->input('sort', 'recommended');
+    $allowedSorts = ['recommended', 'newest', 'price_asc', 'price_desc', 'rating', 'most_reviewed'];
+    if (! in_array($sort, $allowedSorts, true)) $sort = 'recommended';
+    $buyerId = session('buyer.id') ?? (Auth::check() ? Auth::id() : null);
+    $favoriteIds = $buyerId ? \App\Models\Favorite::where('buyer_id', $buyerId)->pluck('product_id')->map(fn ($id) => (int) $id)->all() : [];
     $stats = ['products' => 0, 'sellers' => 0, 'orders' => 0];
     try {
-        $dealRows = Product::with('category')->where('status', 'active')
+        $dealQuery = Product::with('category')->where('status', 'active')
+            ->select('products.*')
+            ->selectSub(\App\Models\Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
+            ->selectSub(\App\Models\Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');
+        $dealFilter = (clone $dealQuery)
             ->whereNotNull('compare_at_price')
-            ->whereColumn('compare_at_price', '>', 'price')
-            ->orderByDesc('created_at')->take(6)->get();
-        if ($dealRows->isEmpty()) {
-            $dealRows = Product::with('category')->where('status', 'active')->orderByDesc('created_at')->take(6)->get();
+            ->whereColumn('compare_at_price', '>', 'price');
+        $hasDeals = (clone $dealFilter)->exists();
+        $dealRows = $dealFilter;
+        if (! $hasDeals) {
+            $dealRows = clone $dealQuery;
         }
+        switch ($sort) {
+            case 'price_asc': $dealRows->orderBy('price')->orderByDesc('created_at'); break;
+            case 'price_desc': $dealRows->orderByDesc('price')->orderByDesc('created_at'); break;
+            case 'rating': $dealRows->orderByRaw('COALESCE(visible_rating, rating, 0) DESC')->orderByDesc('visible_reviews_count')->orderByDesc('created_at'); break;
+            case 'most_reviewed': $dealRows->orderByDesc('visible_reviews_count')->orderByRaw('COALESCE(visible_rating, rating, 0) DESC')->orderByDesc('created_at'); break;
+            default: $dealRows->orderByDesc('created_at');
+        }
+        $dealRows = $dealRows->take(6)->get();
         $deals = $dealRows->map(function ($p) {
             $pct = ($p->compare_at_price > $p->price && $p->compare_at_price > 0)
                 ? (int) round((($p->compare_at_price - $p->price) / $p->compare_at_price) * 100) : 0;
-            try { $store = \App\Models\Seller::nameFor($p->seller_id); } catch (\Throwable $e) { $store = ''; }
+            try { $store = \App\Models\Seller::nameFor(\App\Models\Seller::userIdFor((int) $p->seller_id)); } catch (\Throwable $e) { $store = ''; }
             return [
                 'id' => $p->id, 'name' => $p->name,
                 'price' => (float) ($p->price ?? 0),
                 'compare_at' => (float) ($p->compare_at_price ?? 0),
-                'pct' => $pct, 'rating' => $p->rating ? round((float) $p->rating, 1) : null,
+                'pct' => $pct, 'rating' => ($p->visible_rating ?? $p->rating) ? round((float) ($p->visible_rating ?? $p->rating), 1) : null,
                 'store' => $store, 'image' => $p->primary_image_url,
             ];
         })->toArray();
@@ -92,86 +113,16 @@ Route::get('/', function () {
             'orders' => \App\Models\Order::whereNotIn('status', ['cancelled'])->count(),
         ];
     } catch (\Throwable $e) { $deals = []; }
-    return view('landing', compact('deals', 'categories', 'stores', 'stats'));
+    return view('landing', compact('deals', 'categories', 'stores', 'stats', 'favoriteIds', 'sort'));
 })->name('landing');
 
-// ---- Sell on INVOIZ (buyer applies, admin approves in /admin/sellers) ----
-Route::get('/sell', function () {
-    $uid = session('buyer.id') ?? (Auth::check() ? Auth::id() : null);
-    if (! $uid) {
-        return redirect('/register')->with('success', 'Create your buyer account first â€” then apply as a seller.');
-    }
-    $user = \App\Models\User::findOrFail($uid);
-    $existing = \App\Models\Seller::where('user_id', $uid)->first();
-    $categories = \App\Models\Category::active()->orderBy('name')->get();
-    return view('sell', ['existing' => $existing, 'user' => $user, 'categories' => $categories]);
-})->name('sell');
+// ---- Sell on INVOIZ (buyer or new seller applies, admin approves in /admin/sellers) ----
+Route::get('/sell', [SellerApplicationController::class, 'create'])->name('sell');
 
-Route::post('/sell', function (Request $request) {
-    $uid = session('buyer.id') ?? (Auth::check() ? Auth::id() : null);
-    if (! $uid) {
-        return redirect('/login')->with('error', 'Please log in first.');
-    }
-    $user = \App\Models\User::findOrFail($uid);
-    $existing = \App\Models\Seller::where('user_id', $uid)->first();
-    if ($existing && $existing->approval_status !== 'rejected') {
-        return back()->with('error', 'You already have a seller application.');
-    }
-    $data = $request->validate([
-        'last_name' => 'required|string|max:100',
-        'first_name' => 'required|string|max:100',
-        'middle_initial' => 'nullable|string|max:10',
-        'sex' => 'required|in:male,female,other',
-        'phone' => 'required|string|max:30',
-        'birthday' => 'required|date|before:today',
-        'province' => 'nullable|string|max:100',
-        'municipality' => 'nullable|string|max:100',
-        'barangay' => 'nullable|string|max:100',
-        'address_line' => 'nullable|string|max:255',
-        'business_name' => 'required|string|max:150',
-        'line_of_business' => 'required|string|max:100',
-        'id_image' => 'nullable|image|max:5120',
-        'business_permit' => 'nullable|image|max:5120',
-        'logo' => 'nullable|image|max:5120',
-    ]);
-    try {
-        $age = \Carbon\Carbon::parse($data['birthday'])->diffInYears(now());
-    } catch (\Throwable $e) {
-        $age = null;
-    }
-    $user->update([
-        'last_name' => $data['last_name'], 'first_name' => $data['first_name'],
-        'middle_initial' => $data['middle_initial'] ?? $user->middle_initial,
-        'sex' => $data['sex'], 'phone' => $data['phone'], 'birthday' => $data['birthday'], 'age' => $age,
-        'province' => $data['province'] ?? $user->province,
-        'municipality' => $data['municipality'] ?? $user->municipality,
-        'barangay' => $data['barangay'] ?? $user->barangay,
-        'address_line' => $data['address_line'] ?? $user->address_line,
-    ]);
-    $request->session()->put('buyer', [
-        'id' => $user->id, 'first_name' => $user->first_name,
-        'last_name' => $user->last_name, 'email' => $user->email,
-    ]);
-    $attrs = [
-        'business_name' => $data['business_name'],
-        'line_of_business' => $data['line_of_business'],
-        'approval_status' => 'pending', 'status' => 'active',
-    ];
-    foreach (['id_image' => 'seller-ids', 'business_permit' => 'seller-permits', 'logo' => 'logos'] as $field => $dir) {
-        if ($request->hasFile($field)) {
-            if ($existing && $existing->$field) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($existing->$field);
-            }
-            $attrs[$field] = $request->file($field)->store($dir, 'public');
-        }
-    }
-    if ($existing) {
-        $existing->update($attrs);
-    } else {
-        \App\Models\Seller::create(array_merge(['user_id' => $uid], $attrs));
-    }
-    return back()->with('success', "Application submitted! Please wait for the administrator's approval, which will be sent to {$user->email}.");
-})->name('sell.post');
+Route::get('/seller/register', fn () => redirect()->route('sell'))->name('seller.register');
+Route::get('/seller/apply', fn () => redirect()->route('sell'))->name('seller.apply');
+
+Route::post('/sell', [SellerApplicationController::class, 'store'])->name('sell.post');
 
 // ---- Unified auth (single login/register for everyone) ----
 Route::get('/login', [UnifiedAuthController::class, 'showLogin'])->name('login');
@@ -180,7 +131,26 @@ Route::get('/register', [UnifiedAuthController::class, 'showRegister'])->name('r
 Route::post('/register', [UnifiedAuthController::class, 'register'])->name('register.post');
 Route::post('/logout', [UnifiedAuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [UnifiedAuthController::class, 'logout']);
-Route::get('/home', fn () => redirect('/shop'));
+Route::get('/home', function () {
+    if (! Auth::check()) {
+        return redirect('/shop');
+    }
+
+    $user = Auth::user();
+    if ($user->isAdmin()) {
+        return redirect('/admin/dashboard');
+    }
+
+    if ($user->canSell()) {
+        return match (session('active_role')) {
+            'seller' => redirect('/seller/dashboard'),
+            'buyer' => redirect('/shop'),
+            default => redirect('/choose'),
+        };
+    }
+
+    return redirect('/shop');
+});
 
 // Email code verification (Gmail OTP)
 Route::get('/verify', [UnifiedAuthController::class, 'showVerify'])->name('verify');
@@ -200,8 +170,9 @@ Route::get('/auth/google/callback', [UnifiedAuthController::class, 'googleCallba
 // Dual buyer+seller logins pick an account here before entering a dashboard.
 Route::middleware('auth')->group(function () {
     Route::get('/choose', [UnifiedAuthController::class, 'showChoose'])->name('choose');
-    Route::get('/choose/buyer', [UnifiedAuthController::class, 'chooseBuyer'])->name('choose.buyer');
-    Route::get('/choose/seller', [UnifiedAuthController::class, 'chooseSeller'])->name('choose.seller');
+    Route::get('/choose/buyer', fn () => redirect()->route('choose'))->name('choose.buyer');
+    Route::get('/choose/seller', fn () => redirect()->route('choose'))->name('choose.seller');
+    Route::post('/switch-role', [UnifiedAuthController::class, 'switchRole'])->name('role.switch');
 });
 
 // (Unified /verify + /auth/google routes above cover all accounts.)
@@ -211,6 +182,11 @@ Route::get('/shop', [HomeController::class, 'index'])->name('shop');
 Route::get('/products', [HomeController::class, 'index']);
 Route::get('/sale', [HomeController::class, 'sale']);
 Route::get('/product/{id}', [HomeController::class, 'show']);
+Route::get('/wishlist', [BuyerFeaturesController::class, 'wishlist'])->name('buyer.wishlist');
+Route::post('/wishlist/{product}/toggle', [BuyerFeaturesController::class, 'toggleFavorite'])->whereNumber('product')->name('buyer.wishlist.toggle');
+Route::get('/vouchers', [BuyerFeaturesController::class, 'vouchers'])->name('buyer.vouchers');
+Route::post('/vouchers/{voucher}/claim', [BuyerFeaturesController::class, 'claimVoucher'])->whereNumber('voucher')->name('buyer.vouchers.claim');
+Route::post('/orders/{order}/rate/{product}', [BuyerFeaturesController::class, 'rate'])->whereNumber('order')->whereNumber('product')->name('buyer.orders.rate');
 
 Route::get('/cart/add/{id}', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id(),'first_name'=>Auth::user()->first_name ?? '','last_name'=>Auth::user()->last_name ?? ''] : null);
@@ -335,6 +311,13 @@ Route::get('/cart', function(){
 Route::get('/checkout', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to checkout');
+  $claimedVouchers = \App\Models\VoucherClaim::with('voucher')
+    ->where('buyer_id', $buyer['id'])->whereNull('used_at')
+    ->whereHas('voucher', fn ($q) => $q->active()->where(fn ($x) => $x->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit')))
+    ->latest('claimed_at')->get();
+  \App\Models\Address::ensureForBuyer((int) $buyer['id']);
+  $addresses = \App\Models\Address::where('buyer_id', $buyer['id'])->orderByDesc('is_default')->orderByDesc('updated_at')->get();
+  $selectedAddressId = old('address_id', $request->input('address_id', $addresses->firstWhere('is_default', true)?->id));
   if($request->filled('single') || session()->has('checkout_single')){
     $raw = $request->filled('single') ? ['id'=>$request->integer('single'),'qty'=>$request->integer('qty',1),'variant_id'=>$request->input('variant_id')] : session('checkout_single');
     if(!is_array($raw)) $raw = ['id'=>(int)$raw,'qty'=>1,'variant_id'=>null];
@@ -343,7 +326,7 @@ Route::get('/checkout', function(Request $request){
     $variant = Cart::resolveVariant($p, $raw['variant_id'] ?? null);
     $qty = max(1, min(200, (int)($raw['qty'] ?? 1)));
     $unit = Cart::unitFor($p, $variant);
-    return view('checkout',['products'=>collect([$p]),'single'=>$p->id,'singleQty'=>$qty,'singleUnit'=>$unit,'singleVariantId'=>$variant ? $variant->id : null,'singleLabel'=>Cart::labelFor($variant),'cartItems'=>collect(),'checkoutMode'=>'single']);
+    return view('checkout',['products'=>collect([$p]),'single'=>$p->id,'singleQty'=>$qty,'singleUnit'=>$unit,'singleVariantId'=>$variant ? $variant->id : null,'singleLabel'=>Cart::labelFor($variant),'cartItems'=>collect(),'checkoutMode'=>'single','addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
   if($request->filled('seller') || session()->has('checkout_seller_id')){
     $sellerId = $request->input('seller') ?? session('checkout_seller_id');
@@ -352,7 +335,7 @@ Route::get('/checkout', function(Request $request){
     $cartItems = Cart::itemsFor($buyer['id'])->get();
     $pIds = $lines->pluck('product.id')->all();
     $products = Product::whereIn('id',$pIds)->get();
-    return view('checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'seller','sellerId'=>$sellerId,'sellerLines'=>$lines]);
+    return view('checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'seller','sellerId'=>$sellerId,'sellerLines'=>$lines,'addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
   if($request->filled('all') || session()->has('checkout_all')){
     $lines = Cart::linesFor($buyer['id']);
@@ -363,7 +346,7 @@ Route::get('/checkout', function(Request $request){
     $grandTotal = collect($sellerGroups)->sum('total');
     $products = $lines->pluck('product');
     $cartItems = Cart::itemsFor($buyer['id'])->get();
-    return view('checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'all','sellerGroups'=>$sellerGroups,'grandTotal'=>$grandTotal]);
+    return view('checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'all','sellerGroups'=>$sellerGroups,'grandTotal'=>$grandTotal,'addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
   if($request->filled('selected') || session()->has('checkout_selected')){
     $idArr = session('checkout_selected', array_map('intval', explode(',', $request->input('ids',''))));
@@ -375,23 +358,39 @@ Route::get('/checkout', function(Request $request){
     $grandTotal = collect($sellerGroups)->sum('total');
     $products = $lines->pluck('product');
     $cartItems = Cart::itemsFor($buyer['id'])->get();
-    return view('checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'selected','sellerGroups'=>$sellerGroups,'grandTotal'=>$grandTotal]);
+    return view('checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'selected','sellerGroups'=>$sellerGroups,'grandTotal'=>$grandTotal,'addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
   return redirect('/cart');
 });
 
 Route::post('/checkout', function(Request $request){
-  $request->validate(['payment_method'=>'required|in:cod','voucher_code'=>'nullable|string|max:50']);
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id(),'first_name'=>Auth::user()->first_name ?? '','last_name'=>Auth::user()->last_name ?? ''] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
-  $addr = \App\Models\Address::where('buyer_id',$buyer['id'])->first();
-  if(!$addr){
-    $addr = \App\Models\Address::create(['buyer_id'=>$buyer['id'],'recipient_name'=>trim(($buyer['first_name'] ?? 'Buyer').' '.($buyer['last_name'] ?? '')),'phone'=>'09170000000','address_line'=>'123 Street','barangay'=>'Test','city'=>'Test City','province'=>'Test Province','postal_code'=>'1000','is_default'=>1]);
+  $request->validate([
+    'address_id' => ['required', 'integer'],
+    'payment_method' => ['required', 'in:cod'],
+    'voucher_claim_id' => ['nullable', 'integer', 'exists:voucher_claims,id'],
+  ]);
+  $addr = \App\Models\Address::where('buyer_id', $buyer['id'])->find($request->integer('address_id'));
+  if (! $addr) {
+    return back()->withErrors(['address_id' => 'Select one of your saved delivery addresses before placing the order.'])->withInput();
   }
   $checkoutMode = $request->input('checkout_mode', session('checkout_single') ? 'single' : (session('checkout_all') ? 'all' : (session('checkout_selected') ? 'selected' : 'seller')));
   $ordersCreated = 0;
   try {
     \Illuminate\Support\Facades\DB::transaction(function () use ($buyer, $addr, $request, $checkoutMode, &$ordersCreated) {
+    $voucherClaim = null;
+    $voucher = null;
+    if ($request->filled('voucher_claim_id')) {
+      $voucherClaim = \App\Models\VoucherClaim::where('id', $request->integer('voucher_claim_id'))
+        ->where('buyer_id', $buyer['id'])->whereNull('used_at')->lockForUpdate()->first();
+      $voucher = $voucherClaim
+        ? \App\Models\Voucher::whereKey($voucherClaim->voucher_id)->lockForUpdate()->first()
+        : null;
+      if (! $voucherClaim || ! $voucher || ! $voucher->is_active || ($voucher->usage_limit !== null && $voucher->used_count >= $voucher->usage_limit)) {
+        throw new \Exception('That claimed voucher is unavailable. Choose another voucher.');
+      }
+    }
     if($checkoutMode === 'single'){
       $raw = session('checkout_single');
       if(!is_array($raw)) $raw = ['id'=>$request->input('single'),'qty'=>$request->input('qty',1),'variant_id'=>$request->input('variant_id')];
@@ -403,11 +402,8 @@ Route::post('/checkout', function(Request $request){
       $subtotal = $unit * $qty;
       // Shipping: flat fee once per shop. Voucher (merchandise or free
       // shipping) validated here; the seller absorbs it, never the rider.
-      $voucher = null; $merch = 0.0; $waived = 0.0;
-      $code = trim((string) $request->input('voucher_code', ''));
-      if ($code !== '') {
-        $voucher = \App\Models\Voucher::active()->where('code', $code)->first();
-        if (! $voucher) throw new \Exception('Invalid or expired voucher code.');
+      $merch = 0.0; $waived = 0.0;
+      if ($voucher) {
         $resolved = \App\Support\Shipping::resolveVoucher($voucher, $subtotal, [(int) $product->seller_id]);
         if ($resolved['error']) throw new \Exception($resolved['error']);
         $merch = $resolved['merch'];
@@ -416,13 +412,14 @@ Route::post('/checkout', function(Request $request){
       $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
       $total = round($subtotal - $merch + $shipping - $waived, 2);
       if(! \App\Support\Stock::deduct($product->id, $variant?->id, $qty)) throw new \Exception('Not enough stock for "'.$product->name.'".');
-      $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
+      $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
       \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
       if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $product->seller_id,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
       \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$product->id,'product_variant_id'=>$variant?->id,'seller_id'=>$product->seller_id,'product_name'=>$product->name,'variant_label'=>Cart::labelFor($variant),'quantity'=>$qty,'price'=>$unit,'unit_price'=>$unit,'total_price'=>$subtotal]);
       if ($voucher) {
         \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$voucher->id,'discount_amount'=>round($merch + $waived, 2)]);
         $voucher->increment('used_count');
+        $voucherClaim->update(['order_id' => $order->id, 'used_at' => now()]);
       }
       if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
       \App\Support\Payments::recordCheckout($order);
@@ -439,12 +436,6 @@ Route::post('/checkout', function(Request $request){
       if($lines->isEmpty()) throw new \Exception('Cart is empty');
       // Optional voucher: validated up front, then applied to the first
       // eligible seller group only (single use per checkout).
-      $voucher = null;
-      $voucherCode = trim((string) $request->input('voucher_code', ''));
-      if ($voucherCode !== '') {
-        $voucher = \App\Models\Voucher::active()->where('code', $voucherCode)->first();
-        if (! $voucher) throw new \Exception('Invalid or expired voucher code.');
-      }
       $voucherConsumed = false;
       $voucherError = null;
       $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [(int) $lines->first()['product']->seller_id => $lines];
@@ -470,7 +461,7 @@ Route::post('/checkout', function(Request $request){
         }
         $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
         $total = round($subtotal - $merch + $shipping - $waived, 2);
-        $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
+        $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
         \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
         if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $groupSid,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
         foreach($sLines as $l){
@@ -480,6 +471,7 @@ Route::post('/checkout', function(Request $request){
         if ($usedVoucher) {
           \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$usedVoucher->id,'discount_amount'=>round($merch + $waived, 2)]);
           $usedVoucher->increment('used_count');
+          $voucherClaim->update(['order_id' => $order->id, 'used_at' => now()]);
         }
         if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
         \App\Support\Payments::recordCheckout($order);
@@ -496,29 +488,35 @@ Route::post('/checkout', function(Request $request){
 });
 
 Route::get('/store/{id}', function($id, Request $request){
-  $sellerId = (int)$id;
+  $sellerId = \App\Models\Seller::userIdFor((int) $id);
   $sellerUser = \App\Models\User::find($sellerId);
   // Accept sellers.id too (admin/seller links) â€” resolve to the same store.
   if(! $sellerUser) {
     $s = \App\Models\Seller::find($sellerId);
     if($s) { $sellerId = (int) $s->user_id; $sellerUser = \App\Models\User::find($sellerId); }
   }
-  if(!$sellerUser) return redirect('/shop')->with('error','Store not found');
+  if(!$sellerUser || ! \App\Models\Seller::where('user_id', $sellerId)->exists()) return redirect('/shop')->with('error','Store not found');
   $name = \App\Models\Seller::nameFor($sellerId);
-  $pq = Product::with('category')->whereIn('seller_id', [$sellerId])->where('status','active');
+  $catalogIds = [$sellerId];
+  $pq = Product::with('category')->whereIn('seller_id', $catalogIds)->where('status','active');
   // Sellers rows may use sellers.id convention â€” include those products too.
   try {
     $alt = \App\Models\Seller::where('user_id',$sellerId)->first();
-    if($alt) $pq = Product::with('category')->whereIn('seller_id', [$sellerId, $alt->id])->where('status','active');
+    if($alt) { $catalogIds[] = (int) $alt->id; $pq = Product::with('category')->whereIn('seller_id', $catalogIds)->where('status','active'); }
   } catch (\Throwable $e) {}
+  $pq->select('products.*')
+    ->selectSub(\App\Models\Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id','products.id')->where('status','visible'),'visible_rating')
+    ->selectSub(\App\Models\Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id','products.id')->where('status','visible'),'visible_reviews_count');
   if($request->filled('search')) $pq->where('name','like','%'.$request->input('search').'%');
   $sort = $request->input('sort','newest');
+  if(!in_array($sort,['newest','price_asc','price_desc','rating','most_reviewed'],true)) $sort='newest';
   if($sort==='price_asc') $pq->orderBy('price','asc');
   elseif($sort==='price_desc') $pq->orderBy('price','desc');
-  elseif($sort==='rating') $pq->orderByDesc('rating');
+  elseif($sort==='rating') $pq->orderByRaw('COALESCE(visible_rating, rating, 0) DESC')->orderByDesc('visible_reviews_count');
+  elseif($sort==='most_reviewed') $pq->orderByDesc('visible_reviews_count')->orderByRaw('COALESCE(visible_rating, rating, 0) DESC');
   else $pq->orderByDesc('created_at');
   $products = $pq->get();
-  $productIds = Product::whereIn('seller_id', [$sellerId])->pluck('id');
+  $productIds = Product::whereIn('seller_id', $catalogIds)->pluck('id');
   $reviews = collect();
   $rating = null;
   $followers = 0;
@@ -526,7 +524,8 @@ Route::get('/store/{id}', function($id, Request $request){
   try {
     if (class_exists(\App\Models\Review::class)) {
       $reviews = \App\Models\Review::with('buyer')->whereIn('product_id',$productIds)->where('status','visible')->orderByDesc('created_at')->limit(20)->get();
-      $rating = $reviews->avg('rating');
+      $rating = \App\Models\Review::whereIn('product_id',$productIds)->where('status','visible')->avg('rating');
+      if ($rating === null) $rating = Product::whereIn('id',$productIds)->avg('rating');
     }
     if (class_exists(\App\Models\StoreFollow::class)) {
       $followers = \App\Models\StoreFollow::where('seller_id',$sellerId)->count();
@@ -543,7 +542,8 @@ Route::get('/store/{id}', function($id, Request $request){
       $storeLogo = asset('storage/' . ltrim($srow->logo, '/'));
     }
   } catch (\Throwable $e) {}
-  return view('store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer','storeLogo') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
+  $favoriteIds = !empty($buyer['id']) ? \App\Models\Favorite::where('buyer_id',$buyer['id'])->pluck('product_id')->map(fn($id)=>(int)$id)->all() : [];
+  return view('store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer','storeLogo','favoriteIds') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
 });
 
 Route::post('/store/{id}/follow', function($id, Request $request){
@@ -556,25 +556,16 @@ Route::post('/store/{id}/follow', function($id, Request $request){
   return back()->with('success',$msg);
 });
 
-Route::get('/profile', function(Request $request){
-  $b = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
-  if(!$b && !Auth::check()) return redirect('/login')->with('error','Please login');
-  $u = \App\Models\User::find($b['id'] ?? Auth::id());
-  $sellerApp = \App\Models\Seller::where('user_id', $u->id)->first();
-  return view('profile',['user'=>$u,'sellerApp'=>$sellerApp]);
-});
-
-Route::post('/profile', function(Request $request){
-  $b = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
-  if(!$b && !Auth::check()) return redirect('/login');
-  $u = \App\Models\User::find($b['id'] ?? Auth::id());
-  if(! $u) return redirect('/login');
-  $request->validate(['first_name'=>'required|string|max:100','last_name'=>'required|string|max:100','email'=>'required|email|max:150|unique:users,email,'.$u->id,'phone'=>'nullable|string|max:30']);
-  $u->update(['first_name'=>$request->first_name,'last_name'=>$request->last_name,'email'=>$request->email,'phone'=>$request->phone ?? $u->phone]);
-  $request->session()->put('buyer',['id'=>$u->id,'first_name'=>$u->first_name,'last_name'=>$u->last_name,'email'=>$u->email]);
-  return redirect('/profile')->with('success','Profile updated â€” same name now shows in shop, orders and chat.');
-});
-
+Route::get('/profile', [ProfileController::class, 'show'])->name('profile');
+Route::post('/profile', [ProfileController::class, 'update'])->name('buyer.profile.update');
+Route::post('/profile/addresses', [ProfileController::class, 'storeAddress'])->name('buyer.addresses.store');
+Route::put('/profile/addresses/{addressId}', [ProfileController::class, 'updateAddress'])->whereNumber('addressId')->name('buyer.addresses.update');
+Route::post('/profile/addresses/{addressId}/default', [ProfileController::class, 'setDefaultAddress'])->whereNumber('addressId')->name('buyer.addresses.default');
+Route::delete('/profile/addresses/{addressId}', [ProfileController::class, 'deleteAddress'])->whereNumber('addressId')->name('buyer.addresses.delete');
+Route::post('/profile/email/request-code', [ProfileController::class, 'requestEmailCode'])
+  ->middleware('throttle:5,1')->name('profile.email.request-code');
+Route::post('/profile/email/confirm', [ProfileController::class, 'confirmEmailChange'])
+  ->middleware('throttle:10,1')->name('profile.email.confirm');
 Route::get('/orders', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to view orders');
@@ -594,17 +585,24 @@ Route::get('/orders/{id}', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $order = \App\Models\Order::with(['items.product','payment','delivery','statusHistories'])->where('buyer_id',$buyer['id'])->findOrFail($id);
-  return view('order', ['order'=>$order]);
+  $reviews = \App\Models\Review::where('buyer_id',$buyer['id'])->where('order_id',$order->id)->get()->keyBy('product_id');
+  return view('order', ['order'=>$order, 'reviews'=>$reviews]);
 })->whereNumber('id');
 
 Route::post('/orders/{id}/cancel', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
+  $data = $request->validate([
+    'reason' => ['required', 'in:changed_mind,ordered_by_mistake,found_better_price,delivery_too_long,wrong_item,other'],
+    'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'max:400'],
+  ]);
   $order = \App\Models\Order::with('items')->where('buyer_id',$buyer['id'])->findOrFail($id);
   if(! $order->isCancellableByBuyer()) return back()->with('error','This order can no longer be cancelled â€” it is already being prepared or on its way to you.');
   $from = $order->status;
-  $order->update(['status'=>'cancelled']);
-  \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>$from,'to_status'=>'cancelled','note'=>'Order cancelled by buyer.']);
+  $labels = ['changed_mind'=>'Changed my mind','ordered_by_mistake'=>'Ordered by mistake','found_better_price'=>'Found a better price','delivery_too_long'=>'Delivery is taking too long','wrong_item'=>'I ordered the wrong item','other'=>'Other'];
+  $reason = $labels[$data['reason']] . ($data['reason'] === 'other' ? ': ' . trim($data['reason_details']) : '');
+  $order->update(['status'=>'cancelled', 'cancellation_reason' => $reason]);
+  \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>$from,'to_status'=>'cancelled','note'=>'Cancelled by buyer: '.$reason]);
   // Never shipped (pending/confirmed only reach here) â†’ give the stock back.
   \App\Support\Stock::restoreOrder($order->fresh('items'));
   // COD money never moved: void the pending ledger row.
@@ -617,6 +615,7 @@ Route::get('/messages', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $userId = $buyer['id'];
+  \App\Support\ChatBridge::linkExistingForBuyer((int) $userId);
   $conversations = \App\Models\Conversation::with('lastMessage.conversation')
     ->where('buyer_id',$userId)->latest('updated_at')->get()
     ->filter(fn($c) => $c->lastMessage)
@@ -643,6 +642,7 @@ Route::get('/messages', function(Request $request){
 Route::get('/chat/seller/{sellerId}', function(Request $request, $sellerId){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
+  $sellerId = \App\Models\Seller::userIdFor((int) $sellerId);
   $conv = \App\Models\Conversation::firstOrCreate(['buyer_id'=>$buyer['id'],'seller_id'=>$sellerId], ['subject'=>null]);
   \App\Models\Message::where('conversation_id',$conv->id)->where('sender_id','!=',$buyer['id'])->where('is_read',0)->update(['is_read'=>1]);
   $messages = \App\Models\Message::with('conversation')->where('conversation_id',$conv->id)->orderBy('created_at')->get();
@@ -652,11 +652,12 @@ Route::get('/chat/seller/{sellerId}', function(Request $request, $sellerId){
 Route::post('/chat/send/{sellerId}', function(Request $request, $sellerId){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return response()->json(['error'=>'Login required'],401);
+  $sellerId = \App\Models\Seller::userIdFor((int) $sellerId);
   $request->validate(['body'=>'required|string|max:2000']);
   $conv = \App\Models\Conversation::firstOrCreate(['buyer_id'=>$buyer['id'],'seller_id'=>$sellerId], ['subject'=>null]);
-  \App\Models\Message::create(['conversation_id'=>$conv->id,'sender_id'=>$buyer['id'],'receiver_id'=>(int)$sellerId,'body'=>$request->input('body'),'is_read'=>0]);
+  $message = \App\Models\Message::create(['conversation_id'=>$conv->id,'sender_id'=>$buyer['id'],'receiver_id'=>(int)$sellerId,'body'=>$request->input('body'),'is_read'=>0]);
   $conv->touch();
-  return response()->json(['ok'=>true]);
+  return response()->json(['ok'=>true,'id'=>$message->id,'created_at'=>$message->created_at?->toDateTimeString()]);
 });
 
 Route::get('/chat/fetch/{sellerId}', function(Request $request, $sellerId){
@@ -665,7 +666,8 @@ Route::get('/chat/fetch/{sellerId}', function(Request $request, $sellerId){
   $conv = \App\Models\Conversation::where('buyer_id',$buyer['id'])->where('seller_id',$sellerId)->first();
   if(!$conv) return response()->json([]);
   $q = \App\Models\Message::where('conversation_id',$conv->id);
-  if($request->filled('after')) $q->where('created_at','>',$request->input('after'));
+  if($request->filled('after_id')) $q->where('id','>',$request->integer('after_id'));
+  elseif($request->filled('after')) $q->where('created_at','>',$request->input('after'));
   return response()->json($q->with('conversation')->orderBy('created_at')->get()->map(function($m) use($buyer){
     try { $role = $m->senderRole(); [$label] = \App\Models\Message::roleBadge($role); }
     catch (\Throwable $e) { $role = 'seller'; $label = 'Seller'; }
@@ -676,6 +678,7 @@ Route::get('/chat/fetch/{sellerId}', function(Request $request, $sellerId){
 Route::get('/notifications', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
+  \App\Support\ChatBridge::linkExistingForBuyer((int) $buyer['id']);
   if (! class_exists(\App\Support\BuyerNotifications::class)) return view('notifications',['items'=>[]]);
   // Merged feed (orders + messages + resolutions): slice the current page
   // manually so the full feed stays pageable.
@@ -841,7 +844,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
             'to_ship' => (clone $orders)->where('status', 'processing')->count(),
             'products' => \App\Models\Product::count(),
             'low_stock' => class_exists(\App\Models\Inventory::class) ? \App\Models\Inventory::where('quantity', '<=', 5)->count() : 0,
-            'rating' => (float) (\App\Models\ProductReview::avg('rating') ?? 0),
+            'rating' => (float) (\App\Models\Review::where('status', 'visible')->avg('rating') ?? 0),
             'sellers' => \App\Models\Seller::approved()->count(),
             'pending_sellers' => \App\Models\Seller::where('approval_status', 'pending')->count(),
             'buyers' => \App\Models\User::where('role', 'buyer')->count(),
@@ -876,6 +879,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
 
     Route::get('sellers', [SellerController::class, 'index'])->name('admin.sellers');
     Route::get('sellers/{seller}', [SellerController::class, 'show'])->name('admin.seller.show');
+    Route::get('sellers/{seller}/document/{type}', [SellerController::class, 'viewDocument'])->name('admin.seller.document');
     Route::post('sellers/{seller}/approve', [SellerController::class, 'approve'])->name('admin.seller.approve');
     Route::post('sellers/{seller}/reject', [SellerController::class, 'reject'])->name('admin.seller.reject');
     Route::post('sellers/{seller}/suspend', [SellerController::class, 'suspend'])->name('admin.seller.suspend');
@@ -927,5 +931,25 @@ Route::prefix('admin')->middleware('auth')->group(function () {
 
 
 
-require __DIR__.'/logistics/web.php';
+// Public fallback route for storage assets (safely serves files if web server symlink fails)
+Route::get('/storage/{path}', function ($path) {
+    $clean = ltrim(str_replace(['\\', '/storage/'], ['/', ''], (string) $path), '/');
+    $candidates = [
+        public_path('storage/' . $clean),
+        storage_path('app/public/' . $clean),
+        public_path($clean),
+        storage_path('app/' . $clean),
+    ];
+    foreach ($candidates as $cand) {
+        if (file_exists($cand) && ! is_dir($cand)) {
+            $mime = mime_content_type($cand) ?: 'application/octet-stream';
+            return response()->file($cand, [
+                'Content-Type' => $mime,
+                'Content-Disposition' => 'inline; filename="' . basename($cand) . '"',
+            ]);
+        }
+    }
+    abort(404, 'File not found');
+})->where('path', '.*');
 
+require __DIR__.'/logistics/web.php';

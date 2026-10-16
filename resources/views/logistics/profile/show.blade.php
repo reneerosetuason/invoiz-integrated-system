@@ -30,7 +30,7 @@
                 </span>
             </div>
 
-            <form method="POST" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="p-6 space-y-6">
+            <form method="POST" action="{{ route('logistics.profile.update') }}" enctype="multipart/form-data" class="p-6 space-y-6">
                 @csrf
                 @method('PATCH')
 

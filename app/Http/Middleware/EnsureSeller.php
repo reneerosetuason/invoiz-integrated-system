@@ -23,14 +23,18 @@ class EnsureSeller
             return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
         }
 
-        // Dual buyer+seller logins have role=buyer with an approved store:
-        // accept any active account with an approved seller record.
+        // Seller approval changes the account role to "seller" while buyer
+        // access remains available, so validate the approved store record.
         $seller = Seller::where('user_id', $user->id)
             ->approved()
             ->first();
 
         if (! $seller) {
             return redirect('/shop')->with('error', 'No approved seller store is linked to this account.');
+        }
+
+        if ($request->session()->get('active_role') !== 'seller') {
+            return redirect()->route('choose');
         }
 
         $request->session()->put('seller_id', $seller->id);

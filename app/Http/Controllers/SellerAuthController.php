@@ -150,8 +150,12 @@ class SellerAuthController extends Controller
             ->take(5)
             ->get();
 
-        $rating = (float) \App\Models\ProductReview::whereHas('product', fn ($q) => $q->whereIn('seller_id', $catalogIds))
+        $rating = (float) \App\Models\Review::where('status', 'visible')
+            ->whereHas('product', fn ($q) => $q->whereIn('seller_id', $catalogIds))
             ->avg('rating') ?? 0;
+        if ($rating <= 0) {
+            $rating = (float) \App\Models\Product::whereIn('seller_id', $catalogIds)->avg('rating');
+        }
 
         return view('seller.dashboard', compact(
             'seller',

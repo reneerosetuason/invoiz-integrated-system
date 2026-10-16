@@ -27,6 +27,7 @@ class Order extends Model
         'commission_amount',
         'delivery_status',
         'notes',
+        'cancellation_reason',
     ];
 
     protected $casts = [

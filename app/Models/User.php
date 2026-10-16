@@ -29,6 +29,7 @@ class User extends Authenticatable
         'phone',
         'birthday',
         'age',
+        'region',
         'province',
         'municipality',
         'barangay',
@@ -79,6 +80,12 @@ class User extends Authenticatable
                 $parts = preg_split('/\s+/', trim($user->name), 2);
                 if (empty($user->first_name)) $user->first_name = $parts[0] ?? '';
                 if (empty($user->last_name)) $user->last_name = $parts[1] ?? '';
+            }
+            if ($user->isDirty('first_name') || $user->isDirty('last_name')) {
+                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                if ($fullName !== '') {
+                    $user->name = $fullName;
+                }
             }
             if (empty($user->role)) $user->role = 'buyer';
             if (empty($user->status)) $user->status = 'active';
@@ -193,6 +200,11 @@ class User extends Authenticatable
         return $this->hasMany(Order::class, 'buyer_id');
     }
 
+    public function addresses()
+    {
+        return $this->hasMany(Address::class, 'buyer_id');
+    }
+
     public function sentMessages()
     {
         return $this->hasMany(Message::class, 'sender_id');
@@ -237,10 +249,14 @@ class User extends Authenticatable
 
     public function displayName(): string
     {
+        $nameParts = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        if ($nameParts !== '') {
+            return $nameParts;
+        }
         if (! empty($this->name)) {
             return $this->name;
         }
-        return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        return '';
     }
 
     /** $user->full_name — used by store profile payloads. Same as displayName(). */

@@ -243,9 +243,10 @@ class AdminSmokeTest extends TestCase
         $admin = $this->admin();
 
         $this->actingAs($admin)
-            ->post("/admin/sellers/{$seller->id}/reject")
+            ->post("/admin/sellers/{$seller->id}/reject", ['reason' => 'Business documents are incomplete.'])
             ->assertRedirect();
-        $this->assertEquals('rejected', $seller->fresh()->status);
+        $this->assertEquals('rejected', $seller->fresh()->approval_status);
+        $this->assertEquals('Business documents are incomplete.', $seller->fresh()->rejection_reason);
 
         $this->actingAs($admin)
             ->post("/admin/sellers/{$seller->id}/approve")

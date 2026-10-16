@@ -19,6 +19,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class DeliveryController extends Controller
@@ -75,7 +76,7 @@ class DeliveryController extends Controller
 
         // Staff are always restricted to their assigned logistics center. This
         // is enforced at the query level so a query parameter can never bypass it.
-        if ($user->isLogisticsStaff() && $user->center_id) {
+        if ($this->isCenterScopedStaff()) {
             $staffCenterId = (int) $user->center_id;
             $query->where('center_id', $staffCenterId);
         }
@@ -103,7 +104,7 @@ class DeliveryController extends Controller
         }
 
         // Center filter is only applied for admins; staff are already scoped above.
-        if ($centerId > 0 && $user->isAdmin()) {
+        if ($centerId > 0 && $this->isLogisticsManager()) {
             $query->where('center_id', $centerId);
         }
 
@@ -193,10 +194,25 @@ class DeliveryController extends Controller
         }
     }
 
+    private function isCenterScopedStaff(): bool
+    {
+        $user = Auth::user();
+
+        return (bool) ($user
+            && $user->isLogisticsStaff()
+            && !$this->isLogisticsManager()
+            && $user->center_id);
+    }
+
     private function ensureCenterAccess(Delivery $delivery): void
     {
         $user = Auth::user();
-        if ($user && $user->isLogisticsStaff() && $delivery->center_id !== null && (int) $user->center_id !== (int) $delivery->center_id) {
+
+        if (!$user || !$this->isCenterScopedStaff()) {
+            return;
+        }
+
+        if ($delivery->center_id !== null && (int) $user->center_id !== (int) $delivery->center_id) {
             abort(403, 'You do not have access to deliveries from this logistics center.');
         }
     }
@@ -242,9 +258,10 @@ class DeliveryController extends Controller
         $waybillDiscount = 0.0;
         $waybillStores = collect();
         if ($waybillOrder) {
-            $waybillAddress = DB::table('addresses')
-                ->where('id', $waybillOrder->address_id)
-                ->first();
+            $shippingSnapshot = $waybillOrder->shipping_address;
+            $waybillAddress = is_array($shippingSnapshot) && $shippingSnapshot !== []
+                ? (object) $shippingSnapshot
+                : DB::table('addresses')->where('id', $waybillOrder->address_id)->first();
             $waybillPayment = DB::table('payments')
                 ->where('order_id', $waybillOrder->id)
                 ->first();
@@ -281,7 +298,10 @@ class DeliveryController extends Controller
                     $reason = 'Vehicle not verified';
                 } elseif (!$rider->vehicleTypeIsActive()) {
                     $reason = 'Vehicle type deactivated';
-                } elseif ($rider->deliveries()->whereIn('status', Delivery::ACTIVE_STATUSES)->exists()) {
+                } elseif ($rider->deliveries()
+                    ->where('deliveries.id', '!=', $delivery->id)
+                    ->whereIn('status', Delivery::ACTIVE_STATUSES)
+                    ->exists()) {
                     $reason = 'Currently delivering';
                 } elseif (!$rider->matchesDestinationCenter($delivery)) {
                     $reason = 'Different logistics center';
@@ -305,6 +325,12 @@ class DeliveryController extends Controller
             ->sortBy([['eligible', 'desc'], ['is_online', 'desc'], ['rider.name', 'asc']])
             ->values();
 
+        $centerOptions = LogisticsCenter::where('is_active', true)->orderBy('name');
+        $user = Auth::user();
+        if ($this->isCenterScopedStaff() && $user->center_id) {
+            $centerOptions->whereKey($user->center_id);
+        }
+
         return view('logistics.deliveries.show', [
             'delivery' => $delivery,
             'waybillOrder' => $waybillOrder,
@@ -316,8 +342,8 @@ class DeliveryController extends Controller
             'failureReasons' => config('logistics.failure_reasons'),
             'cancellationReasons' => config('logistics.cancellation_reasons'),
             'transitions' => config('logistics.transitions'),
-            'centers' => LogisticsCenter::orderBy('name')->get(),
-            'serviceAreas' => ServiceArea::orderBy('name')->get(),
+            'centers' => $centerOptions->get(),
+            'serviceAreas' => ServiceArea::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -351,6 +377,9 @@ class DeliveryController extends Controller
         $validated['status'] = 'waiting_for_rider';
         $validated['priority'] = $validated['priority'] ?? 'normal';
         $validated['created_by'] = Auth::id();
+        if ($this->isCenterScopedStaff()) {
+            $validated['center_id'] = Auth::user()->center_id;
+        }
 
         $delivery = DB::transaction(function () use ($validated) {
             $delivery = Delivery::create($validated);
@@ -410,93 +439,142 @@ class DeliveryController extends Controller
             'rider_id' => 'required|exists:riders,id',
         ]);
 
-        $rider = Rider::findOrFail($validated['rider_id']);
+        $assignment = DB::transaction(function () use ($delivery, $validated): array {
+            // Lock both rows so concurrent assignment posts cannot give a
+            // rider two active deliveries or reset a delivery mid-transition.
+            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $riderIds = collect([$validated['rider_id'], $lockedDelivery->rider_id])
+                ->filter()
+                ->unique()
+                ->sort()
+                ->values();
+            $lockedRiders = Rider::query()
+                ->whereIn('id', $riderIds)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+            $rider = $lockedRiders->get($validated['rider_id']);
 
-        if (!$rider->isEligibilityApproved()) {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Rider application is not approved.']);
-        }
+            if (!$rider) {
+                return ['error' => 'The selected rider is no longer available. Refresh and choose another rider.'];
+            }
 
-        if ($rider->status === 'inactive') {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Rider account is inactive.']);
-        }
+            if ($lockedDelivery->archived_at) {
+                return ['error' => 'Archived deliveries cannot be assigned. Restore the delivery first.'];
+            }
 
-        if (!$rider->is_online) {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Rider is offline and not available for new deliveries.']);
-        }
+            if (in_array($lockedDelivery->status, ['delivered', 'cancelled'], true)) {
+                return ['error' => 'Cannot assign delivery. Delivered and cancelled deliveries cannot be reassigned.'];
+            }
 
-        if ($rider->vehicle_verification !== 'verified') {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Rider vehicle has not been verified.']);
-        }
+            // Reassignment is only supported before a delivery is in transit,
+            // or after a failed attempt. This prevents resetting active work
+            // back to "assigned" through a direct request.
+            if (!in_array($lockedDelivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true)) {
+                return ['error' => 'This delivery can only be assigned while waiting for a rider or after a failed attempt.'];
+            }
 
-        if (!$rider->vehicleTypeIsActive()) {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. The rider\u2019s vehicle type has been deactivated.']);
-        }
+            if ((int) $lockedDelivery->rider_id === (int) $rider->id && $lockedDelivery->status === 'assigned') {
+                return ['already_assigned' => true];
+            }
 
-        if ($rider->deliveries()->whereIn('status', Delivery::ACTIVE_STATUSES)->exists()) {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Rider is currently delivering.']);
-        }
+            if (!$rider->isEligibilityApproved()) {
+                return ['error' => 'Cannot assign delivery. Rider application is not approved.'];
+            }
 
-        // Terminal deliveries must keep their final state and history.
-        // Reassigning a delivered/cancelled delivery would reset its status
-        // to "assigned" while stale future logs remain, corrupting the
-        // rider's status history. Failed deliveries stay assignable (retry).
-        if (in_array($delivery->status, ['delivered', 'cancelled'], true)) {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Delivered and cancelled deliveries cannot be reassigned.']);
-        }
+            if ($rider->status === 'inactive') {
+                return ['error' => 'Cannot assign delivery. Rider account is inactive.'];
+            }
 
-        // Delivery preferences from Settings are enforced here: blocked
-        // reassignment when the user disabled it, and no further retries
-        // once the delivery exhausted its configured attempt budget.
-        $preferences = LogisticsSetting::forUser(Auth::id())->delivery ?? [];
-        $isReassignment = $delivery->rider_id && (int) $delivery->rider_id !== (int) $rider->id;
+            if (!$rider->is_online) {
+                return ['error' => 'Cannot assign delivery. Rider is offline and not available for new deliveries.'];
+            }
 
-        if ($isReassignment && ! ($preferences['allow_reassignment'] ?? true)) {
-            return back()->withErrors(['rider_id' => 'Rider reassignment is disabled in your Delivery Preferences (Settings). Enable "Allow Rider Reassignment" to move this delivery to another rider.']);
-        }
+            if ($rider->vehicle_verification !== 'verified') {
+                return ['error' => 'Cannot assign delivery. Rider vehicle has not been verified.'];
+            }
 
-        $maxAttempts = (int) ($preferences['max_attempts'] ?? 2);
-        $failedAttempts = DeliveryStatusLog::where('delivery_id', $delivery->id)
-            ->where('status', 'delivery_failed')
-            ->count();
+            if (!$rider->vehicleTypeIsActive()) {
+                return ['error' => 'Cannot assign delivery. The rider’s vehicle type has been deactivated.'];
+            }
 
-        if ($failedAttempts >= $maxAttempts) {
-            return back()->withErrors(['rider_id' => "This delivery has used all {$maxAttempts} of its {$maxAttempts} delivery attempts. Raise \"Maximum Delivery Attempts\" in Settings to allow another retry."]);
-        }
+            $hasOtherActiveDelivery = $rider->deliveries()
+                ->where('deliveries.id', '!=', $lockedDelivery->id)
+                ->whereIn('status', Delivery::ACTIVE_STATUSES)
+                ->lockForUpdate()
+                ->first() !== null;
+            if ($hasOtherActiveDelivery) {
+                return ['error' => 'Cannot assign delivery. Rider is currently delivering.'];
+            }
 
-        $weight = (float) ($delivery->weight ?? 0);
-        $capacity = $rider->capacityLimit();
+            $preferences = LogisticsSetting::forUser(Auth::id())->delivery ?? [];
+            $isReassignment = $lockedDelivery->rider_id
+                && (int) $lockedDelivery->rider_id !== (int) $rider->id;
 
-        if ($weight > 0 && $capacity > 0 && $weight > $capacity) {
-            return back()->withErrors(['rider_id' => 'Vehicle capacity exceeded. Please assign a suitable vehicle.']);
-        }
+            if ($isReassignment && !($preferences['allow_reassignment'] ?? true)) {
+                return ['error' => 'Rider reassignment is disabled in your Delivery Preferences (Settings). Enable "Allow Rider Reassignment" to move this delivery to another rider.'];
+            }
 
-        if (!$rider->matchesDestinationCenter($delivery)) {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Rider belongs to a different logistics center than the delivery destination.']);
-        }
+            $maxAttempts = (int) ($preferences['max_attempts'] ?? 2);
+            $failedAttempts = DeliveryStatusLog::where('delivery_id', $lockedDelivery->id)
+                ->where('status', 'delivery_failed')
+                ->count();
 
-        if (!$rider->matchesServiceArea($delivery)) {
-            return back()->withErrors(['rider_id' => 'Cannot assign delivery. Rider is assigned to a different service area than the delivery.']);
-        }
+            if ($failedAttempts >= $maxAttempts) {
+                return ['error' => "This delivery has used all {$maxAttempts} of its {$maxAttempts} delivery attempts. Raise \"Maximum Delivery Attempts\" in Settings to allow another retry."];
+            }
 
-        $delivery->rider_id = $rider->id;
-        $delivery->status = 'assigned';
+            $weight = (float) ($lockedDelivery->weight ?? 0);
+            $capacity = $rider->capacityLimit();
+            if ($weight > 0 && $capacity > 0 && $weight > $capacity) {
+                return ['error' => 'Vehicle capacity exceeded. Please assign a suitable vehicle.'];
+            }
 
-        if (!$delivery->assigned_at) {
-            $delivery->assigned_at = now();
-        }
+            if (!$rider->matchesDestinationCenter($lockedDelivery)) {
+                return ['error' => 'Cannot assign delivery. Rider belongs to a different logistics center than the delivery destination.'];
+            }
 
-        $delivery->save();
+            if (!$rider->matchesServiceArea($lockedDelivery)) {
+                return ['error' => 'Cannot assign delivery. Rider is assigned to a different service area than the delivery.'];
+            }
 
-        DeliveryStatusLog::create([
-            'delivery_id' => $delivery->id,
-            'status' => 'assigned',
-            'notes' => "Assigned to rider {$rider->name} (" . ucfirst($rider->vehicle_type) . ', plate ' . $rider->license_plate . ').',
-            'changed_by' => Auth::id(),
-        ]);
+            $previousRiderId = $lockedDelivery->rider_id;
+            $lockedDelivery->rider_id = $rider->id;
+            $lockedDelivery->status = 'assigned';
+            $lockedDelivery->assigned_at = $lockedDelivery->assigned_at ?? now();
+            $lockedDelivery->save();
 
-        if ($rider->status !== 'inactive') {
+            DeliveryStatusLog::create([
+                'delivery_id' => $lockedDelivery->id,
+                'status' => 'assigned',
+                'notes' => "Assigned to rider {$rider->name} (" . ucfirst($rider->vehicle_type) . ', plate ' . $rider->license_plate . ').',
+                'changed_by' => Auth::id(),
+            ]);
+
             $rider->update(['status' => 'delivering']);
+
+            if ($previousRiderId && (int) $previousRiderId !== (int) $rider->id) {
+                $previousRider = $lockedRiders->get($previousRiderId);
+                $this->syncRiderStatus($previousRider);
+            }
+
+            return [
+                'delivery' => $lockedDelivery,
+                'rider' => $rider,
+            ];
+        });
+
+        if (isset($assignment['error'])) {
+            return back()->withErrors(['rider_id' => $assignment['error']]);
         }
+
+        if (!empty($assignment['already_assigned'])) {
+            return back()->with('success', 'This rider is already assigned to the delivery.');
+        }
+
+        $delivery = $assignment['delivery'];
+        $rider = $assignment['rider'];
 
         Notification::create([
             'type' => 'rider_accepted_delivery',
@@ -690,7 +768,11 @@ class DeliveryController extends Controller
             && $rider->vehicleTypeIsActive()
             && $rider->approved_at !== null;
 
-        $rider->update(['status' => ($eligible && !$hasActive) ? 'available' : 'inactive']);
+        $status = !$eligible
+            ? 'inactive'
+            : ($hasActive ? 'delivering' : 'available');
+
+        $rider->update(['status' => $status]);
     }
 
     public function archive(Request $request, Delivery $delivery): RedirectResponse
@@ -765,60 +847,80 @@ class DeliveryController extends Controller
     public function receive(Request $request, Delivery $delivery): RedirectResponse
     {
         $validated = $request->validate([
-            'center_id' => 'required|exists:logistics_centers,id',
+            'center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('is_active', true)],
         ]);
 
-        if ($delivery->parcel_status !== 'pending_arrival') {
-            return back()->with('error', 'This parcel has already been received.');
-        }
-
         $user = Auth::user();
-        if ($user->isLogisticsStaff() && $user->center_id != $validated['center_id']) {
+        if ($this->isCenterScopedStaff()
+            && (!$user->center_id || (int) $user->center_id !== (int) $validated['center_id'])) {
             abort(403, 'You can only receive parcels at your assigned logistics center.');
         }
 
-        $delivery->update([
-            'center_id' => $validated['center_id'],
-            'parcel_status' => 'received',
-            'received_at' => now(),
-        ]);
+        $received = DB::transaction(function () use ($delivery, $validated): bool {
+            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            if ($lockedDelivery->parcel_status !== 'pending_arrival') {
+                return false;
+            }
 
-        PickupRequest::where('delivery_id', $delivery->id)->update([
-            'center_id' => $validated['center_id'],
-        ]);
+            $lockedDelivery->update([
+                'center_id' => $validated['center_id'],
+                'parcel_status' => 'received',
+                'received_at' => now(),
+            ]);
 
-        DeliveryStatusLog::create([
-            'delivery_id' => $delivery->id,
-            'status' => 'received',
-            'notes' => 'Parcel received at logistics center.',
-            'changed_by' => Auth::id(),
-        ]);
+            PickupRequest::where('delivery_id', $lockedDelivery->id)->update([
+                'center_id' => $validated['center_id'],
+            ]);
+
+            DeliveryStatusLog::create([
+                'delivery_id' => $lockedDelivery->id,
+                'status' => 'received',
+                'notes' => 'Parcel received at logistics center.',
+                'changed_by' => Auth::id(),
+            ]);
+
+            return true;
+        });
+
+        if (!$received) {
+            return back()->with('error', 'This parcel has already been received.');
+        }
 
         return redirect()->back()->with('success', 'Parcel received and logged.');
     }
 
     public function scan(Delivery $delivery): RedirectResponse
     {
-        if ($delivery->parcel_status !== 'received') {
-            return back()->with('error', 'Parcel must be received before scanning.');
-        }
-
         $user = Auth::user();
-        if ($user->isLogisticsStaff() && $user->center_id && $delivery->center_id != $user->center_id) {
+        if ($this->isCenterScopedStaff()
+            && (!$user->center_id || $delivery->center_id === null || (int) $delivery->center_id !== (int) $user->center_id)) {
             abort(403, 'You can only scan parcels at your assigned logistics center.');
         }
 
-        $delivery->update([
-            'parcel_status' => 'scanned',
-            'scanned_at' => now(),
-        ]);
+        $scanned = DB::transaction(function () use ($delivery): bool {
+            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            if ($lockedDelivery->parcel_status !== 'received') {
+                return false;
+            }
 
-        DeliveryStatusLog::create([
-            'delivery_id' => $delivery->id,
-            'status' => 'scanned',
-            'notes' => 'Parcel scanned and verified.',
-            'changed_by' => Auth::id(),
-        ]);
+            $lockedDelivery->update([
+                'parcel_status' => 'scanned',
+                'scanned_at' => now(),
+            ]);
+
+            DeliveryStatusLog::create([
+                'delivery_id' => $lockedDelivery->id,
+                'status' => 'scanned',
+                'notes' => 'Parcel scanned and verified.',
+                'changed_by' => Auth::id(),
+            ]);
+
+            return true;
+        });
+
+        if (!$scanned) {
+            return back()->with('error', 'Parcel must be received and not already scanned.');
+        }
 
         return redirect()->back()->with('success', 'Parcel scanned successfully.');
     }
@@ -832,7 +934,8 @@ class DeliveryController extends Controller
             $expected = Delivery::notArchived()->where('tracking_number', $expect)->first();
             if ($expected) {
                 $user = Auth::user();
-                if ($user->isLogisticsStaff() && $user->center_id && $expected->center_id !== null && (int) $user->center_id !== (int) $expected->center_id) {
+                if ($this->isCenterScopedStaff()
+                    && (!$user->center_id || $expected->center_id === null || (int) $user->center_id !== (int) $expected->center_id)) {
                     $expected = null;
                 }
             }
@@ -863,7 +966,8 @@ class DeliveryController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->isLogisticsStaff() && $user->center_id && $delivery->center_id !== null && (int) $user->center_id !== (int) $delivery->center_id) {
+        if ($this->isCenterScopedStaff()
+            && (!$user->center_id || $delivery->center_id === null || (int) $user->center_id !== (int) $delivery->center_id)) {
             return response()->json([
                 'ok' => false,
                 'error' => 'forbidden',
@@ -886,7 +990,8 @@ class DeliveryController extends Controller
                 ], 404);
             }
 
-            if ($user->isLogisticsStaff() && $user->center_id && $fresh->center_id !== null && (int) $user->center_id !== (int) $fresh->center_id) {
+            if ($this->isCenterScopedStaff()
+                && (!$user->center_id || $fresh->center_id === null || (int) $user->center_id !== (int) $fresh->center_id)) {
                 return response()->json([
                     'ok' => false,
                     'error' => 'forbidden',
@@ -946,32 +1051,59 @@ class DeliveryController extends Controller
     public function sort(Request $request, Delivery $delivery): RedirectResponse
     {
         $validated = $request->validate([
-            'destination_center_id' => 'required|exists:logistics_centers,id',
-            'service_area_id' => 'required|exists:service_areas,id',
+            'destination_center_id' => [
+                'required',
+                'integer',
+                Rule::exists('logistics_centers', 'id')->where('is_active', true),
+            ],
+            'service_area_id' => [
+                'required',
+                'integer',
+                Rule::exists('service_areas', 'id')->where(fn ($query) => $query
+                    ->where('logistics_center_id', $request->input('destination_center_id'))
+                    ->where('is_active', true)),
+            ],
         ]);
 
-        if (!in_array($delivery->parcel_status, ['received', 'scanned'])) {
+        if ($delivery->parcel_status !== 'scanned') {
             return back()->with('error', 'Parcel must be received and scanned before sorting.');
         }
 
         $user = Auth::user();
-        if ($user->isLogisticsStaff() && $user->center_id && $delivery->center_id != $user->center_id) {
+        if ($this->isCenterScopedStaff()
+            && (!$user->center_id || $delivery->center_id === null || (int) $delivery->center_id !== (int) $user->center_id)) {
             abort(403, 'You can only sort parcels at your assigned logistics center.');
         }
 
-        $delivery->update([
-            'destination_center_id' => $validated['destination_center_id'],
-            'service_area_id' => $validated['service_area_id'],
-            'parcel_status' => 'sorted',
-            'sorted_at' => now(),
-        ]);
+        $destinationName = LogisticsCenter::whereKey($validated['destination_center_id'])->value('name');
+        $sortedDelivery = DB::transaction(function () use ($delivery, $validated, $destinationName): ?Delivery {
+            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            if ($lockedDelivery->parcel_status !== 'scanned') {
+                return null;
+            }
 
-        DeliveryStatusLog::create([
-            'delivery_id' => $delivery->id,
-            'status' => 'sorted',
-            'notes' => 'Parcel sorted. Destination: ' . LogisticsCenter::find($validated['destination_center_id'])->name . '.',
-            'changed_by' => Auth::id(),
-        ]);
+            $lockedDelivery->update([
+                'destination_center_id' => $validated['destination_center_id'],
+                'service_area_id' => $validated['service_area_id'],
+                'parcel_status' => 'sorted',
+                'sorted_at' => now(),
+            ]);
+
+            DeliveryStatusLog::create([
+                'delivery_id' => $lockedDelivery->id,
+                'status' => 'sorted',
+                'notes' => 'Parcel sorted. Destination: ' . ($destinationName ?? 'selected center') . '.',
+                'changed_by' => Auth::id(),
+            ]);
+
+            return $lockedDelivery;
+        });
+
+        if (!$sortedDelivery) {
+            return back()->with('error', 'Parcel must be received and scanned before sorting.');
+        }
+
+        $delivery = $sortedDelivery;
 
         // A sorted parcel is actionable for its assigned delivery rider.
         // Unassigned parcels notify nobody; later assignment covers them.
@@ -991,27 +1123,36 @@ class DeliveryController extends Controller
 
     public function dispatch(Delivery $delivery): RedirectResponse
     {
-        if ($delivery->parcel_status !== 'sorted') {
-            return back()->with('error', 'Parcel must be sorted before it can be dispatched from the center.');
-        }
-
         $user = Auth::user();
         $isCenterStaff = $user->isLogisticsStaff() && ! $user->isLogisticsAdmin() && ! $user->is_admin;
-        if ($isCenterStaff && (! $user->center_id || ! $delivery->center_id || $delivery->center_id != $user->center_id)) {
-            abort(403, 'You can only dispatch parcels at your assigned logistics center.');
+        $dispatched = DB::transaction(function () use ($delivery, $user, $isCenterStaff): bool {
+            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            if ($isCenterStaff && (! $user->center_id || ! $lockedDelivery->center_id || $lockedDelivery->center_id != $user->center_id)) {
+                abort(403, 'You can only dispatch parcels at your assigned logistics center.');
+            }
+
+            if ($lockedDelivery->parcel_status !== 'sorted') {
+                return false;
+            }
+
+            $lockedDelivery->update([
+                'parcel_status' => 'dispatched',
+                'dispatched_at' => now(),
+            ]);
+
+            DeliveryStatusLog::create([
+                'delivery_id' => $lockedDelivery->id,
+                'status' => 'dispatched',
+                'notes' => 'Parcel dispatched from handling center.',
+                'changed_by' => Auth::id(),
+            ]);
+
+            return true;
+        });
+
+        if (!$dispatched) {
+            return back()->with('error', 'Parcel must be sorted before it can be dispatched from the center.');
         }
-
-        $delivery->update([
-            'parcel_status' => 'dispatched',
-            'dispatched_at' => now(),
-        ]);
-
-        DeliveryStatusLog::create([
-            'delivery_id' => $delivery->id,
-            'status' => 'dispatched',
-            'notes' => 'Parcel dispatched from handling center.',
-            'changed_by' => Auth::id(),
-        ]);
 
         return redirect()->back()->with('success', 'Parcel dispatched successfully.');
     }
@@ -1030,7 +1171,7 @@ class DeliveryController extends Controller
 
         // Staff only ever see their own center's archive.
         $user = Auth::user();
-        if ($user->isLogisticsStaff() && $user->center_id) {
+        if ($this->isCenterScopedStaff()) {
             $query->where('center_id', (int) $user->center_id);
         }
 

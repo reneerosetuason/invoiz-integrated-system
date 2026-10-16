@@ -1,4 +1,4 @@
-﻿@extends('admin.layout')
+@extends('admin.layout')
 
 @section('content')
 <style>
@@ -70,73 +70,99 @@
   </div>
 
   <div style="overflow-x:auto;">
-  <table style="width:100%;border-collapse:collapse;min-width:760px;">
+  <table style="width:100%;border-collapse:collapse;min-width:960px;">
     <thead>
-      <tr style="border-bottom:2px solid #E8E6E0;text-align:left;">
+      <tr style="border-bottom:2px solid #E8E6E0;text-align:left;font-size:12px;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;">
         <th style="padding:12px 10px;">Store</th>
-        <th style="padding:12px 10px;">Email</th>
-        <th style="padding:12px 10px;">Products</th>
+        <th style="padding:12px 10px;">Owner & Contact</th>
+        <th style="padding:12px 10px;">Type & Category</th>
+        <th style="padding:12px 10px;">TIN & Location</th>
+        <th style="padding:12px 10px;">Documents</th>
         <th style="padding:12px 10px;">Status</th>
-        <th style="padding:12px 10px;">Registered</th>
         <th style="padding:12px 10px;">Actions</th>
       </tr>
     </thead>
     <tbody>
       @forelse($sellers as $seller)
-      <tr style="border-bottom:1px solid #F7F6F2;">
+      <tr style="border-bottom:1px solid #F7F6F2;font-size:13px;">
         <td style="padding:12px 10px;">
           <div class="store-cell">
             <div class="store-avatar">
               @if($seller->logo)
                 <img src="{{ url('storage/'.ltrim($seller->logo,'/')) }}" alt="logo">
               @else
-                {{ strtoupper(mb_substr($seller->store_name,0,1)) }}
+                {{ strtoupper(mb_substr($seller->display_name,0,1)) }}
               @endif
             </div>
             <div>
-              <div class="store-name">{{ $seller->store_name }}</div>
-              <div class="store-owner">{{ $seller->user->name ?? '—' }}</div>
+              <div class="store-name">{{ $seller->display_name }}</div>
+              <div style="font-size:11px;color:#6E6E73;margin-top:2px;">#{{ $seller->id }} · {{ $seller->created_at->format('M d, Y') }}</div>
             </div>
           </div>
         </td>
-        <td style="padding:12px 10px;color:#6E6E73;font-size:13px;">{{ $seller->user->email ?? '—' }}</td>
         <td style="padding:12px 10px;">
-          <span class="prod-count">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16697A" stroke-width="2"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Z"/></svg>
-            {{ $seller->products_count }}
-          </span>
+          <div style="font-weight:700;color:#111827;">{{ $seller->user ? $seller->user->displayName() : '—' }}</div>
+          <div style="color:#6E6E73;font-size:11.5px;">{{ $seller->user->email ?? '—' }}</div>
+          <div style="color:#16697A;font-size:11.5px;font-weight:600;">{{ $seller->user->phone ?? $seller->profile->contact_phone ?? '—' }}</div>
+        </td>
+        <td style="padding:12px 10px;">
+          <div style="font-weight:700;color:#374151;">{{ $seller->line_of_business ?: 'General' }}</div>
+          <div style="font-size:11.5px;color:#6E6E73;margin-top:2px;">{{ $seller->seller_type ?: 'Sole Proprietorship' }}</div>
+        </td>
+        <td style="padding:12px 10px;">
+          <div style="font-family:monospace;font-weight:700;color:#0E4A57;">{{ $seller->tin ?: '—' }}</div>
+          <div style="font-size:11.5px;color:#6E6E73;margin-top:2px;">
+            {{ $seller->city ?: ($seller->user?->city ?? $seller->user?->municipality ?? '—') }}{{ ($seller->province ?: $seller->user?->province) ? ', ' . ($seller->province ?: $seller->user?->province) : '' }}
+          </div>
+        </td>
+        <td style="padding:12px 10px;">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            @php
+              $hasId = !empty($seller->id_image) || !empty($seller->user?->id_image);
+              $hasDti = !empty($seller->dti_certificate) || !empty($seller->business_permit);
+              $hasBir = !empty($seller->bir_2303);
+            @endphp
+            <span title="Government ID" style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:{{ $hasId ? '#ECFDF5':'#F3F4F6' }};color:{{ $hasId ? '#059669':'#9CA3AF' }};border:1px solid {{ $hasId ? '#A7F3D0':'#E5E7EB' }};">
+              ID {{ $hasId ? '✓' : '✗' }}
+            </span>
+            <span title="DTI Certificate" style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:{{ $hasDti ? '#ECFDF5':'#F3F4F6' }};color:{{ $hasDti ? '#059669':'#9CA3AF' }};border:1px solid {{ $hasDti ? '#A7F3D0':'#E5E7EB' }};">
+              DTI {{ $hasDti ? '✓' : '✗' }}
+            </span>
+            <span title="BIR Form 2303" style="padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;background:{{ $hasBir ? '#ECFDF5':'#F3F4F6' }};color:{{ $hasBir ? '#059669':'#9CA3AF' }};border:1px solid {{ $hasBir ? '#A7F3D0':'#E5E7EB' }};">
+              BIR {{ $hasBir ? '✓' : '✗' }}
+            </span>
+          </div>
         </td>
         <td style="padding:12px 10px;">
           @php
-            $bg = $seller->status === 'approved' ? '#E8F5EE' : ($seller->status === 'rejected' ? '#FCE9E4' : ($seller->status === 'suspended' ? '#FEE2E2' : '#FDF3E3'));
-            $col = $seller->status === 'approved' ? '#166534' : ($seller->status === 'rejected' ? '#991b1b' : ($seller->status === 'suspended' ? '#991b1b' : '#92400e'));
+            $currentStatus = $seller->approval_status ?? $seller->status;
+            $bg = $currentStatus === 'approved' ? '#E8F5EE' : ($currentStatus === 'rejected' ? '#FCE9E4' : ($currentStatus === 'suspended' ? '#FEE2E2' : '#FDF3E3'));
+            $col = $currentStatus === 'approved' ? '#166534' : ($currentStatus === 'rejected' ? '#991b1b' : ($currentStatus === 'suspended' ? '#991b1b' : '#92400e'));
           @endphp
-          <span style="padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:{{ $bg }};color:{{ $col }};border:1px solid {{ $seller->status === 'approved' ? '#BFE3D0' : ($seller->status === 'suspended' ? '#FECACA' : '#E8E6E0') }};">{{ ucfirst($seller->status) }}</span>
+          <span style="padding:4px 10px;border-radius:999px;font-size:11.5px;font-weight:700;background:{{ $bg }};color:{{ $col }};border:1px solid {{ $currentStatus === 'approved' ? '#BFE3D0' : ($currentStatus === 'suspended' ? '#FECACA' : '#E8E6E0') }};">{{ ucfirst($currentStatus) }}</span>
+          @if($currentStatus === 'rejected' && $seller->rejection_reason)
+            <div title="{{ $seller->rejection_reason }}" style="max-width:220px;margin-top:6px;color:#991B1B;font-size:11px;">Reason: {{ \Illuminate\Support\Str::limit($seller->rejection_reason, 70) }}</div>
+          @endif
         </td>
-        <td style="padding:12px 10px;color:#6E6E73;font-size:13px;">{{ $seller->created_at->format('M d, Y') }}</td>
         <td style="padding:12px 10px;">
           <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-            @if($seller->status === 'pending')
+            @if($currentStatus === 'pending')
               <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/approve') }}" style="display:inline;">
                 @csrf
                 <button type="submit" style="padding:6px 12px;background:#2E8B57;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Approve</button>
               </form>
-              <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/reject') }}" style="display:inline;" data-confirm="Reject this seller application? The applicant will be notified." data-confirm-title="Reject Seller?" data-confirm-ok="Reject" data-confirm-class="btn-danger">
-                @csrf
-                <input type="hidden" name="reason" value="Does not meet requirements" />
-                <button type="submit" style="padding:6px 12px;background:#E05A33;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Reject</button>
-              </form>
-            @elseif($seller->status === 'approved')
+              <a href="{{ url('/admin/sellers/'.$seller->id) }}" style="padding:6px 12px;background:#FFF7ED;color:#9A3412;border:1px solid #FED7AA;border-radius:8px;text-decoration:none;font-size:12px;font-weight:700;">Review / Reject</a>
+            @elseif($currentStatus === 'approved')
               <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/suspend') }}" style="display:inline;" data-confirm="This seller will be suspended for compliance violation. Their store and products will be hidden. Continue?" data-confirm-title="Suspend Seller?" data-confirm-ok="Suspend" data-confirm-class="btn-danger" data-confirm-icon="suspend">
                 @csrf
                 <button type="submit" style="padding:6px 12px;background:#E05A33;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Suspend</button>
               </form>
-            @elseif($seller->status === 'suspended')
+            @elseif($currentStatus === 'suspended')
               <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/reinstate') }}" style="display:inline;" data-confirm="This seller will be reinstated and their store will be visible again. Continue?" data-confirm-title="Reinstate Seller?" data-confirm-ok="Reinstate" data-confirm-class="btn-primary">
                 @csrf
                 <button type="submit" style="padding:6px 12px;background:#2E8B57;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Reinstate</button>
               </form>
-            @elseif($seller->status === 'rejected')
+            @elseif($currentStatus === 'rejected')
               <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/approve') }}" style="display:inline;" data-confirm="Approve this seller? Their account will be reactivated." data-confirm-title="Approve Seller?" data-confirm-ok="Approve" data-confirm-class="btn-primary">
                 @csrf
                 <button type="submit" style="padding:6px 12px;background:#2E8B57;color:white;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">Approve</button>
@@ -147,7 +173,7 @@
         </td>
       </tr>
       @empty
-      <tr><td colspan="6" style="padding:32px;text-align:center;color:#6E6E73;">
+      <tr><td colspan="7" style="padding:32px;text-align:center;color:#6E6E73;">
         <div style="width:48px;height:48px;border-radius:50%;background:#F3F4F6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4Z"/></svg>
         </div>

@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+@php($shippingAddress = (object) ($order->shipping_address ?: ($order->address?->toShippingSnapshot() ?? [])))
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -52,13 +53,13 @@
             <div class="grid grid-cols-2 gap-6 border-b-2 border-dashed border-borderline py-5">
                 <div>
                     <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Deliver to</div>
-                    <div class="mt-1 text-sm font-extrabold">{{ $order->address?->recipient_name }}</div>
+                    <div class="mt-1 text-sm font-extrabold">{{ $shippingAddress->recipient_name ?? '' }}</div>
                     <div class="text-xs leading-relaxed text-ink-light">
-                        {{ $order->address?->address_line }},<br>
-                        {{ $order->address?->barangay }}, {{ $order->address?->city }},<br>
-                        {{ $order->address?->province }} {{ $order->address?->postal_code }}
+                        {{ $shippingAddress->address_line ?? '' }},<br>
+                        {{ $shippingAddress->barangay ?? '' }}, {{ $shippingAddress->city ?? '' }},<br>
+                        {{ $shippingAddress->province ?? '' }} {{ $shippingAddress->region ?? '' }} {{ $shippingAddress->postal_code ?? '' }}
                     </div>
-                    <div class="mt-1 text-xs font-semibold">{{ $order->address?->phone }}</div>
+                    <div class="mt-1 text-xs font-semibold">{{ $shippingAddress->phone ?? '' }}</div>
                 </div>
                 <div>
                     <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Delivery</div>

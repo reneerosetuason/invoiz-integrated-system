@@ -12,7 +12,9 @@ class AuthController extends Controller
     public function showLogin()
     {
         if (Auth::check() && Auth::user()->canSell()) {
-            return redirect()->route('seller.dashboard');
+            return session('active_role') === 'seller'
+                ? redirect()->route('seller.dashboard')
+                : redirect()->route('choose');
         }
 
         // Live marketplace stats for the brand panel (whole system, not per seller).
@@ -76,7 +78,11 @@ class AuthController extends Controller
                 ])->onlyInput('email');
             }
 
-            return redirect()->intended(route('seller.dashboard'));
+            // Seller approval accounts also have buyer access. Clear any old
+            // role selection so the user chooses which dashboard to enter.
+            $request->session()->forget(['active_role', 'seller_id', 'buyer']);
+
+            return redirect()->route('choose');
         }
 
         return back()->withErrors([

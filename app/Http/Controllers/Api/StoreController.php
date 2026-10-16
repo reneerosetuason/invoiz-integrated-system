@@ -29,7 +29,10 @@ class StoreController extends Controller
         $products = Product::query()
             ->with(['category', 'variants'])
             ->where('seller_id', $sellerUserId)
-            ->where('status', 'active');
+            ->where('status', 'active')
+            ->select('products.*')
+            ->selectSub(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
+            ->selectSub(Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');
 
         // In-store search (Shopee-style search bar on the store page).
         if ($request->has('search') && $request->filled('search')) {
@@ -49,7 +52,10 @@ class StoreController extends Controller
                     $products->orderBy('price', 'desc');
                     break;
                 case 'rating':
-                    $products->orderByDesc('rating');
+                    $products->orderByRaw('COALESCE(visible_rating, rating, 0) DESC')->orderByDesc('visible_reviews_count');
+                    break;
+                case 'most_reviewed':
+                    $products->orderByDesc('visible_reviews_count')->orderByRaw('COALESCE(visible_rating, rating, 0) DESC');
                     break;
                 default:
                     $products->latest();
@@ -152,9 +158,14 @@ class StoreController extends Controller
         $seller = Seller::where('user_id', $sellerUserId)->first();
         $user = User::find($sellerUserId);
 
-        $avgRating = round((float) Product::where('seller_id', $sellerUserId)
-            ->where('status', 'active')
-            ->avg('rating'), 1);
+        $avgRating = Review::query()->where('status', 'visible')
+            ->whereIn('product_id', function ($q) use ($sellerUserId) {
+                $q->select('id')->from('products')->where('seller_id', $sellerUserId)->where('status', 'active');
+            })->avg('rating');
+        if ($avgRating === null) {
+            $avgRating = Product::where('seller_id', $sellerUserId)->where('status', 'active')->avg('rating');
+        }
+        $avgRating = round((float) $avgRating, 1);
 
         // Total units sold across the store (non-cancelled order items).
         $totalSold = (int) OrderItem::query()

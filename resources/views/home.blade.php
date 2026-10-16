@@ -36,14 +36,31 @@
     <div class="count">{{ $products->count() }} {{ $products->count() === 1 ? 'product' : 'products' }}</div>
   </div>
 
+  <form method="GET" action="{{ !empty($saleMode) && $saleMode ? url('/sale') : url('/shop') }}" class="catalog-sort rv" style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:14px 0">
+    @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
+    @if(request('search'))<input type="hidden" name="search" value="{{ request('search') }}">@endif
+    <label for="catalog-sort" style="font-size:12px;color:var(--muted);font-weight:600">Sort by</label>
+    <select id="catalog-sort" name="sort" style="padding:9px 13px;border:1px solid var(--hair);border-radius:999px;background:#fff;color:#0E4A57;font:600 12px Inter, sans-serif">
+      <option value="recommended" @selected(($sort ?? 'recommended') === 'recommended')>Recommended</option>
+      <option value="newest" @selected(($sort ?? '') === 'newest')>Newest</option>
+      <option value="price_asc" @selected(($sort ?? '') === 'price_asc')>Price: Low to High</option>
+      <option value="price_desc" @selected(($sort ?? '') === 'price_desc')>Price: High to Low</option>
+      <option value="rating" @selected(($sort ?? '') === 'rating')>Top Rated</option>
+      <option value="most_reviewed" @selected(($sort ?? '') === 'most_reviewed')>Most Reviewed</option>
+    </select>
+    <button type="submit" class="btn-p btn-line" style="padding:9px 16px">Apply</button>
+  </form>
+
   <div class="pgrid">
     @foreach($products as $p)
       @php
         $hasRealImage = $p->image && file_exists(storage_path('app/public/'.$p->image));
-        $qs = request('category') ? '?category='.request('category').(request('search') ? '&search='.urlencode(request('search')) : '') : (request('search') ? '?search='.urlencode(request('search')) : '');
+        $qs = http_build_query(array_filter(['category'=>request('category'),'search'=>request('search'),'sort'=>$sort ?? null,'source_sale'=>!empty($saleMode) && $saleMode ? 1 : null]));
+        $qs = $qs ? '?'.$qs : '';
         $hasDeal = $p->compare_at_price && $p->compare_at_price > $p->price;
       @endphp
-      <a href="{{ url('/product/'.$p->id.$qs) }}" class="pcard rv">
+      <div class="pcard-wrap rv" style="position:relative">
+      <a href="{{ url('/product/'.$p->id.$qs) }}" class="pcard">
         <div class="pimg">
           @if($hasRealImage)
             <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}" loading="lazy" decoding="async">
@@ -68,10 +85,16 @@
           </div>
           <div class="pmeta">
             <span>{{ $p->stock }} left</span>
+            @if((float)($p->visible_rating ?? $p->rating ?? 0) > 0)<span style="color:#A16207;font-weight:700">★ {{ number_format((float)($p->visible_rating ?? $p->rating),1) }} <span style="color:var(--muted);font-weight:500">{{ (int)($p->visible_reviews_count ?? 0) > 0 ? '('.$p->visible_reviews_count.')' : '(rating)' }}</span></span>@endif
             <span class="codpill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>COD</span>
           </div>
         </div>
       </a>
+      <form method="POST" action="{{ url('/wishlist/'.$p->id.'/toggle') }}" style="position:absolute;right:10px;top:10px;z-index:2;margin:0">
+        @csrf
+        <button type="submit" aria-label="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" title="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" style="width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.14);font-size:19px;line-height:1;color:{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '#dc2626' : '#475569' }};cursor:pointer">{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '♥' : '♡' }}</button>
+      </form>
+      </div>
     @endforeach
   </div>
 

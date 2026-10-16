@@ -174,7 +174,7 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // Profile (personal info + photo; Settings stays separate)
     Route::get('profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::post('profile/photo', [ProfileController::class, 'updatePhoto'])->name('profile.update-photo');
-    Route::patch('profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('profile', [ProfileController::class, 'update'])->name('logistics.profile.update');
     Route::delete('profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 

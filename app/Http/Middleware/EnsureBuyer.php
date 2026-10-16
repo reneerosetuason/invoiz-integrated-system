@@ -17,9 +17,15 @@ class EnsureBuyer
             return redirect('/login');
         }
 
-        if ($user->role !== 'buyer' || ! $user->isActive()) {
+        $hasApprovedStore = $user->canSell();
+
+        if ((! $user->isBuyer() && ! $hasApprovedStore) || ! $user->isActive()) {
             Auth::logout();
             return redirect('/login');
+        }
+
+        if ($hasApprovedStore && $request->session()->get('active_role') !== 'buyer') {
+            return redirect()->route('choose');
         }
 
         view()->share('userName', $user->name);

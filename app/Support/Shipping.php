@@ -38,44 +38,54 @@ class Shipping
      * Returns ['merch' => float, 'waived' => [sellerId => float], 'error' => ?string].
      * A seller-scoped voucher only applies when that seller is in the order.
      */
-    public static function resolveVoucher(?Voucher $voucher, float $subtotal, array $groupIds): array
+    public static function resolveVoucher(?Voucher $voucher, float $subtotal, array $groupIds, array $sellerSubtotals = []): array
     {
         if (! $voucher) {
             return ['merch' => 0.0, 'waived' => [], 'error' => null];
         }
-        if ($subtotal < (float) ($voucher->min_spend ?? 0)) {
+        $eligibleGroups = $groupIds;
+        $applicableSubtotal = $subtotal;
+        if ($voucher->seller_id) {
+            $ownerId = \App\Models\Seller::userIdFor((int) $voucher->seller_id);
+            $eligibleGroups = array_values(array_filter($groupIds, fn ($id) => \App\Models\Seller::userIdFor((int) $id) === $ownerId));
+            if (! $eligibleGroups) {
+                return ['merch' => 0.0, 'waived' => [], 'error' => 'This voucher does not apply to the items in your order.'];
+            }
+            if ($sellerSubtotals) {
+                $applicableSubtotal = 0.0;
+                foreach ($sellerSubtotals as $sellerId => $sellerSubtotal) {
+                    if (\App\Models\Seller::userIdFor((int) $sellerId) === $ownerId) {
+                        $applicableSubtotal += (float) $sellerSubtotal;
+                    }
+                }
+            }
+        }
+        if ($applicableSubtotal < (float) ($voucher->min_spend ?? 0)) {
             return ['merch' => 0.0, 'waived' => [], 'error' => "This voucher requires a minimum spend of ₱{$voucher->min_spend}."];
         }
 
         $type = $voucher->discount_type ?? $voucher->type;
         if ($type === 'free_shipping') {
-            $eligible = $groupIds;
-            if ($voucher->seller_id && ! in_array((int) $voucher->seller_id, $groupIds, true)) {
-                return ['merch' => 0.0, 'waived' => [], 'error' => 'This voucher does not apply to the items in your order.'];
-            }
-            if ($voucher->seller_id) {
-                $eligible = [(int) $voucher->seller_id];
-            }
-            $shipping = self::totalForGroups($eligible);
+            $shipping = self::totalForGroups($eligibleGroups);
             $cap = (float) ($voucher->discount_value ?? 0) > 0
                 ? (float) $voucher->discount_value
                 : $shipping;
             if ($voucher->max_discount !== null && (float) $voucher->max_discount >= 0) {
                 $cap = min($cap, (float) $voucher->max_discount);
             }
-            $waived = Order::allocateShippingWaiver($eligible, round(min($cap, $shipping), 2));
+            $waived = Order::allocateShippingWaiver($eligibleGroups, round(min($cap, $shipping), 2));
             return ['merch' => 0.0, 'waived' => $waived, 'error' => null];
         }
 
         if ($type === 'fixed') {
             $discount = (float) $voucher->discount_value;
         } else {
-            $discount = round($subtotal * (float) $voucher->discount_value / 100, 2);
+            $discount = round($applicableSubtotal * (float) $voucher->discount_value / 100, 2);
             if ($voucher->max_discount && $discount > $voucher->max_discount) {
                 $discount = (float) $voucher->max_discount;
             }
         }
-        $discount = round(min(max(0, $discount), $subtotal), 2);
+        $discount = round(min(max(0, $discount), $applicableSubtotal), 2);
         return ['merch' => $discount, 'waived' => [], 'error' => null];
     }
 }

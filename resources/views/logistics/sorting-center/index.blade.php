@@ -17,7 +17,8 @@
             {{-- Tabs + search + filters --}}
             <div class="space-y-3">
                 @php
-                    $tabs = ['all' => 'All', 'incoming' => 'Incoming', 'received' => 'Received', 'scanned' => 'Scanned', 'sorted' => 'Sorted', 'dispatched' => 'Dispatched', 'returned' => 'Returned', 'reattempt' => 'Re-attempt'];
+                    $allTabs = ['all' => 'All', 'incoming' => 'Incoming', 'received' => 'Received', 'scanned' => 'Scanned', 'sorted' => 'Sorted', 'dispatched' => 'Dispatched', 'returned' => 'Returned', 'reattempt' => 'Re-attempt'];
+                    $tabs = array_intersect_key($allTabs, array_flip($availableTabs));
                 @endphp
                 <nav class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" aria-label="Sorting center status filters">
                     <div class="flex w-max min-w-full items-center gap-2 pb-1">
@@ -86,10 +87,10 @@
                                     <td class="px-4 py-4 align-middle">
                                         <div class="min-w-0">
                                             <span class="block truncate whitespace-nowrap text-sm font-bold text-gray-900" title="{{ $delivery->tracking_number }}">{{ $delivery->tracking_number }}</span>
-                                            @if($delivery->returned_at)
+                                            @if($hasReturnedAt && $delivery->returned_at)
                                                 <span class="mt-1 inline-flex items-center whitespace-nowrap rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700 ring-1 ring-inset ring-red-100">Returned</span>
                                             @endif
-                                            @if($delivery->reattempt_requested_at)
+                                            @if($hasReattemptRequestedAt && $delivery->reattempt_requested_at)
                                                 <span class="mt-1 inline-flex items-center whitespace-nowrap rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-700 ring-1 ring-inset ring-orange-100">Re-attempt</span>
                                             @endif
                                         </div>
@@ -119,30 +120,40 @@
                                             <a href="{{ route('deliveries.show', $delivery) }}"
                                                class="inline-flex h-8 items-center justify-center rounded-lg border border-teal/30 px-3 text-xs font-semibold text-teal transition hover:border-teal hover:text-teal-dark">Open</a>
                                             @if($delivery->parcel_status === 'pending_arrival')
-                                                <form method="POST" action="{{ route('deliveries.receive', $delivery) }}" class="inline">
-                                                    @csrf
-                                                    <button type="submit" class="inline-flex h-8 items-center justify-center rounded-lg bg-teal px-3 text-xs font-semibold text-white transition hover:bg-teal-dark">Receive</button>
-                                                </form>
+                                                @if($centers->isNotEmpty())
+                                                    <form method="POST" action="{{ route('deliveries.receive', $delivery) }}" class="inline-flex items-center gap-1">
+                                                        @csrf
+                                                        <select name="center_id" required aria-label="Receive at center" class="h-8 max-w-36 rounded-lg border border-gray-200 px-1.5 text-xs">
+                                                            <option value="">Center</option>
+                                                            @foreach($centers as $center)
+                                                                <option value="{{ $center->id }}" @selected((int) $delivery->center_id === (int) $center->id || (!$delivery->center_id && $loop->first))>{{ $center->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <button type="submit" class="inline-flex h-8 items-center justify-center rounded-lg bg-teal px-3 text-xs font-semibold text-white transition hover:bg-teal-dark">Receive</button>
+                                                    </form>
+                                                @endif
                                             @endif
-                                            @if(in_array($delivery->parcel_status, ['received', 'scanned'], true))
+                                            @if($delivery->parcel_status === 'scanned')
                                                 <details class="relative inline">
                                                     <summary class="inline-flex h-8 cursor-pointer list-none items-center justify-center rounded-lg bg-purple-600 px-3 text-xs font-semibold text-white transition hover:bg-purple-700">Sort</summary>
                                                     <form method="POST" action="{{ route('deliveries.sort', $delivery) }}"
                                                           class="absolute right-0 z-10 mt-1 w-56 bg-white rounded-xl shadow-lg ring-1 ring-gray-200 p-3 flex flex-col gap-2">
                                                         @csrf
                                                         <label class="text-[11px] font-semibold text-gray-500">Destination center
-                                                            <select name="destination_center_id" required
+                                                            <select name="destination_center_id" id="sort-center-{{ $delivery->id }}" data-sort-center data-area-target="sort-area-{{ $delivery->id }}" required
                                                                     class="mt-1 w-full text-[13px] rounded-lg border border-gray-200 px-2 py-1.5">
+                                                                <option value="">Select center</option>
                                                                 @foreach($centers as $center)
-                                                                    <option value="{{ $center->id }}" @selected($delivery->destination_center_id === $center->id)>{{ $center->name }}</option>
+                                                                    <option value="{{ $center->id }}" @selected((int) $delivery->destination_center_id === (int) $center->id)>{{ $center->name }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </label>
                                                         <label class="text-[11px] font-semibold text-gray-500">Service area
-                                                            <select name="service_area_id" required
+                                                            <select name="service_area_id" id="sort-area-{{ $delivery->id }}" data-sort-area required
                                                                     class="mt-1 w-full text-[13px] rounded-lg border border-gray-200 px-2 py-1.5">
+                                                                <option value="">Select area</option>
                                                                 @foreach($serviceAreas as $area)
-                                                                    <option value="{{ $area->id }}" @selected($delivery->service_area_id === $area->id)>{{ $area->name }}</option>
+                                                                    <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) $delivery->service_area_id === (int) $area->id)>{{ $area->name }}</option>
                                                                 @endforeach
                                                             </select>
                                                         </label>
@@ -175,4 +186,22 @@
             @include('admin.partials.pager', ['paginator' => $deliveries])
         </div>
     </div>
+
+    <script>
+        document.querySelectorAll('[data-sort-center]').forEach((centerSelect) => {
+            const areaSelect = document.getElementById(centerSelect.dataset.areaTarget);
+            if (!areaSelect) return;
+
+            const filterAreas = () => {
+                Array.from(areaSelect.options).forEach((option) => {
+                    if (!option.value) return;
+                    option.hidden = option.dataset.centerId !== centerSelect.value;
+                    if (option.hidden && option.selected) areaSelect.value = '';
+                });
+            };
+
+            centerSelect.addEventListener('change', filterAreas);
+            filterAreas();
+        });
+    </script>
 </x-app-layout>

@@ -40,7 +40,7 @@
 </div>
 
 @if($o->status === 'cancelled')
-  <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;margin-top:12px;color:#991b1b;font-weight:700;font-size:13px">This order was cancelled.</div>
+  <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;margin-top:12px;color:#991b1b;font-weight:700;font-size:13px">This order was cancelled.@if($o->cancellation_reason)<div style="margin-top:5px;font-weight:500">Reason: {{ $o->cancellation_reason }}</div>@endif</div>
 @else
   <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:12px">
     <div style="font-weight:800;font-size:14px;margin-bottom:14px">Order Progress</div>
@@ -71,6 +71,23 @@
         <span style="white-space:nowrap">{{ $it->quantity }} × ₱{{ number_format($it->price,2) }}</span>
       </div>
       @if($it->variant_label)<div style="font-size:11px;color:var(--text3);margin-top:2px">{{ $it->variant_label }}</div>@endif
+      @if($o->status === 'delivered')
+        @php($existingReview = ($reviews ?? collect())->get($it->product_id))
+        @if($existingReview)
+          <div style="margin-top:8px;font-size:12px;color:#A16207;font-weight:700">Your rating: @for($star=1;$star<=5;$star++){{ $star <= (int)$existingReview->rating ? '★' : '☆' }}@endfor @if($existingReview->comment)<span style="color:var(--text2);font-weight:400"> · {{ $existingReview->comment }}</span>@endif</div>
+        @else
+          <form method="POST" action="{{ url('/orders/'.$o->id.'/rate/'.$it->product_id) }}" style="margin-top:8px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
+            @csrf
+            <label for="rating-{{ $it->product_id }}" style="font-size:11px;color:var(--text2);font-weight:700">Rate this product</label>
+            <select id="rating-{{ $it->product_id }}" name="rating" required style="padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:#fff;font-size:11px">
+              <option value="">Choose stars</option>
+              @for($star=5;$star>=1;$star--)<option value="{{ $star }}">{{ $star }} {{ $star === 1 ? 'star' : 'stars' }}</option>@endfor
+            </select>
+            <input type="text" name="comment" maxlength="2000" placeholder="Write a review (optional)" style="flex:1;min-width:150px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-size:11px">
+            <button type="submit" style="padding:7px 11px;border:0;border-radius:7px;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer">Submit rating</button>
+          </form>
+        @endif
+      @endif
       <div style="font-size:12px;color:var(--text2);margin-top:2px">Subtotal: ₱{{ number_format($it->subtotal ?? $it->price * $it->quantity,2) }}</div>
     </div>
   @endforeach
@@ -102,10 +119,39 @@
 </div>
 
 @if($o->isCancellableByBuyer())
-  <form method="POST" action="{{ url('/orders/'.$o->id.'/cancel') }}" style="margin-top:12px" onsubmit="return confirm('Cancel this order?');">
+  <form method="POST" action="{{ url('/orders/'.$o->id.'/cancel') }}" style="margin-top:12px;padding:14px;background:#fff;border:1px solid var(--border);border-radius:12px">
     @csrf
-    <button type="submit" style="width:100%;padding:11px;border-radius:999px;background:#fff;color:var(--danger);border:1.5px solid var(--danger);font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">Cancel Order</button>
+    <fieldset style="border:0;padding:0;margin:0">
+      <legend style="font-size:13px;font-weight:800;color:var(--text)">Why are you cancelling?</legend>
+      <div style="display:grid;gap:7px;margin-top:9px">
+        @foreach(['changed_mind'=>'Changed my mind','ordered_by_mistake'=>'I ordered by mistake','found_better_price'=>'I found a better price','delivery_too_long'=>'Delivery is taking too long','wrong_item'=>'I ordered the wrong item','other'=>'Other reason'] as $reasonValue => $reasonLabel)
+          <label style="display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;cursor:pointer">
+            <input type="radio" name="reason" value="{{ $reasonValue }}" required @checked(old('reason') === $reasonValue) style="accent-color:var(--danger)">{{ $reasonLabel }}
+          </label>
+        @endforeach
+      </div>
+    </fieldset>
+    @error('reason')<div style="margin-top:6px;color:#b91c1c;font-size:11px">{{ $message }}</div>@enderror
+    <div id="cancel-other-wrap" style="display:{{ old('reason') === 'other' ? 'block' : 'none' }};margin-top:9px">
+      <label for="cancel-reason-details" style="display:block;font-size:11px;font-weight:700;margin-bottom:4px">Tell us a little more</label>
+      <textarea id="cancel-reason-details" name="reason_details" maxlength="400" rows="2" style="width:100%;padding:9px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:12px">{{ old('reason_details') }}</textarea>
+      @error('reason_details')<div style="margin-top:5px;color:#b91c1c;font-size:11px">{{ $message }}</div>@enderror
+    </div>
+    <button type="submit" style="width:100%;margin-top:11px;padding:11px;border-radius:999px;background:#fff;color:var(--danger);border:1.5px solid var(--danger);font-weight:700;cursor:pointer;font-size:13px;font-family:inherit">Continue to Cancel Order</button>
   </form>
+  <script>
+    document.querySelectorAll('input[name="reason"]').forEach(function (input) {
+      input.addEventListener('change', function () {
+        var wrap = document.getElementById('cancel-other-wrap');
+        var details = document.getElementById('cancel-reason-details');
+        var isOther = this.value === 'other';
+        wrap.style.display = isOther ? 'block' : 'none';
+        details.required = isOther;
+      });
+    });
+    var selectedReason = document.querySelector('input[name="reason"]:checked');
+    if (selectedReason) selectedReason.dispatchEvent(new Event('change'));
+  </script>
 @elseif(! in_array($o->status, ['cancelled','delivered']))
   <div style="margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:var(--text2);font-size:12px;text-align:center">This order is {{ str_replace('_',' ',$o->status) }} and can no longer be cancelled. Contact the seller if you need help.</div>
 @endif

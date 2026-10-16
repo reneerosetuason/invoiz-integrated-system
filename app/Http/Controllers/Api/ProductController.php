@@ -14,7 +14,10 @@ class ProductController extends Controller
     {
         $query = Product::query()
             ->with(['category', 'variants'])
-            ->where('status', 'active');
+            ->where('status', 'active')
+            ->select('products.*')
+            ->selectSub(\App\Models\Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
+            ->selectSub(\App\Models\Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');
 
         if ($request->has('category_id')) {
             $query->where('category_id', $request->integer('category_id'));
@@ -36,7 +39,10 @@ class ProductController extends Controller
                     $query->orderBy('price', 'desc');
                     break;
                 case 'rating':
-                    $query->orderByDesc('rating');
+                    $query->orderByRaw('COALESCE(visible_rating, rating, 0) DESC')->orderByDesc('visible_reviews_count');
+                    break;
+                case 'most_reviewed':
+                    $query->orderByDesc('visible_reviews_count')->orderByRaw('COALESCE(visible_rating, rating, 0) DESC');
                     break;
                 default:
                     $query->latest();
@@ -59,7 +65,13 @@ class ProductController extends Controller
 
     public function show(Request $request, $id)
     {
-        $product = Product::with(['category', 'seller', 'variants', 'images', 'reviews.buyer'])
+        $product = Product::with([
+            'category',
+            'seller',
+            'variants',
+            'images',
+            'reviews' => fn ($query) => $query->where('status', 'visible')->with('buyer'),
+        ])
             ->where('status', 'active')
             ->findOrFail($id);
 

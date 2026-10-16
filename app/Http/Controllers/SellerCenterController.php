@@ -506,7 +506,7 @@ class SellerCenterController extends Controller
         $code = strtoupper($data['code']);
 
         Voucher::create([
-            'seller_id'      => Auth::id(),
+            'seller_id'      => $this->seller()->id,
             'code'           => $code,
             'name'           => $data['name'] ?? $code,
             'description'    => $data['description'] ?? null,
@@ -575,7 +575,7 @@ class SellerCenterController extends Controller
     public function voucherToggle(Request $request, Voucher $voucher)
     {
         abort_if(! in_array($voucher->seller_id, $this->seller()->catalogIds()), 403);
-        $voucher->status = ($voucher->status === 'active') ? 'inactive' : 'active';
+        $voucher->status = $voucher->status_bool ? 'inactive' : 'active';
         $voucher->save();
         return back()->with('status', 'Voucher status updated.');
     }

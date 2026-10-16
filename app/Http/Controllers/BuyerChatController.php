@@ -11,8 +11,13 @@ class BuyerChatController extends Controller
 {
     public function showLogin()
     {
-        if (Auth::check() && Auth::user()->role === 'buyer') {
-            return redirect('/buyer/chat');
+        if (Auth::check()) {
+            if (Auth::user()->canSell() && session('active_role') !== 'buyer') {
+                return redirect()->route('choose');
+            }
+            if (Auth::user()->isBuyer() || Auth::user()->canSell()) {
+                return redirect('/buyer/chat');
+            }
         }
         return view('buyer.login');
     }
@@ -27,7 +32,9 @@ class BuyerChatController extends Controller
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $user = Auth::user();
 
-            if ($user->role !== 'buyer') {
+            $hasApprovedStore = $user->canSell();
+
+            if (! $user->isBuyer() && ! $hasApprovedStore) {
                 Auth::logout();
                 return back()->withErrors(['email' => 'This is not a buyer account.']);
             }
@@ -38,6 +45,11 @@ class BuyerChatController extends Controller
             }
 
             $request->session()->regenerate();
+
+            if ($hasApprovedStore) {
+                $request->session()->forget(['active_role', 'seller_id', 'buyer']);
+                return redirect()->route('choose');
+            }
 
             return redirect()->intended('/buyer/chat');
         }

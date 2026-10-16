@@ -13,16 +13,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('vouchers', function (Blueprint $table) {
-            $table->enum('discount_type', ['fixed', 'percent', 'free_shipping'])->default('fixed')->change();
-            $table->enum('type', ['fixed', 'percent', 'free_shipping'])->default('fixed')->change();
+            if (! Schema::hasColumn('vouchers', 'discount_type')) {
+                $table->enum('discount_type', ['fixed', 'percent', 'free_shipping'])->default('fixed');
+            } else {
+                $table->enum('discount_type', ['fixed', 'percent', 'free_shipping'])->default('fixed')->change();
+            }
+            if (! Schema::hasColumn('vouchers', 'type')) {
+                $table->enum('type', ['fixed', 'percent', 'free_shipping'])->default('fixed');
+            } else {
+                $table->enum('type', ['fixed', 'percent', 'free_shipping'])->default('fixed')->change();
+            }
         });
     }
 
     public function down(): void
     {
         Schema::table('vouchers', function (Blueprint $table) {
-            $table->enum('discount_type', ['fixed', 'percent'])->default('fixed')->change();
-            $table->enum('type', ['fixed', 'percent'])->default('fixed')->change();
+            // Keep free-shipping values intact on shared databases.
         });
     }
 };

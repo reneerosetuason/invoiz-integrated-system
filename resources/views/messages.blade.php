@@ -105,18 +105,18 @@
         const form = document.getElementById('chatForm');
         const input = document.getElementById('msgInput');
         const sellerId = {{ (int)$selId }};
-        let lastTime = '{{ $selMessages->isNotEmpty() ? $selMessages->last()->created_at->toDateTimeString() : '' }}';
+        let lastId = {{ $selMessages->isNotEmpty() ? (int)$selMessages->last()->id : 0 }};
         if(msgs) msgs.scrollTop = msgs.scrollHeight;
         function appendMsg(body, isMe, time, roleLabel){
           const div = document.createElement('div');
           if(isMe){
             div.style.cssText = 'align-self:flex-end;background:#134e4a;color:#fff;padding:10px 14px;border-radius:12px 12px 2px 12px;max-width:70%;font-size:13px;line-height:1.4';
-            div.innerHTML = body + '<div style="font-size:9px;opacity:.6;margin-top:3px;text-align:right">You · ' + time + '</div>';
           } else {
             div.style.cssText = 'align-self:flex-start;background:#f0f0f0;padding:10px 14px;border-radius:12px 12px 12px 2px;max-width:70%;font-size:13px;line-height:1.4';
-            const tag = roleLabel ? '<span style="display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;background:#e0f2f1;color:#0E4A57;margin-bottom:4px">' + roleLabel + '</span><div>' : '<div>';
-            div.innerHTML = tag + body + '</div><div style="font-size:9px;color:#999;margin-top:3px">' + time + '</div>';
           }
+          if(!isMe && roleLabel){ const tag=document.createElement('span'); tag.textContent=roleLabel; tag.style.cssText='display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;background:#e0f2f1;color:#0E4A57;margin-bottom:4px'; div.appendChild(tag); }
+          const text=document.createElement('div'); text.textContent=body; div.appendChild(text);
+          const meta=document.createElement('div'); meta.textContent=(isMe ? 'You: ' : '')+time; meta.style.cssText='font-size:9px;opacity:.65;margin-top:3px;text-align:'+(isMe?'right':'left'); div.appendChild(meta);
           msgs.appendChild(div);
           msgs.scrollTop = msgs.scrollHeight;
         }
@@ -135,20 +135,20 @@
               const now = new Date();
               const t = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
               appendMsg(body, true, t);
-              lastTime = now.toISOString().slice(0,19).replace('T',' ');
+              lastId = Number(d.id || lastId);
               input.value = '';
             }
           }).finally(()=>{ btn.disabled = false; });
         });
         setInterval(function(){
           if(!msgs) return;
-          const url = '/chat/fetch/' + sellerId + (lastTime ? '?after=' + encodeURIComponent(lastTime) : '');
+          const url = '/chat/fetch/' + sellerId + '?after_id=' + lastId;
           fetch(url, {headers:{'Accept':'application/json'}})
             .then(r => r.json())
             .then(list => {
               list.forEach(m => {
                 appendMsg(m.body, m.is_me, new Date(m.created_at).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true}), m.sender_label);
-                if(m.created_at > lastTime) lastTime = m.created_at;
+                if(Number(m.id) > lastId) lastId = Number(m.id);
               });
             });
         }, 3000);

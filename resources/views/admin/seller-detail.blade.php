@@ -1,184 +1,443 @@
-﻿@extends('admin.layout')
+@extends('admin.layout')
 
 @section('content')
 <style>
   .seller-hero { background: linear-gradient(135deg, #16697A 0%, #0E4A57 100%); border-radius:18px; padding:22px 24px; color:#fff; display:flex; align-items:center; gap:18px; margin-bottom:18px; position:relative; overflow:hidden; }
-  .seller-hero::after { content:''; position:absolute; right:-40px; top:-40px; width:160px; height:160px; background:rgba(255,255,255,.08); border-radius:50%; }
+  .seller-hero::after { content:''; position:absolute; right:-40px; top:-40px; width:160px; height:160px; background:rgba(255,255,255,.08); border-radius:50%; pointer-events:none; }
   .hero-logo { width:64px; height:64px; border-radius:16px; background:#fff; color:#16697A; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:26px; flex-shrink:0; box-shadow:0 8px 24px rgba(0,0,0,.15); overflow:hidden; border:3px solid rgba(255,255,255,.3); }
   .hero-logo img { width:100%; height:100%; object-fit:cover; }
   .hero-info { min-width:0; }
   .hero-name { font-size:22px; font-weight:800; letter-spacing:-.5px; line-height:1.2; }
-  .hero-meta { font-size:13px; color:rgba(255,255,255,.8); margin-top:4px; display:flex; gap:12px; flex-wrap:wrap; }
+  .hero-meta { font-size:13px; color:rgba(255,255,255,.8); margin-top:4px; display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
   .hero-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid rgba(255,255,255,.3); backdrop-filter:blur(6px); }
-  .hero-actions { margin-left:auto; display:flex; gap:8px; flex-shrink:0; }
-  .grid-2 { display:grid; grid-template-columns: 1fr 1.1fr; gap:18px; }
-  .info-card { background:#fff; border:1px solid #E8E6E0; border-radius:16px; padding:20px; }
-  .info-card h2 { font-size:15px; font-weight:800; letter-spacing:-.3px; margin:0 0 16px; display:flex; align-items:center; gap:8px; }
+  .hero-actions { margin-left:auto; display:flex; gap:8px; flex-shrink:0; align-items:center; }
+  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:18px; }
+  .info-card { background:#fff; border:1px solid #E8E6E0; border-radius:16px; padding:20px; margin-bottom:18px; }
+  .info-card h2 { font-size:15px; font-weight:800; letter-spacing:-.3px; margin:0 0 16px; display:flex; align-items:center; gap:8px; color:#111827; }
   .info-card h2 svg { width:18px; height:18px; stroke:#16697A; fill:none; stroke-width:1.8; }
   .info-row { display:flex; gap:12px; padding:10px 0; border-bottom:1px solid #F1F2F4; align-items:flex-start; }
   .info-row:last-child { border-bottom:none; }
   .info-icon { width:36px; height:36px; border-radius:10px; background:#F0FAFA; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .info-icon svg { width:16px; height:16px; stroke:#16697A; fill:none; stroke-width:1.7; }
-  .info-label { font-size:11px; font-weight:700; color:#9CA3AF; text-transform:uppercase; letter-spacing:.7px; }
-  .info-value { font-size:14px; font-weight:600; color:#1B1B1E; margin-top:2px; word-break:break-all; }
-  .theme-preview { background:linear-gradient(180deg,#F8F9FA 0%,#fff 100%); border:1px solid #E8E6E0; border-radius:12px; padding:14px; display:flex; align-items:center; gap:14px; margin-top:16px; }
-  .theme-swatch { width:20px; height:20px; border-radius:6px; border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.1); display:inline-block; }
-  .product-grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:12px; }
-  .prod-card { background:#fff; border:1px solid #E8E6E0; border-radius:14px; overflow:hidden; transition:transform .15s, box-shadow .15s; }
-  .prod-card:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(16,24,40,.08); }
-  .prod-thumb { height:110px; background:linear-gradient(135deg,#E6F1F2 0%,#F0FAFA 100%); display:flex; align-items:center; justify-content:center; position:relative; }
-  .prod-thumb-letter { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,#16697A 0%,#1A9CB0 100%); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:18px; }
-  .prod-status { position:absolute; top:8px; right:8px; font-size:10px; font-weight:700; padding:4px 8px; border-radius:999px; }
-  .prod-body { padding:12px; }
-  .prod-name { font-size:13.5px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .prod-cat { font-size:11px; color:#9CA3AF; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .prod-price { font-size:15px; font-weight:800; color:#16697A; margin-top:8px; }
-  .stat-row { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:16px; }
-  .stat-mini { background:#F8F9FA; border:1px solid #F1F2F4; border-radius:12px; padding:12px; text-align:center; }
-  .stat-mini strong { font-size:18px; font-weight:800; display:block; }
-  .stat-mini span { font-size:11px; color:#6E6E73; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
-  @media (max-width: 900px) { .grid-2 { grid-template-columns:1fr; } .seller-hero { flex-direction:column; align-items:flex-start; } .hero-actions { margin-left:0; } }
+  .info-label { font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.6px; }
+  .info-value { font-size:14px; font-weight:600; color:#111827; margin-top:2px; word-break:break-word; }
+  .doc-card { border:1px solid #E5E7EB; border-radius:12px; padding:14px; background:#F9FAFB; margin-bottom:12px; transition:border-color .15s, box-shadow .15s; }
+  .doc-card:hover { border-color:#16697A; box-shadow:0 4px 12px rgba(22,105,122,.08); }
+  .doc-header { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .doc-title { font-size:13px; font-weight:700; color:#1F2937; display:flex; align-items:center; gap:8px; }
+  .doc-btn { display:inline-flex; align-items:center; gap:5px; padding:6px 12px; border-radius:8px; background:#16697A; color:#fff; text-decoration:none; font-size:12px; font-weight:700; transition:background .15s; }
+  .doc-btn:hover { background:#0E4A57; }
+  .doc-preview-img { max-height:160px; max-width:100%; border-radius:8px; object-fit:contain; border:1px solid #E5E7EB; margin-top:10px; background:#fff; }
+  .badge-tag { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+  @media (max-width: 900px) { .grid-2 { grid-template-columns:1fr; } .seller-hero { flex-direction:column; align-items:flex-start; } .hero-actions { margin-left:0; width:100%; } }
 </style>
 
+<div style="margin-bottom:14px;">
+  <a href="{{ url('/admin/sellers') }}" style="display:inline-flex; align-items:center; gap:6px; color:#16697A; text-decoration:none; font-weight:700; font-size:13px;">
+    <svg width="16" height="16" viewBox="0 0 24 24" stroke="#16697A" fill="none" stroke-width="2.2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    Back to Sellers
+  </a>
+</div>
+
+{{-- Top Hero Banner --}}
 <div class="seller-hero">
   <div class="hero-logo">
     @if($seller->logo)
       <img src="{{ url('storage/'.ltrim($seller->logo,'/')) }}" alt="logo">
     @else
-      {{ strtoupper(mb_substr($seller->store_name,0,1)) }}
+      {{ strtoupper(mb_substr($seller->display_name,0,1)) }}
     @endif
   </div>
   <div class="hero-info">
-    <div class="hero-name">{{ $seller->store_name }}</div>
+    <div class="hero-name">{{ $seller->display_name }}</div>
     <div class="hero-meta">
       <span>{{ $seller->user->email ?? 'No email' }}</span>
       <span>·</span>
-      <span>Registered {{ $seller->created_at->format('M d, Y') }}</span>
+      <span>Owner: <strong>{{ $seller->user ? $seller->user->displayName() : '—' }}</strong></span>
       <span>·</span>
-      <span>ID #{{ $seller->id }}</span>
+      <span>Applied {{ $seller->created_at->format('M d, Y') }}</span>
+      <span>·</span>
+      <span>Seller #{{ $seller->id }}</span>
     </div>
   </div>
-  <span class="hero-badge" style="background:{{ $seller->approval_status === 'approved' ? 'rgba(46,139,87,.15)' : ($seller->approval_status === 'rejected' ? 'rgba(224,90,51,.15)' : 'rgba(255,255,255,.15)') }}; color:#fff; border-color:{{ $seller->approval_status === 'approved' ? '#2E8B57' : ($seller->approval_status === 'rejected' ? '#E05A33' : 'rgba(255,255,255,.3)') }};">
-    {{ ucfirst($seller->approval_status ?? $seller->status) }}
+
+  @php
+    $appStatus = $seller->approval_status ?? $seller->status;
+    $statusColor = match($appStatus) {
+      'approved' => '#10B981',
+      'rejected' => '#EF4444',
+      'pending' => '#F59E0B',
+      default => '#6B7280'
+    };
+  @endphp
+  <span class="hero-badge" style="background:rgba(255,255,255,.18); color:#fff; border-color:rgba(255,255,255,.35);">
+    <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:{{ $statusColor }};"></span>
+    {{ ucfirst($appStatus) }} Application
   </span>
-  @if(($seller->approval_status ?? '') === 'pending')
+
+  @if($appStatus === 'pending')
   <div class="hero-actions">
-    <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/approve') }}">@csrf<button type="submit" style="padding:10px 18px;background:#2E8B57;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Approve</button></form>
-    <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/reject') }}" data-confirm="This seller application will be rejected. Continue?" data-confirm-title="Reject Application?" data-confirm-ok="Reject" data-confirm-class="btn-danger">@csrf<input type="hidden" name="reason" value="Registration requirements not met" /><button type="submit" style="padding:10px 18px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Reject</button></form>
+    <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/approve') }}">
+      @csrf
+      <button type="submit" style="padding:10px 18px;background:#10B981;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px;box-shadow:0 4px 12px rgba(16,185,129,.3);">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+        Approve Application
+      </button>
+    </form>
+    <button type="button" onclick="document.getElementById('rejectModal').style.display='flex'" style="padding:10px 18px;background:rgba(239,68,68,.25);color:#fff;border:1px solid rgba(239,68,68,.6);border-radius:10px;cursor:pointer;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Reject Application
+    </button>
   </div>
   @endif
 </div>
 
+@if($appStatus === 'rejected' && $seller->rejection_reason)
+  <div style="padding:14px 18px;background:#FEF2F2;color:#991B1B;border-radius:12px;margin-bottom:18px;border:1px solid #FECACA;">
+    <strong>Rejection reason recorded:</strong> {{ $seller->rejection_reason }}
+  </div>
+@endif
+
 @if(session('status'))
-<div style="padding:12px 16px;background:#E8F5EE;color:#166534;border-radius:12px;margin-bottom:16px;border:1px solid #BFE3D0;">{{ session('status') }}</div>
+  <div style="padding:14px 18px;background:#E8F5EE;color:#166534;border-radius:12px;margin-bottom:18px;border:1px solid #BFE3D0;font-weight:700;display:flex;align-items:center;gap:10px;">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    {{ session('status') }}
+  </div>
 @endif
 
 <div class="grid-2">
-  <!-- Left: Seller Information -->
-  <div class="info-card">
-    <h2>
-      <svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4Z"/></svg>
-      Seller Information
-    </h2>
-
-    <div class="stat-row">
-      <div class="stat-mini"><strong>{{ $seller->products->count() }}</strong><span>Products</span></div>
-      <div class="stat-mini"><strong style="color:#16697A;">{{ ($seller->approval_status ?? '') === 'approved' ? 'Verified' : ucfirst($seller->approval_status ?? $seller->status) }}</strong><span>Status</span></div>
-      <div class="stat-mini"><strong>{{ $seller->created_at->diffForHumans(null, true) }}</strong><span>On platform</span></div>
-    </div>
-
-    <div class="info-row">
-      <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Z"/></svg></div>
-      <div>
-        <div class="info-label">Store Name</div>
-        <div class="info-value">{{ $seller->store_name }}</div>
+  {{-- Left Column: Personal, Business, and Address Info --}}
+  <div>
+    {{-- 1. Personal Information --}}
+    <div class="info-card">
+      <h2>
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Applicant / Personal Information
+      </h2>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div>
+          <div class="info-label">First Name</div>
+          <div class="info-value">{{ $seller->user->first_name ?: ($seller->user ? strtok($seller->user->name, ' ') : '—') }}</div>
+        </div>
       </div>
-    </div>
-    <div class="info-row">
-      <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4Z"/></svg></div>
-      <div>
-        <div class="info-label">Owner</div>
-        <div class="info-value">{{ $seller->user->name ?? 'N/A' }}</div>
-        <div style="font-size:12px; color:#6E6E73; margin-top:1px;">{{ $seller->user->email ?? '' }}</div>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div>
+          <div class="info-label">Last Name</div>
+          <div class="info-value">{{ $seller->user->last_name ?: ($seller->user ? substr(strstr($seller->user->name, ' '), 1) : '—') }}</div>
+        </div>
       </div>
-    </div>
-    @if($seller->profile)
-    <div class="info-row">
-      <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .8 2.9a2 2 0 0 1-.6 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.6c.9.4 1.9.7 2.9.8a2 2 0 0 1 1.7 2z"/></svg></div>
-      <div>
-        <div class="info-label">Contact</div>
-        <div class="info-value">{{ $seller->profile->contact_phone ?? '—' }}</div>
-        <div style="font-size:12px; color:#6E6E73; margin-top:1px;">{{ $seller->profile->contact_email ?? $seller->user->email ?? '' }}</div>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+        <div>
+          <div class="info-label">Email</div>
+          <div class="info-value">{{ $seller->user->email ?? '—' }}</div>
+        </div>
       </div>
-    </div>
-    <div class="info-row">
-      <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M21 10c0 6-9 12-9 12S3 16 3 10a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg></div>
-      <div>
-        <div class="info-label">Address</div>
-        <div class="info-value" style="font-weight:500; line-height:1.5;">{{ $seller->profile->address ?? '—' }}</div>
-      </div>
-    </div>
-    @endif
-
-    <div class="theme-preview">
-      <div style="width:44px; height:44px; border-radius:10px; background:{{ $seller->primary_color }}; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; flex-shrink:0;">Aa</div>
-      <div style="flex:1; min-width:0;">
-        <div style="font-size:13px; font-weight:700;">Store Theme</div>
-        <div style="display:flex; gap:10px; margin-top:6px; align-items:center;">
-          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; background:#fff; border:1px solid #E8E6E0; padding:4px 8px; border-radius:999px;"><span class="theme-swatch" style="background:{{ $seller->primary_color }};"></span> {{ $seller->primary_color }}</span>
-          <span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; background:#fff; border:1px solid #E8E6E0; padding:4px 8px; border-radius:999px;"><span class="theme-swatch" style="background:{{ $seller->accent_color }};"></span> {{ $seller->accent_color }}</span>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .8 2.9a2 2 0 0 1-.6 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.6c.9.4 1.9.7 2.9.8a2 2 0 0 1 1.7 2z"/></svg></div>
+        <div>
+          <div class="info-label">Mobile Number</div>
+          <div class="info-value">{{ $seller->user->phone ?? $seller->profile->contact_phone ?? '—' }}</div>
         </div>
       </div>
     </div>
 
-    @if($seller->profile && $seller->profile->description)
-      <div style="margin-top:16px; padding:14px; background:#F8F9FA; border:1px solid #F1F2F4; border-radius:12px;">
-        <div class="info-label" style="margin-bottom:6px;">About the Store</div>
-        <div style="font-size:13.5px; color:#374151; line-height:1.6;">{{ $seller->profile->description }}</div>
+    {{-- 2. Store & Business Details --}}
+    <div class="info-card">
+      <h2>
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Shop & Business Details
+      </h2>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
+        <div>
+          <div class="info-label">Shop Name</div>
+          <div class="info-value">{{ $seller->display_name }}</div>
+        </div>
       </div>
-    @endif
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+        <div>
+          <div class="info-label">Shop Category</div>
+          <div class="info-value">
+            <span class="badge-tag" style="background:#EBF5F5; color:#16697A; border:1px solid #D1EBEB;">
+              {{ $seller->line_of_business ?: 'Home & Living' }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg></div>
+        <div>
+          <div class="info-label">Seller Type</div>
+          <div class="info-value">
+            <span class="badge-tag" style="background:#FEF3C7; color:#92400E; border:1px solid #FDE68A;">
+              {{ $seller->seller_type ?: 'Sole Proprietorship' }}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div>
+          <div class="info-label">TIN (Tax Identification Number)</div>
+          <div class="info-value" style="font-family:monospace; font-size:15px; color:#0E4A57;">
+            {{ $seller->tin ?: '—' }}
+          </div>
+        </div>
+      </div>
+      <div class="info-row">
+        <div class="info-icon"><svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+        <div>
+          <div class="info-label">Terms & Privacy Policy</div>
+          <div class="info-value" style="color:#059669; display:flex; align-items:center; gap:6px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            Ticked & Accepted
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {{-- 3. Business Address --}}
+    <div class="info-card">
+      <h2>
+        <svg viewBox="0 0 24 24"><path d="M21 10c0 6-9 12-9 12S3 16 3 10a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        Business Address
+      </h2>
+      <div class="info-row">
+        <div>
+          <div class="info-label">Full Address</div>
+          <div class="info-value" style="font-weight:700; color:#1F2937; line-height:1.5;">
+            {{ $seller->fullAddress() ?: '—' }}
+          </div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;">
+        <div style="padding:10px 12px; background:#F9FAFB; border-radius:10px; border:1px solid #F3F4F6;">
+          <div class="info-label">Street Address</div>
+          <div class="info-value" style="font-size:13px;">{{ $seller->address_line ?? $seller->user?->address_line ?? '—' }}</div>
+        </div>
+        <div style="padding:10px 12px; background:#F9FAFB; border-radius:10px; border:1px solid #F3F4F6;">
+          <div class="info-label">Barangay</div>
+          <div class="info-value" style="font-size:13px;">{{ $seller->barangay ?? $seller->user?->barangay ?? '—' }}</div>
+        </div>
+        <div style="padding:10px 12px; background:#F9FAFB; border-radius:10px; border:1px solid #F3F4F6;">
+          <div class="info-label">City / Municipality</div>
+          <div class="info-value" style="font-size:13px;">{{ $seller->city ?? $seller->user?->city ?? $seller->user?->municipality ?? '—' }}</div>
+        </div>
+        <div style="padding:10px 12px; background:#F9FAFB; border-radius:10px; border:1px solid #F3F4F6;">
+          <div class="info-label">Province</div>
+          <div class="info-value" style="font-size:13px;">{{ $seller->province ?? $seller->user?->province ?? '—' }}</div>
+        </div>
+        <div style="padding:10px 12px; background:#F9FAFB; border-radius:10px; border:1px solid #F3F4F6;">
+          <div class="info-label">Region</div>
+          <div class="info-value" style="font-size:13px;">{{ $seller->region ?? $seller->user?->region ?? '—' }}</div>
+        </div>
+        <div style="padding:10px 12px; background:#F9FAFB; border-radius:10px; border:1px solid #F3F4F6;">
+          <div class="info-label">Postal Code</div>
+          <div class="info-value" style="font-size:13px;">{{ $seller->postal_code ?? $seller->user?->postal_code ?? '—' }}</div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- Right: Products -->
-  <div class="info-card">
-    <h2>
-      <svg viewBox="0 0 24 24"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Zm2 2v6h12v-6H6Z"/></svg>
-      Products
-      <span style="margin-left:auto; background:#F0FAFA; color:#374151; font-size:12px; font-weight:700; padding:4px 10px; border-radius:999px; border:1px solid #E8E6E0;">{{ $seller->products->count() }} items</span>
-    </h2>
+  {{-- Right Column: Uploaded Documents & Decision Actions --}}
+  <div>
+    {{-- Verification Documents Card --}}
+    <div class="info-card">
+      <h2>
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Verification Documents (Submitted Uploads)
+      </h2>
 
-    @if($seller->products->count())
-      <div class="product-grid">
-        @foreach($seller->products as $product)
-          <div class="prod-card">
-            <div class="prod-thumb">
-              <div class="prod-thumb-letter">{{ strtoupper(mb_substr($product->name,0,1)) }}</div>
-              <span class="prod-status" style="background:{{ $product->status === 'active' ? '#E8F5EE' : '#F3F4F6' }}; color:{{ $product->status === 'active' ? '#166534' : '#6E6E73' }}; border:1px solid {{ $product->status === 'active' ? '#BFE3D0' : '#E5E7EB' }};">{{ ucfirst($product->status) }}</span>
+      @php
+        $hasId = !empty($seller->id_image) || !empty($seller->user?->id_image);
+        $hasDti = !empty($seller->dti_certificate) || !empty($seller->business_permit);
+        $hasBir = !empty($seller->bir_2303);
+
+        $idUrl = $hasId ? url('/admin/sellers/'.$seller->id.'/document/id') : null;
+        $dtiUrl = $hasDti ? url('/admin/sellers/'.$seller->id.'/document/dti') : null;
+        $birUrl = $hasBir ? url('/admin/sellers/'.$seller->id.'/document/bir') : null;
+      @endphp
+
+      {{-- 1. Government-issued ID --}}
+      <div class="doc-card">
+        <div class="doc-header">
+          <div>
+            <div class="doc-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16697A" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              Government-issued ID
             </div>
-            <div class="prod-body">
-              <div class="prod-name" title="{{ $product->name }}">{{ $product->name }}</div>
-              <div class="prod-cat">{{ $product->category->name ?? 'General' }}</div>
-              <div class="prod-price">₱{{ number_format($product->price, 2) }}</div>
+            <div style="font-size:11px; color:#6B7280; margin-top:2px;">
+              {{ $seller->id_image ? basename($seller->id_image) : 'No file uploaded' }}
             </div>
           </div>
-        @endforeach
-      </div>
-    @else
-      <div style="text-align:center; padding:40px 20px; color:#9CA3AF;">
-        <div style="width:56px; height:56px; border-radius:50%; background:#F3F4F6; display:flex; align-items:center; justify-content:center; margin:0 auto 12px;">
-          <svg width="22" height="22" viewBox="0 0 24 24" stroke="#9CA3AF" fill="none" stroke-width="1.6"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Z"/></svg>
+          @if($idUrl)
+            <a href="{{ $idUrl }}" target="_blank" class="doc-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Document
+            </a>
+          @else
+            <span style="font-size:11px; color:#9CA3AF; font-weight:700;">Missing</span>
+          @endif
         </div>
-        <div style="font-weight:600; color:#6B7280;">No products yet</div>
-        <div style="font-size:13px; margin-top:4px;">This seller hasn't listed any products.</div>
+        @if($idUrl && !str_ends_with(strtolower($seller->id_image ?? ''), '.pdf'))
+          <div style="margin-top:10px;">
+            <a href="{{ $idUrl }}" target="_blank">
+              <img src="{{ $idUrl }}" alt="Govt ID" class="doc-preview-img" onerror="this.style.display='none'">
+            </a>
+          </div>
+        @elseif($idUrl)
+          <div style="margin-top:8px; font-size:12px; color:#16697A; font-weight:600;">
+            📄 PDF Document uploaded · <a href="{{ $idUrl }}" target="_blank" style="text-decoration:underline;">Click to open PDF</a>
+          </div>
+        @endif
       </div>
-    @endif
+
+      {{-- 2. DTI Certificate --}}
+      <div class="doc-card">
+        <div class="doc-header">
+          <div>
+            <div class="doc-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16697A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              DTI Certificate
+            </div>
+            <div style="font-size:11px; color:#6B7280; margin-top:2px;">
+              {{ $seller->dti_certificate ? basename($seller->dti_certificate) : ($seller->business_permit ? basename($seller->business_permit) : 'No file uploaded') }}
+            </div>
+          </div>
+          @if($dtiUrl)
+            <a href="{{ $dtiUrl }}" target="_blank" class="doc-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Document
+            </a>
+          @else
+            <span style="font-size:11px; color:#9CA3AF; font-weight:700;">Missing</span>
+          @endif
+        </div>
+        @if($dtiUrl && !str_ends_with(strtolower($seller->dti_certificate ?? $seller->business_permit ?? ''), '.pdf'))
+          <div style="margin-top:10px;">
+            <a href="{{ $dtiUrl }}" target="_blank">
+              <img src="{{ $dtiUrl }}" alt="DTI" class="doc-preview-img" onerror="this.style.display='none'">
+            </a>
+          </div>
+        @elseif($dtiUrl)
+          <div style="margin-top:8px; font-size:12px; color:#16697A; font-weight:600;">
+            📄 PDF Document uploaded · <a href="{{ $dtiUrl }}" target="_blank" style="text-decoration:underline;">Click to open PDF</a>
+          </div>
+        @endif
+      </div>
+
+      {{-- 3. BIR Form 2303 --}}
+      <div class="doc-card">
+        <div class="doc-header">
+          <div>
+            <div class="doc-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16697A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="10 9 9 9 8 9"/></svg>
+              BIR Form 2303
+            </div>
+            <div style="font-size:11px; color:#6B7280; margin-top:2px;">
+              {{ $seller->bir_2303 ? basename($seller->bir_2303) : 'No file uploaded' }}
+            </div>
+          </div>
+          @if($birUrl)
+            <a href="{{ $birUrl }}" target="_blank" class="doc-btn">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              View Document
+            </a>
+          @else
+            <span style="font-size:11px; color:#9CA3AF; font-weight:700;">Missing</span>
+          @endif
+        </div>
+        @if($birUrl && !str_ends_with(strtolower($seller->bir_2303 ?? ''), '.pdf'))
+          <div style="margin-top:10px;">
+            <a href="{{ $birUrl }}" target="_blank">
+              <img src="{{ $birUrl }}" alt="BIR 2303" class="doc-preview-img" onerror="this.style.display='none'">
+            </a>
+          </div>
+        @elseif($birUrl)
+          <div style="margin-top:8px; font-size:12px; color:#16697A; font-weight:600;">
+            📄 PDF Document uploaded · <a href="{{ $birUrl }}" target="_blank" style="text-decoration:underline;">Click to open PDF</a>
+          </div>
+        @endif
+      </div>
+    </div>
+
+    {{-- Administrator Decision Actions Card --}}
+    <div class="info-card" style="border:2px solid #E5E7EB;">
+      <h2>
+        <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        Administrator Decision
+      </h2>
+
+      <div style="margin-bottom:14px; font-size:13.5px; color:#4B5563; line-height:1.5;">
+        Current Status: <strong>{{ ucfirst($seller->approval_status ?? $seller->status) }}</strong>
+        @if(($seller->approval_status ?? '') === 'pending')
+          <p style="margin-top:4px; font-size:13px; color:#B45309;">
+            This seller is waiting for approval. Review their submitted details, TIN, and documents above before deciding.
+          </p>
+        @endif
+      </div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        @if(($seller->approval_status ?? '') === 'pending' || ($seller->approval_status ?? '') === 'rejected')
+          <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/approve') }}" style="flex:1;">
+            @csrf
+            <button type="submit" style="width:100%; padding:12px 20px; background:#10B981; color:#fff; border:none; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+              Approve Seller
+            </button>
+          </form>
+        @endif
+
+        @if(($seller->approval_status ?? '') === 'pending' || ($seller->approval_status ?? '') === 'approved')
+          <button type="button" onclick="document.getElementById('rejectModal').style.display='flex'" style="flex:1; padding:12px 20px; background:#EF4444; color:#fff; border:none; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            Reject Application
+          </button>
+        @endif
+
+        @if(($seller->status ?? '') === 'active' && ($seller->approval_status ?? '') === 'approved')
+          <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/suspend') }}" style="flex:1;">
+            @csrf
+            <button type="submit" style="width:100%; padding:12px 20px; background:#F59E0B; color:#fff; border:none; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
+              Suspend Store
+            </button>
+          </form>
+        @elseif(($seller->status ?? '') === 'inactive' && ($seller->approval_status ?? '') === 'approved')
+          <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/reinstate') }}" style="flex:1;">
+            @csrf
+            <button type="submit" style="width:100%; padding:12px 20px; background:#10B981; color:#fff; border:none; border-radius:10px; font-weight:800; font-size:13.5px; cursor:pointer;">
+              Reinstate Store
+            </button>
+          </form>
+        @endif
+      </div>
+    </div>
   </div>
 </div>
 
-<div style="margin-top:18px;">
-  <a href="{{ url('/admin/sellers') }}" style="display:inline-flex; align-items:center; gap:6px; color:#16697A; text-decoration:none; font-weight:600; font-size:13px;">
-    <svg width="16" height="16" viewBox="0 0 24 24" stroke="#16697A" fill="none" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-    Back to Sellers
-  </a>
+{{-- Reject Reason Modal --}}
+<div id="rejectModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#fff; border-radius:16px; width:100%; max-width:440px; padding:24px; box-shadow:0 20px 40px rgba(0,0,0,.2);">
+    <h3 style="font-size:18px; font-weight:800; color:#111827; margin:0 0 8px;">Reject Seller Application</h3>
+    <p style="font-size:13px; color:#6B7280; margin:0 0 16px;">
+      Please provide a reason for rejecting <strong>{{ $seller->display_name }}</strong>. This will be logged and emailed to {{ $seller->user->email ?? 'the applicant' }}.
+    </p>
+    <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/reject') }}">
+      @csrf
+      <textarea name="reason" rows="3" required minlength="5" maxlength="1000" placeholder="e.g. Incomplete business documents or invalid TIN..." style="width:100%; border:1.5px solid #D1D5DB; border-radius:10px; padding:10px 12px; font-size:13.5px; outline:none; resize:none;">{{ old('reason') }}</textarea>
+      @error('reason')<p style="margin:6px 0 0;color:#B91C1C;font-size:12px;">{{ $message }}</p>@enderror
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:16px;">
+        <button type="button" onclick="document.getElementById('rejectModal').style.display='none'" style="padding:9px 16px; border:1px solid #D1D5DB; background:#fff; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;">Cancel</button>
+        <button type="submit" style="padding:9px 18px; background:#EF4444; color:#fff; border:none; border-radius:8px; font-weight:800; font-size:13px; cursor:pointer;">Confirm Rejection</button>
+      </div>
+    </form>
+  </div>
 </div>
+@if($errors->has('reason'))
+<script>document.getElementById('rejectModal').style.display='flex';</script>
+@endif
 @endsection

@@ -7,6 +7,8 @@ use App\Models\Seller;
 use App\Models\NotificationsLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\DB;
+use Throwable;
 
 class SellerController extends Controller
 {
@@ -56,76 +58,124 @@ class SellerController extends Controller
 
     public function approve(Request $request, Seller $seller)
     {
-        // Write both schemas so buyer/seller apps see the approval too.
-        $seller->approval_status = 'approved';
-        $seller->status = 'active';
-        $seller->save();
+        $seller->loadMissing('user');
+        DB::transaction(function () use ($seller) {
+            $seller->approval_status = 'approved';
+            $seller->rejection_reason = null;
+            $seller->status = 'active';
+            $seller->save();
 
-        $mailed = false;
-        if ($seller->user) {
-            try {
-                Mail::to($seller->user->email)->send(new \App\Mail\SellerDecisionMail(
-                    'approved',
-                    $seller->user->displayName(),
-                    $seller->display_name,
-                ));
-                $mailed = true;
-            } catch (\Throwable $e) {
-                \Log::warning('Seller approval mail failed: ' . $e->getMessage());
+            if ($seller->user) {
+                $seller->user->role = 'seller';
+                $seller->user->approval_status = 'approved';
+                $seller->user->account_status = 'active';
+                $seller->user->status = 'active';
+                $seller->user->save();
             }
-        }
+        });
 
-        NotificationsLog::create([
-            'user_id' => $seller->user_id,
-            'type' => 'registration_approved',
-            'subject' => 'Your Seller Registration Has Been Approved',
-            'body' => "Dear {$seller->user->name},\n\nCongratulations! Your seller account for \"{$seller->store_name}\" has been approved. You can now start listing products on our platform.",
-            'email' => $seller->user->email,
-            'sent' => $mailed,
-        ]);
+        $recipient = $seller->user?->email;
+        $mailed = $this->sendDecisionEmail($seller, 'approved', $recipient);
+        $this->saveDecisionLog(
+            $seller,
+            'registration_approved',
+            'Your Seller Registration Has Been Approved',
+            "Congratulations! Your seller account for \"{$seller->display_name}\" has been approved.",
+            $recipient,
+            $mailed,
+        );
 
         if ($request->wantsJson()) {
-            return response()->json(['message' => 'Seller approved', 'seller' => $seller]);
+            return response()->json(['message' => 'Seller approved', 'email_sent' => $mailed, 'seller' => $seller]);
         }
-        return redirect()->back()->with('status', "Seller \"{$seller->store_name}\" has been approved.");
+        $message = "Seller \"{$seller->display_name}\" has been approved.";
+        $message .= $mailed ? " Approval email sent to {$recipient}." : ' The approval was saved, but the email could not be sent.';
+        return redirect()->back()->with('status', $message);
     }
 
     public function reject(Request $request, Seller $seller)
     {
-        $request->validate(['reason' => 'nullable|string']);
-
-        $seller->approval_status = 'rejected';
-        $seller->status = 'inactive';
-        $seller->save();
-
-        $mailed = false;
-        if ($seller->user) {
-            try {
-                Mail::to($seller->user->email)->send(new \App\Mail\SellerDecisionMail(
-                    'rejected',
-                    $seller->user->displayName(),
-                    $seller->display_name,
-                    (string) $request->input('reason', ''),
-                ));
-                $mailed = true;
-            } catch (\Throwable $e) {
-                \Log::warning('Seller rejection mail failed: ' . $e->getMessage());
-            }
-        }
-
-        NotificationsLog::create([
-            'user_id' => $seller->user_id,
-            'type' => 'registration_rejected',
-            'subject' => 'Your Seller Registration Update',
-            'body' => "Dear {$seller->user->name},\n\nWe regret to inform you that your seller registration for \"{$seller->store_name}\" was not approved." . ($request->reason ? "\n\nReason: {$request->reason}" : ''),
-            'email' => $seller->user->email,
-            'sent' => $mailed,
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'min:5', 'max:1000'],
+        ], [
+            'reason.required' => 'Enter a reason before rejecting this application.',
+            'reason.min' => 'The rejection reason must be at least 5 characters.',
         ]);
+        $reason = trim($data['reason']);
+        $seller->loadMissing('user');
+
+        DB::transaction(function () use ($seller, $reason) {
+            $seller->approval_status = 'rejected';
+            $seller->rejection_reason = $reason;
+            $seller->status = 'inactive';
+            $seller->save();
+
+            if ($seller->user && $seller->user->role === 'seller') {
+                $seller->user->approval_status = 'rejected';
+                $seller->user->save();
+            }
+        });
+
+        $recipient = $seller->user?->email;
+        $mailed = $this->sendDecisionEmail($seller, 'rejected', $recipient, $reason);
+        $this->saveDecisionLog(
+            $seller,
+            'registration_rejected',
+            'Your Seller Registration Update',
+            "Your seller application for \"{$seller->display_name}\" was not approved.\n\nReason: {$reason}",
+            $recipient,
+            $mailed,
+        );
 
         if ($request->wantsJson()) {
-            return response()->json(['message' => 'Seller rejected', 'seller' => $seller]);
+            return response()->json(['message' => 'Seller rejected', 'email_sent' => $mailed, 'seller' => $seller]);
         }
-        return redirect()->back()->with('status', "Seller \"{$seller->store_name}\" has been rejected.");
+        $message = "Seller \"{$seller->display_name}\" has been rejected.";
+        $message .= $mailed ? " Rejection email sent to {$recipient}." : ' The rejection was saved, but the email could not be sent.';
+        return redirect()->back()->with('status', $message);
+    }
+
+    private function sendDecisionEmail(Seller $seller, string $decision, ?string $recipient, string $reason = ''): bool
+    {
+        if (! $recipient) {
+            \Log::warning("Seller {$decision} email skipped: no applicant email is recorded", ['seller_id' => $seller->id]);
+            return false;
+        }
+
+        try {
+            Mail::to($recipient)->send(new \App\Mail\SellerDecisionMail(
+                $decision,
+                $seller->user?->displayName() ?? '',
+                $seller->display_name,
+                $reason,
+            ));
+            return true;
+        } catch (Throwable $exception) {
+            \Log::warning("Seller {$decision} email failed: " . $exception->getMessage(), ['seller_id' => $seller->id]);
+            return false;
+        }
+    }
+
+    private function saveDecisionLog(
+        Seller $seller,
+        string $type,
+        string $subject,
+        string $body,
+        ?string $email,
+        bool $sent,
+    ): void {
+        try {
+            NotificationsLog::create([
+                'user_id' => $seller->user_id,
+                'type' => $type,
+                'subject' => $subject,
+                'body' => $body,
+                'email' => $email,
+                'sent' => $sent,
+            ]);
+        } catch (Throwable $exception) {
+            \Log::warning('Seller decision notification could not be saved: ' . $exception->getMessage(), ['seller_id' => $seller->id]);
+        }
     }
 
     public function suspend(Request $request, Seller $seller)
@@ -191,5 +241,50 @@ class SellerController extends Controller
         return view('admin.seller-detail', compact('seller'));
     }
 
+    public function viewDocument(Request $request, Seller $seller, string $type)
+    {
+        $field = match (strtolower($type)) {
+            'id', 'id_image', 'govt_id' => $seller->id_image ?: ($seller->user?->id_image),
+            'dti', 'dti_certificate' => $seller->dti_certificate ?: $seller->business_permit,
+            'bir', 'bir_2303', 'bir_form_2303' => $seller->bir_2303,
+            'permit', 'business_permit' => $seller->business_permit ?: $seller->dti_certificate,
+            'logo' => $seller->logo,
+            default => null,
+        };
 
+        if (! $field) {
+            abort(404, 'No document file recorded for this requirement.');
+        }
+
+        $clean = ltrim(str_replace(['\\', '/storage/'], ['/', ''], $field), '/');
+
+        $candidates = [
+            storage_path('app/public/' . $clean),
+            public_path('storage/' . $clean),
+            public_path($clean),
+            storage_path('app/' . $clean),
+        ];
+
+        $found = null;
+        foreach ($candidates as $cand) {
+            if (file_exists($cand) && ! is_dir($cand)) {
+                $found = $cand;
+                break;
+            }
+        }
+
+        if (! $found) {
+            abort(404, 'File not found on server disk for: ' . basename($field));
+        }
+
+        $mime = mime_content_type($found) ?: 'application/octet-stream';
+        $filename = basename($found);
+
+        return response()->file($found, [
+            'Content-Type' => $mime,
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control' => 'no-cache, private',
+        ]);
+    }
 }
+

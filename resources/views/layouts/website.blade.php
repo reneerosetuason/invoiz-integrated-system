@@ -65,11 +65,15 @@
     </form>
     @php
       $buyer = session('buyer');
+      $buyerPicturePath = $buyer ? \App\Models\User::whereKey($buyer['id'])->value('profile_picture') : null;
+      $buyerAvatar = $buyerPicturePath ? asset('storage/' . ltrim($buyerPicturePath, '/')) : null;
       $cartCount = 0;
+      $wishlistCount = 0;
       $unreadMsgs = 0;
       $pendingOrders = 0;
       if ($buyer) {
           $cartCount = \App\Models\Cart::itemsFor($buyer['id'])->sum('quantity');
+          $wishlistCount = \App\Models\Favorite::where('buyer_id', $buyer['id'])->count();
           $convIds = \App\Models\Conversation::where('buyer_id', $buyer['id'])->pluck('id');
           $unreadMsgs = \App\Models\Message::whereIn('conversation_id', $convIds)
               ->where('sender_id', '!=', $buyer['id'])->where('is_read', 0)->count();
@@ -93,13 +97,13 @@
     @if($buyer)
       <div style="position:relative">
         <button onclick="document.getElementById('profileDrop').classList.toggle('open')" class="profile-btn">
-          <img src="https://ui-avatars.com/api/?name={{ urlencode($buyer['first_name'].' '.$buyer['last_name']) }}&background=134e4a&color=fff&size=28" alt="" class="profile-avatar">
+          <img src="{{ $buyerAvatar ?: 'https://ui-avatars.com/api/?name='.urlencode($buyer['first_name'].' '.$buyer['last_name']).'&background=134e4a&color=fff&size=28' }}" alt="" class="profile-avatar">
           <span style="font-weight:600;font-size:12px">{{ $buyer['first_name'] }}</span>
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
         <div id="profileDrop">
           <div style="display:flex;gap:10px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border-light)">
-            <img src="https://ui-avatars.com/api/?name={{ urlencode($buyer['first_name'].' '.$buyer['last_name']) }}&background=134e4a&color=fff&size=48" style="width:44px;height:44px;border-radius:50%">
+            <img src="{{ $buyerAvatar ?: 'https://ui-avatars.com/api/?name='.urlencode($buyer['first_name'].' '.$buyer['last_name']).'&background=134e4a&color=fff&size=48' }}" style="width:44px;height:44px;border-radius:50%">
             <div>
               <div style="font-weight:700;font-size:13px">{{ $buyer['first_name'] }} {{ $buyer['last_name'] }}</div>
               <div style="font-size:11px;color:var(--text3)">{{ $buyer['email'] }}</div>
@@ -177,11 +181,15 @@
                 }
               } catch (\Throwable $e) {}
             @endphp
-            @if($switchStore && auth()->check() && auth()->user()->isBuyer())
-              <a href="{{ url('/seller/dashboard') }}" title="Switch to Seller">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 22V12h6v10"/></svg>
-                <span class="sb-label sb-hide-collapsed">Switch to Seller</span>
-              </a>
+            @if($switchStore && auth()->check() && auth()->user()->canSell())
+              <form method="POST" action="{{ route('role.switch') }}" class="role-switch-form">
+                @csrf
+                <input type="hidden" name="role" value="seller">
+                <button type="submit" class="role-switch-link" title="Switch to Seller">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9z"/><path d="M9 22V12h6v10"/></svg>
+                  <span class="sb-label sb-hide-collapsed">Switch to Seller</span>
+                </button>
+              </form>
             @endif
           </div>
         @else
@@ -199,6 +207,15 @@
         @endif
         <div role="group" aria-labelledby="bbLblMore">
           <div class="nav-section sb-hide-collapsed" id="bbLblMore">More</div>
+          <a href="{{ url('/wishlist') }}" title="Wishlist" class="{{ request()->is('wishlist') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8z"/></svg>
+            <span class="sb-label sb-hide-collapsed">Wishlist</span>
+            @if($wishlistCount > 0)<span class="sb-badge"><span class="sb-num">{{ $wishlistCount > 99 ? '99+' : $wishlistCount }}</span></span>@endif
+          </a>
+          <a href="{{ url('/vouchers') }}" title="Vouchers" class="{{ request()->is('vouchers') ? 'active' : '' }}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 12V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v5"/><path d="M4 12a2 2 0 0 1 0 4v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1a2 2 0 0 1 0-4"/><path d="M13 5v2m0 4v2m0 4v2"/></svg>
+            <span class="sb-label sb-hide-collapsed">Vouchers</span>
+          </a>
           <a href="{{ url('/messages') }}" title="Messages" class="{{ request()->is('messages','chat','chat/*') ? 'active' : '' }}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span class="sb-label sb-hide-collapsed">Messages</span>
@@ -223,7 +240,7 @@
             <div class="sb-pill">
               <a href="{{ url('/profile') }}" class="sb-who" data-tip="{{ $bName }} · Buyer">
                 @if($bName)
-                  <img src="https://ui-avatars.com/api/?name={{ urlencode($bName) }}&background=16697A&color=fff&size=72" alt="" class="sb-avatar">
+                  <img src="{{ $buyerAvatar ?: 'https://ui-avatars.com/api/?name='.urlencode($bName).'&background=16697A&color=fff&size=72' }}" alt="" class="sb-avatar">
                 @else
                   <span class="sb-avatar" aria-hidden="true">{{ $bInitials }}</span>
                 @endif

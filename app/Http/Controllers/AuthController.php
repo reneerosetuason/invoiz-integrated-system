@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\Seller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -15,7 +14,8 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users',
             'password' => 'required|string|min:8',
-            'role' => 'sometimes|in:buyer,seller,rider',
+            // Seller accounts must use the validated seller application flow.
+            'role' => 'sometimes|in:buyer,rider',
             'phone' => 'nullable|string|max:20',
         ]);
 
@@ -27,18 +27,6 @@ class AuthController extends Controller
             'account_status' => 'active',
             'phone' => $data['phone'] ?? null,
         ]);
-
-        if (($data['role'] ?? 'buyer') === 'seller') {
-            Seller::create([
-                'user_id' => $user->id,
-                'store_name' => $data['name'] . "'s Store",
-                'business_name' => $data['name'] . "'s Store",
-                'approval_status' => 'pending',
-                'status' => 'pending',
-                'primary_color' => '#16697A',
-                'accent_color' => '#F0A202',
-            ]);
-        }
 
         return response()->json(['user' => $user], 201);
     }

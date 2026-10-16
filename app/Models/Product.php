@@ -134,6 +134,11 @@ class Product extends Model
         return $this->hasMany(Review::class, 'product_id');
     }
 
+    public function favorites()
+    {
+        return $this->hasMany(Favorite::class, 'product_id');
+    }
+
     public function sellerNotifications()
     {
         return $this->hasMany(SellerNotification::class, 'product_id');

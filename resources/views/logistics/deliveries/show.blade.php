@@ -329,6 +329,7 @@
                     $wbAddress->barangay ?? null,
                     $wbAddress->city ?? null,
                     $wbAddress->province ?? null,
+                    $wbAddress->region ?? null,
                     isset($wbAddress->postal_code) && $wbAddress->postal_code ? $wbAddress->postal_code : null,
                 ])) : [];
                 $wbBuyAddress = $wbBuyAddrParts !== []
@@ -574,7 +575,7 @@
                                     class="flex-1 min-w-0 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                 <option value="">— Select center —</option>
                                 @foreach($centers as $center)
-                                    <option value="{{ $center->id }}" @selected($delivery->center_id === $center->id)>{{ $center->name }}</option>
+                                    <option value="{{ $center->id }}" @selected((int) $delivery->center_id === (int) $center->id)>{{ $center->name }}</option>
                                 @endforeach
                             </select>
                             <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold py-2 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
@@ -593,7 +594,7 @@
                     </a>
                 @endif
 
-                @if(in_array($delivery->parcel_status, ['received', 'scanned']))
+                @if($delivery->parcel_status === 'scanned')
                     <form action="{{ route('deliveries.sort', $delivery) }}" method="POST" class="w-full">
                         @csrf
                         <fieldset class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
@@ -604,7 +605,7 @@
                                         class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                     <option value="">— Select destination —</option>
                                     @foreach($centers as $center)
-                                        <option value="{{ $center->id }}" @selected($delivery->destination_center_id === $center->id)>{{ $center->name }}</option>
+                                        <option value="{{ $center->id }}" @selected((int) $delivery->destination_center_id === (int) $center->id)>{{ $center->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -614,7 +615,7 @@
                                         class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                     <option value="">— Select service area —</option>
                                     @foreach($serviceAreas as $area)
-                                        <option value="{{ $area->id }}" @selected($delivery->service_area_id === $area->id)>{{ $area->name }}</option>
+                                        <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) $delivery->service_area_id === (int) $area->id)>{{ $area->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -1101,6 +1102,21 @@
                 } catch (e) {
                     barEl.outerHTML = '<p class="font-mono text-sm font-bold">' + qrTarget + '</p>';
                 }
+            }
+
+            var centerSelect = document.getElementById('destination_center');
+            var areaSelect = document.getElementById('service_area');
+            if (centerSelect && areaSelect) {
+                var filterServiceAreas = function () {
+                    Array.from(areaSelect.options).forEach(function (option) {
+                        if (!option.value) return;
+                        option.hidden = option.dataset.centerId !== centerSelect.value;
+                        if (option.hidden && option.selected) areaSelect.value = '';
+                    });
+                };
+
+                centerSelect.addEventListener('change', filterServiceAreas);
+                filterServiceAreas();
             }
         })();
     </script>

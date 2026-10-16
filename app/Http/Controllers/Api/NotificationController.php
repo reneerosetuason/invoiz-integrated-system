@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\OrderStatusHistory;
 use App\Models\Review;
+use App\Models\Conversation;
+use App\Models\Message;
+use App\Models\NotificationRead;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
@@ -18,6 +21,7 @@ class NotificationController extends Controller
         $user = $request->user();
 
         $items = [];
+        $readKeys = NotificationRead::where('user_id', $user->id)->pluck('notification_key')->all();
 
         $histories = OrderStatusHistory::query()
             ->whereHas('order', fn ($q) => $q->where('buyer_id', $user->id))
@@ -34,7 +38,7 @@ class NotificationController extends Controller
                 'body'       => $this->statusMessage($h->to_status, $h->note),
                 'order_id'   => $h->order_id,
                 'created_at' => $h->created_at->toIso8601String(),
-                'read'       => false,
+                'read'       => in_array('order-'.$h->id, $readKeys, true),
             ];
         }
 
@@ -52,13 +56,49 @@ class NotificationController extends Controller
                 'body'       => 'You rated a product '.$r->rating.'/5.',
                 'order_id'   => $r->order_id,
                 'created_at' => $r->created_at?->toIso8601String() ?? now()->toIso8601String(),
-                'read'       => true,
+                'read'       => in_array('review-'.$r->id, $readKeys, true),
+            ];
+        }
+
+        $conversations = Conversation::with('lastMessage')
+            ->where('buyer_id', $user->id)
+            ->whereHas('messages', fn ($q) => $q->where('sender_id', '!=', $user->id)->where('is_read', false))
+            ->latest('updated_at')->limit(20)->get();
+        foreach ($conversations as $conversation) {
+            $last = $conversation->lastMessage;
+            if (! $last || (int) $last->sender_id === (int) $user->id) continue;
+            $key = 'chat-'.$conversation->id.'-'.$last->id;
+            $items[] = [
+                'id' => $key,
+                'type' => 'chat',
+                'title' => 'New seller message',
+                'body' => \Illuminate\Support\Str::limit($last->body, 100),
+                'order_id' => null,
+                'conversation_id' => $conversation->id,
+                'created_at' => $last->created_at->toIso8601String(),
+                'read' => in_array($key, $readKeys, true),
             ];
         }
 
         usort($items, fn ($a, $b) => strcmp($b['created_at'], $a['created_at']));
 
         return response()->json(['notifications' => array_slice($items, 0, 40)]);
+    }
+
+    public function read(Request $request)
+    {
+        $validated = $request->validate(['id' => ['required', 'string', 'max:191']]);
+        NotificationRead::firstOrCreate(['user_id' => $request->user()->id, 'notification_key' => $validated['id']]);
+        return response()->json(['message' => 'Notification marked as read.']);
+    }
+
+    public function readAll(Request $request)
+    {
+        $items = $this->index($request)->getData(true)['notifications'] ?? [];
+        foreach ($items as $item) {
+            NotificationRead::firstOrCreate(['user_id' => $request->user()->id, 'notification_key' => $item['id']]);
+        }
+        return response()->json(['message' => 'Notifications marked as read.']);
     }
 
     protected function statusMessage(string $status, ?string $note): string

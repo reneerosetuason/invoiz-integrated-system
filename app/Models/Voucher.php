@@ -57,21 +57,26 @@ class Voucher extends Model
             if (empty($v->name) && ! empty($v->code)) {
                 $v->name = $v->code;
             }
-            // Normalize status to the shared enum.
-            if ($v->status === true || $v->status === 1 || $v->status === '1') {
-                $v->status = 'active';
-            } elseif ($v->status === false || $v->status === 0 || $v->status === '0') {
-                $v->status = 'inactive';
+            // Shared databases may store status as a boolean or a string enum.
+            $status = strtolower((string) $v->status);
+            $enabled = in_array($status, ['active', '1', 'true'], true);
+            try {
+                $statusType = \Illuminate\Support\Facades\Schema::getColumnType('vouchers', 'status');
+                $booleanStatus = in_array($statusType, ['boolean', 'tinyint', 'integer', 'smallint'], true);
+            } catch (\Throwable $e) {
+                $booleanStatus = false;
             }
-            if (empty($v->status)) {
-                $v->status = 'active';
+            if ($booleanStatus) {
+                $v->status = $status === '' ? 1 : (int) $enabled;
+            } else {
+                $v->status = $status === '' ? 'active' : ($enabled ? 'active' : 'inactive');
             }
         });
     }
 
     public function getStatusBoolAttribute(): bool
     {
-        return $this->status === 'active' || $this->status === true || $this->status === 1;
+        return in_array($this->status, ['active', true, 1, '1'], true);
     }
 
     /** Active vouchers within date window and usage limit — used by checkout. */
@@ -87,6 +92,8 @@ class Voucher extends Model
             $q->whereNull('valid_from')->orWhere('valid_from', '<=', now());
         })->where(function ($q) {
             $q->whereNull('valid_until')->orWhere('valid_until', '>=', now());
+        })->where(function ($q) {
+            $q->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit');
         });
     }
 
@@ -105,7 +112,7 @@ class Voucher extends Model
 
     public function getIsActiveAttribute(): bool
     {
-        $active = $this->status === 'active' || $this->status === true || $this->status === 1;
+        $active = in_array($this->status, ['active', true, 1, '1'], true);
         if (! $active) {
             return false;
         }
@@ -113,6 +120,12 @@ class Voucher extends Model
             return false;
         }
         if ($this->ends_at && $this->ends_at->isPast()) {
+            return false;
+        }
+        if ($this->valid_from && \Illuminate\Support\Carbon::parse($this->valid_from)->isFuture()) {
+            return false;
+        }
+        if ($this->valid_until && \Illuminate\Support\Carbon::parse($this->valid_until)->isPast()) {
             return false;
         }
         if ($this->usage_limit !== null && $this->used_count >= $this->usage_limit) {

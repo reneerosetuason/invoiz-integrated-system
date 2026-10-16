@@ -7,13 +7,17 @@
     $inCart = \App\Models\Cart::itemsFor($buyer['id'])->where('product_id',$p->id)->exists();
   }
   $hasDeal = $p->compare_at_price && $p->compare_at_price > $p->price;
-  $backQs = request('category') ? '?category='.request('category').(request('search') ? '&search='.urlencode(request('search')) : '') : (request('search') ? '?search='.urlencode(request('search')) : '');
+  $backQuery = array_filter(['category'=>request('category'),'search'=>request('search'),'sort'=>request('sort')]);
+  $backQs = $backQuery ? '?'.http_build_query($backQuery) : '';
+  $backHref = request('source_store')
+    ? url('/store/'.(int)request('source_store').'?'.http_build_query(array_filter(['search'=>request('search'),'sort'=>request('sort')])))
+    : (request('source_sale') ? url('/sale'.$backQs) : (request('source_landing') ? url('/?'.http_build_query(array_filter(['sort'=>request('sort')]))) : url('/shop'.$backQs)));
 @endphp
 <div class="shopx">
 <div class="wrap">
 
   <div class="backrow rv">
-    <a href="{{ url('/'.$backQs) }}" class="backlink"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to store</a>
+    <a href="{{ $backHref }}" class="backlink"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to store</a>
     <nav class="crumbs" aria-label="Breadcrumb">
       <a href="{{ url('/shop') }}" class="u-line">Shop</a>
       <span aria-hidden="true">/</span>
@@ -55,7 +59,12 @@
       @if($p->brand)
         <div class="pbrandline">{{ $p->brand }}</div>
       @endif
-      <div class="soldby">Sold by <a href="{{ url('/store/'.$p->seller_id) }}" class="u-line">{{ \App\Models\Seller::nameFor($p->seller_id) }}</a></div>
+      <div class="soldby">Sold by <a href="{{ url('/store/'.$sellerUserId) }}" class="u-line">{{ \App\Models\Seller::nameFor($sellerUserId) }}</a></div>
+
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;color:#A16207;font-size:13px;font-weight:700">
+        <span aria-label="{{ number_format((float)$p->rating,1) }} out of 5 stars">{{ $p->rating ? '★ '.number_format((float)$p->rating,1) : 'No ratings yet' }}</span>
+        <span style="color:var(--text3);font-weight:500">{{ $p->reviews->count() ? '('.$p->reviews->count().' '.($p->reviews->count() === 1 ? 'review' : 'reviews').')' : ($p->rating ? '(rating on file)' : '(0 reviews)') }}</span>
+      </div>
 
       <div class="pricerow">
         <span class="bignum">₱{{ number_format($p->price,2) }}</span>
@@ -88,7 +97,12 @@
         <button type="button" onclick="openOpt(true)" class="btn-p btn-solid"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Buy Now</button>
       </div>
 
-      <a href="{{ url('/chat/seller/'.$p->seller_id) }}" class="msglink u-line">
+      <form method="POST" action="{{ url('/wishlist/'.$p->id.'/toggle') }}" style="margin-top:10px">
+        @csrf
+        <button type="submit" class="btn-p btn-line" style="width:100%">{{ $isFavorited ? '♥ Saved to Wishlist · Remove' : '♡ Add to Wishlist' }}</button>
+      </form>
+
+      <a href="{{ url('/chat/seller/'.$sellerUserId) }}" class="msglink u-line">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Message Seller
       </a>
 
@@ -122,6 +136,23 @@
       <div class="row"><dt>Category</dt><dd>{{ $p->category->name ?? '—' }}</dd></div>
       <div class="row"><dt>Stock</dt><dd>{{ $p->stock }} available · Cash on Delivery</dd></div>
     </dl>
+  </section>
+
+  <section class="details rv" aria-labelledby="reviews-h" style="margin-top:18px">
+    <div class="eyebrow">Buyer feedback</div>
+    <h2 id="reviews-h">Ratings and reviews</h2>
+    @forelse($p->reviews as $review)
+      <article style="padding:14px 0;border-bottom:1px solid var(--border-light)">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <strong style="font-size:13px">{{ $review->buyer?->full_name ?? trim(($review->buyer?->first_name ?? '').' '.($review->buyer?->last_name ?? '')) ?: 'Buyer' }}</strong>
+          <span aria-label="{{ $review->rating }} out of 5 stars" style="color:#A16207;letter-spacing:1px">@for($star=1;$star<=5;$star++){{ $star <= (int)$review->rating ? '★' : '☆' }}@endfor</span>
+        </div>
+        @if($review->comment)<p style="margin:6px 0 0;font-size:13px;color:var(--text2);line-height:1.5">{{ $review->comment }}</p>@endif
+        <div style="font-size:11px;color:var(--text3);margin-top:5px">{{ $review->created_at?->diffForHumans() }}</div>
+      </article>
+    @empty
+      <p style="font-size:13px;color:var(--text2)">No reviews yet. Buyers can rate this product after delivery.</p>
+    @endforelse
   </section>
 
 </div>

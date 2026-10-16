@@ -32,8 +32,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [App\Http\Controllers\Api\AuthController::class, 'me']);
     Route::get('/cart', [App\Http\Controllers\Api\CartController::class, 'index']);
     Route::post('/cart/add', [App\Http\Controllers\Api\CartController::class, 'add']);
+    Route::apiResource('addresses', App\Http\Controllers\Api\AddressController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/orders', [App\Http\Controllers\Api\OrderController::class, 'index']);
     Route::post('/orders/checkout', [App\Http\Controllers\Api\OrderController::class, 'checkout']);
+    Route::post('/orders/{id}/cancel', [App\Http\Controllers\Api\OrderController::class, 'cancel'])->whereNumber('id');
+    Route::post('/orders/{id}/rate', [App\Http\Controllers\Api\OrderController::class, 'rate'])->whereNumber('id');
+
+    Route::get('/favorites', [App\Http\Controllers\Api\FavoriteController::class, 'index']);
+    Route::post('/favorites/toggle', [App\Http\Controllers\Api\FavoriteController::class, 'toggle']);
+    Route::get('/vouchers', [App\Http\Controllers\Api\VoucherController::class, 'index']);
+    Route::get('/vouchers/claimed', [App\Http\Controllers\Api\VoucherController::class, 'claimed']);
+    Route::post('/vouchers/{voucher}/claim', [App\Http\Controllers\Api\VoucherController::class, 'claim'])->whereNumber('voucher');
+    Route::get('/notifications', [App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::post('/notifications/read', [App\Http\Controllers\Api\NotificationController::class, 'read']);
+    Route::post('/notifications/read-all', [App\Http\Controllers\Api\NotificationController::class, 'readAll']);
+    Route::get('/chat', [App\Http\Controllers\Api\ChatController::class, 'index']);
+    Route::post('/chat', [App\Http\Controllers\Api\ChatController::class, 'store']);
+    Route::get('/chat/{id}/messages', [App\Http\Controllers\Api\ChatController::class, 'messages'])->whereNumber('id');
+    Route::post('/chat/{id}/reply', [App\Http\Controllers\Api\ChatController::class, 'reply'])->whereNumber('id');
 
     Route::prefix('admin')->group(function () {
         Route::apiResource('sellers', SellerController::class)->only(['index','show']);

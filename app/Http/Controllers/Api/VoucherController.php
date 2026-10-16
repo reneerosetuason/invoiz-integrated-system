@@ -4,15 +4,62 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Voucher;
+use App\Models\VoucherClaim;
 use Illuminate\Http\Request;
 
 class VoucherController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $vouchers = Voucher::active()->orderBy('min_spend')->get();
+        $vouchers = Voucher::active()
+            ->where(fn ($q) => $q->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit'))
+            ->orderBy('min_spend')->get();
+        $claimed = $request->user()
+            ? VoucherClaim::where('buyer_id', $request->user()->id)->pluck('voucher_id')->map(fn ($id) => (int) $id)->all()
+            : [];
+        $vouchers->each(function ($voucher) use ($claimed) {
+            $voucher->setAttribute('is_claimed', in_array((int) $voucher->id, $claimed, true));
+            $this->hideBuyerCode($voucher);
+        });
 
         return response()->json(['vouchers' => $vouchers]);
+    }
+
+    public function claimed(Request $request)
+    {
+        $claims = VoucherClaim::with('voucher')
+            ->where('buyer_id', $request->user()->id)->whereNull('used_at')
+            ->whereHas('voucher', fn ($q) => $q->active()->where(fn ($x) => $x->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit')))
+            ->latest('claimed_at')->get();
+        foreach ($claims as $claim) {
+            if ($claim->voucher) $this->hideBuyerCode($claim->voucher);
+        }
+
+        return response()->json(['vouchers' => $claims]);
+    }
+
+    public function claim(Request $request, Voucher $voucher)
+    {
+        if (! $voucher->is_active || ($voucher->usage_limit !== null && $voucher->used_count >= $voucher->usage_limit)) {
+            return response()->json(['message' => 'This voucher is no longer available.'], 422);
+        }
+
+        $existing = VoucherClaim::where([
+            'buyer_id' => $request->user()->id,
+            'voucher_id' => $voucher->id,
+        ])->first();
+        if ($existing?->used_at) {
+            return response()->json(['message' => 'You already used this voucher.'], 409);
+        }
+        $claim = $existing ?: VoucherClaim::create([
+            'buyer_id' => $request->user()->id,
+            'voucher_id' => $voucher->id,
+            'claimed_at' => now(),
+        ]);
+        $claim->load('voucher');
+        if ($claim->voucher) $this->hideBuyerCode($claim->voucher);
+
+        return response()->json(['message' => 'Voucher claimed.', 'claim' => $claim], 201);
     }
 
     public function validateCode(Request $request)
@@ -68,5 +115,13 @@ class VoucherController extends Controller
             'voucher'  => $voucher,
             'discount' => round($discount, 2),
         ]);
+    }
+
+    private function hideBuyerCode(Voucher $voucher): void
+    {
+        if ($voucher->name === $voucher->code) {
+            $voucher->setAttribute('name', 'Store offer');
+        }
+        $voucher->makeHidden('code');
     }
 }

@@ -124,7 +124,7 @@
 
                     <div>
                         <label for="weight" class="block text-sm font-medium text-gray-700 mb-1">Package Weight (kg)</label>
-                        <input type="number" name="weight" id="weight" value="{{ old('weight') }}" step="0.1" min="0"
+                        <input type="number" name="weight" id="weight" value="{{ old('weight') }}" step="0.01" min="0.01"
                                class="w-full rounded-xl border-gray-300 shadow-sm focus:border-teal focus:ring-teal text-sm">
                         @error('weight')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>

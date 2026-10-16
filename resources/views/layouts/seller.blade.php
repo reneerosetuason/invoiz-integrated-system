@@ -118,10 +118,14 @@
             <a href="{{ route('seller.account') }}" title="Account Management" class="{{ request()->routeIs('seller.account') ? 'active' : '' }}">
                 <x-icon name="user" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Account Management</span>
             </a>
-            @if(auth()->check() && auth()->user()->isBuyer())
-            <a href="{{ url('/shop') }}" title="Switch to Buyer">
-                <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Switch to Buyer</span>
-            </a>
+            @if(auth()->check() && auth()->user()->canSell())
+            <form method="POST" action="{{ route('role.switch') }}" class="role-switch-form">
+                @csrf
+                <input type="hidden" name="role" value="buyer">
+                <button type="submit" class="role-switch-link" title="Switch to Buyer">
+                    <x-icon name="shopping-bag" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Switch to Buyer</span>
+                </button>
+            </form>
             @endif
         </nav>
 

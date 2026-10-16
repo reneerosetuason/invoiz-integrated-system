@@ -106,8 +106,11 @@
                     </form>
                 </div>
 
-                <p class="mt-6 text-center text-xs text-ink-light">
-                    Buyers: go to the <a href="http://127.0.0.1:8000" class="font-semibold text-[#16697A] hover:underline">Invoiz app</a>
+                <p class="mt-4 text-center text-xs text-ink-light">
+                    New seller? <a href="{{ url('/sell') }}" class="font-bold text-[#16697A] hover:underline">Apply to Sell on Invoiz →</a>
+                </p>
+                <p class="mt-2 text-center text-xs text-ink-light">
+                    Buyers: go to the <a href="{{ url('/shop') }}" class="font-semibold text-[#16697A] hover:underline">Invoiz app</a>
                 </p>
             </div>
         </div>

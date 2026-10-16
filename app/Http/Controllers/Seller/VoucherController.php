@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 
+use App\Models\Seller;
 use App\Models\Voucher;
 use Illuminate\Http\Request;
 
@@ -11,8 +12,9 @@ class VoucherController extends Controller
 {
     public function index()
     {
-        $scope = Voucher::where(function ($q) {
-            $q->whereNull('seller_id')->orWhere('seller_id', auth()->id());
+        $sellerIds = $this->sellerRecord()->catalogIds();
+        $scope = Voucher::where(function ($q) use ($sellerIds) {
+            $q->whereNull('seller_id')->orWhereIn('seller_id', $sellerIds);
         });
         $vouchers = (clone $scope)->latest()->paginate(10);
         // Full map for the edit modal (the table only holds one page).
@@ -38,7 +40,7 @@ class VoucherController extends Controller
         ]);
 
         Voucher::create([
-            'seller_id'      => auth()->id(),
+            'seller_id'      => $this->sellerRecord()->id,
             'code'           => strtoupper($validated['code']),
             'name'           => $validated['name'],
             'description'    => $validated['description'] ?? null,
@@ -57,8 +59,9 @@ class VoucherController extends Controller
 
     public function update(Request $request, $id)
     {
-        $voucher = Voucher::where(function ($q) {
-            $q->whereNull('seller_id')->orWhere('seller_id', auth()->id());
+        $sellerIds = $this->sellerRecord()->catalogIds();
+        $voucher = Voucher::where(function ($q) use ($sellerIds) {
+            $q->whereNull('seller_id')->orWhereIn('seller_id', $sellerIds);
         })->findOrFail($id);
 
         $validated = $request->validate([
@@ -92,7 +95,7 @@ class VoucherController extends Controller
 
     public function destroy($id)
     {
-        $voucher = Voucher::where('seller_id', auth()->id())->findOrFail($id);
+        $voucher = Voucher::whereIn('seller_id', $this->sellerRecord()->catalogIds())->findOrFail($id);
 
         if ($voucher->used_count > 0) {
             return back()->with('error', 'This voucher has already been used and cannot be deleted.');
@@ -101,5 +104,10 @@ class VoucherController extends Controller
         $voucher->delete();
 
         return back()->with('success', 'Voucher deleted.');
+    }
+
+    private function sellerRecord(): Seller
+    {
+        return Seller::where('user_id', auth()->id())->firstOrFail();
     }
 }

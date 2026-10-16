@@ -17,12 +17,9 @@ use Illuminate\Support\Facades\Mail;
  *
  * - Register ALWAYS creates a buyer account and sends the user
  *   straight to the buyer shop (/shop).
- * - Login inspects role and redirects:
- *     admin  -> /admin/dashboard
- *     seller-only -> /seller/dashboard
- *     buyer-only  -> /shop
- *     BOTH buyer+sellers (approved store linked) -> /choose
- *       (user picks Continue as Buyer or Continue as Seller)
+ * - Login sends admins to /admin/dashboard and buyer accounts to /shop.
+ * - Accounts with an approved store can use both buyer and seller areas and
+ *   choose which dashboard to enter at /choose.
  */
 class UnifiedAuthController extends Controller
 {
@@ -234,7 +231,8 @@ class UnifiedAuthController extends Controller
         $request->session()->regenerate();
         $this->putBuyerSession($request, $user);
 
-        return redirect()->intended('/shop')->with('success', 'Email verified — welcome, ' . ($user->first_name ?? 'buyer') . '!');
+        return $this->redirectForRole($user)
+            ->with('success', 'Email verified — welcome, ' . ($user->first_name ?? 'buyer') . '!');
     }
 
     public function resendCode(Request $request)
@@ -450,16 +448,11 @@ class UnifiedAuthController extends Controller
             }
         }
 
-        // Pure sellers go straight to their dashboard — no choosing needed.
-        if ($user->role === 'seller' && $seller && $seller->isApproved()) {
-            session()->put('seller_id', $seller->id);
-            return redirect()->intended('/seller/dashboard');
-        }
-
-        // Buyer-role accounts with an approved store use both sides,
-        // so only they must choose first.
         if ($seller && $seller->isApproved()) {
-            return redirect()->intended('/choose');
+            // Approval changes the single stored role to "seller", but the
+            // account still has buyer access. Ask which side to enter first.
+            session()->forget(['active_role', 'seller_id']);
+            return redirect('/choose');
         }
 
         if ($user->role === 'seller') {
@@ -483,46 +476,75 @@ class UnifiedAuthController extends Controller
         if ($user->isAdmin()) {
             return redirect('/admin/dashboard');
         }
+        if (! $user->isActive()) {
+            Auth::logout();
+            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+        }
         $seller = Seller::where('user_id', $user->id)->first();
         if (! $seller || ! $seller->isApproved()) {
             return $this->redirectForRole($user);
         }
-        // Pure sellers never see the chooser — straight to their dashboard.
-        if ($user->role === 'seller') {
-            session()->put('seller_id', $seller->id);
-            return redirect('/seller/dashboard');
-        }
         return view('auth.choose', ['user' => $user, 'storeName' => $seller->display_name]);
     }
 
-    public function chooseBuyer()
+    public function chooseBuyer(Request $request)
     {
         $user = Auth::user();
         if (! $user) {
             return redirect('/login');
         }
-        $request = request();
+        if ($user->isAdmin()) {
+            return redirect('/admin/dashboard');
+        }
+        if (! $user->isActive()) {
+            Auth::logout();
+            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+        }
+        $request->session()->forget('seller_id');
+        $request->session()->put('active_role', 'buyer');
         $request->session()->put('buyer', [
             'id' => $user->id,
             'first_name' => $user->first_name ?? strtok($user->displayName(), ' '),
             'last_name' => $user->last_name ?? '',
             'email' => $user->email,
         ]);
-        return redirect()->intended('/shop');
+        return redirect('/shop');
     }
 
-    public function chooseSeller()
+    public function chooseSeller(Request $request)
     {
         $user = Auth::user();
         if (! $user) {
             return redirect('/login');
         }
-        $seller = Seller::where('user_id', $user->id)->first();
+        if ($user->isAdmin()) {
+            return redirect('/admin/dashboard');
+        }
+        if (! $user->isActive()) {
+            Auth::logout();
+            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+        }
+        $seller = Seller::where('user_id', $user->id)->approved()->first();
         if (! $seller || ! $seller->isApproved()) {
             return redirect('/shop')->with('error', 'No approved seller store is linked to this email yet.');
         }
-        session()->put('seller_id', $seller->id);
-        // Straight to the seller center (exact original seller pages).
-        return redirect()->intended('/seller/dashboard');
+        $request->session()->put('active_role', 'seller');
+        $request->session()->put('seller_id', $seller->id);
+        return redirect('/seller/dashboard');
+    }
+
+    public function switchRole(Request $request)
+    {
+        $data = $request->validate([
+            'role' => ['required', 'in:buyer,seller'],
+        ]);
+
+        if (! Auth::check() || ! Auth::user()->canSell()) {
+            return redirect('/shop')->with('error', 'Role switching is available only for approved sellers.');
+        }
+
+        return $data['role'] === 'seller'
+            ? $this->chooseSeller($request)
+            : $this->chooseBuyer($request);
     }
 }

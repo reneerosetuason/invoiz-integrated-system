@@ -15,18 +15,31 @@ class Seller extends Model
         'store_name',
         'business_name',
         'line_of_business',
+        'seller_type',
+        'tin',
+        'region',
+        'province',
+        'city',
+        'barangay',
+        'postal_code',
+        'address_line',
         'status',
         'approval_status',
+        'rejection_reason',
+        'terms_accepted',
         'primary_color',
         'accent_color',
         'logo',
         'id_image',
         'business_permit',
+        'dti_certificate',
+        'bir_2303',
     ];
 
     protected $casts = [
         'primary_color' => 'string',
         'accent_color' => 'string',
+        'terms_accepted' => 'boolean',
     ];
 
     protected static function booted(): void
@@ -74,16 +87,25 @@ class Seller extends Model
      */
     public static function nameFor(int $id): string
     {
-        $s = static::find($id);
-        if (! $s) {
-            $s = static::where('user_id', $id)->first();
-        }
+        $s = static::where('user_id', $id)->first() ?? static::find($id);
         if (! $s) {
             $u = User::find($id);
             if ($u) return $u->displayName() ?: 'Store';
             return 'Store';
         }
         return $s->display_name;
+    }
+
+    /** Resolve either the seller row id or seller user id to the user id used by messaging. */
+    public static function userIdFor(int $id): int
+    {
+        $sellerByUser = static::where('user_id', $id)->first();
+        if ($sellerByUser) {
+            return (int) $sellerByUser->user_id;
+        }
+
+        $sellerById = static::find($id);
+        return (int) ($sellerById?->user_id ?? $id);
     }
 
     /**
@@ -105,6 +127,51 @@ class Seller extends Model
     public function logoUrl(): ?string
     {
         return $this->logo ? url('storage/' . ltrim($this->logo, '/')) : null;
+    }
+
+    public function idImageUrl(): ?string
+    {
+        return $this->id_image ? url('storage/' . ltrim($this->id_image, '/')) : null;
+    }
+
+    public function businessPermitUrl(): ?string
+    {
+        return $this->business_permit ? url('storage/' . ltrim($this->business_permit, '/')) : null;
+    }
+
+    public function dtiCertificateUrl(): ?string
+    {
+        return $this->dti_certificate ? url('storage/' . ltrim($this->dti_certificate, '/')) : null;
+    }
+
+    public function bir2303Url(): ?string
+    {
+        return $this->bir_2303 ? url('storage/' . ltrim($this->bir_2303, '/')) : null;
+    }
+
+    public function fullAddress(): string
+    {
+        $parts = array_filter([
+            $this->address_line,
+            $this->barangay ? 'Brgy. ' . $this->barangay : null,
+            $this->city,
+            $this->province,
+            $this->region,
+            $this->postal_code,
+        ]);
+
+        if (empty($parts) && $this->user) {
+            $parts = array_filter([
+                $this->user->address_line,
+                $this->user->barangay ? 'Brgy. ' . $this->user->barangay : null,
+                $this->user->city ?: $this->user->municipality,
+                $this->user->province,
+                $this->user->region,
+                $this->user->postal_code,
+            ]);
+        }
+
+        return implode(', ', $parts);
     }
 
     public function user()

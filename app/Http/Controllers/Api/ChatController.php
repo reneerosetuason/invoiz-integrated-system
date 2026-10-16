@@ -11,6 +11,7 @@ class ChatController extends Controller
 {
     public function index(Request $request)
     {
+        \App\Support\ChatBridge::linkExistingForBuyer((int) $request->user()->id);
         $conversations = Conversation::with(['lastMessage.sender', 'seller.seller'])
             ->where('buyer_id', $request->user()->id)
             ->withCount(['messages as unread_count' => function ($q) use ($request) {
