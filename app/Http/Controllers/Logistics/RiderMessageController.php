@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Logistics;
 
-use App\Models\Conversation;
-use App\Models\Message;
-use App\Models\MessageAttachment;
+use App\Models\Logistics\Conversation;
+use App\Models\Logistics\Message;
+use App\Models\Logistics\MessageAttachment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;

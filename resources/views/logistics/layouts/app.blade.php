@@ -97,7 +97,7 @@
                 this.sidebarHover = !this.sidebarHover;
             }
         }" x-init="
-            fetch('{{ route('notifications.index') }}')
+            fetch('{{ route('notifications.index', [], false) }}')
                 .then(r => r.json())
                 .then(d => { notifications = d.notifications; unreadCount = d.unread_count; });
             @if($sidebarRemember)
@@ -149,7 +149,7 @@
                                     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                                         <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
                                         <button @click="
-                                            fetch('{{ route('notifications.mark-all-read') }}', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+                                            fetch('{{ route('notifications.mark-all-read', [], false) }}', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
                                                 .then(r => r.json())
                                                 .then(d => { unreadCount = d.unread_count; notifications.forEach(n => n.is_read = true); })
                                         " x-show="unreadCount > 0" class="text-xs font-medium text-teal hover:text-teal-dark">Mark all read</button>
@@ -164,7 +164,7 @@
                                         <template x-for="n in notifications" :key="n.id">
                                             <div @click="
                                                 if (!n.is_read) {
-                                                    fetch('{{ url('notifications') }}/' + n.id + '/read', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+                                                    fetch('/logistics/notifications/' + n.id + '/read', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
                                                         .then(r => r.json())
                                                         .then(d => { unreadCount = d.unread_count; n.is_read = true; });
                                                 }

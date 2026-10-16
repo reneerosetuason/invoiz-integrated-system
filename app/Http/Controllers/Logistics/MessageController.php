@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers\Logistics;
 
-use App\Models\Conversation;
-use App\Models\Message;
-use App\Models\MessageAttachment;
+use App\Models\Logistics\Conversation;
+use App\Models\Logistics\Message;
+use App\Models\Logistics\MessageAttachment;
 use App\Models\Notification;
 use App\Models\Rider;
 use App\Models\RiderNotification;
@@ -293,7 +293,7 @@ class MessageController extends Controller
     public function update(Request $request, Message $message): JsonResponse
     {
         $user = $request->user();
-        abort_unless(in_array($user->role, ['admin', 'staff']), 403);
+        abort_unless(in_array($user->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff']), 403);
         abort_unless($message->canBeEditedBy($user), 403, 'You can only edit your own messages.');
 
         $validated = $request->validate([
@@ -315,7 +315,7 @@ class MessageController extends Controller
     public function destroy(Request $request, Message $message): JsonResponse
     {
         $user = $request->user();
-        abort_unless(in_array($user->role, ['admin', 'staff']), 403);
+        abort_unless(in_array($user->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff']), 403);
         abort_unless($message->canBeEditedBy($user), 403, 'You can only delete your own messages.');
 
         $message->update(['deleted_at' => now()]);
@@ -348,7 +348,7 @@ class MessageController extends Controller
      */
     private function serveAttachment(MessageAttachment $attachment, string $disposition): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
-        abort_unless(in_array(auth()->user()?->role, ['admin', 'staff']), 403);
+        abort_unless(in_array(auth()->user()?->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff']), 403);
         abort_unless($attachment->fileExists(), 404, 'Attachment is missing or was deleted.');
 
         return response()->file($attachment->absolutePath(), [

@@ -374,7 +374,7 @@
                 async selectConversation(id) {
                     this.error = '';
                     try {
-                        const r = await fetch('/messages/' + id, { headers: { 'Accept': 'application/json' } });
+                        const r = await fetch('/logistics/messages/' + id, { headers: { 'Accept': 'application/json' } });
                         if (!r.ok) throw new Error('Could not open this conversation.');
                         const data = await r.json();
                         this.active = data.active;
@@ -417,7 +417,7 @@
                         if (this.$refs.attachment.files[0]) {
                             fd.append('attachment', this.$refs.attachment.files[0]);
                         }
-                        const r = await fetch('/messages', {
+                        const r = await fetch('/logistics/messages', {
                             method: 'POST',
                             headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                             body: fd,
@@ -500,7 +500,7 @@
                     this.sending = true;
                     this.error = '';
                     try {
-                        const r = await fetch('/messages/' + this.editing.id, {
+                        const r = await fetch('/logistics/messages/' + this.editing.id, {
                             method: 'PATCH',
                             headers: { 'X-CSRF-TOKEN': this.csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
                             body: JSON.stringify({ body: this.draft.trim() }),
@@ -522,7 +522,7 @@
                     if (!confirm('Delete this message?')) return;
                     this.error = '';
                     try {
-                        const r = await fetch('/messages/' + msg.id, {
+                        const r = await fetch('/logistics/messages/' + msg.id, {
                             method: 'DELETE',
                             headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                         });
@@ -544,7 +544,7 @@
                             filter: this.filter || 'all',
                             per_page: this.perPage || 10,
                         });
-                        const r = await fetch('/messages/poll?' + params.toString(), { headers: { 'Accept': 'application/json' } });
+                        const r = await fetch('/logistics/messages/poll?' + params.toString(), { headers: { 'Accept': 'application/json' } });
                         if (!r.ok) return;
                         const data = await r.json();
                         this.conversations = data.conversations;

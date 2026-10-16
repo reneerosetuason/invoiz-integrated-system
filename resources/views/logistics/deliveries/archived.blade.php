@@ -81,12 +81,12 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center gap-3">
                                         <button type="button"
-                                                data-restore-url="{{ route('deliveries.restore', $delivery) }}"
+                                                data-restore-url="{{ route('deliveries.restore', $delivery, false) }}"
                                                 @click="restoreUrl = $el.dataset.restoreUrl; restoreOpen = true"
                                                 class="text-sm font-semibold text-teal hover:text-teal-dark">Restore</button>
                                         @can('permanentlyDelete')
                                             <button type="button"
-                                                    data-delete-url="{{ route('deliveries.destroy', $delivery) }}"
+                                                    data-delete-url="{{ route('deliveries.destroy', $delivery, false) }}"
                                                     @click="deleteUrl = $el.dataset.deleteUrl; deleteOpen = true"
                                                     class="text-sm font-semibold text-red-500 hover:text-red-700">Delete Permanently</button>
                                         @endcan

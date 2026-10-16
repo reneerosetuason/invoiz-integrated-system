@@ -99,8 +99,8 @@
     .sb2--buyer .sidebar-nav a svg{width:18px;height:18px}
 }
 @media(max-width:1023.98px){
-    .sb2--buyer{position:fixed;top:0;bottom:0;left:0;z-index:60;width:min(300px,88vw);transform:translateX(-106%);transition:transform .25s cubic-bezier(.22,1,.36,1)}
-    .sb2--buyer.drawer-open{transform:none}
+    .sb2--buyer{position:fixed;top:0;bottom:0;left:0;z-index:60;width:min(300px,88vw);transform:translateX(-106%);transition:transform .25s cubic-bezier(.22,1,.36,1),visibility 0s .25s;visibility:hidden}
+    .sb2--buyer.drawer-open{transform:none;visibility:visible;transition:transform .25s cubic-bezier(.22,1,.36,1),visibility 0s 0s}
     .sb-scrim{position:fixed;inset:0;z-index:55;background:rgba(14,74,87,.32)}
 }
 @media (prefers-reduced-motion: reduce){

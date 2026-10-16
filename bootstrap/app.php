@@ -52,6 +52,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 $target = '/logistics/login';
             } elseif ($request->is('logout') || $request->is('admin/logout') || $request->is('seller/logout') || $request->is('buyer/logout')) {
                 $target = '/login';
+            } elseif ($request->is('logistics/deliveries*')) {
+                // Stale-token submits from the deliveries modals (long-idle tabs,
+                // back-button resubmits): send them back to the list with a fresh
+                // token instead of stranding them on a 419 page. Nothing was changed.
+                return redirect()->route('deliveries.index')->with('error', 'Your session had expired, so nothing was archived. Please try again.');
             } else {
                 return null;
             }

@@ -196,6 +196,17 @@ class OrderController extends Controller
         $order->seller_items = $order->items->where('seller_id', $sellerId)->values();
         $order->seller_subtotal = round($order->seller_items->sum('subtotal'), 2);
 
+        // The slip must carry the same machine-readable tracking as the
+        // logistics label so counter scans accept it. Backfill the TRK number
+        // (same format the logistics side auto-generates) when missing.
+        if ($order->delivery && empty($order->delivery->tracking_number)) {
+            do {
+                $tracking = 'TRK-' . now()->format('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(4));
+            } while (Delivery::where('tracking_number', $tracking)->exists());
+            $order->delivery->update(['tracking_number' => $tracking]);
+            $order->delivery->refresh();
+        }
+
         return view('seller.orders.waybill', compact('order'));
     }
 

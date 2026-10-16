@@ -417,7 +417,7 @@
                     <div class="border-2 border-[#111111]">
                         {{-- Header --}}
                         <div class="px-3 pt-2.5 pb-2 border-b-2 border-[#111111] flex items-center gap-2.5">
-                            <img src="{{ asset('images/logo-nobg.png') }}" alt="INVOIZ logo" class="h-12 w-auto flex-shrink-0">
+                            <img src="{{ asset('images/logo.png') }}" alt="INVOIZ logo" class="h-12 w-auto flex-shrink-0">
                             <p class="text-lg font-extrabold tracking-tight leading-none whitespace-nowrap text-[#0E4A57]">SHIPPING WAYBILL</p>
                         </div>
 

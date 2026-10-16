@@ -61,4 +61,10 @@ class OrderItem extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    /** Seller account that owns this line (order_items.seller_id = users.id). */
+    public function seller()
+    {
+        return $this->belongsTo(User::class, 'seller_id');
+    }
 }

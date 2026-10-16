@@ -195,7 +195,7 @@
                                 <a href="{{ route('deliveries.show', $delivery) }}" class="text-teal hover:text-teal-dark font-semibold">View</a>
                                 <a href="{{ route('deliveries.edit', $delivery) }}" class="text-gray-600 hover:text-gray-900">Edit</a>
                                 <button type="button"
-                                        data-archive-url="{{ route('deliveries.archive', $delivery) }}"
+                                        data-archive-url="{{ route('deliveries.archive', $delivery, false) }}"
                                         @click="archiveUrl = $el.dataset.archiveUrl; archiveOpen = true"
                                         class="text-gray-500 hover:text-gray-900 font-semibold">
                                     Archive

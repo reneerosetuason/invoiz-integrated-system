@@ -4,7 +4,7 @@
   'use strict';
   function init() {
     var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    var els = Array.prototype.slice.call(document.querySelectorAll('.shopx .rv'));
+    var els = Array.prototype.slice.call(document.querySelectorAll('.shopx .rv, .cartx .rv, .ordx .rv'));
     if (!els.length) return;
     if (reduce || !('IntersectionObserver' in window)) {
       els.forEach(function (el) { el.classList.add('in'); });

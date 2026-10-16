@@ -127,9 +127,9 @@ class ReportController extends Controller
         ];
 
         if ($tab === 'all') {
-            $pdf = Pdf::loadView('reports.pdf-all', array_merge($common, ['stats' => $stats]));
+            $pdf = Pdf::loadView('logistics.reports.pdf-all', array_merge($common, ['stats' => $stats]));
         } else {
-            $pdf = Pdf::loadView('reports.pdf', array_merge($common, ['tab' => $tab, 'stats' => $stats]));
+            $pdf = Pdf::loadView('logistics.reports.pdf', array_merge($common, ['tab' => $tab, 'stats' => $stats]));
         }
 
         $pdf->setPaper('a4', 'portrait');

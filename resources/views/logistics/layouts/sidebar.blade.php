@@ -31,6 +31,9 @@
     $activeReports   = request()->routeIs('reports.*');
     $activeArchived  = request()->routeIs('deliveries.archived');
     $activeSettings  = request()->routeIs('settings.*');
+    $activeMessages  = request()->routeIs('messages.*');
+    $msgUnreadCount = 0;
+    try { $msgUnreadCount = (int) \App\Models\Logistics\Conversation::sum('unread_count'); } catch (\Throwable $e) {}
 @endphp
 
 <style>
@@ -164,6 +167,20 @@
             <span x-show="sidebarHover" x-cloak class="sb-label">Pickup Requests</span>
             @if($pickupPendingCount > 0)
                 <span class="sb-badge" data-count="{{ $pickupPendingCount }}"><span class="sb-num">{{ $pickupPendingCount > 99 ? '99+' : $pickupPendingCount }}</span><span class="sr-only"> pending pickups</span></span>
+            @endif
+        </a>
+
+        {{-- Messages --}}
+        <a href="{{ route('messages.index') }}"
+           title="Messages"
+           @if($activeMessages) aria-current="page" @endif
+           class="{{ $activeMessages ? 'active' : '' }}">
+            <svg class="flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span x-show="sidebarHover" x-cloak class="sb-label">Messages</span>
+            @if($msgUnreadCount > 0)
+                <span class="sb-badge" data-count="{{ $msgUnreadCount }}"><span class="sb-num">{{ $msgUnreadCount > 99 ? '99+' : $msgUnreadCount }}</span><span class="sr-only"> unread messages</span></span>
             @endif
         </a>
 

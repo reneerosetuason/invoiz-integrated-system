@@ -29,6 +29,10 @@ class Delivery extends Model
         'picked_up_at',
         'delivered_at',
         'delivery_notes',
+        'tracking_number',
+        'archived_at',
+        'archived_by',
+        'archive_note',
     ];
 
     protected function casts(): array
@@ -36,8 +40,20 @@ class Delivery extends Model
         return [
             'status' => 'string',
             'assigned_at' => 'datetime',
+            'accepted_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'failed_at' => 'datetime',
+            'returned_at' => 'datetime',
+            'estimated_delivery_at' => 'datetime',
+            'archived_at' => 'datetime',
+            'received_at' => 'datetime',
+            'scanned_at' => 'datetime',
+            'sorted_at' => 'datetime',
+            'dispatched_at' => 'datetime',
+            'sorting_center_handoff_at' => 'datetime',
+            'sorting_center_pickup_at' => 'datetime',
         ];
     }
 

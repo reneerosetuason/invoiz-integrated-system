@@ -5,14 +5,11 @@
     <title>Waybill · Order #{{ $order->id }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <script src="{{ asset('vendor/qrcodejs/qrcode.min.js') }}"></script>
+    <script src="{{ asset('vendor/jsbarcode/JsBarcode.all.min.js') }}"></script>
     <style>
         body { background: #F7F6F2; }
         .waybill { border: 2px dashed #16697A; border-radius: 14px; }
-        .barcode {
-            font-family: 'Libre Barcode 128', 'Courier New', monospace;
-            font-size: 44px;
-            letter-spacing: 2px;
-        }
         @media print {
             body { background: #fff; }
             body * { visibility: hidden; }
@@ -32,7 +29,7 @@
             <div class="flex items-start justify-between border-b-2 border-dashed border-borderline pb-5">
                 <div>
                     <div class="flex items-center gap-2">
-                        <img src="{{ asset('images/invoiz-logo.png') }}" alt="Invoiz" class="h-9 w-auto object-contain">
+                        <img src="{{ asset('images/logo.png') }}" alt="Invoiz" class="h-9 w-auto object-contain">
                         <div class="text-[10px] font-bold uppercase tracking-widest text-ink-light">Shipping Waybill</div>
                     </div>
                     <div class="mt-3">
@@ -65,7 +62,7 @@
                     <div class="mt-1 space-y-1 text-xs">
                         <div><span class="text-ink-light">Courier:</span> <span class="font-bold">{{ $order->courierPickup?->courier ?? '—' }}</span></div>
                         <div><span class="text-ink-light">Pickup:</span> {{ $order->courierPickup?->pickup_at?->format('M j, g:i A') ?? '—' }}</div>
-                        <div><span class="text-ink-light">Tracking:</span> <span class="font-bold">{{ $order->courierPickup?->tracking_number ?? '—' }}</span></div>
+                        <div><span class="text-ink-light">Tracking:</span> <span class="font-bold">{{ $order->delivery?->tracking_number ?? $order->courierPickup?->tracking_number ?? '—' }}</span></div>
                         <div><span class="text-ink-light">Payment:</span> Cash on Delivery</div>
                     </div>
                 </div>
@@ -95,8 +92,17 @@
                 </tbody>
             </table>
 
-            <div class="flex items-end justify-between pt-4">
-                <div class="barcode" style="color:#1B1B1E;">{{ 'INV-'.$order->id }}</div>
+            <div class="flex items-end justify-between gap-6 pt-4">
+                <div>
+                    @if($order->delivery?->tracking_number)
+                        <svg id="seller-barcode"></svg>
+                        <div class="mt-1 text-center font-mono text-sm font-bold tracking-widest">{{ $order->delivery->tracking_number }}</div>
+                        <div class="mt-2 flex justify-center"><div id="seller-qr"></div></div>
+                    @else
+                        <div class="text-xs text-ink-light">Tracking pending — created when logistics books the parcel.</div>
+                    @endif
+                    <div class="mt-2 font-mono text-[11px] text-ink-light">{{ 'INV-'.$order->id }}</div>
+                </div>
                 <div class="text-right">
                     <div class="text-xs text-ink-light">Order total (COD)</div>
                     <div class="text-2xl font-extrabold">{{ peso($order->total_amount) }}</div>
@@ -105,5 +111,24 @@
             </div>
         </div>
     </div>
+    @if($order->delivery?->tracking_number)
+    <script>
+        (function () {
+            var code = {{ \Illuminate\Support\Js::from($order->delivery->tracking_number) }};
+            var qrEl = document.getElementById('seller-qr');
+            if (qrEl && typeof QRCode !== 'undefined') {
+                new QRCode(qrEl, { text: code, width: 96, height: 96, correctLevel: QRCode.CorrectLevel.H });
+            }
+            var barEl = document.getElementById('seller-barcode');
+            if (barEl && typeof JsBarcode !== 'undefined') {
+                try {
+                    JsBarcode(barEl, code, { format: 'CODE128', displayValue: false, height: 56, width: 2, margin: 0, background: '#ffffff', lineColor: '#111111' });
+                } catch (e) {
+                    barEl.outerHTML = '<p class="font-mono text-sm font-bold">' + code + '</p>';
+                }
+            }
+        })();
+    </script>
+    @endif
 </body>
 </html>

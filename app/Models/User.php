@@ -106,7 +106,9 @@ class User extends Authenticatable
 
     public function isStaff(): bool
     {
-        return $this->role === 'staff';
+        // Both legacy 'staff' and 'logistics_staff' work the counter:
+        // center-scoped lists, center checks, and own-center reviews.
+        return in_array($this->role, ['staff', 'logistics_staff'], true);
     }
 
     /**

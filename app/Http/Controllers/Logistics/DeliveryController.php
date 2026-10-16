@@ -201,6 +201,17 @@ class DeliveryController extends Controller
         }
     }
 
+    /**
+     * Admin-equivalent for the logistics back office: the site 'admin' role
+     * (or is_admin flag) plus 'logistics_admin'. isAdmin() alone does not
+     * cover logistics_admin, so archive flows check this instead.
+     */
+    private function isLogisticsManager(): bool
+    {
+        $user = Auth::user();
+        return (bool) ($user && ($user->isAdmin() || in_array($user->role, ['admin', 'logistics_admin'], true)));
+    }
+
     public function show(Delivery $delivery): View
     {
         $this->ensureCenterAccess($delivery);
@@ -684,9 +695,10 @@ class DeliveryController extends Controller
 
     public function archive(Request $request, Delivery $delivery): RedirectResponse
     {
-        if (!Auth::user()->isAdmin()) {
-            abort(403, 'Only administrators can archive deliveries.');
+        if (!$this->isLogisticsManager() && !Auth::user()->isStaff()) {
+            abort(403, 'Only logistics staff and administrators can archive deliveries.');
         }
+        $this->ensureCenterAccess($delivery);
 
         $validated = $request->validate([
             'archive_note' => 'nullable|string|max:255',
@@ -714,9 +726,10 @@ class DeliveryController extends Controller
 
     public function restore(Request $request, Delivery $delivery): RedirectResponse
     {
-        if (!Auth::user()->isAdmin()) {
-            abort(403, 'Only administrators can restore deliveries.');
+        if (!$this->isLogisticsManager() && !Auth::user()->isStaff()) {
+            abort(403, 'Only logistics staff and administrators can restore deliveries.');
         }
+        $this->ensureCenterAccess($delivery);
 
         if (!$delivery->archived_at) {
             return back()->with('error', 'This delivery is not archived.');
@@ -1004,8 +1017,8 @@ class DeliveryController extends Controller
 
     public function archived(Request $request): View
     {
-        if (!Auth::user()->isAdmin()) {
-            abort(403, 'Only administrators can access archived deliveries.');
+        if (!$this->isLogisticsManager() && !Auth::user()->isStaff()) {
+            abort(403, 'Only logistics staff and administrators can access archived deliveries.');
         }
 
         $perPage = $this->perPage($request);
@@ -1013,6 +1026,12 @@ class DeliveryController extends Controller
         $status = trim((string) $request->query('status', ''));
 
         $query = Delivery::with(['rider', 'archiver'])->whereNotNull('archived_at');
+
+        // Staff only ever see their own center's archive.
+        $user = Auth::user();
+        if ($user->isStaff() && $user->center_id) {
+            $query->where('center_id', (int) $user->center_id);
+        }
 
         $this->applySearch($query, $search);
 
