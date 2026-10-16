@@ -58,10 +58,10 @@
       <span>ID #{{ $seller->id }}</span>
     </div>
   </div>
-  <span class="hero-badge" style="background:{{ $seller->status === 'approved' ? 'rgba(46,139,87,.15)' : ($seller->status === 'rejected' ? 'rgba(224,90,51,.15)' : 'rgba(255,255,255,.15)') }}; color:#fff; border-color:{{ $seller->status === 'approved' ? '#2E8B57' : ($seller->status === 'rejected' ? '#E05A33' : 'rgba(255,255,255,.3)') }};">
-    {{ ucfirst($seller->status) }}
+  <span class="hero-badge" style="background:{{ $seller->approval_status === 'approved' ? 'rgba(46,139,87,.15)' : ($seller->approval_status === 'rejected' ? 'rgba(224,90,51,.15)' : 'rgba(255,255,255,.15)') }}; color:#fff; border-color:{{ $seller->approval_status === 'approved' ? '#2E8B57' : ($seller->approval_status === 'rejected' ? '#E05A33' : 'rgba(255,255,255,.3)') }};">
+    {{ ucfirst($seller->approval_status ?? $seller->status) }}
   </span>
-  @if($seller->status === 'pending')
+  @if(($seller->approval_status ?? '') === 'pending')
   <div class="hero-actions">
     <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/approve') }}">@csrf<button type="submit" style="padding:10px 18px;background:#2E8B57;color:#fff;border:none;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Approve</button></form>
     <form method="POST" action="{{ url('/admin/sellers/'.$seller->id.'/reject') }}" data-confirm="This seller application will be rejected. Continue?" data-confirm-title="Reject Application?" data-confirm-ok="Reject" data-confirm-class="btn-danger">@csrf<input type="hidden" name="reason" value="Registration requirements not met" /><button type="submit" style="padding:10px 18px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:10px;cursor:pointer;font-weight:700;font-size:13px;">Reject</button></form>
@@ -83,7 +83,7 @@
 
     <div class="stat-row">
       <div class="stat-mini"><strong>{{ $seller->products->count() }}</strong><span>Products</span></div>
-      <div class="stat-mini"><strong style="color:#16697A;">{{ $seller->status === 'approved' ? 'Verified' : ucfirst($seller->status) }}</strong><span>Status</span></div>
+      <div class="stat-mini"><strong style="color:#16697A;">{{ ($seller->approval_status ?? '') === 'approved' ? 'Verified' : ucfirst($seller->approval_status ?? $seller->status) }}</strong><span>Status</span></div>
       <div class="stat-mini"><strong>{{ $seller->created_at->diffForHumans(null, true) }}</strong><span>On platform</span></div>
     </div>
 

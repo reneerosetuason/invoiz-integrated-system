@@ -115,7 +115,7 @@
 </button>
 </div>
 <span class="bar" aria-hidden="true"></span>
-<p class="mt-1 text-[13px] text-muted">At least 8 characters.</p>
+<p class="mt-1 text-[13px] text-muted">Min. 8 characters, with uppercase, lowercase, number, and symbol.</p>
 @if($errors->has('password'))
 <p id="password-error" class="err-msg mt-1.5 flex items-start gap-1.5 text-[13px] font-medium" style="color:#B42318"><svg class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>{{ $errors->first('password') }}</span></p>
 @endif
@@ -133,10 +133,25 @@
 <span class="bar" aria-hidden="true"></span>
 </div>
 </div>
-<button type="submit" class="press flex w-full items-center justify-center gap-2 rounded-xl bg-teal-dark text-sm font-bold text-white transition hover:bg-teal" style="height:44px;border-radius:12px">
+<label class="flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-muted">
+<input type="checkbox" name="terms" id="buyer-terms" value="1" {{ old('terms') ? 'checked' : '' }} class="mt-0.5 h-4 w-4 shrink-0 accent-[#0E4A57]">
+<span>I agree to the <a href="{{ url('/help') }}" class="lnk font-bold text-teal-dark">Terms of Service</a> and <a href="{{ url('/help') }}" class="lnk font-bold text-teal-dark">Privacy Policy</a>.</span>
+</label>
+@if($errors->has('terms'))
+<p id="terms-error" class="err-msg mt-1.5 flex items-start gap-1.5 text-[13px] font-medium" style="color:#B42318"><svg class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>{{ $errors->first('terms') }}</span></p>
+@endif
+<button type="submit" id="buyer-register-btn" class="press mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-teal-dark text-sm font-bold text-white transition hover:bg-teal disabled:opacity-60 disabled:cursor-not-allowed" style="height:44px;border-radius:12px" disabled>
 <span class="inline-flex items-center gap-2">Create My Buyer Account <svg data-arrow class="h-4 w-4 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6l6 6-6 6"/></svg></span>
 <svg data-spin class="hidden h-4 w-4 spinner" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
 </button>
+<script>
+(function () {
+var box = document.getElementById('buyer-terms');
+var btn = document.getElementById('buyer-register-btn');
+function sync() { if (btn) btn.disabled = !(box && box.checked); }
+if (box && btn) { box.addEventListener('change', sync); sync(); }
+})();
+</script>
 </form>
 @endsection
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Mail\CenterApplicationApprovedMail;
+use App\Mail\CenterApplicationRejectedMail;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCenterApplication;
 use App\Models\LogisticsCenterApplicationDocument;
@@ -89,16 +90,28 @@ class CenterApplicationAdminController extends Controller
             'is_active' => true,
         ]);
 
-        $nameParts = array_values(array_filter(array_map('trim', explode(' ', $application->owner_name))));
-        $first = $nameParts[0] ?? $application->owner_name;
-        $last = $nameParts[1] ?? $application->owner_name;
+        $first = trim((string) ($application->owner_first_name ?? ''));
+        $middle = trim((string) ($application->owner_middle_name ?? ''));
+        $last = trim((string) ($application->owner_last_name ?? ''));
+        if ($first === '' || $last === '') {
+            // Legacy single-field rows (and mobile API submissions): split it.
+            $nameParts = array_values(array_filter(array_map('trim', explode(' ', $application->owner_name ?? ''))));
+            $first = $first !== '' ? $first : ($nameParts[0] ?? $application->displayOwnerName());
+            $last = $last !== '' ? $last : ($nameParts[1] ?? $application->displayOwnerName());
+        }
 
         $user = User::where('email', $application->email)->first();
+        // Never strand an existing account: marketplace/admin logins are
+        // preserved (one email keeps working everywhere); only the center
+        // assignment is added. Brand-new applicants get a staff login with
+        // mailed credentials as before.
+        $keepLogin = $user && $user->keepsOwnLogin();
         if (! $user) {
             $user = User::create([
-                'name' => $application->owner_name,
+                'name' => $application->displayOwnerName(),
                 'first_name' => $first,
                 'last_name' => $last,
+                'middle_initial' => $middle !== '' ? mb_strtoupper(mb_substr($middle, 0, 1)) : null,
                 'email' => $application->email,
                 'phone' => $application->phone,
                 'birthday' => '1970-01-01',
@@ -110,12 +123,15 @@ class CenterApplicationAdminController extends Controller
                 'email_verified_at' => now(),
             ]);
         } else {
-            $user->update([
-                'role' => 'logistics_staff',
+            $update = [
                 'status' => 'active',
                 'center_id' => $center->id,
-                'password' => Hash::make($password),
-            ]);
+            ];
+            if (! $keepLogin) {
+                $update['role'] = 'logistics_staff';
+                $update['password'] = Hash::make($password);
+            }
+            $user->update($update);
         }
 
         $application->update([
@@ -136,18 +152,24 @@ class CenterApplicationAdminController extends Controller
         ]);
 
         $mailSent = false;
-        try {
-            Mail::to($application->email)->send(
-                new CenterApplicationApprovedMail($application->fresh(), $password)
-            );
-            $mailSent = true;
-        } catch (\Throwable $e) {
-            report($e);
-        }
+        if ($keepLogin) {
+            // Existing marketplace/admin login untouched: no credentials to
+            // mail — the account simply gains its assigned center.
+            $success = "Center approved successfully. {$application->email} keeps its existing login and can now access the assigned center.";
+        } else {
+            try {
+                Mail::to($application->email)->send(
+                    new CenterApplicationApprovedMail($application->fresh(), $password)
+                );
+                $mailSent = true;
+            } catch (\Throwable $e) {
+                report($e);
+            }
 
-        $success = $mailSent
-            ? "Center approved successfully. Login credentials have been sent to: {$application->email}"
-            : "Center account created successfully, but the login credentials could not be emailed to {$application->email}. Please contact the center through a secure channel.";
+            $success = $mailSent
+                ? "Center approved successfully. Login credentials have been sent to: {$application->email}"
+                : "Center account created successfully, but the login credentials could not be emailed to {$application->email}. Please contact the center through a secure channel.";
+        }
 
         return redirect()
             ->route('center-applications.show', $application)
@@ -217,9 +239,21 @@ class CenterApplicationAdminController extends Controller
             'link' => null,
         ]);
 
+        $mailSent = false;
+        try {
+            Mail::to($application->email)->send(
+                new CenterApplicationRejectedMail($application->fresh(), $validated['reason'])
+            );
+            $mailSent = true;
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return redirect()
             ->route('center-applications.show', $application)
-            ->with('success', 'Application rejected.');
+            ->with('success', $mailSent
+                ? 'Application rejected. The applicant has been emailed the reason.'
+                : 'Application rejected, but the reason email could not be delivered. Please contact the applicant through a secure channel.');
     }
 
     public function viewDocument(LogisticsCenterApplicationDocument $document): \Symfony\Component\HttpFoundation\BinaryFileResponse

@@ -50,7 +50,23 @@
             </div>
             <div>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Owner Name</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->owner_name }}</p>
+                <p class="text-sm font-medium text-gray-900">{{ $application->displayOwnerName() }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">SEC Registration No.</p>
+                <p class="text-sm font-medium text-gray-900">{{ $application->sec_number ?? '—' }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">TIN</p>
+                <p class="text-sm font-medium text-gray-900">{{ $application->tin ?? '—' }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Region</p>
+                <p class="text-sm font-medium text-gray-900">{{ $application->displayRegionName() ?: '—' }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Postal Code</p>
+                <p class="text-sm font-medium text-gray-900">{{ $application->postal_code ?? '—' }}</p>
             </div>
             <div>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Email</p>

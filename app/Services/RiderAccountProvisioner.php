@@ -74,14 +74,26 @@ class RiderAccountProvisioner
                     'email_verified_at' => now(),
                 ]);
             } else {
-                $user->update([
-                    'first_name' => $user->first_name ?: $first,
-                    'last_name' => $user->last_name ?: $last,
-                    'role' => 'rider',
-                    'status' => 'active',
-                    'center_id' => $center->id,
-                    'password' => Hash::make($settings['password']),
-                ]);
+                // Never strand an existing account: marketplace/admin logins
+                // are preserved and the rider profile is simply linked (no
+                // center assignment on the user row either, so no staff
+                // surface is granted implicitly).
+                if ($user->keepsOwnLogin()) {
+                    $user->update([
+                        'first_name' => $user->first_name ?: $first,
+                        'last_name' => $user->last_name ?: $last,
+                        'status' => 'active',
+                    ]);
+                } else {
+                    $user->update([
+                        'first_name' => $user->first_name ?: $first,
+                        'last_name' => $user->last_name ?: $last,
+                        'role' => 'rider',
+                        'status' => 'active',
+                        'center_id' => $center->id,
+                        'password' => Hash::make($settings['password']),
+                    ]);
+                }
             }
 
             $rider = Rider::where('email', $email)->first();

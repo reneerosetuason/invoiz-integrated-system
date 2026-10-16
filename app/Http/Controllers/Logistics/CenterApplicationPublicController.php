@@ -22,6 +22,9 @@ class CenterApplicationPublicController extends Controller
     public function create(): View
     {
         $provinces = Province::orderBy('name')->get(['id', 'name']);
+        $regions = collect(config('logistics.psgc_regions', []))
+            ->only(Province::distinct()->pluck('region_code')->filter()->all())
+            ->all();
 
         // Pre-render the cascading address options so that old() input from a
         // failed submission (or the initial GET) stays fully populated without
@@ -48,6 +51,7 @@ class CenterApplicationPublicController extends Controller
 
         return view('logistics.center-application-apply', [
             'documentLabels' => LogisticsCenterApplicationDocument::TYPES,
+            'regions' => $regions,
             'provinces' => $provinces,
             'municipalities' => $this->addressOptions($municipalities, old('municipality')),
             'barangays' => $this->addressOptions($barangays, old('barangay')),
@@ -80,6 +84,16 @@ class CenterApplicationPublicController extends Controller
 
     public function store(Request $request, CenterApplicationService $service): RedirectResponse
     {
+        // Terms consent gate (web form only; the mobile API owns its own
+        // consent screen): the submit button is disabled until checked, and
+        // this rejects any direct POST without it.
+        if (! $request->boolean('terms')) {
+            return redirect()
+                ->route('center-application.apply')
+                ->withInput()
+                ->withErrors(['terms' => 'You must agree to the Logistics Terms of Service to submit your application.']);
+        }
+
         // Email OTP gate (mirrors the rider apply flow): only a server-side
         // consumed verification for the exact submitted address authorizes
         // the submission. Runs only for well-formed addresses so missing or

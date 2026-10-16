@@ -25,7 +25,7 @@ class ReportController extends Controller
         $serviceAreaId = (int) $request->query('service_area_id', 0);
 
         $user = Auth::user();
-        $staffCenterId = $user->isStaff() ? $user->center_id : null;
+        $staffCenterId = $user->isLogisticsStaff() ? $user->center_id : null;
 
         if ($staffCenterId) {
             $centerId = $staffCenterId;
@@ -66,7 +66,7 @@ class ReportController extends Controller
         $serviceAreaId = (int) $request->query('service_area_id', 0);
 
         $user = Auth::user();
-        $staffCenterId = $user->isStaff() ? $user->center_id : null;
+        $staffCenterId = $user->isLogisticsStaff() ? $user->center_id : null;
 
         if ($staffCenterId) {
             $centerId = $staffCenterId;

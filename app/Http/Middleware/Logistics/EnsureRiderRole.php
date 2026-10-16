@@ -12,7 +12,10 @@ class EnsureRiderRole
     {
         $user = $request->user();
 
-        if (! $user || $user->role !== $role) {
+        $linkedRider = $role === 'rider' && $user
+            && \App\Models\Rider::where('user_id', $user->id)->exists();
+
+        if (! $user || ($user->role !== $role && ! $linkedRider)) {
             return response()->json([
                 'message' => 'Forbidden. You are not authorized to access this resource.',
             ], 403);

@@ -17,7 +17,7 @@ class EnsureLogisticsStaff
             return redirect('/logistics/login');
         }
 
-        if (! in_array($user->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true)) {
+        if (! in_array($user->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true) && empty($user->center_id)) {
             Auth::guard('web')->logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();

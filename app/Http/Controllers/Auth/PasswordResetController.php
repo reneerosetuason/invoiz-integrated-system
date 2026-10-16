@@ -18,6 +18,12 @@ class PasswordResetController extends Controller
 
     public function sendLink(Request $request)
     {
+        // Trim first so a padded address still identifies the account and
+        // the reset link goes to the clean address.
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => trim($request->input('email'))]);
+        }
+
         $request->validate(['email' => 'required|email']);
 
         $status = Password::sendResetLink($request->only('email'));

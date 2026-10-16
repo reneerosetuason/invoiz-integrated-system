@@ -33,7 +33,7 @@ class RiderController extends Controller
 
         // Staff are always restricted to their assigned logistics center. This is
         // enforced at the query level so a query parameter can never bypass it.
-        if ($user->isStaff() && $user->center_id) {
+        if ($user->isLogisticsStaff() && $user->center_id) {
             $query->where('center_id', $user->center_id);
         } elseif ($centerId > 0) {
             // Only admins (or staff without a center) may pick an arbitrary center.
@@ -189,7 +189,7 @@ class RiderController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->isStaff() && $user->center_id && $rider->center_id != $user->center_id) {
+        if ($user->isLogisticsStaff() && $user->center_id && $rider->center_id != $user->center_id) {
             abort(403, 'You can only manage riders from your assigned logistics center.');
         }
     }

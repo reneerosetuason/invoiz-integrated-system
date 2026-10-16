@@ -104,7 +104,7 @@
             $watch('sidebarHover', (expanded) => {
                 clearTimeout(this.navPersistTimeout);
                 this.navPersistTimeout = setTimeout(() => {
-                    fetch('{{ route('settings.update-navigation') }}', {
+                    fetch('{{ route('settings.update-navigation', [], false) }}', {
                         method: 'PATCH',
                         headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/json', 'Accept': 'application/json' },
                         body: JSON.stringify({ sidebar_expanded: !!expanded })

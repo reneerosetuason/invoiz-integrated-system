@@ -133,7 +133,22 @@ class User extends Authenticatable
 
     public function isLogisticsStaff(): bool
     {
-        return in_array($this->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true);
+        // Role-based staff plus center-assigned accounts: a buyer/seller
+        // approved for a center keeps its marketplace role (single role
+        // column), and the center assignment carries logistics access.
+        return in_array($this->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true)
+            || ! empty($this->center_id);
+    }
+
+    /**
+     * True when approval/provisioning flows must NOT replace this account's
+     * role or password (one email keeps working everywhere): marketplace
+     * roles and real admins keep their own login; only role-less or
+     * logistics-only accounts are converted.
+     */
+    public function keepsOwnLogin(): bool
+    {
+        return in_array($this->role, ['buyer', 'seller', 'admin'], true) || $this->isAdmin();
     }
 
     /**

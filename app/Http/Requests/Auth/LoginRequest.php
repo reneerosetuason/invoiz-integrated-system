@@ -64,8 +64,13 @@ class LoginRequest extends FormRequest
 
         // admin/staff -> Logistics Center; rider -> rider messaging page.
         // logistics_admin/logistics_staff -> Logistics Center
-        // Any other role has no access to this system.
-        if (! in_array($user->role, ['admin', 'staff', 'rider', 'logistics_admin', 'logistics_staff'])) {
+        // Marketplace accounts assigned to a center, or linked as riders
+        // (approved without a role change), enter the same way. Any other
+        // role has no access to this system.
+        $linkedStaff = in_array($user->role, ['buyer', 'seller'], true) && ! empty($user->center_id);
+        $linkedRider = in_array($user->role, ['buyer', 'seller'], true)
+            && \App\Models\Rider::where('user_id', $user->id)->exists();
+        if (! in_array($user->role, ['admin', 'staff', 'rider', 'logistics_admin', 'logistics_staff'], true) && ! $linkedStaff && ! $linkedRider) {
             Auth::guard('web')->logout();
 
             throw ValidationException::withMessages([

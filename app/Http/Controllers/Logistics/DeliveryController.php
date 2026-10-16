@@ -75,7 +75,7 @@ class DeliveryController extends Controller
 
         // Staff are always restricted to their assigned logistics center. This
         // is enforced at the query level so a query parameter can never bypass it.
-        if ($user->isStaff() && $user->center_id) {
+        if ($user->isLogisticsStaff() && $user->center_id) {
             $staffCenterId = (int) $user->center_id;
             $query->where('center_id', $staffCenterId);
         }
@@ -196,7 +196,7 @@ class DeliveryController extends Controller
     private function ensureCenterAccess(Delivery $delivery): void
     {
         $user = Auth::user();
-        if ($user && $user->isStaff() && $delivery->center_id !== null && (int) $user->center_id !== (int) $delivery->center_id) {
+        if ($user && $user->isLogisticsStaff() && $delivery->center_id !== null && (int) $user->center_id !== (int) $delivery->center_id) {
             abort(403, 'You do not have access to deliveries from this logistics center.');
         }
     }
@@ -695,7 +695,7 @@ class DeliveryController extends Controller
 
     public function archive(Request $request, Delivery $delivery): RedirectResponse
     {
-        if (!$this->isLogisticsManager() && !Auth::user()->isStaff()) {
+        if (!$this->isLogisticsManager() && !Auth::user()->isLogisticsStaff()) {
             abort(403, 'Only logistics staff and administrators can archive deliveries.');
         }
         $this->ensureCenterAccess($delivery);
@@ -726,7 +726,7 @@ class DeliveryController extends Controller
 
     public function restore(Request $request, Delivery $delivery): RedirectResponse
     {
-        if (!$this->isLogisticsManager() && !Auth::user()->isStaff()) {
+        if (!$this->isLogisticsManager() && !Auth::user()->isLogisticsStaff()) {
             abort(403, 'Only logistics staff and administrators can restore deliveries.');
         }
         $this->ensureCenterAccess($delivery);
@@ -773,7 +773,7 @@ class DeliveryController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->isStaff() && $user->center_id != $validated['center_id']) {
+        if ($user->isLogisticsStaff() && $user->center_id != $validated['center_id']) {
             abort(403, 'You can only receive parcels at your assigned logistics center.');
         }
 
@@ -804,7 +804,7 @@ class DeliveryController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->isStaff() && $user->center_id && $delivery->center_id != $user->center_id) {
+        if ($user->isLogisticsStaff() && $user->center_id && $delivery->center_id != $user->center_id) {
             abort(403, 'You can only scan parcels at your assigned logistics center.');
         }
 
@@ -832,7 +832,7 @@ class DeliveryController extends Controller
             $expected = Delivery::notArchived()->where('tracking_number', $expect)->first();
             if ($expected) {
                 $user = Auth::user();
-                if ($user->isStaff() && $user->center_id && $expected->center_id !== null && (int) $user->center_id !== (int) $expected->center_id) {
+                if ($user->isLogisticsStaff() && $user->center_id && $expected->center_id !== null && (int) $user->center_id !== (int) $expected->center_id) {
                     $expected = null;
                 }
             }
@@ -863,7 +863,7 @@ class DeliveryController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->isStaff() && $user->center_id && $delivery->center_id !== null && (int) $user->center_id !== (int) $delivery->center_id) {
+        if ($user->isLogisticsStaff() && $user->center_id && $delivery->center_id !== null && (int) $user->center_id !== (int) $delivery->center_id) {
             return response()->json([
                 'ok' => false,
                 'error' => 'forbidden',
@@ -886,7 +886,7 @@ class DeliveryController extends Controller
                 ], 404);
             }
 
-            if ($user->isStaff() && $user->center_id && $fresh->center_id !== null && (int) $user->center_id !== (int) $fresh->center_id) {
+            if ($user->isLogisticsStaff() && $user->center_id && $fresh->center_id !== null && (int) $user->center_id !== (int) $fresh->center_id) {
                 return response()->json([
                     'ok' => false,
                     'error' => 'forbidden',
@@ -955,7 +955,7 @@ class DeliveryController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->isStaff() && $user->center_id && $delivery->center_id != $user->center_id) {
+        if ($user->isLogisticsStaff() && $user->center_id && $delivery->center_id != $user->center_id) {
             abort(403, 'You can only sort parcels at your assigned logistics center.');
         }
 
@@ -996,7 +996,8 @@ class DeliveryController extends Controller
         }
 
         $user = Auth::user();
-        if ($user->isStaff() && (! $user->center_id || ! $delivery->center_id || $delivery->center_id != $user->center_id)) {
+        $isCenterStaff = $user->isLogisticsStaff() && ! $user->isLogisticsAdmin() && ! $user->is_admin;
+        if ($isCenterStaff && (! $user->center_id || ! $delivery->center_id || $delivery->center_id != $user->center_id)) {
             abort(403, 'You can only dispatch parcels at your assigned logistics center.');
         }
 
@@ -1017,7 +1018,7 @@ class DeliveryController extends Controller
 
     public function archived(Request $request): View
     {
-        if (!$this->isLogisticsManager() && !Auth::user()->isStaff()) {
+        if (!$this->isLogisticsManager() && !Auth::user()->isLogisticsStaff()) {
             abort(403, 'Only logistics staff and administrators can access archived deliveries.');
         }
 
@@ -1029,7 +1030,7 @@ class DeliveryController extends Controller
 
         // Staff only ever see their own center's archive.
         $user = Auth::user();
-        if ($user->isStaff() && $user->center_id) {
+        if ($user->isLogisticsStaff() && $user->center_id) {
             $query->where('center_id', (int) $user->center_id);
         }
 

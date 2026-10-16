@@ -38,7 +38,9 @@ step: Math.min(Math.max(opts.initialStep ?? 0, 0), 3),
 maxStep: opts.errorSteps && opts.errorSteps.length > 0 ? 3 : 0,
 errorSteps: opts.errorSteps ?? [],
 documentLabels: opts.documentLabels ?? {},
+regions: opts.regions ?? {},
 submitting: false,
+termsAccepted: false,
 clientErrors: {},
 files: {},
 liveText: 'Step 1 of 4: Center & Owner',
@@ -83,10 +85,10 @@ this.clearFieldError('email');
 this.verifyBusy = true;
 this.verifyMsg = '';
 try {
-const res = await fetch('{{ route('center-application.verification.send') }}', {
+const res = await fetch('{{ route('center-application.verification.send', [], false) }}', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this.csrfToken() },
-body: JSON.stringify({ email: email, name: this.inputValue('owner_name') }),
+body: JSON.stringify({ email: email, name: this.inputValue('owner_first_name') }),
 });
 const data = await res.json().catch(() => ({}));
 if (!res.ok) {
@@ -110,7 +112,7 @@ const email = this.inputValue('email');
 this.verifyBusy = true;
 this.verifyMsg = '';
 try {
-const res = await fetch('{{ route('center-application.verification.verify') }}', {
+const res = await fetch('{{ route('center-application.verification.verify', [], false) }}', {
 method: 'POST',
 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this.csrfToken() },
 body: JSON.stringify({ email: email, code: this.verifyCode.trim() }),
@@ -157,8 +159,51 @@ return Object.keys(this.clientErrors).some((k) => this.fieldStep(k) === i);
 },
 fieldStep(field) {
 if (field.startsWith('documents.')) return 2;
-if (['house_number', 'street', 'barangay', 'municipality', 'province'].includes(field)) return 1;
+if (['house_number', 'street', 'barangay', 'municipality', 'province', 'region', 'postal_code'].includes(field)) return 1;
 return 0;
+},
+regionName() {
+const sel = document.getElementById('region');
+if (!sel || !sel.value) return 'Not provided';
+const opt = sel.options[sel.selectedIndex];
+return (opt ? opt.textContent.trim() : sel.value) || 'Not provided';
+},
+async selectRegion() {
+const regionSel = document.getElementById('region');
+const provSel = document.getElementById('province');
+const muniSel = document.getElementById('municipality');
+const brgySel = document.getElementById('barangay');
+// Changing region always clears everything below it, so a province, city,
+// or barangay from another region can never stay selected.
+if (muniSel && muniSel.tagName === 'SELECT') muniSel.innerHTML = '<option value="">City / Municipality (optional)</option>';
+if (brgySel && brgySel.tagName === 'SELECT') brgySel.innerHTML = '<option value="">Barangay (optional)</option>';
+if (provSel && provSel.tagName === 'SELECT') {
+provSel.innerHTML = '<option value="">Select a province...</option>';
+provSel.dispatchEvent(new Event('change', { bubbles: true }));
+const code = regionSel ? regionSel.value : '';
+if (!code) return;
+provSel.disabled = true;
+try {
+const [provRes, cityRes] = await Promise.all([
+fetch('https://psgc.gitlab.io/api/regions/' + encodeURIComponent(code) + '/provinces', { headers: { Accept: 'application/json' } }),
+fetch('https://psgc.gitlab.io/api/regions/' + encodeURIComponent(code) + '/cities', { headers: { Accept: 'application/json' } }),
+]);
+const provs = provRes.ok ? await provRes.json() : [];
+const cities = cityRes.ok ? await cityRes.json() : [];
+(Array.isArray(provs) ? provs : []).forEach((p) => {
+const o = document.createElement('option');
+o.value = p.name; o.textContent = p.name; o.dataset.id = p.code; o.dataset.kind = 'province';
+provSel.appendChild(o);
+});
+(Array.isArray(cities) ? cities : []).forEach((c) => {
+const o = document.createElement('option');
+o.value = c.name; o.textContent = c.name; o.dataset.id = c.code; o.dataset.kind = 'city';
+provSel.appendChild(o);
+});
+} catch (e) { /* server validates; keep the empty list */ }
+finally { provSel.disabled = false; }
+}
+this.clearFieldError('region');
 },
 setStep(i) {
 if (this.submitting) return;
@@ -201,8 +246,13 @@ clearFieldError(field) { delete this.clientErrors[field]; },
 inputValue(field) { void this.step; return (this.$refs[field]?.value ?? '').trim(); },
 validateStep1() {
 let ok = true;
-ok = this.setFieldError('business_name', this.inputValue('business_name') ? '' : 'The center name is required.') && ok;
-ok = this.setFieldError('owner_name', this.inputValue('owner_name') ? '' : 'The owner name is required.') && ok;
+ok = this.setFieldError('business_name', this.inputValue('business_name').length < 2 ? 'The center name must be at least 2 characters.' : '') && ok;
+ok = this.setFieldError('owner_first_name', this.inputValue('owner_first_name').length < 2 ? 'The owner first name must be at least 2 characters.' : '') && ok;
+ok = this.setFieldError('owner_last_name', this.inputValue('owner_last_name').length < 2 ? 'The owner last name must be at least 2 characters.' : '') && ok;
+const secNum = this.inputValue('sec_number');
+ok = this.setFieldError('sec_number', !secNum ? 'The SEC registration number is required.' : (!/^[A-Za-z]{2}\d{9}$/.test(secNum) ? 'The SEC registration number must be 2 letters followed by 9 digits (e.g., AB123456789).' : '')) && ok;
+const tinNum = this.inputValue('tin');
+ok = this.setFieldError('tin', !tinNum ? 'The TIN is required.' : (!/^\d{3}-\d{3}-\d{3}-\d{3}$/.test(tinNum) ? 'The TIN must be in the format 000-000-000-000 (12 digits).' : '')) && ok;
 const email = this.inputValue('email');
 if (!email) {
 ok = this.setFieldError('email', 'The email address is required.') && ok;
@@ -322,10 +372,17 @@ return html;
 },
 reloadMunicipalityOptions() {
 this.loadingMunicipalities = true;
-fetch(`/api/address/provinces/${this.provinceId}/municipalities`)
+const pid = String(this.provinceId ?? '');
+// 9-digit PSGC codes resolve against the public PSGC API (full national
+// dataset); small numeric ids resolve against our local address tables.
+const url = /^\d{9}$/.test(pid)
+? `https://psgc.gitlab.io/api/provinces/${pid}/cities-municipalities`
+: `/api/address/provinces/${this.provinceId}/municipalities`;
+fetch(url)
 .then((res) => { if (!res.ok) throw new Error(); return res.json(); })
 .then((data) => {
-this.$refs.municipality.innerHTML = this.buildOptions('municipality', data.municipalities);
+const items = Array.isArray(data) ? data : (data.municipalities || []);
+this.$refs.municipality.innerHTML = this.buildOptions('municipality', items.map((m) => ({ id: m.code ?? m.id, name: m.name })));
 this.municipalityPicked = false;
 this.addressError = '';
 })
@@ -345,14 +402,29 @@ this.$refs.barangay.innerHTML = this.emptyOptions('barangay');
 this.municipalityId = '';
 this.municipalityPicked = false;
 this.addressError = '';
+if ((opt && opt.dataset.kind) === 'city' && this.provinceId) {
+// NCR-style entries: the city itself is the municipality level. Lock it
+// in and load its barangays directly.
+const cityName = this.$refs.province.value;
+this.$refs.municipality.innerHTML = `<option value="${this.escapeHtml(cityName)}" data-id="${this.escapeHtml(this.provinceId)}" selected>${this.escapeHtml(cityName)}</option>`;
+this.municipalityId = this.provinceId;
+this.municipalityPicked = true;
+this.reloadBarangayOptions();
+return;
+}
 if (this.provinceId) this.reloadMunicipalityOptions();
 },
 reloadBarangayOptions() {
 this.loadingBarangays = true;
-fetch(`/api/address/municipalities/${this.municipalityId}/barangays`)
+const mid = String(this.municipalityId ?? '');
+const url = /^\d{9}$/.test(mid)
+? `https://psgc.gitlab.io/api/cities-municipalities/${mid}/barangays`
+: `/api/address/municipalities/${this.municipalityId}/barangays`;
+fetch(url)
 .then((res) => { if (!res.ok) throw new Error(); return res.json(); })
 .then((data) => {
-this.$refs.barangay.innerHTML = this.buildOptions('barangay', data.barangays);
+const items = Array.isArray(data) ? data : (data.barangays || []);
+this.$refs.barangay.innerHTML = this.buildOptions('barangay', items.map((b) => ({ id: b.code ?? b.id, name: b.name })));
 this.addressError = '';
 })
 .catch(() => {
@@ -436,6 +508,7 @@ verifiedEmail: @js($verifiedEmail ?? ''),
 documentLabels: @js($documentLabels),
 municipalities: @js($municipalities),
 barangays: @js($barangays),
+regions: @js($regions ?? []),
 provincePicked: @js(old('province', '') !== ''),
 municipalityPicked: @js(old('municipality', '') !== ''),
 })"
@@ -498,13 +571,49 @@ x-text="title"></span>
 @error('business_name')<p id="business_name_error" class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
 </div>
 <div class="ufield min-w-0">
-<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="owner_name">Owner Name <span class="text-teal" aria-hidden="true">*</span></label>
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="sec_number">SEC Registration Number <span class="text-teal" aria-hidden="true">*</span></label>
 <div class="relative">
-<input id="owner_name" x-ref="owner_name" x-on:input="clearFieldError('owner_name')" type="text" name="owner_name" value="{{ old('owner_name') }}" required maxlength="255" autocomplete="name" placeholder="Full name" :aria-invalid="clientErrors['owner_name'] ? 'true' : '@error('owner_name') true @enderror'" class="@error('owner_name') field-error @enderror">
+<input id="sec_number" x-ref="sec_number" x-on:input="clearFieldError('sec_number')" type="text" name="sec_number" value="{{ old('sec_number') }}" required maxlength="20" placeholder="e.g., AB123456789" :aria-invalid="clientErrors['sec_number'] ? 'true' : '@error('sec_number') true @enderror'" class="@error('sec_number') field-error @enderror">
 </div>
 <span class="bar" aria-hidden="true"></span>
-<p x-cloak x-show="clientErrors['owner_name']" class="mt-1.5 text-[13px] font-medium" style="color:#B42318" x-text="clientErrors['owner_name']"></p>
-@error('owner_name')<p id="owner_name_error" class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+<p x-cloak x-show="clientErrors['sec_number']" class="mt-1.5 text-[13px] font-medium" style="color:#B42318" x-text="clientErrors['sec_number']"></p>
+@error('sec_number')<p id="sec_number_error" class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
+<div class="ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="tin">Tax Identification Number (TIN) <span class="text-teal" aria-hidden="true">*</span></label>
+<div class="relative">
+<input id="tin" x-ref="tin" x-on:input="clearFieldError('tin')" type="text" name="tin" value="{{ old('tin') }}" required maxlength="20" inputmode="numeric" placeholder="e.g., 123-456-789-000" :aria-invalid="clientErrors['tin'] ? 'true' : '@error('tin') true @enderror'" class="@error('tin') field-error @enderror">
+</div>
+<span class="bar" aria-hidden="true"></span>
+<p x-cloak x-show="clientErrors['tin']" class="mt-1.5 text-[13px] font-medium" style="color:#B42318" x-text="clientErrors['tin']"></p>
+@error('tin')<p id="tin_error" class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
+<div class="ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="owner_first_name">Owner First Name <span class="text-teal" aria-hidden="true">*</span></label>
+<div class="relative">
+<input id="owner_first_name" x-ref="owner_first_name" x-on:input="clearFieldError('owner_first_name')" type="text" name="owner_first_name" value="{{ old('owner_first_name') }}" required maxlength="100" autocomplete="given-name" placeholder="Juan" :aria-invalid="clientErrors['owner_first_name'] ? 'true' : '@error('owner_first_name') true @enderror'" class="@error('owner_first_name') field-error @enderror">
+</div>
+<span class="bar" aria-hidden="true"></span>
+<p x-cloak x-show="clientErrors['owner_first_name']" class="mt-1.5 text-[13px] font-medium" style="color:#B42318" x-text="clientErrors['owner_first_name']"></p>
+@error('owner_first_name')<p id="owner_first_name_error" class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
+<div class="ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="owner_middle_name">Owner Middle Name</label>
+<div class="relative">
+<input id="owner_middle_name" x-ref="owner_middle_name" x-on:input="clearFieldError('owner_middle_name')" type="text" name="owner_middle_name" value="{{ old('owner_middle_name') }}" maxlength="100" autocomplete="additional-name" placeholder="Santos (optional)" :aria-invalid="clientErrors['owner_middle_name'] ? 'true' : '@error('owner_middle_name') true @enderror'" class="@error('owner_middle_name') field-error @enderror">
+</div>
+<span class="bar" aria-hidden="true"></span>
+<p x-cloak x-show="clientErrors['owner_middle_name']" class="mt-1.5 text-[13px] font-medium" style="color:#B42318" x-text="clientErrors['owner_middle_name']"></p>
+@error('owner_middle_name')<p id="owner_middle_name_error" class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
+<div class="ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="owner_last_name">Owner Last Name <span class="text-teal" aria-hidden="true">*</span></label>
+<div class="relative">
+<input id="owner_last_name" x-ref="owner_last_name" x-on:input="clearFieldError('owner_last_name')" type="text" name="owner_last_name" value="{{ old('owner_last_name') }}" required maxlength="100" autocomplete="family-name" placeholder="Dela Cruz" :aria-invalid="clientErrors['owner_last_name'] ? 'true' : '@error('owner_last_name') true @enderror'" class="@error('owner_last_name') field-error @enderror">
+</div>
+<span class="bar" aria-hidden="true"></span>
+<p x-cloak x-show="clientErrors['owner_last_name']" class="mt-1.5 text-[13px] font-medium" style="color:#B42318" x-text="clientErrors['owner_last_name']"></p>
+@error('owner_last_name')<p id="owner_last_name_error" class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
 </div>
 <div class="ufield min-w-0">
 <label class="mb-1 block text-[13px] font-medium text-teal-dark" for="email">Email Address <span class="text-teal" aria-hidden="true">*</span></label>
@@ -554,6 +663,20 @@ x-text="title"></span>
 <section x-cloak x-show="step === 1" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-y-3" x-transition:enter-end="opacity-100 translate-y-0" aria-labelledby="wizard-step-2" class="mt-6">
 <h3 id="wizard-step-2" tabindex="-1" x-ref="stepHeading1" class="font-display font-medium tracking-[-0.02em] focus:outline-none" style="font-size:1.5rem;line-height:1.2">Center Location</h3>
 <div class="mt-5 grid gap-5 sm:grid-cols-2">
+<div class="sm:col-span-2 ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="region">Region <span class="text-teal" aria-hidden="true">*</span></label>
+<div class="relative">
+<select id="region" name="region" x-ref="region" x-on:change="selectRegion" autocomplete="address-level1" aria-invalid="@error('region') true @enderror" class="@error('region') field-error @enderror" style="padding-left:0">
+<option value="">Select a region...</option>
+@foreach ($regions as $code => $name)
+<option value="{{ $code }}" @selected(old('region') === (string) $code)>{{ $name }}</option>
+@endforeach
+</select>
+<svg class="pointer-events-none absolute right-1 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 9l6 6 6-6"/></svg>
+</div>
+<span class="bar" aria-hidden="true"></span>
+@error('region')<p class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
 <div class="ufield min-w-0">
 <label class="mb-1 block text-[13px] font-medium text-teal-dark" for="house_number">House / Unit Number</label>
 <div class="relative">
@@ -615,6 +738,15 @@ x-text="title"></span>
 <div x-cloak x-show="loadingBarangays" role="status" class="mt-1.5 text-xs text-muted">Loading barangays...</div>
 @error('barangay')<p class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
 </div>
+<div class="ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="postal_code">Postal Code <span class="text-teal" aria-hidden="true">*</span></label>
+<div class="relative">
+<input id="postal_code" x-ref="postal_code" x-on:input="clearFieldError('postal_code')" type="text" name="postal_code" value="{{ old('postal_code') }}" required maxlength="10" inputmode="numeric" autocomplete="postal-code" placeholder="e.g., 6000" style="padding-left:0">
+</div>
+<span class="bar" aria-hidden="true"></span>
+<p x-cloak x-show="clientErrors['postal_code']" class="mt-1.5 text-[13px] font-medium" style="color:#B42318" x-text="clientErrors['postal_code']"></p>
+@error('postal_code')<p class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
 <div class="sm:col-span-2" x-cloak x-show="addressError">
 <div role="alert" aria-live="assertive" class="flex items-center gap-3 rounded-[14px] bg-white px-4 py-3 text-sm font-semibold" style="border:1px solid rgba(180,35,24,.35);color:#B42318">
 <p class="flex-1 min-w-0 break-words" x-text="addressError"></p>
@@ -622,6 +754,19 @@ x-text="title"></span>
 </div>
 </div>
 @else
+<div class="sm:col-span-2 ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="region">Region <span class="text-teal" aria-hidden="true">*</span></label>
+<div class="relative">
+<select id="region" name="region" x-ref="region" x-on:change="selectRegion" autocomplete="address-level1" style="padding-left:0">
+<option value="">Select a region...</option>
+@foreach ($regions as $code => $name)
+<option value="{{ $code }}" @selected(old('region') === (string) $code)>{{ $name }}</option>
+@endforeach
+</select>
+</div>
+<span class="bar" aria-hidden="true"></span>
+@error('region')<p class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
 <div class="ufield min-w-0">
 <label class="mb-1 block text-[13px] font-medium text-teal-dark" for="barangay">Barangay</label>
 <div class="relative">
@@ -646,6 +791,14 @@ x-text="title"></span>
 <span class="bar" aria-hidden="true"></span>
 @error('province')<p class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
 </div>
+<div class="ufield min-w-0">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="postal_code">Postal Code <span class="text-teal" aria-hidden="true">*</span></label>
+<div class="relative">
+<input id="postal_code" x-ref="postal_code" type="text" name="postal_code" value="{{ old('postal_code') }}" maxlength="10" inputmode="numeric" autocomplete="postal-code" placeholder="e.g., 6000" style="padding-left:0">
+</div>
+<span class="bar" aria-hidden="true"></span>
+@error('postal_code')<p class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
+</div>
 @endif
 </div>
 </section>
@@ -668,7 +821,7 @@ x-text="title"></span>
 <span class="sr-only">Selected file:</span>
 <span class="min-w-0 flex-1 truncate font-medium" x-text="(files['{{ $type }}'] || {}).name"></span>
 <span class="tnum text-muted" x-text="fmtSize((files['{{ $type }}'] || {}).size)"></span>
-<button type="button" x-on:click="removeDoc('{{ $type }}', $refs['doc_{{ $type }}'])" :aria-label="'Remove selected file for {{ $label }}'" class="grid h-11 w-11 place-items-center rounded-lg text-muted transition hover:text-[#B42318] hover:bg-white">
+<button type="button" x-on:click="removeDoc('{{ $type }}', $refs['doc_{{ $type }}'])" :aria-label="'Remove selected file for {{ str_replace(chr(39), chr(92).chr(39), $label) }}'" class="grid h-11 w-11 place-items-center rounded-lg text-muted transition hover:text-[#B42318] hover:bg-white">
 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.9 12.1A2 2 0 0116.1 21H7.9a2 2 0 01-2-1.9L5 7m5 4v6m4-6v6M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0h10"/></svg>
 </button>
 </p>
@@ -688,7 +841,9 @@ x-text="title"></span>
 </div>
 <dl class="mt-2 space-y-1.5 text-sm">
 <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Center name</dt><dd class="min-w-0 break-words font-semibold" x-text="inputValue('business_name') || 'Not provided'"></dd></div>
-<div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Owner name</dt><dd class="min-w-0 break-words font-semibold" x-text="inputValue('owner_name') || 'Not provided'"></dd></div>
+<div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Owner name</dt><dd class="min-w-0 break-words font-semibold" x-text="([inputValue('owner_first_name'), inputValue('owner_middle_name'), inputValue('owner_last_name')].filter(Boolean).join(' ')) || 'Not provided'"></dd></div>
+<div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">SEC number</dt><dd class="min-w-0 break-words font-semibold" x-text="inputValue('sec_number') || 'Not provided'"></dd></div>
+<div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">TIN</dt><dd class="min-w-0 break-words font-semibold" x-text="inputValue('tin') || 'Not provided'"></dd></div>
 <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Email</dt><dd class="min-w-0 break-words font-semibold" x-text="inputValue('email') || 'Not provided'"></dd></div>
 <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Phone</dt><dd class="min-w-0 break-words font-semibold" x-text="inputValue('phone') || 'Not provided'"></dd></div>
 </dl>
@@ -699,7 +854,9 @@ x-text="title"></span>
 <button type="button" x-on:click="goTo(1)" class="lnk min-h-[44px] px-1 text-xs font-bold text-teal-dark">Edit</button>
 </div>
 <dl class="mt-2 space-y-1.5 text-sm">
+<div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Region</dt><dd class="min-w-0 break-words font-semibold" x-text="regionName()"></dd></div>
 <div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Address</dt><dd class="min-w-0 break-words font-semibold" x-text="locationSummary()"></dd></div>
+<div class="flex flex-col gap-0.5 sm:flex-row sm:gap-3"><dt class="w-40 flex-none font-medium text-muted">Postal code</dt><dd class="min-w-0 break-words font-semibold" x-text="inputValue('postal_code') || 'Not provided'"></dd></div>
 </dl>
 </div>
 <div class="py-4" style="border-top:1px solid rgba(15,76,92,.12);border-bottom:1px solid rgba(15,76,92,.12)">
@@ -725,6 +882,11 @@ x-text="title"></span>
 </div>
 </div>
 <p class="mt-5 text-[13px] leading-relaxed text-muted">By submitting, you agree that the INVOIZ Logistics team may review the details and documents you provide. Your information is used only to process this application.</p>
+<label class="mt-4 flex cursor-pointer items-start gap-2.5 text-sm text-ink">
+<input type="checkbox" name="terms" value="1" x-model="termsAccepted" class="mt-1 h-4 w-4 shrink-0 accent-[#0E4A57]">
+<span>I agree to the Logistics Terms of Service and consent to the processing of this application. <span class="font-bold text-teal-dark">*</span></span>
+</label>
+@error('terms')<p class="mt-1.5 text-[13px] font-medium" style="color:#B42318">{{ $message }}</p>@enderror
 </section>
 <div class="mt-8 flex flex-col-reverse gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between" style="border-color:rgba(15,76,92,.12)">
 <button type="button" id="wizard-back" x-show="step > 0" x-cloak :disabled="submitting" x-on:click="back" class="lnk inline-flex min-h-[48px] items-center gap-2 text-sm font-semibold text-teal-dark disabled:opacity-60 disabled:cursor-not-allowed">
@@ -735,7 +897,7 @@ Back
 <template x-if="step === 2"><span>Review &amp; Submit</span></template>
 <template x-if="step !== 2"><span>Next</span></template>
 </button>
-<button type="submit" id="wizard-submit" x-show="step === 3" x-cloak :disabled="submitting || !emailVerifiedNow()" class="press inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-teal-dark px-8 py-3 text-sm font-bold text-white transition hover:bg-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed">
+<button type="submit" id="wizard-submit" x-show="step === 3" x-cloak :disabled="submitting || !emailVerifiedNow() || !termsAccepted" class="press inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-teal-dark px-8 py-3 text-sm font-bold text-white transition hover:bg-teal focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed">
 <svg x-show="submitting" x-cloak class="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
@@ -744,6 +906,35 @@ Back
 </button>
 </div>
 </form>
+<script>
+// Full PSGC region list (no key needed). Server-rendered options stay as
+// the instant fallback; once loaded, the complete national list replaces
+// them with the applicant's selection preserved.
+(function () {
+function fillRegions() {
+var sel = document.getElementById('region');
+if (!sel) return;
+fetch('https://psgc.gitlab.io/api/regions/', { headers: { Accept: 'application/json' } })
+.then(function (res) { if (!res.ok) throw new Error('regions'); return res.json(); })
+.then(function (list) {
+if (!Array.isArray(list) || !list.length) return;
+var cur = sel.value;
+sel.querySelectorAll('option[data-psgc]').forEach(function (o) { o.remove(); });
+list.forEach(function (rg) {
+var o = document.createElement('option');
+o.value = rg.code;
+o.textContent = (rg.regionName ? rg.regionName + ' – ' : '') + rg.name;
+o.setAttribute('data-psgc', '1');
+if (rg.code === cur) o.selected = true;
+sel.appendChild(o);
+});
+})
+.catch(function () { /* fallback options stay */ });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fillRegions);
+else fillRegions();
+})();
+</script>
 <p class="rv mt-6 text-center text-sm text-muted">Already applied? <a href="{{ route('center-application.status') }}" class="lnk font-bold text-teal-dark">Check a Logistics Center Application Status</a></p>
 @endsection
 

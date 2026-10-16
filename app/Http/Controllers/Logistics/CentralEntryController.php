@@ -67,7 +67,20 @@ public static function destinationFor(User $user): ?string
             return '/logistics/dashboard';
         }
 
+        // Marketplace accounts assigned to a center (approved without a
+        // role change) also belong to the logistics dashboard.
+        if (in_array($user->role, ['buyer', 'seller'], true) && ! empty($user->center_id)) {
+            return '/logistics/dashboard';
+        }
+
         if ($user->role === 'rider') {
+            return '/logistics/rider/entry';
+        }
+
+        // Marketplace accounts linked as riders (approved without a role
+        // change) enter through the same rider transit page.
+        if (in_array($user->role, ['buyer', 'seller'], true)
+            && \App\Models\Rider::where('user_id', $user->id)->exists()) {
             return '/logistics/rider/entry';
         }
 

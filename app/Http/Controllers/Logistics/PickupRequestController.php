@@ -17,7 +17,7 @@ class PickupRequestController extends Controller
 
         $pickupRequests = PickupRequest::query()
             ->with(['delivery', 'center'])
-            ->when($user->isStaff(), function ($query) use ($user) {
+            ->when($user->isLogisticsStaff() && $user->center_id, function ($query) use ($user) {
                 $query->whereNotNull('center_id')->where('center_id', $user->center_id);
             })
             ->when($request->filled('status'), function ($query) use ($request) {
@@ -111,7 +111,7 @@ class PickupRequestController extends Controller
             return true;
         }
 
-        if (! $user->isStaff()) {
+        if (! $user->isLogisticsStaff()) {
             return false;
         }
 

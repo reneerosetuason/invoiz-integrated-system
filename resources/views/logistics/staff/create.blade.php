@@ -66,6 +66,7 @@
                 <div>
                     <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password <span class="text-red-500">*</span></label>
                     <x-password-input name="password" id="password" class="w-full" required :error="$errors->has('password')" />
+                    <p class="text-xs text-gray-500 mt-1">Min 8 characters, with 1 uppercase letter, 1 number, and 1 symbol.</p>
                     @error('password')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
@@ -74,10 +75,24 @@
                 </div>
             </div>
 
+            <label class="mt-6 flex items-start gap-2.5 text-sm text-gray-700">
+                <input type="checkbox" name="terms" id="terms" value="1" {{ old('terms') ? 'checked' : '' }} class="mt-1 h-4 w-4 accent-teal-700">
+                <span>I agree to the Logistics Terms of Service and consent to the processing of this account's information. <span class="text-red-500">*</span></span>
+            </label>
+            @error('terms')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
+
             <div class="mt-8 flex items-center justify-end gap-3">
                 <a href="{{ route('staff.index') }}" class="inline-flex items-center justify-center bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-6 py-2.5 rounded-xl transition">Cancel</a>
-                <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold px-6 py-2.5 rounded-xl transition shadow-sm">Create Staff Account</button>
+                <button type="submit" id="createStaffBtn" class="bg-teal hover:bg-teal-dark text-white font-semibold px-6 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>Create Staff Account</button>
             </div>
         </form>
+        <script>
+        (function () {
+            var box = document.getElementById('terms');
+            var btn = document.getElementById('createStaffBtn');
+            function sync() { btn.disabled = !(box && box.checked); }
+            if (box && btn) { box.addEventListener('change', sync); sync(); }
+        })();
+        </script>
     </div>
 </x-app-layout>

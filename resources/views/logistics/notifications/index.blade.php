@@ -94,7 +94,7 @@
     <script>
         document.querySelectorAll('[data-mark-read]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                fetch('{{ url('notifications') }}/' + btn.dataset.markRead + '/read', {
+                fetch('/logistics/notifications/' + btn.dataset.markRead + '/read', {
                     method: 'PATCH',
                     headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                 }).then(function () { window.location.reload(); });
@@ -103,7 +103,7 @@
         var markAll = document.querySelector('[data-mark-all]');
         if (markAll) {
             markAll.addEventListener('click', function () {
-                fetch('{{ route('notifications.mark-all-read') }}', {
+                fetch('{{ route('notifications.mark-all-read', [], false) }}', {
                     method: 'PATCH',
                     headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                 }).then(function () { window.location.reload(); });

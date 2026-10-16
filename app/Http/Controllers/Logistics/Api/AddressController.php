@@ -10,12 +10,21 @@ use Illuminate\Http\JsonResponse;
 class AddressController extends Controller
 {
     /**
-     * GET /api/address/provinces
+     * GET /api/address/provinces[?region=CODE]
      */
     public function provinces(): JsonResponse
     {
+        $query = Province::orderBy('name');
+
+        if (is_string(request()->query('region', '')) && trim((string) request()->query('region', '')) !== '') {
+            $query->where('region_code', trim((string) request()->query('region')));
+        }
+
         return response()->json([
-            'provinces' => Province::orderBy('name')->select('id', 'code', 'name', 'region_code')->get(),
+            'provinces' => (clone $query)->select('id', 'code', 'name', 'region_code')->get(),
+            'regions' => collect(config('logistics.psgc_regions', []))
+                ->only(Province::distinct()->pluck('region_code')->filter()->all())
+                ->all(),
         ]);
     }
 

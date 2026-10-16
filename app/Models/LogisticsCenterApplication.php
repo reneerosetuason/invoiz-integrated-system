@@ -11,6 +11,13 @@ class LogisticsCenterApplication extends Model
     protected $fillable = [
         'business_name',
         'owner_name',
+        'owner_first_name',
+        'owner_middle_name',
+        'owner_last_name',
+        'sec_number',
+        'tin',
+        'postal_code',
+        'region',
         'email',
         'phone',
         'house_number',
@@ -101,6 +108,35 @@ class LogisticsCenterApplication extends Model
     {
         return $this->hasMany(LogisticsCenterApplicationDocument::class)
             ->orderBy('document_type');
+    }
+
+    /**
+     * Owner display name: split columns when present, legacy owner_name
+     * otherwise (older rows and mobile API submissions).
+     */
+    public function displayOwnerName(): string
+    {
+        $parts = array_values(array_filter([
+            trim((string) ($this->owner_first_name ?? '')),
+            trim((string) ($this->owner_middle_name ?? '')),
+            trim((string) ($this->owner_last_name ?? '')),
+        ]));
+
+        if (! empty($parts)) {
+            return implode(' ', $parts);
+        }
+
+        return trim((string) ($this->owner_name ?? ''));
+    }
+
+    /**
+     * Region display name for the stored PSGC region code.
+     */
+    public function displayRegionName(): string
+    {
+        $map = config('logistics.psgc_regions', []);
+
+        return $map[$this->region] ?? (string) ($this->region ?? '');
     }
 
     /**

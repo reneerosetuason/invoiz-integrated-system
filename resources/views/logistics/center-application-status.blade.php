@@ -72,17 +72,24 @@ $stPill = $st === 'approved'
     : ($st === 'rejected'
         ? 'background:#FDECEC;color:#B42318;'
         : 'background:#F1EFE9;color:#1B1B1E;');
-$stNote = [
-    'pending' => 'Your application is currently being reviewed. We’ll update this page once a decision has been made.',
+$stNotes = [
+    'pending' => 'Your application is currently being reviewed. We will update this page once a decision has been made.',
     'approved' => 'Your Logistics Center has been approved. Login credentials were sent to your registered email address.',
-    'rejected' => 'Your application was not approved at this time. Please contact us for assistance.',
-][$st] ?? null;
+    'rejected' => 'Your application was not approved at this time. The reason was emailed to you - you may correct the details and submit a new application.',
+];
+$stNote = $stNotes[$st] ?? null;
 @endphp
 <p><span class="inline-block rounded-full px-3 py-1 text-[13px] font-bold" style="border:1px solid rgba(15,76,92,.12);{{ $stPill }}">{{ ucwords(str_replace('_', ' ', $st)) }}</span></p>
 <h2 class="font-display mt-3 tracking-[-0.02em] break-words" style="font-weight:560;font-size:clamp(1.4rem,2.4vw,1.75rem);line-height:1.15">{{ $application->business_name }}</h2>
-<p class="mt-1 text-[15px] text-muted break-words">{{ $application->owner_name }}</p>
+<p class="mt-1 text-[15px] text-muted break-words">{{ $application->displayOwnerName() }}</p>
 @if($stNote)
 <p class="mt-3 text-sm leading-relaxed text-muted">{{ $stNote }}</p>
+@endif
+@if($st === 'rejected' && ($application->notes ?? '') !== '')
+<div class="mt-4 rounded-[14px] bg-white px-4 py-4" style="border:1px solid rgba(180,35,24,.35)">
+<p class="text-[13px] font-bold uppercase tracking-wider" style="color:#B42318">Reason</p>
+<p class="mt-1 text-sm leading-relaxed text-ink break-words">{{ $application->notes }}</p>
+</div>
 @endif
 <dl class="mt-5">
 <div class="flex flex-col gap-0.5 py-2.5 sm:flex-row sm:gap-3" style="border-top:1px solid rgba(15,76,92,.12)"><dt class="w-36 flex-none text-[13px] font-medium text-muted">Submitted</dt><dd class="min-w-0 break-words text-sm font-semibold">{{ $application->created_at?->format('M d, Y h:i A') ?? '—' }}</dd></div>

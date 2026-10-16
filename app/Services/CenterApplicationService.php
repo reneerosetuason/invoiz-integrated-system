@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as ValidatorContract;
 
 /**
@@ -23,19 +24,77 @@ class CenterApplicationService
 {
     /**
      * Validation rules shared by the API and the web application form.
+     *
+     * Uniqueness scopes ignore rejected rows so a rejected applicant can
+     * re-apply with a corrected submission; pending/approved rows still block.
      */
     public static function validationRules(): array
     {
+        $notRejected = fn (string $column) => Rule::unique('logistics_center_applications', $column)
+            ->where(fn ($q) => $q->where('status', '!=', 'rejected'));
+
         return [
-            'business_name' => 'required|string|max:255',
-            'owner_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:logistics_center_applications,email',
-            'phone' => ['required', new PhilippinePhone, 'unique:logistics_center_applications,phone'],
+            'business_name' => [
+                'required', 'string', 'min:2', 'max:255',
+                $notRejected('business_name'),
+            ],
+            'owner_name' => 'nullable|string|max:255',
+            'owner_first_name' => 'required_without:owner_name|nullable|string|min:2|max:50',
+            'owner_middle_name' => 'nullable|string|max:50',
+            'owner_last_name' => 'required_without:owner_name|nullable|string|min:2|max:50',
+            'sec_number' => [
+                'required', 'string', 'regex:/^[A-Za-z]{2}\d{9}$/',
+                $notRejected('sec_number'),
+            ],
+            'tin' => [
+                'required', 'string', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/',
+                $notRejected('tin'),
+            ],
+            'postal_code' => 'required|string|regex:/^\d{4}$/',
+            'region' => ['required', 'string', 'regex:/^\d{9}$/'],
+            'province' => ['nullable', 'string', 'max:255', function ($attribute, $value, $fail) {
+                if (! is_string($value) || trim($value) === '') {
+                    return;
+                }
+                // Strict only against our local PSGC dataset (names outside
+                // it, e.g. from the live national API, pass through: the
+                // cascade already constrained the choice client-side).
+                $province = \App\Models\Province::where('name', trim($value))->first();
+                if (! $province) {
+                    return;
+                }
+                $region = trim((string) request()->input('region', ''));
+                if ($region !== '' && (string) $province->region_code !== $region) {
+                    $fail('The selected province does not belong to the chosen region.');
+                }
+            }],
+            'email' => [
+                'required', 'email', 'max:255',
+                $notRejected('email'),
+            ],
+            'phone' => [
+                'required',
+                'string',
+                function ($attribute, $value, $fail) {
+                    // Single smart rule so the displayed message is exact:
+                    // digit strings of the wrong length name the 11-digit
+                    // requirement; anything else gets the invalid message.
+                    // (+63 numbers are already normalized to 09… above.)
+                    $v = trim((string) $value);
+                    if (! preg_match('/^09\d{9}$/', $v)) {
+                        if (preg_match('/^\d+$/', $v)) {
+                            $fail('The contact number must be exactly 11 digits (e.g., 09171234567).');
+                        } else {
+                            $fail('Please enter a valid Philippine mobile number.');
+                        }
+                    }
+                },
+                $notRejected('phone'),
+            ],
             'house_number' => 'nullable|string|max:50',
             'street' => 'nullable|string|max:255',
             'barangay' => 'nullable|string|max:255',
             'municipality' => 'nullable|string|max:255',
-            'province' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:500',
             'documents.valid_id' => 'required|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:5120',
             'documents.business_registration' => 'required|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:5120',
@@ -53,8 +112,16 @@ class CenterApplicationService
     public static function validationMessages(): array
     {
         return [
+            'business_name.unique' => 'This company name is already registered. Please check your application status or use a different company name.',
             'email.unique' => 'This email address already has an application on file. Check your application status or use a different email address.',
             'phone.unique' => 'This contact number is already on file for another application. Check your application status or use a different number.',
+            'phone.regex' => 'The contact number must be exactly 11 digits (e.g., 09171234567).',
+            'sec_number.regex' => 'The SEC registration number must be 2 letters followed by 9 digits (e.g., AB123456789).',
+            'sec_number.unique' => 'This SEC registration number is already in use. Please check your application status.',
+            'tin.regex' => 'The TIN must be in the format 000-000-000-000 (12 digits).',
+            'tin.unique' => 'This TIN is already registered. Please check your application status.',
+            'postal_code.regex' => 'The postal code must be exactly 4 digits.',
+            'region.regex' => 'Please choose a valid region from the list.',
         ];
     }
 
@@ -75,6 +142,12 @@ class CenterApplicationService
         if (is_string($input['phone'] ?? null)) {
             $input['phone'] = PhilippinePhone::normalize($input['phone']);
         }
+        // Trim + lowercase the email before validating so padded or cased
+        // duplicates match the stored canonical address instead of failing
+        // or slipping through as a second row.
+        if (is_string($input['email'] ?? null)) {
+            $input['email'] = strtolower(trim($input['email']));
+        }
 
         $validator = Validator::make(
             $input,
@@ -92,6 +165,15 @@ class CenterApplicationService
         $data['phone'] = PhilippinePhone::normalize($data['phone']);
         $data['status'] = 'pending';
         $data['submitted_via'] = $submittedVia;
+        // Split owner names win when present (web wizard); otherwise keep
+        // the legacy single field (older rows, mobile API).
+        if (trim((string) ($data['owner_name'] ?? '')) === '') {
+            $data['owner_name'] = trim(implode(' ', array_filter([
+                trim((string) ($data['owner_first_name'] ?? '')),
+                trim((string) ($data['owner_middle_name'] ?? '')),
+                trim((string) ($data['owner_last_name'] ?? '')),
+            ])));
+        }
         $data['address'] = trim((string) ($data['address'] ?? '')) ?: trim(collect([
             $data['house_number'] ?? '',
             $data['street'] ?? '',
@@ -141,7 +223,7 @@ class CenterApplicationService
      */
     public static function stepsForErrors(array $fieldKeys): array
     {
-        $locationStepTwo = ['house_number', 'street', 'barangay', 'municipality', 'province'];
+        $locationStepTwo = ['house_number', 'street', 'barangay', 'municipality', 'province', 'region', 'postal_code'];
         $steps = [];
 
         foreach ($fieldKeys as $key) {

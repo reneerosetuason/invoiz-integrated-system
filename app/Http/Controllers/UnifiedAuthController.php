@@ -46,14 +46,85 @@ class UnifiedAuthController extends Controller
 
     public function register(Request $request)
     {
+        // Trim the email before validating so padded addresses match the
+        // stored canonical address instead of failing or duplicating.
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => trim($request->input('email'))]);
+        }
+
+        // Normalize the phone before validating so +63 variants match the
+        // stored 09 form for the duplicate check below. Empty stays null so
+        // the optional field never collides on blank values.
+        if (is_string($request->input('phone'))) {
+            $p = trim($request->input('phone'));
+            $request->merge(['phone' => $p === '' ? null : \App\Rules\PhilippinePhone::normalize($p)]);
+        }
+
         $data = $request->validate([
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
+            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\s\'.\-]+$/u'],
+            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\s\'.\-]+$/u'],
             'sex' => 'required|in:male,female,other',
-            'birthday' => 'required|date|before:today',
+            'birthday' => [
+                'required', 'date', 'before:today',
+                function ($attribute, $value, $fail) {
+                    try {
+                        if (\Carbon\Carbon::parse($value)->age < 18) {
+                            $fail('You must be at least 18 years old to register.');
+                        }
+                    } catch (\Throwable $e) {
+                        // The date rule above reports unparseable values.
+                    }
+                },
+            ],
             'email' => 'required|email|max:150|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-            'phone' => 'nullable|string|max:30',
+            'password' => [
+                'required', 'string', 'min:8', 'confirmed',
+                function ($attribute, $value, $fail) {
+                    // One message per missing character type so the
+                    // applicant knows exactly what to add.
+                    $v = (string) $value;
+                    if (! preg_match('/[A-Z]/', $v)) {
+                        $fail('The password must contain at least one uppercase letter.');
+                    }
+                    if (! preg_match('/[a-z]/', $v)) {
+                        $fail('The password must contain at least one lowercase letter.');
+                    }
+                    if (! preg_match('/[0-9]/', $v)) {
+                        $fail('The password must contain at least one number.');
+                    }
+                    if (! preg_match('/[^A-Za-z0-9]/', $v)) {
+                        $fail('The password must contain at least one special character (e.g., @, #, $, !).');
+                    }
+                },
+            ],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:30',
+                function ($attribute, $value, $fail) {
+                    // Optional field: empty stays valid. A filled value must
+                    // be an 11-digit 09 mobile: digit strings of the wrong
+                    // length name the length; anything else gets the invalid
+                    // message. (+63 input is already normalized above.)
+                    $v = trim((string) $value);
+                    if ($v === '') {
+                        return;
+                    }
+                    if (! preg_match('/^09\d{9}$/', $v)) {
+                        if (preg_match('/^09\d+$/', $v)) {
+                            $fail('The mobile number must be exactly 11 digits (e.g., 09171234567).');
+                        } else {
+                            $fail('Please enter a valid Philippine mobile number.');
+                        }
+                    }
+                },
+                'unique:users,phone',
+            ],
+            'terms' => 'accepted',
+        ], [
+            'first_name.regex' => 'The first name may only contain letters.',
+            'last_name.regex' => 'The last name may only contain letters.',
+            'phone.unique' => 'This mobile number is already in use. Please use a different number.',
         ]);
 
         $fullName = trim($data['first_name'] . ' ' . $data['last_name']);
@@ -129,6 +200,12 @@ class UnifiedAuthController extends Controller
 
     public function verifyCode(Request $request)
     {
+        // Trim first so a padded address still identifies the account and
+        // the code is checked against the stored canonical email.
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => trim($request->input('email'))]);
+        }
+
         $data = $request->validate([
             'email' => 'required|email',
             'code' => 'required|digits:6',
@@ -162,6 +239,12 @@ class UnifiedAuthController extends Controller
 
     public function resendCode(Request $request)
     {
+        // Trim first so the account lookup and the outgoing email both use
+        // the clean address — a padded address must still receive its code.
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => trim($request->input('email'))]);
+        }
+
         $data = $request->validate(['email' => 'required|email']);
         $user = User::where('email', $data['email'])->first();
         if (! $user) {

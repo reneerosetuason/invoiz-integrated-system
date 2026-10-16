@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Mail\RiderAccountApprovedMail;
+use App\Mail\RiderApplicationRejectedMail;
 use App\Models\LogisticsCenter;
 use App\Models\RiderApplication;
 use App\Models\RiderApplicationDocument;
@@ -108,19 +109,28 @@ class RiderApplicationAdminController extends Controller
         // plaintext password travels in memory to this single send and is
         // discarded afterwards. If delivery fails the account is kept and
         // the manager is told to use a safe alternative channel.
+        // Accounts that kept their own login (marketplace/admin) get no
+        // credentials mail — their password never changed.
+        $keptLogin = ($u = User::where('email', $application->email)->first()) && $u->keepsOwnLogin();
         $mailSent = false;
-        try {
-            Mail::to($application->email)->send(
-                new RiderAccountApprovedMail($application->fresh(), $password)
-            );
-            $mailSent = true;
-        } catch (\Throwable $e) {
-            report($e);
+        if (! $keptLogin) {
+            try {
+                Mail::to($application->email)->send(
+                    new RiderAccountApprovedMail($application->fresh(), $password)
+                );
+                $mailSent = true;
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
-        $success = $mailSent
-            ? "Rider approved successfully. Login credentials have been sent to: {$rider->email}"
-            : "Rider account created successfully, but the login credentials could not be emailed to {$rider->email}. Please contact the rider through a secure channel.";
+        if ($keptLogin) {
+            $success = "Rider approved successfully. {$rider->email} keeps its existing login and is now linked as a rider.";
+        } else {
+            $success = $mailSent
+                ? "Rider approved successfully. Login credentials have been sent to: {$rider->email}"
+                : "Rider account created successfully, but the login credentials could not be emailed to {$rider->email}. Please contact the rider through a secure channel.";
+        }
 
         return redirect()
             ->route('rider-applications.show', $application)
@@ -190,9 +200,21 @@ class RiderApplicationAdminController extends Controller
 
         $this->provisioner->reject($application, $admin, $validated['reason']);
 
+        $mailSent = false;
+        try {
+            \Illuminate\Support\Facades\Mail::to($application->email)->send(
+                new RiderApplicationRejectedMail($application->fresh(), $validated['reason'])
+            );
+            $mailSent = true;
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return redirect()
             ->route('rider-applications.show', $application)
-            ->with('success', 'Application rejected.');
+            ->with('success', $mailSent
+                ? 'Application rejected. The applicant has been emailed the reason.'
+                : 'Application rejected, but the reason email could not be delivered. Please contact the applicant through a secure channel.');
     }
 
     /**
@@ -219,7 +241,7 @@ class RiderApplicationAdminController extends Controller
     private function serveDocument(RiderApplicationDocument $document, string $disposition): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $user = request()->user();
-        if (! $user || $user->role !== 'admin') {
+        if (! $user || (! in_array($user->role, ['admin', 'logistics_admin'], true) && ! $user->isAdmin())) {
             abort(403, 'This action is restricted to administrators.');
         }
 
@@ -237,7 +259,7 @@ class RiderApplicationAdminController extends Controller
             abort(401);
         }
 
-        if ($user->role !== 'admin') {
+        if (! in_array($user->role, ['admin', 'logistics_admin'], true) && ! $user->isAdmin()) {
             abort(403, 'This action is restricted to administrators.');
         }
     }

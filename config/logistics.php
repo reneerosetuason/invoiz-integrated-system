@@ -48,4 +48,12 @@ return [
         'van'        => 'Van',
         'truck'      => 'Truck',
     ],
+
+    // Starter PSGC region dataset for the center-application address
+    // cascade (region -> province -> city/municipality -> barangay).
+    'psgc_regions' => [
+        '130000000' => 'National Capital Region (NCR)',
+        '070000000' => 'Central Visayas (Region VII)',
+        '030000000' => 'Central Luzon (Region III)',
+    ],
 ];
