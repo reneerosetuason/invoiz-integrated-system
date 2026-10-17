@@ -9,17 +9,22 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('riders', function (Blueprint $table) {
-            $table->foreignId('center_id')->nullable()->after('id')->constrained('logistics_centers')->nullOnDelete();
-            $table->foreignId('service_area_id')->nullable()->after('center_id')->constrained('service_areas')->nullOnDelete();
+            if (! Schema::hasColumn('riders', 'center_id')) {
+                $table->foreignId('center_id')->nullable()->after('id')->constrained('logistics_centers')->nullOnDelete();
+            }
+            if (! Schema::hasColumn('riders', 'service_area_id')) {
+                $table->foreignId('service_area_id')->nullable()->after('center_id')->constrained('service_areas')->nullOnDelete();
+            }
         });
 
         Schema::table('users', function (Blueprint $table) {
-            $table->foreignId('center_id')->nullable()->after('role')->constrained('logistics_centers')->nullOnDelete();
+            if (! Schema::hasColumn('users', 'center_id')) {
+                $table->foreignId('center_id')->nullable()->after('role')->constrained('logistics_centers')->nullOnDelete();
+            }
         });
 
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('approval_status');
-        });
+        // NOTE: approval_status is owned by the e-commerce/buyer schema and
+        // must be preserved on shared DBs — never dropped here.
     }
 
     public function down(): void

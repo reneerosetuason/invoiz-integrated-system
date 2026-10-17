@@ -90,6 +90,7 @@
             applicationsOpen: @js(request()->routeIs('center-applications.*')),
             navPersistTimeout: null,
             notifOpen: false,
+            accountOpen: false,
             notifications: [],
             unreadCount: 0,
             get sidebarVisible() { return this.sidebarHover; },
@@ -97,7 +98,9 @@
                 this.sidebarHover = !this.sidebarHover;
             }
         }" x-init="
-            fetch('{{ route('notifications.index', [], false) }}')
+            fetch('{{ route('notifications.index', [], false) }}', {
+                    headers: { 'Accept': 'application/json' },
+                })
                 .then(r => r.json())
                 .then(d => { notifications = d.notifications; unreadCount = d.unread_count; });
             @if($sidebarRemember)
@@ -133,7 +136,7 @@
                             <span class="text-lg font-bold text-gray-900">Logistics</span>
                         </div>
 
-                        <div class="flex items-center gap-2">
+                        <div class="flex items-center gap-1 sm:gap-2">
                             <!-- Notification Bell -->
                             <div class="relative">
                                 <button @click="notifOpen = !notifOpen" @click.outside="notifOpen = false" class="relative text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100">
@@ -149,7 +152,7 @@
                                     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                                         <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
                                         <button @click="
-                                            fetch('{{ route('notifications.mark-all-read', [], false) }}', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+                                            fetch('{{ route('notifications.mark-all-read', [], false) }}', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' } })
                                                 .then(r => r.json())
                                                 .then(d => { unreadCount = d.unread_count; notifications.forEach(n => n.is_read = true); })
                                         " x-show="unreadCount > 0" class="text-xs font-medium text-teal hover:text-teal-dark">Mark all read</button>
@@ -164,7 +167,7 @@
                                         <template x-for="n in notifications" :key="n.id">
                                             <div @click="
                                                 if (!n.is_read) {
-                                                    fetch('/logistics/notifications/' + n.id + '/read', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' } })
+                                                    fetch('/logistics/notifications/' + n.id + '/read', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' } })
                                                         .then(r => r.json())
                                                         .then(d => { unreadCount = d.unread_count; n.is_read = true; });
                                                 }
@@ -181,11 +184,14 @@
                                             </div>
                                         </template>
                                     </div>
+                                    <div class="border-t border-gray-100 px-4 py-2.5 text-center">
+                                        <a href="{{ route('notifications.index', [], false) }}" class="text-xs font-semibold text-teal hover:text-teal-dark">View all notifications</a>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Messages Icon -->
-                            <a href="{{ route('messages.index') }}" class="relative text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100" title="Messages">
+                            <a href="{{ route('messages.index') }}" class="relative text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary" title="Messages" aria-label="Messages">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                 </svg>
@@ -194,6 +200,92 @@
                                     <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-secondary text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">{{ $topbarUnreadMsgs }}</span>
                                 @endif
                             </a>
+
+                            @php
+                                $topbarUser = auth()->user();
+                                $topbarPhoto = $topbarUser?->profilePhotoUrl();
+                                $topbarInitial = ($topbarUser && $topbarUser->name) ? substr($topbarUser->name, 0, 1) : '?';
+                                $topbarOnProfile = request()->routeIs('profile.*');
+                                $topbarOnSettings = request()->routeIs('settings.*');
+                                $topbarRole = $topbarUser?->roleLabel();
+                            @endphp
+
+                            <!-- Divider between messaging controls and the account menu -->
+                            <div class="w-px h-6 bg-gray-200 mx-1" aria-hidden="true"></div>
+
+                            <!-- Account menu: one profile trigger for every viewport
+                                 (Hick's Law: Profile, Settings, Log out grouped into a
+                                 single predictable menu; Jakob's Law: avatar/name plus
+                                 chevron, identity header, Profile + Settings, Log out
+                                 separated at the bottom). Notifications and Messages
+                                 stay visible as separate controls. Alpine (already in
+                                 use) drives the toggle — no new framework. -->
+                            <div class="relative" @keydown.escape.window="if (accountOpen) { accountOpen = false; $refs.accountTrigger.focus(); }">
+                                <button type="button" x-ref="accountTrigger"
+                                        @click="accountOpen = !accountOpen"
+                                        :aria-expanded="accountOpen ? 'true' : 'false'"
+                                        aria-haspopup="menu" aria-controls="profile-menu"
+                                        aria-label="Account menu" title="Account"
+                                        class="flex items-center gap-2 min-h-[44px] rounded-xl px-1.5 py-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary">
+                                    @if($topbarPhoto)
+                                        <img src="{{ $topbarPhoto }}" alt="Profile photo" class="h-8 w-8 rounded-full object-cover ring-2 {{ ($topbarOnProfile || $topbarOnSettings) ? 'ring-secondary' : 'ring-teal/20' }} transition flex-shrink-0">
+                                    @else
+                                        <span class="h-8 w-8 rounded-full bg-teal-light ring-2 {{ ($topbarOnProfile || $topbarOnSettings) ? 'ring-secondary' : 'ring-teal/20' }} flex items-center justify-center text-teal-dark text-sm font-bold transition flex-shrink-0" aria-hidden="true">{{ $topbarInitial }}</span>
+                                    @endif
+                                    <span class="hidden sm:block text-sm font-semibold text-[#1F2933] truncate max-w-[140px]">{{ $topbarUser->name }}</span>
+                                    <svg class="h-4 w-4 flex-shrink-0 transition-transform" :class="accountOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                <div id="profile-menu" x-show="accountOpen" x-transition x-cloak @click.outside="accountOpen = false"
+                                     class="absolute right-0 mt-2 w-[280px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg ring-1 ring-gray-200 z-50 py-1.5 overflow-hidden" role="menu" aria-label="Account">
+                                    {{-- Account header: same photo source/fallback as the
+                                         trigger and Profile page; the inline onerror
+                                         covers a URL that breaks after render. --}}
+                                    <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+                                        @if($topbarPhoto)
+                                            <img src="{{ $topbarPhoto }}" alt="Profile photo" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden');this.nextElementSibling.classList.add('flex');" class="h-11 w-11 rounded-full object-cover ring-2 ring-teal/20 flex-shrink-0">
+                                            <span class="hidden h-11 w-11 rounded-full bg-teal-light ring-2 ring-teal/20 items-center justify-center text-teal-dark text-base font-bold flex-shrink-0" aria-hidden="true">{{ $topbarInitial }}</span>
+                                        @else
+                                            <span class="h-11 w-11 rounded-full bg-teal-light ring-2 ring-teal/20 flex items-center justify-center text-teal-dark text-base font-bold flex-shrink-0" aria-hidden="true">{{ $topbarInitial }}</span>
+                                        @endif
+                                        <div class="min-w-0 flex-1">
+                                            <p class="text-sm font-semibold text-[#1F2933] truncate">{{ $topbarUser->name }}</p>
+                                            @if($topbarRole)
+                                                <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $topbarRole }}</p>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <a href="{{ route('profile.show') }}" title="Open profile" role="menuitem"
+                                       @if($topbarOnProfile) aria-current="page" @endif
+                                       class="flex items-center gap-3 px-4 min-h-[44px] py-2.5 text-sm font-medium {{ $topbarOnProfile ? 'text-teal-dark bg-teal-light' : 'text-[#1F2933] hover:bg-teal-light' }} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary">
+                                        <svg class="h-5 w-5 flex-none text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        My Profile
+                                    </a>
+                                    <a href="{{ route('settings.index') }}" title="Settings" role="menuitem"
+                                       @if($topbarOnSettings) aria-current="page" @endif
+                                       class="flex items-center gap-3 px-4 min-h-[44px] py-2.5 text-sm font-medium {{ $topbarOnSettings ? 'text-teal-dark bg-teal-light' : 'text-[#1F2933] hover:bg-teal-light' }} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary">
+                                        <svg class="h-5 w-5 flex-none text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Settings
+                                    </a>
+                                    <div class="border-t border-gray-100 my-1.5" aria-hidden="true"></div>
+                                    <form method="POST" action="{{ route('logout') }}">
+                                        @csrf
+                                        <button type="submit" role="menuitem" aria-label="Log out"
+                                                class="flex items-center gap-3 w-full px-4 min-h-[44px] py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500">
+                                            <svg class="h-5 w-5 flex-none text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                            Log Out
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </header>

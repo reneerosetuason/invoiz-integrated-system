@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Logistics;
 
-use App\Models\Logistics\Delivery;
-use App\Models\Logistics\DeliveryStatusLog;
-use App\Models\Logistics\LogisticsCenter;
-use App\Models\Logistics\Rider;
-use App\Models\Logistics\ServiceArea;
-use App\Models\Logistics\Transaction;
+use App\Models\Delivery;
+use App\Models\DeliveryStatusLog;
+use App\Models\LogisticsCenter;
+use App\Models\Rider;
+use App\Models\ServiceArea;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;

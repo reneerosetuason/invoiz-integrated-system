@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Logistics;
 
 use App\Models\Logistics\Conversation;
 use App\Models\Logistics\Message;
-use App\Models\Logistics\MessageAttachment;
+use App\Models\MessageAttachment;
 use App\Models\Notification;
 use App\Models\Rider;
 use App\Models\RiderNotification;

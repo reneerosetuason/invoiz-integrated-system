@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware\Logistics;
 
-use App\Models\Logistics\LogisticsSetting;
+use App\Models\LogisticsSetting;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
