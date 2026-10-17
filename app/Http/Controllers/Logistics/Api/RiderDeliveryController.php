@@ -7,6 +7,7 @@ use App\Http\Controllers\TransactionController;
 use App\Models\Delivery;
 use App\Models\DeliveryFailure;
 use App\Models\DeliveryProof;
+use App\Models\Notification;
 use App\Models\DeliveryStatusLog;
 use App\Models\Order;
 use App\Models\Rider;
@@ -110,7 +111,7 @@ class RiderDeliveryController extends Controller
      * Find the rider's delivery by shipping-label tracking number.
      *
      * Lookup only: scanning never assigns, claims, or mutates anything.
-     * Authorization is identical to show() ??? the delivery must already be
+     * Authorization is identical to show() — the delivery must already be
      * assigned to the authenticated rider. A scanned QR code is an
      * identifier, never permission.
      */
@@ -296,21 +297,7 @@ class RiderDeliveryController extends Controller
 
         $this->logStatus($delivery, 'delivered', 'Package delivered to customer.');
 
-        // Logistics generates the transaction (flat ₱50 rider payout + ₱15
-        // logistics fee per delivery) using the existing business rules.
-        // The Rider System must NOT duplicate transaction creation — it
-        // only reports completion.
-        app(TransactionController::class)->storeForDelivery($delivery);
-
-        // Cash is with the rider now: open the handoff the seller must
-        // verify before the sale settles.
-        \App\Support\Remittances::ensureForDelivery($delivery->fresh());
-
-        // Record rider earnings for this delivery: the flat per-delivery
-        // fee, fully independent of any voucher or discount on the order.
-        $earned = $delivery->delivery_fee !== null
-            ? (float) $delivery->delivery_fee
-            : Order::SHIPPING_FEE_PER_SELLER;
+        // Logistics generates the transaction (flat ₱50 rider payout + ₱15         // logistics fee per delivery) using the existing business rules.         // The Rider System must NOT duplicate transaction creation — it         // only reports completion.         app(TransactionController::class)->storeForDelivery($delivery);          // Cash is with the rider now: open the handoff the seller must         // verify before the sale settles.         \App\Support\Remittances::ensureForDelivery($delivery->fresh());          // Record rider earnings for this delivery: the flat per-delivery         // fee, fully independent of any voucher or discount on the order.         $earned = $delivery->delivery_fee !== null             ? (float) $delivery->delivery_fee             : Order::SHIPPING_FEE_PER_SELLER;
 
         RiderEarning::create([
             'rider_id' => $delivery->rider_id,
@@ -493,6 +480,9 @@ class RiderDeliveryController extends Controller
             'status' => 'delivery_failed',
             'failed_at' => now(),
             'failure_reason' => $validated['reason'],
+            // A fresh failure starts a fresh next-step cycle.
+            'reattempt_requested_at' => null,
+            'returned_at' => null,
         ]);
 
         DeliveryFailure::create([
@@ -509,6 +499,97 @@ class RiderDeliveryController extends Controller
 
         return response()->json([
             'message' => 'Failed delivery reported.',
+            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+        ]);
+    }
+
+    /**
+     * Request a re-attempt of a failed delivery.
+     *
+     * The delivery record, tracking number, and failure history are
+     * preserved; status stays delivery_failed. Logistics reassigns through
+     * the existing assign flow (failed → assigned, gated by max_attempts /
+     * allow_reassignment). One request per failure cycle; the flag clears
+     * on (re)assignment or on each fresh failure.
+     */
+    public function requestReattempt(Request $request, Delivery $delivery): JsonResponse
+    {
+        $this->authorizeDelivery($request, $delivery);
+
+        if ($delivery->status !== 'delivery_failed') {
+            return $this->invalidTransition($delivery);
+        }
+        if ($delivery->reattempt_requested_at !== null) {
+            return response()->json([
+                'message' => 'A re-attempt has already been requested for this delivery.',
+                'errors' => ['reattempt' => ['A re-attempt has already been requested for this delivery.']],
+            ], 409);
+        }
+        if ($delivery->returned_at !== null) {
+            return response()->json([
+                'message' => 'This parcel was already returned to the sorting center.',
+                'errors' => ['reattempt' => ['This parcel was already returned to the sorting center.']],
+            ], 409);
+        }
+
+        $delivery->update(['reattempt_requested_at' => now()]);
+        $this->logStatus($delivery, 'reattempt_requested', 'Rider requested a delivery re-attempt.');
+
+        Notification::create([
+            'type' => 'reattempt_requested',
+            'title' => 'Re-attempt Requested',
+            'message' => "Rider requested a re-attempt for {$delivery->tracking_number}.",
+            'icon' => '🔁',
+            'priority' => 'normal',
+            'link' => route('deliveries.show', $delivery),
+        ]);
+
+        return response()->json([
+            'message' => 'Re-attempt requested. Logistics will review and reassign the delivery.',
+            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+        ]);
+    }
+
+    /**
+     * Return a failed parcel to the sorting center.
+     *
+     * The parcel becomes visible to the center (returned_at) with the
+     * failure reason preserved; tracking, order, and history are untouched.
+     * Returning supersedes a pending re-attempt request. One return per
+     * failure cycle.
+     */
+    public function returnToCenter(Request $request, Delivery $delivery): JsonResponse
+    {
+        $this->authorizeDelivery($request, $delivery);
+
+        if ($delivery->status !== 'delivery_failed') {
+            return $this->invalidTransition($delivery);
+        }
+        if ($delivery->returned_at !== null) {
+            return response()->json([
+                'message' => 'This parcel was already returned to the sorting center.',
+                'errors' => ['return' => ['This parcel was already returned to the sorting center.']],
+            ], 409);
+        }
+
+        $delivery->update([
+            'returned_at' => now(),
+            'return_reason' => $delivery->failure_reason,
+            'reattempt_requested_at' => null,
+        ]);
+        $this->logStatus($delivery, 'returned_to_center', 'Parcel returned to the sorting center.');
+
+        Notification::create([
+            'type' => 'parcel_returned_to_center',
+            'title' => 'Parcel Returned to Center',
+            'message' => "{$delivery->tracking_number} was returned to the sorting center.",
+            'icon' => '🏢',
+            'priority' => 'normal',
+            'link' => route('deliveries.show', $delivery),
+        ]);
+
+        return response()->json([
+            'message' => 'Parcel marked as returned to the sorting center.',
             'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
         ]);
     }
@@ -601,7 +682,3 @@ class RiderDeliveryController extends Controller
         return app(RiderController::class)->deliveryPayload($delivery);
     }
 }
-
-
-
-

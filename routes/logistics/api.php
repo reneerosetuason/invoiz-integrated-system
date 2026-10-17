@@ -14,6 +14,7 @@ use App\Http\Controllers\Logistics\Api\RiderConversationController;
 use App\Http\Controllers\Logistics\Api\RiderMessageController;
 use App\Http\Controllers\Logistics\Api\RiderNotificationController;
 use App\Http\Controllers\Logistics\Api\RiderPasswordController;
+use App\Http\Controllers\Logistics\Api\RiderPasswordResetController;
 use App\Http\Controllers\Logistics\Api\RiderRemittanceController;
 use App\Http\Controllers\Logistics\Api\VehicleTypeController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +40,11 @@ Route::post('/rider/email/resend', [RiderEmailVerificationController::class, 'se
 Route::post('/rider/email/verify', [RiderEmailVerificationController::class, 'verify'])
     ->middleware('throttle:10,1');
 
+Route::post('/rider/password/forgot', [RiderPasswordResetController::class, 'forgot'])
+    ->middleware('throttle:5,1');
+Route::post('/rider/password/reset', [RiderPasswordResetController::class, 'reset'])
+    ->middleware('throttle:5,1');
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
@@ -61,6 +67,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/deliveries/{delivery}/sorting-center-pickup', [RiderDeliveryController::class, 'sortingCenterPickup']);
         Route::post('/deliveries/{delivery}/complete', [RiderDeliveryController::class, 'complete']);
         Route::post('/deliveries/{delivery}/failed', [RiderDeliveryController::class, 'failed']);
+        Route::post('/deliveries/{delivery}/reattempt', [RiderDeliveryController::class, 'requestReattempt']);
+        Route::post('/deliveries/{delivery}/return-to-center', [RiderDeliveryController::class, 'returnToCenter']);
 
         Route::post('/location', [RiderLocationController::class, 'store']);
 
