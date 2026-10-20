@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Logistics\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Conversation;
-use App\Models\Message;
+use App\Models\Logistics\Conversation;
+use App\Models\Logistics\Message;
 use App\Models\MessageAttachment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

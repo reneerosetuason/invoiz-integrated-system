@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Logistics\Message as LogisticsMessage;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -20,7 +21,7 @@ class MessageAttachment extends Model
 
     public function message(): BelongsTo
     {
-        return $this->belongsTo(Message::class);
+        return $this->belongsTo(LogisticsMessage::class, 'message_id');
     }
 
     public function isImage(): bool
