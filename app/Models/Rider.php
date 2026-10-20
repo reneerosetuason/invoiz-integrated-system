@@ -21,6 +21,9 @@ class Rider extends Model
         'vehicle_type',
         'vehicle_capacity_kg',
         'license_plate',
+        'license_number',
+        'license_expiry',
+        'vehicle_registration',
         'status',
         'is_verified',
         'approved_at',
@@ -37,6 +40,7 @@ class Rider extends Model
         return [
             'is_online' => 'boolean',
             'is_verified' => 'boolean',
+            'license_expiry' => 'date:Y-m-d',
             'approved_at' => 'datetime',
             'vehicle_capacity_kg' => 'decimal:2',
             'vehicle_verified_at' => 'datetime',
@@ -105,6 +109,72 @@ class Rider extends Model
     public function isEligibilityApproved(): bool
     {
         return $this->approved_at !== null;
+    }
+
+    public function licenseExpired(): bool
+    {
+        if ($this->license_expiry === null) {
+            return false;
+        }
+
+        return $this->license_expiry->lt(now()->startOfDay());
+    }
+
+    public function licenseExpiringSoon(int $days = 30): bool
+    {
+        if ($this->license_expiry === null || $this->licenseExpired()) {
+            return false;
+        }
+
+        return $this->license_expiry->lte(now()->startOfDay()->addDays($days));
+    }
+
+    public function licenseStatus(): string
+    {
+        if ($this->license_expiry === null) {
+            return 'missing';
+        }
+
+        if ($this->licenseExpired()) {
+            return 'expired';
+        }
+
+        return $this->licenseExpiringSoon() ? 'expiring' : 'valid';
+    }
+
+    /**
+     * Reason the rider cannot take new work, or null when they may go online
+     * and accept new assignments. A null licence expiry stays permissive for
+     * legacy riders that predate the licence fields.
+     */
+    public function assignmentBlockReason(): ?string
+    {
+        if (! $this->isEligibilityApproved()) {
+            return 'Rider application not approved';
+        }
+
+        if ($this->status === 'inactive') {
+            return 'Account inactive';
+        }
+
+        if ($this->vehicle_verification !== 'verified') {
+            return 'Vehicle not verified';
+        }
+
+        if (! $this->vehicleTypeIsActive()) {
+            return 'Vehicle type deactivated';
+        }
+
+        if ($this->licenseExpired()) {
+            return 'Driver\'s license expired on '.$this->license_expiry->format('M d, Y');
+        }
+
+        return null;
+    }
+
+    public function canGoOnline(): bool
+    {
+        return $this->assignmentBlockReason() === null;
     }
 
     /**

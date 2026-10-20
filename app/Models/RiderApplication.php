@@ -28,6 +28,7 @@ class RiderApplication extends Model
         'vehicle_type',
         'license_plate',
         'license_number',
+        'license_expiry',
         'vehicle_registration',
         'documents',
         'status',
@@ -47,6 +48,7 @@ class RiderApplication extends Model
         return [
             'status' => 'string',
             'birthday' => 'date:Y-m-d',
+            'license_expiry' => 'date:Y-m-d',
             'reviewed_at' => 'datetime',
             'provisioned_at' => 'datetime',
             'documents' => 'array',

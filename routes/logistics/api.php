@@ -45,6 +45,14 @@ Route::post('/rider/password/forgot', [RiderPasswordResetController::class, 'for
 Route::post('/rider/password/reset', [RiderPasswordResetController::class, 'reset'])
     ->middleware('throttle:5,1');
 
+// Private rider documents are served through a short-lived signed URL
+// generated for the authenticated rider (see RiderController::profile). The
+// `signed` middleware rejects tampered or expired links before the controller
+// runs; no bearer token is required by the external viewer.
+Route::get('/rider/documents/{document}', [RiderController::class, 'document'])
+    ->middleware('signed')
+    ->name('api.logistics.rider.documents.show');
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);

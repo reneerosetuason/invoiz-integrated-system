@@ -5,9 +5,13 @@ namespace App\Http\Controllers\Logistics\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\Rider;
+use App\Models\RiderApplication;
+use App\Models\RiderApplicationDocument;
 use App\Models\RiderEarning;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class RiderController extends Controller
 {
@@ -59,6 +63,18 @@ class RiderController extends Controller
         ]);
 
         $rider = $this->rider($request);
+
+        if ($validated['status'] === 'online') {
+            $blocked = $rider->assignmentBlockReason();
+
+            if ($blocked !== null) {
+                return response()->json([
+                    'message' => 'You cannot go online. '.$blocked.'.',
+                    'errors' => ['status' => ['You cannot go online. '.$blocked.'.']],
+                ], 422);
+            }
+        }
+
         $rider->update(['is_online' => $validated['status'] === 'online']);
 
         return response()->json([
@@ -137,13 +153,82 @@ class RiderController extends Controller
             'phone' => $rider->phone,
             'vehicle_type' => $rider->vehicle_type,
             'license_plate' => $rider->license_plate,
+            'license_number' => $rider->license_number,
+            'license_expiry' => $rider->license_expiry?->format('Y-m-d'),
+            'license_status' => $rider->licenseStatus(),
+            'license_expired' => $rider->licenseExpired(),
+            'license_expiring_soon' => $rider->licenseExpiringSoon(),
+            'vehicle_registration' => $rider->vehicle_registration,
+            'company' => $rider->logisticsCenter?->name,
+            'service_area' => $rider->serviceArea?->name,
             'status' => $rider->status,
             'is_online' => $rider->is_online,
+            'can_go_online' => $rider->canGoOnline(),
+            'online_block_reason' => $rider->assignmentBlockReason(),
             'avatar' => $rider->avatar ? url('storage/' . $rider->avatar) : null,
             'total_deliveries' => $rider->deliveries_count,
             'completed_deliveries' => Delivery::where('rider_id', $rider->id)->where('status', 'delivered')->count(),
             'failed_deliveries' => Delivery::where('rider_id', $rider->id)->where('status', 'delivery_failed')->count(),
+            'documents' => $this->documentsPayload($rider),
         ];
+    }
+
+    /**
+     * The rider's uploaded application documents. Each entry carries a
+     * short-lived signed URL so the rider app can open the private file
+     * directly (no bearer token is available to the external viewer). The URL
+     * grants access to exactly one document and only while it is unexpired.
+     */
+    private function documentsPayload(Rider $rider): array
+    {
+        $application = RiderApplication::where('email', $rider->email)->latest('id')->first();
+
+        if (! $application) {
+            return [];
+        }
+
+        return $application->supportingDocuments
+            ->map(fn (RiderApplicationDocument $doc) => [
+                'id' => $doc->id,
+                'type' => $doc->document_type,
+                'label' => $doc->typeLabel(),
+                'name' => $doc->original_filename,
+                'mime_type' => $doc->contentMime(),
+                'is_image' => $doc->isImage(),
+                'size' => $doc->humanSize(),
+                'url' => URL::temporarySignedRoute(
+                    'api.logistics.rider.documents.show',
+                    now()->addMinutes(30),
+                    ['document' => $doc->id],
+                ),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Serve one of the authenticated rider's own application documents.
+     *
+     * Access requires a valid (unexpired, untampered) signed URL — generated
+     * only inside the rider's own profile response — and the document must
+     * belong to an application whose email matches a provisioned rider.
+     */
+    public function document(RiderApplicationDocument $document): BinaryFileResponse
+    {
+        $application = $document->application;
+
+        abort_unless(
+            $application && Rider::where('email', $application->email)->exists(),
+            403,
+            'This document is not available.',
+        );
+
+        abort_unless($document->fileExists(), 404, 'Document is missing or was deleted.');
+
+        return response()->file($document->absolutePath(), [
+            'Content-Type' => $document->contentMime(),
+            'Content-Disposition' => 'inline; filename="' . basename($document->original_filename) . '"',
+        ]);
     }
 
     public function deliveryPayload(Delivery $delivery): array
