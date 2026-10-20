@@ -59,6 +59,7 @@ class ProductController extends Controller
         });
 
         $this->attachShop($products->getCollection());
+        $this->attachSale($products->getCollection());
 
         return response()->json($products);
     }
@@ -87,6 +88,7 @@ class ProductController extends Controller
 
         $this->attachShop(collect([$product]));
         $this->attachGallery(collect([$product]));
+        $this->attachSale(collect([$product]));
 
         return response()->json(['product' => $product]);
     }
@@ -108,6 +110,25 @@ class ProductController extends Controller
             }
 
             $product->gallery = $gallery;
+        }
+    }
+
+    /**
+     * Attach running-sale info so buyer UIs can show the discounted price.
+     */
+    protected function attachSale($products): void
+    {
+        foreach ($products as $product) {
+            $sale = \App\Support\Sales::saleFor($product);
+            $product->on_sale = (bool) $sale;
+            $product->effective_price = \App\Support\Sales::priceFor($product);
+            $product->sale_price = $sale ? $product->effective_price : null;
+            $product->sale = $sale ? [
+                'name'           => $sale->name,
+                'discount_type'  => $sale->discount_type,
+                'discount_value' => $sale->discount_value,
+                'ends_at'        => $sale->ends_at,
+            ] : null;
         }
     }
 

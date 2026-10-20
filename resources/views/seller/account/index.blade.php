@@ -109,6 +109,31 @@
                 </form>
             </div>
 
+            {{-- Vacation mode --}}
+            <div class="card p-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-base font-bold">Vacation Mode</h3>
+                    @if(auth()->user()->seller?->vacation_mode)
+                        <span class="badge bg-amber-100 !text-amber-800">On vacation</span>
+                    @else
+                        <span class="badge bg-[#E8F5EE] !text-successc">Open</span>
+                    @endif
+                </div>
+                <form method="POST" action="{{ route('seller.account.vacation') }}" class="space-y-3">
+                    @csrf
+                    <input type="hidden" name="vacation_mode" value="0">
+                    <label class="flex items-center gap-2 text-sm font-semibold">
+                        <input type="checkbox" name="vacation_mode" value="1" {{ auth()->user()->seller?->vacation_mode ? 'checked' : '' }}>
+                        Pause my store (block new orders)
+                    </label>
+                    <div>
+                        <label class="field-label">Message shown to buyers (optional)</label>
+                        <input type="text" name="vacation_message" maxlength="200" class="input" placeholder="e.g. Back on Monday — orders resume then." value="{{ old('vacation_message', auth()->user()->seller?->vacation_message) }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Vacation Mode</button>
+                </form>
+            </div>
+
             {{-- Password --}}
             <div class="card p-6">
                 <h3 class="mb-4 text-base font-bold">Change Password</h3>

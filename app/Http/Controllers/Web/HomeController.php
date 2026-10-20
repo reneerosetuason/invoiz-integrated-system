@@ -15,6 +15,7 @@ class HomeController extends Controller {
     if($request->filled('search')) $q->where('name','like','%'.$request->search.'%');
     $sort = $this->sortCatalog($q, $request->input('sort', 'recommended'));
     $products = $q->get();
+    $this->attachSale($products);
     $categories = Category::active()
       ->orderByRaw("CASE WHEN name = 'Appliances' THEN 0 ELSE 1 END, name")
       ->get();
@@ -55,7 +56,9 @@ class HomeController extends Controller {
     $sellerUserId = \App\Models\Seller::userIdFor((int) $p->seller_id);
     $buyer = request()->session()->get('buyer') ?? (Auth::check() ? ['id' => Auth::id()] : null);
     $isFavorited = $buyer ? Favorite::where('buyer_id', $buyer['id'])->where('product_id', $p->id)->exists() : false;
-    return view('product', compact('p', 'buyer', 'isFavorited', 'sellerUserId'));
+    $sale = \App\Support\Sales::saleFor($p);
+    $salePrice = $sale ? \App\Support\Sales::priceFor($p) : null;
+    return view('product', compact('p', 'buyer', 'isFavorited', 'sellerUserId', 'sale', 'salePrice'));
   }
 
   /** Sale listing — active products discounted vs their compare-at price. */
@@ -67,6 +70,7 @@ class HomeController extends Controller {
     if($request->filled('search')) $q->where('name','like','%'.$request->search.'%');
     $sort = $this->sortCatalog($q, $request->input('sort', 'recommended'));
     $products = $q->get();
+    $this->attachSale($products);
     $categories = Category::active()
       ->orderByRaw("CASE WHEN name = 'Appliances' THEN 0 ELSE 1 END, name")
       ->get();
@@ -86,7 +90,7 @@ class HomeController extends Controller {
       foreach($items as $it){
         $p = $prods->get($it->product_id);
         if(!$p) continue;
-        $line = (float)$p->price * (int)$it->quantity;
+        $line = \App\Support\Sales::priceFor($p) * (int)$it->quantity;
         $cartTotal += $line;
         $cartLines->push(['name'=>$p->name,'qty'=>(int)$it->quantity,'line'=>$line]);
       }
@@ -107,6 +111,17 @@ class HomeController extends Controller {
       ->select('products.*')
       ->selectSub(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
       ->selectSub(Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');
+  }
+
+  private function attachSale($products): void
+  {
+    foreach ($products as $product) {
+      $sale = \App\Support\Sales::saleFor($product);
+      $effective = \App\Support\Sales::priceFor($product);
+      $product->setAttribute('on_sale', (bool) $sale);
+      $product->setAttribute('sale_price', $sale ? $effective : null);
+      $product->setAttribute('effective_price', $effective);
+    }
   }
 
   private function sortCatalog($query, string $sort): string

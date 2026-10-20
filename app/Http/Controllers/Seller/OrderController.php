@@ -17,8 +17,8 @@ class OrderController extends Controller
     protected const TRANSITIONS = [
         'pending'             => ['confirmed', 'cancelled'],
         'confirmed'           => ['processing', 'cancelled'],
-        'processing'          => ['ready_for_delivery'],
-        'ready_for_delivery'  => ['out_for_delivery'],
+        'processing'          => ['ready_for_delivery', 'cancelled'],
+        'ready_for_delivery'  => ['out_for_delivery', 'cancelled'],
         'out_for_delivery'    => ['delivered'],
         'delivered'           => [],
         'cancelled'           => [],
@@ -139,6 +139,8 @@ class OrderController extends Controller
                 \App\Support\Stock::restoreOrder($order->load('items'));
                 // COD money never moved: void the pending ledger row.
                 \App\Support\Payments::voidForCancel($order);
+                // Release any voucher locked to this order back to the buyer.
+                \App\Support\Vouchers::restoreForOrder($order);
             }
 
             $this->syncDelivery($order, $target, $action);

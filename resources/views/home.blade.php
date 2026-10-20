@@ -77,8 +77,15 @@
           @endif
           <div class="pname">{{ $p->name }}</div>
           <div class="pprice-row">
-            <span class="pprice">₱{{ number_format($p->price,2) }}</span>
-            @if($hasDeal)
+            @php
+              $onSale = !empty($p->sale_price) && (float) $p->sale_price < (float) $p->price;
+              $shownPrice = $onSale ? (float) $p->sale_price : (float) $p->price;
+            @endphp
+            <span class="pprice">₱{{ number_format($shownPrice,2) }}</span>
+            @if($onSale)
+              <span class="pwas">₱{{ number_format($p->price,2) }}</span>
+              <span class="poff">Sale</span>
+            @elseif($hasDeal)
               <span class="pwas">₱{{ number_format($p->compare_at_price,2) }}</span>
               <span class="poff">−{{ (int) round((1 - (float)$p->price/(float)$p->compare_at_price)*100) }}%</span>
             @endif

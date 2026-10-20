@@ -43,10 +43,10 @@ class Cart extends Model
         }
     }
 
-    /** Unit price = base price + variant adjustment. */
+    /** Unit price = effective (sale-aware) base price + variant adjustment. */
     public static function unitFor($product, $variant): float
     {
-        return (float) $product->price + ($variant ? (float) $variant->price_adjustment : 0);
+        return \App\Support\Sales::priceFor($product) + ($variant ? (float) $variant->price_adjustment : 0);
     }
 
     /** Snapshot label for orders, e.g. "Color: White". */

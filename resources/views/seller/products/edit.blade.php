@@ -36,10 +36,15 @@
                 </div>
                 <div>
                     <label class="field-label">Status</label>
+                    @php $sellerApproved = optional(\App\Models\Seller::where('user_id', auth()->id())->first())->approval_status === 'approved'; @endphp
                     <select name="status" class="select">
-                        <option value="active" {{ old('status', $product->status) === 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="out_of_stock" {{ old('status', $product->status) === 'out_of_stock' ? 'selected' : '' }}>Out of stock</option>
-                        <option value="inactive" {{ old('status', $product->status) === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                        @if($sellerApproved)
+                            <option value="active" {{ old('status', $product->status) === 'active' ? 'selected' : '' }}>Active</option>
+                            <option value="out_of_stock" {{ old('status', $product->status) === 'out_of_stock' ? 'selected' : '' }}>Out of stock</option>
+                            <option value="inactive" {{ old('status', $product->status) === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                        @else
+                            <option value="draft" {{ old('status', $product->status) === 'draft' ? 'selected' : '' }}>Draft — published after approval</option>
+                        @endif
                     </select>
                 </div>
                 <div class="md:col-span-2">
@@ -131,12 +136,14 @@
                     </template>
                 </div>
                 <div class="flex-1">
-                    <label class="field-label">Replace image (optional)</label>
-                    <input type="file" name="image" accept="image/*" class="input !py-2.5"
+                    <label class="field-label">Replace cover image (optional)</label>
+                    <input type="file" name="image" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5"
                            @change="preview = URL.createObjectURL($event.target.files[0])">
                     @if($product->image)
                         <p class="mt-2 text-xs text-ink-light">Current: {{ basename($product->image) }}</p>
                     @endif
+                    <label class="field-label mt-4">Add gallery images (JPG/PNG, up to 9 total)</label>
+                    <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple>
                 </div>
             </div>
         </div>
@@ -153,7 +160,7 @@
 <script>
 function productForm() {
     return {
-        variants: {!! json_encode($product->variants->map(fn($v) => ['type' => $v->variant_type, 'value' => $v->variant_value, 'adjustment' => $v->price_adjustment, 'stock' => $v->stock])) !!},
+        variants: {!! json_encode($product->variants->map(fn($v) => ['type' => $v->variant_type, 'value' => $v->variant_value, 'adjustment' => $v->price_adjustment, 'stock' => $v->stock]), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!},
         addVariant() {
             this.variants.push({ type: '', value: '', adjustment: 0, stock: 0 });
         }

@@ -25,8 +25,10 @@ class VoucherController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+
         $validated = $request->validate([
-            'code'           => ['required', 'string', 'max:50', 'unique:vouchers,code'],
+            'code'           => ['required', 'string', 'regex:/^[A-Z0-9]{4,12}$/', 'unique:vouchers,code'],
             'name'           => ['required', 'string', 'max:150'],
             'description'    => ['nullable', 'string', 'max:1000'],
             'discount_type'  => ['required', 'in:fixed,percent,free_shipping'],
@@ -60,9 +62,16 @@ class VoucherController extends Controller
     public function update(Request $request, $id)
     {
         $sellerIds = $this->sellerRecord()->catalogIds();
-        $voucher = Voucher::where(function ($q) use ($sellerIds) {
-            $q->whereNull('seller_id')->orWhereIn('seller_id', $sellerIds);
-        })->findOrFail($id);
+        $voucher = Voucher::whereIn('seller_id', $sellerIds)->findOrFail($id);
+
+        // Once a buyer has claimed the voucher it is locked: only the
+        // active/inactive toggle may change.
+        if (\App\Models\VoucherClaim::where('voucher_id', $voucher->id)->exists()) {
+            $request->validate(['status' => ['required', 'in:active,inactive']]);
+            $voucher->update(['status' => $request->input('status')]);
+
+            return back()->with('success', 'This voucher has claims, so only its active status was updated.');
+        }
 
         $validated = $request->validate([
             'name'           => ['required', 'string', 'max:150'],
@@ -97,8 +106,8 @@ class VoucherController extends Controller
     {
         $voucher = Voucher::whereIn('seller_id', $this->sellerRecord()->catalogIds())->findOrFail($id);
 
-        if ($voucher->used_count > 0) {
-            return back()->with('error', 'This voucher has already been used and cannot be deleted.');
+        if ($voucher->used_count > 0 || \App\Models\VoucherClaim::where('voucher_id', $voucher->id)->exists()) {
+            return back()->with('error', 'This voucher has already been claimed and cannot be deleted.');
         }
 
         $voucher->delete();

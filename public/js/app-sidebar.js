@@ -14,7 +14,8 @@
     var DESKTOP = window.matchMedia('(min-width: 1024px)');
 
     function isRail(aside) {
-        return aside.classList.contains('sidebar-collapsed') && DESKTOP.matches;
+        return aside.classList.contains('sidebar-collapsed') &&
+            (DESKTOP.matches || (aside.classList.contains('sb2--admin') && aside.classList.contains('collapsed')));
     }
 
     /* Badge text from data-count; leaves the .sr-only suffix untouched. */

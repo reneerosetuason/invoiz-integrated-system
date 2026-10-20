@@ -272,6 +272,7 @@
       </footer>
     </div>
   </div>
+  @stack('scripts')
   <script src="{{ asset('frontend/js/app.js') }}"></script>
   @include('partials.support-chat')
 </body>

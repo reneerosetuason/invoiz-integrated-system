@@ -30,31 +30,26 @@
       @else
         <input type="hidden" name="checkout_mode" value="all">
       @endif
-      <div style="margin:4px 0 16px;padding:14px;border:1px solid var(--border);border-radius:12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-          <h3 style="margin:0;font-size:14px">Delivery address</h3>
-          <a href="{{ url('/profile#saved-addresses') }}" style="font-size:11px;color:var(--green);font-weight:700;text-decoration:none">Manage addresses</a>
+        <div style="margin:4px 0 16px;padding:14px;border:1px solid var(--border);border-radius:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <h3 style="margin:0;font-size:14px">Delivery address</h3>
+            <a href="{{ url('/profile#saved-addresses') }}" style="font-size:11px;color:var(--green);font-weight:700;text-decoration:none">Manage addresses</a>
+          </div>
+          <select name="address_id" required style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;background:#fff">
+            <option value="">Select a delivery address</option>
+            @forelse($addresses as $address)
+              @php
+                $addressParts = array_filter([$address->address_line, $address->barangay, $address->city, $address->province, $address->region, $address->postal_code], fn($part) => filled($part));
+              @endphp
+              <option value="{{ $address->id }}" @selected((string)old('address_id', $selectedAddressId ? $selectedAddressId : null) === (string)$address->id) @if($address->is_default) data-default="1" @endif>
+                {{ $address->recipient_name }} — {{ implode(', ', $addressParts) }} @if($address->is_default) <span style="color:#0F766E;font-weight:700">(Default)</span>@endif {{ $address->phone }}
+              </option>
+            @empty
+              <option disabled>No saved addresses. Add one in your profile first.</option>
+            @endforelse
+          </select>
+          @error('address_id')<div style="margin-top:8px;color:#B91C1C;font-size:11px;font-weight:600">{{ $message }}</div>@enderror
         </div>
-        @forelse($addresses as $address)
-          @php
-            $checkoutAddressParts = array_filter([$address->address_line, $address->barangay, $address->city, $address->province, $address->region, $address->postal_code], fn($part) => filled($part));
-            $isSelectedAddress = (string) $selectedAddressId === (string) $address->id;
-          @endphp
-          <label style="display:flex;align-items:flex-start;gap:10px;padding:11px;border:1px solid {{ $isSelectedAddress ? 'var(--green)' : 'var(--border)' }};border-radius:10px;margin-top:8px;cursor:pointer;background:{{ $isSelectedAddress ? '#f0fdf4' : '#fff' }}">
-            <input type="radio" name="address_id" value="{{ $address->id }}" required @checked($isSelectedAddress) style="margin-top:2px;accent-color:var(--green)">
-            <span style="font-size:12px;line-height:1.5;min-width:0">
-              <strong>{{ $address->recipient_name }}</strong>
-              @if($address->is_default)<span style="margin-left:5px;color:var(--green);font-size:10px;font-weight:700">DEFAULT</span>@endif
-              <br>{{ implode(', ', $checkoutAddressParts) }}
-              <br><span style="color:var(--text2)">{{ $address->phone }}</span>
-            </span>
-          </label>
-        @empty
-          <p style="margin:8px 0;color:var(--text2);font-size:12px">Add a delivery address to your profile before placing this order.</p>
-          <a href="{{ url('/profile#saved-addresses') }}" style="display:inline-block;margin-top:4px;padding:8px 11px;background:var(--green);color:#fff;border-radius:8px;font-size:11px;font-weight:700;text-decoration:none">Add delivery address</a>
-        @endforelse
-        @error('address_id')<div style="margin-top:8px;color:#B91C1C;font-size:11px;font-weight:600">{{ $message }}</div>@enderror
-      </div>
       <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--green);border-radius:10px;margin-bottom:10px;cursor:pointer;background:#f0fdf4">
         <input type="radio" name="payment_method" value="cod" checked style="accent-color:var(--green)">
         <img src="https://cdn-icons-png.flaticon.com/512/2168/2168741.png" alt="COD" style="width:28px;height:28px;object-fit:contain;background:#fff;border-radius:6px;padding:3px;border:1px solid var(--border)">
@@ -63,21 +58,36 @@
       </label>
       <div style="margin-top:12px;padding:10px;background:#f0fdf4;border:1px solid var(--green);border-radius:8px;font-size:11px;color:var(--green-dark)">COD only: Pay when your order is delivered.</div>
       <div style="margin-top:10px">
-        <label for="voucher-claim" style="font-size:12px;font-weight:700">Claimed voucher <span style="font-weight:400;color:var(--text2)">(optional)</span></label>
-        <select id="voucher-claim" name="voucher_claim_id" style="width:100%;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:13px;background:#fff">
-          <option value="">No voucher</option>
-          @foreach($claimedVouchers as $claim)
-            @php
-              $voucher = $claim->voucher;
-              $voucherType = $voucher->discount_type ?? $voucher->type;
-              $voucherValue = $voucher->discount_value ?? $voucher->value;
-              $voucherText = $voucherType === 'free_shipping' ? 'Free shipping' : ($voucherType === 'percent' ? rtrim(rtrim(number_format((float)$voucherValue,2),'0'),'.').'% off' : '₱'.number_format((float)$voucherValue,2).' off');
-              $voucherSeller = 'Store';
-              try { $voucherSeller = \App\Models\Seller::nameFor(\App\Models\Seller::userIdFor((int) $voucher->seller_id)); } catch (\Throwable $e) {}
-            @endphp
-            <option value="{{ $claim->id }}" @selected((string)old('voucher_claim_id') === (string)$claim->id)>{{ $voucherText }} · {{ $voucherSeller }}@if($voucher->min_spend > 0) · Min ₱{{ number_format($voucher->min_spend,2) }}@endif</option>
-          @endforeach
-        </select>
+        @php
+          $shipVouchers = collect();
+          $merchVouchers = collect();
+          foreach($claimedVouchers as $claim){
+            $v = $claim->voucher;
+            if(!$v) continue;
+            if((($v->discount_type ?? $v->type) === 'free_shipping')){ $shipVouchers->push($claim); } else { $merchVouchers->push($claim); }
+          }
+          $oldVoucherIds = array_map('intval', (array) old('voucher_claim_ids', []));
+        @endphp
+        <label style="font-size:12px;font-weight:700">Vouchers <span style="font-weight:400;color:var(--text2)">(optional — up to one store, one platform and one shipping)</span></label>
+        @foreach([['Shipping voucher', $shipVouchers], ['Merchandise vouchers', $merchVouchers]] as [$groupLabel, $groupClaims])
+          @if($groupClaims->isNotEmpty())
+            <div style="font-size:11px;font-weight:700;color:var(--text2);margin:8px 0 2px">{{ $groupLabel }}</div>
+            @foreach($groupClaims as $claim)
+              @php
+                $voucher = $claim->voucher;
+                $voucherType = $voucher->discount_type ?? $voucher->type;
+                $voucherValue = $voucher->discount_value ?? $voucher->value;
+                $voucherText = $voucherType === 'free_shipping' ? 'Free shipping' : ($voucherType === 'percent' ? rtrim(rtrim(number_format((float)$voucherValue,2),'0'),'.').'% off' : '₱'.number_format((float)$voucherValue,2).' off');
+                $voucherSeller = $voucher->seller_id ? 'Store' : 'Platform';
+                if($voucher->seller_id){ try { $voucherSeller = \App\Models\Seller::nameFor(\App\Models\Seller::userIdFor((int) $voucher->seller_id)); } catch (\Throwable $e) {} }
+              @endphp
+              <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:6px 0;cursor:pointer">
+                <input type="checkbox" name="voucher_claim_ids[]" value="{{ $claim->id }}" @checked(in_array((int)$claim->id, $oldVoucherIds))>
+                <span>{{ $voucherText }} · {{ $voucherSeller }}@if($voucher->min_spend > 0) · Min ₱{{ number_format($voucher->min_spend,2) }}@endif</span>
+              </label>
+            @endforeach
+          @endif
+        @endforeach
         <div style="font-size:11px;color:var(--text2);margin-top:5px">Claim offers from <a href="{{ url('/vouchers') }}" style="color:var(--green);font-weight:700">the vouchers page</a>; no voucher code is needed.</div>
         <div style="font-size:11px;color:var(--text2);margin-top:4px">Discount vouchers cut the item total · free-shipping vouchers waive the ₱50/shop delivery fee. Applied when you place the order.</div>
       </div>

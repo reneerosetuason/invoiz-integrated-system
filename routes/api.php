@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/checkout', [App\Http\Controllers\Api\OrderController::class, 'checkout']);
     Route::post('/orders/{id}/cancel', [App\Http\Controllers\Api\OrderController::class, 'cancel'])->whereNumber('id');
     Route::post('/orders/{id}/rate', [App\Http\Controllers\Api\OrderController::class, 'rate'])->whereNumber('id');
+    Route::post('/orders/{id}/returns', [App\Http\Controllers\Api\OrderController::class, 'requestReturn'])->whereNumber('id');
 
     Route::get('/favorites', [App\Http\Controllers\Api\FavoriteController::class, 'index']);
     Route::post('/favorites/toggle', [App\Http\Controllers\Api\FavoriteController::class, 'toggle']);
@@ -51,7 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat/{id}/messages', [App\Http\Controllers\Api\ChatController::class, 'messages'])->whereNumber('id');
     Route::post('/chat/{id}/reply', [App\Http\Controllers\Api\ChatController::class, 'reply'])->whereNumber('id');
 
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('admin')->group(function () {
         Route::apiResource('sellers', SellerController::class)->only(['index','show']);
         Route::post('sellers/{seller}/approve', [SellerController::class, 'approve']);
         Route::post('sellers/{seller}/reject', [SellerController::class, 'reject']);

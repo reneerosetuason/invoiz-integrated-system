@@ -15,11 +15,29 @@ class PickupRequestController extends Controller
     {
         $user = $request->user();
 
-        $pickupRequests = PickupRequest::query()
-            ->with(['delivery', 'center'])
-            ->when($user->isLogisticsStaff() && $user->center_id, function ($query) use ($user) {
-                $query->whereNotNull('center_id')->where('center_id', $user->center_id);
-            })
+        $query = PickupRequest::query()
+            ->with(['delivery.logisticsCenter', 'center']);
+
+        if (! $user->isAdmin() && ! $user->isLogisticsAdmin()) {
+            if ($user->isLogisticsStaff() && $user->center_id) {
+                $centerId = (int) $user->center_id;
+                $query->where(function ($query) use ($centerId) {
+                    $query->where('pickup_requests.center_id', $centerId)
+                        ->orWhere(function ($legacyRequests) use ($centerId) {
+                            $legacyRequests->whereNull('pickup_requests.center_id')
+                                ->whereHas('delivery', function ($delivery) use ($centerId) {
+                                    $delivery->where('center_id', $centerId);
+                                });
+                        });
+                });
+            } else {
+                // A logistics account without a center must not see requests
+                // belonging to every center.
+                $query->whereRaw('1 = 0');
+            }
+        }
+
+        $pickupRequests = $query
             ->when($request->filled('status'), function ($query) use ($request) {
                 $query->where('status', $request->input('status'));
             })
@@ -49,7 +67,7 @@ class PickupRequestController extends Controller
         $this->authorizeView($user, $pickupRequest);
 
         return view('logistics.pickup-requests.show', [
-            'pickupRequest' => $pickupRequest->load(['delivery', 'delivery.items', 'center', 'reviewer']),
+            'pickupRequest' => $pickupRequest->load(['delivery', 'delivery.items', 'delivery.logisticsCenter', 'center', 'reviewer']),
             'canReview' => $this->canReview($user, $pickupRequest),
         ]);
     }
@@ -107,15 +125,22 @@ class PickupRequestController extends Controller
 
     public function canReview(User $user, PickupRequest $pickupRequest): bool
     {
-        if ($user->isAdmin()) {
+        if ($user->isAdmin() || $user->isLogisticsAdmin()) {
             return true;
         }
 
-        if (! $user->isLogisticsStaff()) {
+        if (! $user->isLogisticsStaff() || ! $user->center_id) {
             return false;
         }
 
-        return $pickupRequest->center_id && $pickupRequest->center_id == $user->center_id;
+        // Older requests were created without their own center_id. In those
+        // cases the delivery's center is the source of truth.
+        $requestCenterId = $pickupRequest->center_id
+            ?? $pickupRequest->delivery?->center_id
+            ?? $pickupRequest->delivery()->value('center_id');
+
+        return $requestCenterId !== null
+            && (int) $requestCenterId === (int) $user->center_id;
     }
 
     private function authorizeView(User $user, PickupRequest $pickupRequest): void

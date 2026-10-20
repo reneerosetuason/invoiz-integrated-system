@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 
-use App\Models\Product;
 use App\Models\Review;
 use Illuminate\Http\Request;
 
@@ -47,25 +46,20 @@ class ReviewController extends Controller
         ]);
     }
 
-    public function toggle($id)
+    public function reply(Request $request, $id)
     {
         $review = Review::whereHas('product', fn ($q) => $q->where('seller_id', auth()->id()))
             ->findOrFail($id);
 
+        $validated = $request->validate([
+            'seller_reply' => ['required', 'string', 'min:2', 'max:1000'],
+        ]);
+
         $review->update([
-            'status' => $review->status === 'visible' ? 'hidden' : 'visible',
+            'seller_reply'      => $validated['seller_reply'],
+            'seller_replied_at' => now(),
         ]);
 
-        // Keep the cached product rating in sync.
-        $avg = Review::where('product_id', $review->product_id)
-            ->where('status', 'visible')
-            ->avg('rating');
-        Product::where('id', $review->product_id)->update([
-            'rating' => $avg ? round($avg, 1) : null,
-        ]);
-
-        return back()->with('success', $review->status === 'visible'
-            ? 'Feedback shown on the product.'
-            : 'Feedback hidden from the product.');
+        return back()->with('success', 'Your reply is now visible on the product page.');
     }
 }

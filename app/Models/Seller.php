@@ -27,6 +27,8 @@ class Seller extends Model
         'approval_status',
         'rejection_reason',
         'terms_accepted',
+        'vacation_mode',
+        'vacation_message',
         'primary_color',
         'accent_color',
         'logo',
@@ -40,6 +42,7 @@ class Seller extends Model
         'primary_color' => 'string',
         'accent_color' => 'string',
         'terms_accepted' => 'boolean',
+        'vacation_mode' => 'boolean',
     ];
 
     protected static function booted(): void

@@ -55,6 +55,11 @@ class AuthController extends Controller {
       'password'=>'required|string|min:8|confirmed',
       'phone'=>'nullable|string|max:30',
       'address_line'=>'nullable|string|max:255',
+      'region'=>'nullable|string|max:150',
+      'province'=>'nullable|string|max:150',
+      'city'=>'nullable|string|max:150',
+      'barangay'=>'nullable|string|max:150',
+      'postal_code'=>'nullable|string|max:20',
     ]);
     $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
     $age = \Carbon\Carbon::parse($r->birthday)->diffInYears(now());
@@ -70,6 +75,12 @@ class AuthController extends Controller {
       'birthday'=>$r->birthday,
       'age'=>$age,
       'address_line'=>$r->address_line,
+      'region'=>$r->region,
+      'province'=>$r->province,
+      'city'=>$r->city,
+      'municipality'=>$r->city,
+      'barangay'=>$r->barangay,
+      'postal_code'=>$r->postal_code,
       'approval_status'=>'approved',
       'role'=>'buyer',
       'status'=>'active',

@@ -55,13 +55,22 @@ class DashboardController extends Controller
     public function index(Request $request): View
     {
         $user = Auth::user();
-        $staffCenterId = $user && $user->isLogisticsStaff() && $user->center_id ? (int) $user->center_id : null;
+        // Any logistics account bound to a center is scoped to it (matches the
+        // deliveries list), so the dashboard never counts another center's
+        // shipments.
+        $staffCenterId = $user && $user->center_id ? (int) $user->center_id : null;
 
         $trendsRange = $request->query('trends_range', '7');
         $trendsRange = in_array($trendsRange, ['7', '30'], true) ? (int) $trendsRange : 7;
 
+        // Inclusive date-range filter (start and end dates both included).
+        $dateFromRaw = trim((string) $request->query('date_from', ''));
+        $dateToRaw = trim((string) $request->query('date_to', ''));
+        $dateFrom = ($dateFromRaw !== '' && strtotime($dateFromRaw)) ? $dateFromRaw : null;
+        $dateTo = ($dateToRaw !== '' && strtotime($dateToRaw)) ? $dateToRaw : null;
+
         // ?????? Delivery status counts (single grouped query) ??????????????????????????????????????????
-        $statusCounts = $this->deliveryQuery($staffCenterId)
+        $statusCounts = $this->deliveryQuery($staffCenterId, $dateFrom, $dateTo)
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
@@ -75,13 +84,23 @@ class DashboardController extends Controller
             'failed' => (int) ($statusCounts['delivery_failed'] ?? 0),
         ];
 
+        // ?????? KPI buckets (Pending / In Transit / Delivered / Failed) ??????
+        // Each count uses the exact status set the deliveries list filters by,
+        // so a card's number always equals the rows on the filtered list.
+        $statusGroupCounts = [];
+        foreach (Delivery::STATUS_GROUPS as $groupKey => $groupStatuses) {
+            $statusGroupCounts[$groupKey] = (int) $this->deliveryQuery($staffCenterId, $dateFrom, $dateTo)
+                ->whereIn('status', $groupStatuses)
+                ->count();
+        }
+
         // ?????? Needs attention ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
         // Unassigned deliveries waiting for a rider.
         $needsAttention = [
             'waitingForRider' => $deliveries['waiting_for_rider'],
             'failed' => $deliveries['failed'],
             // Parcels received at a center but still being processed (not yet dispatched).
-            'processing' => (int) $this->deliveryQuery($staffCenterId)
+            'processing' => (int) $this->deliveryQuery($staffCenterId, $dateFrom, $dateTo)
                 ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
                 ->where('status', 'waiting_for_rider')
                 ->count(),
@@ -144,13 +163,13 @@ class DashboardController extends Controller
         ];
 
         // ?????? Service Area overview (total + active deliveries per area) ??????
-        $areaTotals = $this->deliveryQuery($staffCenterId)
+        $areaTotals = $this->deliveryQuery($staffCenterId, $dateFrom, $dateTo)
             ->select('service_area_id')
             ->selectRaw('count(*) as total')
             ->groupBy('service_area_id')
             ->pluck('total', 'service_area_id');
 
-        $areaActive = $this->deliveryQuery($staffCenterId)
+        $areaActive = $this->deliveryQuery($staffCenterId, $dateFrom, $dateTo)
             ->whereIn('status', Delivery::ACTIVE_STATUSES)
             ->select('service_area_id')
             ->selectRaw('count(*) as active')
@@ -214,13 +233,13 @@ class DashboardController extends Controller
         // Intentionally lightweight (not the full Deliveries manager): the
         // limit applies before any filtering, and the view links out to
         // deliveries.index for server-side search across all records.
-        $recentDeliveriesForView = $this->deliveryQuery($staffCenterId)
+        $recentDeliveriesForView = $this->deliveryQuery($staffCenterId, $dateFrom, $dateTo)
             ->latest('updated_at')
             ->with(['rider', 'serviceArea', 'logisticsCenter'])
             ->take(6)
             ->get();
 
-        $detailedRecords = $this->deliveryQuery($staffCenterId)
+        $detailedRecords = $this->deliveryQuery($staffCenterId, $dateFrom, $dateTo)
             ->latest('updated_at')
             ->with(['logisticsCenter'])
             ->take(50)
@@ -241,6 +260,9 @@ class DashboardController extends Controller
 
         return view('logistics.dashboard', [
             'deliveries' => $deliveries,
+            'statusGroupCounts' => $statusGroupCounts,
+            'dateFrom' => $dateFrom ?? '',
+            'dateTo' => $dateTo ?? '',
             'riders' => $riders,
             'onlineRiders' => $onlineRiders,
             'riderWorkload' => $riderWorkload,
@@ -265,11 +287,17 @@ class DashboardController extends Controller
      * Base delivery query with the existing staff center-scoping applied at the
      * query level (never bypassable via a query parameter).
      */
-    private function deliveryQuery(?int $staffCenterId)
+    private function deliveryQuery(?int $staffCenterId, ?string $dateFrom = null, ?string $dateTo = null)
     {
         $query = Delivery::notArchived();
         if ($staffCenterId) {
             $query->where('center_id', $staffCenterId);
+        }
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
         }
         return $query;
     }
@@ -316,7 +344,7 @@ class DashboardController extends Controller
         // This is called from buildStatusChartData which already has staffCenterId context
         // For simplicity, use the same deliveryQuery logic via Auth
         $user = Auth::user();
-        $staffCenterId = $user && $user->isLogisticsStaff() && $user->center_id ? (int) $user->center_id : null;
+        $staffCenterId = $user && $user->center_id ? (int) $user->center_id : null;
         return $this->deliveryQuery($staffCenterId)
             ->selectRaw('parcel_status, count(*) as total')
             ->groupBy('parcel_status')

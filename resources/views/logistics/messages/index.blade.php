@@ -1,22 +1,18 @@
 <x-app-layout>
-    @php
-        $activeJson = $activeConversation ? [
-            'id' => $activeConversation->id,
-            'name' => $activeConversation->participant_name,
-            'type' => $activeConversation->participant_type,
-            'order_id' => $activeConversation->order_id,
-            'tracking' => $activeConversation->delivery?->tracking_number,
-        ] : null;
-    @endphp
     <div x-data="messagesApp({
             conversations: @js($conversationsData),
             messages: @js($messagesData),
-            active: @js($activeJson),
+            active: @js($activeData),
             totalUnread: {{ $totalUnread }},
             search: @js(request('search', '')),
             filter: @js(request('filter', 'all')),
             perPage: {{ (int) request('per_page', 10) }},
-            csrf: @js(csrf_token())
+            csrf: @js(csrf_token()),
+            // Keep these URLs relative to the current host. Absolute route()
+            // URLs use APP_URL, which can differ from the domain serving this
+            // page (and causes the recipient fetch to fail across origins).
+            recipientsUrl: @js(route('messages.recipients', [], false)),
+            startUrl: @js(route('messages.start', [], false))
         })"
          class="h-[calc(100vh-7rem)] flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
 
@@ -27,7 +23,13 @@
             <div class="px-4 py-4 border-b border-gray-200 bg-white">
                 <div class="flex items-center justify-between mb-3">
                     <h1 class="text-lg font-bold text-gray-900">Messages</h1>
-                    <span x-show="totalUnread > 0" x-text="totalUnread" x-cloak class="bg-secondary text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+                    <div class="flex items-center gap-2">
+                        <span x-show="totalUnread > 0" x-text="totalUnread" x-cloak class="bg-secondary text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+                        <button type="button" @click="openCompose()" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-teal text-white hover:bg-teal-dark text-xs font-semibold transition">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14m7-7H5"/></svg>
+                            New message
+                        </button>
+                    </div>
                 </div>
 
                 {{-- Search (full page GET) --}}
@@ -88,7 +90,7 @@
                                         <span class="text-sm font-semibold truncate" :class="conv.unread > 0 ? 'text-gray-900' : 'text-gray-700'" x-text="conv.name"></span>
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide flex-shrink-0"
                                               :class="conv.type === 'rider' ? 'bg-teal-light text-teal-dark' : 'bg-amber-50 text-amber-700'"
-                                              x-text="conv.type.charAt(0).toUpperCase() + conv.type.slice(1)"></span>
+                                              x-text="conv.label || (conv.type.charAt(0).toUpperCase() + conv.type.slice(1))"></span>
                                     </div>
                                     <span class="text-[11px] text-gray-400 whitespace-nowrap flex-shrink-0" x-text="agoLabel(conv.last_message_at)"></span>
                                 </div>
@@ -161,7 +163,7 @@
                     <div class="flex items-center gap-2">
                         <h2 class="text-sm font-bold text-gray-900 truncate" x-text="active?.name"></h2>
                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide bg-teal-light text-teal-dark"
-                              x-text="active ? active.type.charAt(0).toUpperCase() + active.type.slice(1) : ''"></span>
+                              x-text="active ? (active.label || active.type.charAt(0).toUpperCase() + active.type.slice(1)) : ''"></span>
                     </div>
                     <p class="text-xs text-gray-500">
                         <span x-show="active && active.order_id">Order #<span x-text="active?.order_id"></span><span x-show="active?.tracking"> · <span x-text="active?.tracking"></span></span></span>
@@ -306,7 +308,51 @@
                 </svg>
             </div>
             <h3 class="text-lg font-semibold text-gray-900 mb-1">No messages yet</h3>
-            <p class="text-sm text-gray-500 max-w-sm">When a rider sends Logistics a message, the conversation will appear here automatically.</p>
+            <p class="text-sm text-gray-500 max-w-sm">Start a conversation with an admin, a logistics teammate, or a rider.</p>
+        </div>
+
+        {{-- Start a new conversation --}}
+        <div x-show="composeOpen" x-cloak class="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-gray-900/50" @click.self="closeCompose()" @keydown.escape.window="closeCompose()">
+            <div class="w-full max-w-lg rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="compose-title">
+                <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                    <div>
+                        <h2 id="compose-title" class="text-base font-bold text-gray-900">New message</h2>
+                        <p class="mt-0.5 text-xs text-gray-500">Choose who you want to contact.</p>
+                    </div>
+                    <button type="button" @click="closeCompose()" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100" aria-label="Close">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="p-5">
+                    <div class="flex gap-2 mb-4">
+                        <template x-for="tab in [{id:'admin',label:'Admins'},{id:'logistics',label:'Co-logistics'},{id:'rider',label:'Riders'}]" :key="tab.id">
+                            <button type="button" @click="setRecipientType(tab.id)" class="px-3 py-2 rounded-lg text-xs font-semibold transition"
+                                    :class="recipientType === tab.id ? 'bg-teal text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'" x-text="tab.label"></button>
+                        </template>
+                    </div>
+                    <div class="relative mb-3">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <input x-ref="recipientSearch" type="search" x-model="recipientSearch" @input.debounce.250ms="loadRecipients()" placeholder="Search by name or email..." autocomplete="off"
+                               class="w-full pl-9 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-teal focus:ring-teal">
+                    </div>
+                    <p x-show="recipientError" x-text="recipientError" class="mb-3 text-xs text-red-600"></p>
+                    <div class="max-h-72 overflow-y-auto rounded-xl border border-gray-100">
+                        <div x-show="recipientsLoading" class="px-4 py-8 text-center text-sm text-gray-400">Loading people...</div>
+                        <template x-for="recipient in recipients" :key="recipient.type + '-' + recipient.id">
+                            <button type="button" @click="startConversation(recipient)" :disabled="startingRecipient === recipient.id"
+                                    class="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-teal-light/50 border-b border-gray-100 last:border-0 disabled:opacity-60">
+                                <span class="h-9 w-9 flex-shrink-0 rounded-full flex items-center justify-center bg-teal-light text-teal-dark text-sm font-bold" x-text="(recipient.name || '?').charAt(0).toUpperCase()"></span>
+                                <span class="min-w-0 flex-1">
+                                    <span class="block truncate text-sm font-semibold text-gray-800" x-text="recipient.name"></span>
+                                    <span class="block truncate text-xs text-gray-500" x-text="recipient.email || (recipient.type === 'rider' ? 'Rider' : 'Logistics account')"></span>
+                                </span>
+                                <svg class="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        </template>
+                        <div x-show="!recipientsLoading && recipients.length === 0" class="px-4 py-8 text-center text-sm text-gray-500">No matching people found.</div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         {{-- Image lightbox --}}
@@ -332,6 +378,8 @@
                 filter: init.filter,
                 perPage: init.perPage,
                 csrf: init.csrf,
+                recipientsUrl: init.recipientsUrl,
+                startUrl: init.startUrl,
                 draft: '',
                 attachmentName: '',
                 attachmentPreview: '',
@@ -343,11 +391,78 @@
                 error: '',
                 lightbox: null,
                 pollTimer: null,
+                composeOpen: false,
+                recipientType: 'admin',
+                recipientSearch: '',
+                recipients: [],
+                recipientsLoading: false,
+                recipientError: '',
+                startingRecipient: null,
 
                 init() {
                     this.scrollToBottom();
                     this.pollTimer = setInterval(() => this.poll(), 8000);
                     this.$watch('messages', () => this.$nextTick(() => this.scrollToBottom()));
+                },
+
+                openCompose() {
+                    this.composeOpen = true;
+                    this.recipientSearch = '';
+                    this.recipientError = '';
+                    this.loadRecipients();
+                    this.$nextTick(() => this.$refs.recipientSearch?.focus());
+                },
+
+                closeCompose() {
+                    this.composeOpen = false;
+                    this.recipientError = '';
+                },
+
+                setRecipientType(type) {
+                    if (this.recipientType === type) return;
+                    this.recipientType = type;
+                    this.recipientSearch = '';
+                    this.loadRecipients();
+                },
+
+                async loadRecipients() {
+                    this.recipientsLoading = true;
+                    this.recipientError = '';
+                    try {
+                        const url = new URL(this.recipientsUrl, window.location.origin);
+                        url.searchParams.set('type', this.recipientType);
+                        url.searchParams.set('search', this.recipientSearch || '');
+                        const response = await fetch(url.toString(), { headers: { 'Accept': 'application/json' } });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.message || 'Could not load recipients.');
+                        this.recipients = data.recipients || [];
+                    } catch (e) {
+                        this.recipients = [];
+                        this.recipientError = e.message || 'Could not load recipients.';
+                    } finally {
+                        this.recipientsLoading = false;
+                    }
+                },
+
+                async startConversation(recipient) {
+                    this.startingRecipient = recipient.id;
+                    this.recipientError = '';
+                    try {
+                        const response = await fetch(this.startUrl, {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': this.csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                            body: JSON.stringify({ recipient_type: recipient.type, recipient_id: recipient.id }),
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) throw new Error(data.message || 'Could not start this conversation.');
+                        this.closeCompose();
+                        await this.selectConversation(data.conversation_id);
+                        await this.poll();
+                    } catch (e) {
+                        this.recipientError = e.message || 'Could not start this conversation.';
+                    } finally {
+                        this.startingRecipient = null;
+                    }
                 },
 
                 get sortedConversations() {

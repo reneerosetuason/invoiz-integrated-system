@@ -195,7 +195,7 @@
         'valid_until' => $v->valid_until?->toDateString(),
         'usage_limit' => $v->usage_limit,
         'status' => $v->status,
-    ])->toJson();
+    ])->toJson(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 @endphp
 <script>
 document.addEventListener('alpine:init', () => {

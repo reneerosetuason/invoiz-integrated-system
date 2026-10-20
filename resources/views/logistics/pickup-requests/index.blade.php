@@ -57,7 +57,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->delivery->sender_name }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->delivery->recipient_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->center?->name ?? '—' }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->center?->name ?? $pickupRequest->delivery->logisticsCenter?->name ?? '—' }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($pickupRequest->status === 'pending')
                                         <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">Pending</span>

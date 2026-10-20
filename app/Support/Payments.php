@@ -186,6 +186,53 @@ class Payments
     }
 
     /**
+     * Refund (part of) an order to the buyer through the ledger. Marks the
+     * order fully refunded when the whole total is returned, otherwise
+     * partially refunded. Never throws.
+     */
+    public static function refund(Order $order, ?float $amount = null, ?string $note = null): void
+    {
+        try {
+            $order->loadMissing('items');
+            $tx = self::transactionFor($order);
+            $total = (float) ($order->total_amount ?? $order->total ?? 0);
+
+            if (! $tx) {
+                $tx = PaymentTransaction::create([
+                    'order_id'        => $order->id,
+                    'transaction_ref' => 'TXN-ORDER-' . $order->id,
+                    'gateway'         => 'cash_on_delivery',
+                    'amount'          => round($total, 2),
+                    'status'          => 'pending',
+                ]);
+            }
+
+            $refund = $amount === null ? $total : (float) $amount;
+            $refundedTotal = round((float) $tx->refunded_amount + $refund, 2);
+            $full = $refundedTotal >= round($total, 2) - 0.001;
+
+            $tx->update([
+                'status'          => $full ? 'refunded' : 'partially_refunded',
+                'refunded_amount' => $refundedTotal,
+            ]);
+
+            $order->update([
+                'payment_status' => $full ? 'refunded' : 'partially_refunded',
+            ]);
+
+            if ($order->payment) {
+                $order->payment->update(['status' => $full ? 'refunded' : 'partially_refunded']);
+            }
+
+            if ($note) {
+                \Log::info('Refund for order ' . $order->id . ': ' . $note);
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Payment refund failed: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Withdrawable balance for a seller login (user id): settled earnings
      * across all of their catalog identities minus paid out / in-flight
      * amounts. Never throws (fail-open is handled by the caller).

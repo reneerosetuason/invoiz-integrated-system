@@ -23,6 +23,15 @@ class ProductController extends Controller
             $query->where('name', 'like', "%{$request->search}%");
         }
 
+        $sort = $request->string('sort', 'newest');
+        match ($sort) {
+            'price_asc' => $query->orderBy('price', 'asc'),
+            'price_desc' => $query->orderBy('price', 'desc'),
+            'name_asc' => $query->orderBy('name', 'asc'),
+            'name_desc' => $query->orderBy('name', 'desc'),
+            default => $query->orderBy('created_at', 'desc'),
+        };
+
         $products = $query->paginate(10);
         $this->attachShop($products);
 

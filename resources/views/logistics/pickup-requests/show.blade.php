@@ -20,8 +20,8 @@
             @else
                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-teal-light text-teal-dark ring-1 ring-inset ring-teal-200">Completed</span>
             @endif
-            @if($pickupRequest->center)
-                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-200">{{ $pickupRequest->center->name }}</span>
+            @if($pickupRequest->center ?? $pickupRequest->delivery->logisticsCenter)
+                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-200">{{ ($pickupRequest->center ?? $pickupRequest->delivery->logisticsCenter)->name }}</span>
             @else
                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200">Not yet received at a center</span>
             @endif

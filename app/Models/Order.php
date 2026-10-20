@@ -56,7 +56,7 @@ class Order extends Model
     }
 
     /** Statuses from which the BUYER may still cancel (never shipped/on-the-way). */
-    public const BUYER_CANCELLABLE = ['pending', 'confirmed'];
+    public const BUYER_CANCELLABLE = ['pending', 'confirmed', 'processing'];
 
     /**
      * Flat shipping fee per seller group (one delivery per shop).

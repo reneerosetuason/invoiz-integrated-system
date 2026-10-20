@@ -4,6 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Invoiz Admin</title>
+  <link rel="stylesheet" href="{{ asset('css/app-sidebar.css') }}?v={{ filemtime(public_path('css/app-sidebar.css')) }}">
+  <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}" defer></script>
+  <script>
+    try {
+      if (sessionStorage.getItem('invAdminSidebarIntroSeen') === '1') {
+        document.documentElement.classList.add('admin-sidebar-seen');
+      } else {
+        sessionStorage.setItem('invAdminSidebarIntroSeen', '1');
+      }
+    } catch (e) {
+      document.documentElement.classList.add('admin-sidebar-seen');
+    }
+  </script>
   <style>
     :root {
       --primary: #16697A;
@@ -31,54 +44,17 @@
     h1, h2, h3 { margin: 0; line-height: 1.3; }
     p { line-height: 1.65; }
     .shell { display: flex; min-height: 100vh; }
-    .sidebar { width: 270px; background: var(--card); border-right: 1px solid var(--border); padding: 20px 14px; position: sticky; top: 0; height: 100vh; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; transition: width .2s ease; }
-    .sidebar.collapsed { width: 72px; }
-    .sidebar.collapsed .brand, .sidebar.collapsed .acct { justify-content: center; align-items: center; gap: 0; padding-left: 0; padding-right: 0; }
-    .sidebar.collapsed .brand { padding-top: 8px; padding-bottom: 14px; }
-    .sidebar.collapsed .acct { padding-top: 12px; padding-bottom: 12px; }
-    .sidebar.collapsed .brand-text, .sidebar.collapsed .acct-text { display: none; }
-    .sidebar.collapsed .brand-name, .sidebar.collapsed .brand-sub, .sidebar.collapsed .acct-name, .sidebar.collapsed .acct-role,
-    .sidebar.collapsed .nav-head, .sidebar.collapsed .nav-text { font-size: 0; }
-    .sidebar.collapsed .nav-link { justify-content: center; padding: 9px 0; gap: 0; font-size: 0; }
-    .sidebar.collapsed .nav-head { margin: 0; padding: 0; }
-    .sidebar.collapsed .sidebar-footer { display: none; }
-    .sidebar.collapsed .logout-btn { justify-content: center; padding: 8px 0; font-size: 0; }
-    /* Collapsed: logout becomes a logout-icon-only rectangular floating pill. */
-    .sidebar.collapsed .sidebar-foot { margin: auto -14px 0; padding: 10px 8px 4px; border-top: none; }
-    .sidebar.collapsed .logout-btn { background: #0E4A57; border-radius: 20px; min-height: 56px; }
-    .sidebar.collapsed .logout-btn:hover { background: #0E4A57; filter: brightness(1.12); }
-    .sidebar.collapsed .logout-btn svg { fill: #fff; }
+    .sb2--admin.sidebar { width: 256px; min-width: 256px; flex: 0 0 256px; background: #FBF9F6; border-right: 0; padding: 0; position: sticky; top: 0; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; transition: none; }
+    .sb2--admin.sidebar.collapsed { width: 72px; min-width: 72px; flex-basis: 72px; }
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
     .topbar { height: 64px; background: var(--card); border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(16,24,40,.03); display: flex; align-items: center; gap: 14px; padding: 0 20px; position: sticky; top: 0; z-index: 10; }
     .hamburger { width: 40px; height: 40px; border: 1px solid var(--border); background: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .15s, background .15s; flex-shrink: 0; }
     .hamburger:hover { background: var(--surface-soft); transform: scale(1.05); }
     .hamburger svg { width: 20px; height: 20px; stroke: var(--primary); fill: none; stroke-width: 2; stroke-linecap: round; }
+    .hamburger:focus-visible { outline: 2px solid #0E4A57; outline-offset: 2px; }
+    @media (max-width: 1023.98px) { .hamburger { width: 44px; height: 44px; } }
     .topbar-title { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -.3px; line-height: 1.2; }
     .topbar-sub { font-size: 12px; color: var(--text-secondary); }
-    .acct { display: flex; align-items: center; gap: 12px; padding: 4px 8px 16px; border-bottom: 1px solid var(--surface-soft); margin-bottom: 14px; }
-    .acct-ava { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; overflow: hidden; }
-    .acct-ava img { width: 100%; height: 100%; object-fit: cover; }
-    .acct-name { font-size: 14px; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
-    .acct-role { font-size: 11px; color: var(--text-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .brand { display: flex; align-items: center; gap: 12px; padding: 4px 8px 18px; border-bottom: 1px solid var(--surface-soft); margin-bottom: 16px; }
-    .brand-badge { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%); color: #fff; font-weight: 800; font-size: 20px; flex-shrink: 0; }
-    .brand-name { font-size: 17px; font-weight: 800; color: var(--primary-dark); letter-spacing: -0.4px; line-height: 1.2; }
-    .brand-sub { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1.6px; font-weight: 700; margin-top: 2px; }
-    .brand-logo-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; background: #fff; border: 2px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,.08); display: block; flex-shrink: 0; }
-    .sidebar.collapsed .brand-logo-img { align-self: center; }
-    .nav-section { margin-bottom: 18px; }
-    .nav-head { font-size: 10px; font-weight: 700; letter-spacing: 1.8px; text-transform: uppercase; color: #9CA3AF; padding: 0 10px; margin-bottom: 6px; }
-    .nav-link { display: flex; align-items: center; gap: 12px; color: #4B5563; text-decoration: none; padding: 9px 12px; border-radius: 10px; transition: background .15s, color .15s, transform .15s; font-size: 13.5px; font-weight: 600; letter-spacing: 0.01em; line-height: 1.4; margin-bottom: 2px; }
-    .nav-link:hover { background: var(--surface-soft); color: var(--primary-dark); transform: translateX(2px); }
-    .nav-link.active { background: var(--accent); color: var(--primary-dark); box-shadow: inset 3px 0 0 var(--primary); }
-    .nav-icon { width: 17px; height: 17px; fill: #9CA3AF; flex-shrink: 0; }
-    .nav-link:hover .nav-icon { fill: var(--primary); }
-    .nav-link.active .nav-icon { fill: var(--primary); }
-    .sidebar-foot { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--surface-soft); }
-    .logout-btn { display: flex; align-items: center; gap: 12px; width: 100%; border: none; background: #FDECEC; color: #B3261E; font-weight: 600; font-size: 13.5px; padding: 10px 12px; border-radius: 10px; cursor: pointer; font-family: inherit; transition: background .15s; }
-    .logout-btn:hover { background: #FBDDDD; }
-    .logout-btn svg { width: 17px; height: 17px; fill: #B3261E; flex-shrink: 0; }
-    .sidebar-footer { margin-top: 12px; font-size: 11px; color: #B0B3B8; text-align: center; }
     .content { flex: 1; padding: 28px 32px; max-width: 1280px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -14px rgba(16,24,40,.10); }
     .page-title { margin-top: 0; margin-bottom: 16px; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.25; color: var(--text-primary); }
@@ -129,115 +105,188 @@
     .confirm-card p { font-size: 13.5px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 24px; }
     .confirm-actions { display: flex; gap: 10px; justify-content: center; }
     .confirm-actions .btn { min-width: 110px; border-radius: 12px; padding: 10px 20px; font-weight: 700; }
+
+    /* Admin adopts the shared Seller/Buyer/Logistics sidebar primitives. */
+    .sb2--admin { background: #FBF9F6; border-right: 0; }
+    .sb2--admin .sb-brand-header { height: 72px; flex: 0 0 72px; display: flex; align-items: center; padding: 0 16px; }
+    .sb2--admin .sb-logo-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .sb2--admin .sb-logo { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+    .sb2--admin .sb-logo img { width: 36px; height: 36px; border-radius: 10px; object-fit: cover; }
+    .sb2--admin .sb-brand-copy { display: block; min-width: 0; }
+    .sb2--admin .sb-brand-name { display: block; color: #0E4A57; font-size: 20px; font-weight: 800; letter-spacing: -.025em; line-height: 1.15; }
+    .sb2--admin .sb-brand-sub { display: block; margin-top: 3px; color: #46676B; font-size: 12px; font-weight: 500; line-height: 1.2; }
+    .sb2--admin .sidebar-nav { padding: 8px 10px 32px; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: transparent transparent; overscroll-behavior: contain; }
+    .sb2--admin .sidebar-nav::-webkit-scrollbar { width: 6px; }
+    .sb2--admin .sidebar-nav::-webkit-scrollbar-thumb { background: transparent; border-radius: 999px; }
+    .sb2--admin .sidebar-nav:hover, .sb2--admin .sidebar-nav:focus-within { scrollbar-color: rgba(14,74,87,.35) transparent; }
+    .sb2--admin .sidebar-nav:hover::-webkit-scrollbar-thumb, .sb2--admin .sidebar-nav:focus-within::-webkit-scrollbar-thumb { background: rgba(14,74,87,.28); }
+    .sb2--admin .admin-nav-group:first-of-type .nav-section { margin-top: 16px; }
+    .sb2--admin .nav-section { margin: 24px 0 8px; padding: 0 12px; color: #46676B; font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+    .sb2--admin .sidebar-nav a { transition: transform .2s ease, opacity .2s ease; }
+    .sb2--admin .sidebar-nav a svg.nav-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; transition: transform .2s ease, opacity .2s ease; }
+    .sb2--admin .sidebar-nav a.active { box-shadow: none; }
+    .sb2--admin .sidebar-foot { flex: 0 0 auto; margin-top: auto; padding: 12px 12px 12px; }
+    .sb2--admin .sb-pill { box-shadow: none; transition: transform .2s ease, opacity .2s ease; }
+    .sb2--admin .sb-avatar { background: #EAF4F3; color: #0E4A57; box-shadow: none; outline: 2px solid rgba(255,255,255,.45); outline-offset: 0; }
+    .sb2--admin .sb-avatar-fallback { background: #EAF4F3; color: #0E4A57; }
+    .sb2--admin .sb-role { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sb2--admin .sb-version { margin-top: 8px; color: #56696B; }
+    .sb2--admin .sb-logout svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; }
+    .sb2--admin.collapsed { width: 72px; min-width: 72px; flex-basis: 72px; }
+    .sb2--admin.collapsed .sb-hide-collapsed { display: none !important; }
+    .sb2--admin.collapsed .admin-nav-group { display: contents; }
+    .sb2--admin.collapsed .sidebar-nav { display: grid; justify-items: center; align-content: start; gap: 8px; }
+    .sb2--admin.collapsed .sidebar-nav a { width: 44px; height: 44px; min-height: 44px; padding: 0; justify-content: center; gap: 0; }
+    .sb2--admin.collapsed .sidebar-nav a.active::before { left: -14px; top: 10px; bottom: 10px; }
+    .sb2--admin.collapsed .sb-brand-header { justify-content: center; padding: 0; }
+    .sb2--admin.collapsed .sb-logo-row { justify-content: center; }
+    .sb2--admin.collapsed .sb-foot { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; }
+    .sb2--admin.collapsed .sb-pill { width: 56px; height: auto; min-height: 56px; border-radius: 20px; padding: 8px 0; margin: 0 auto; flex-direction: column; gap: 4px; justify-content: center; }
+    .sb2--admin.collapsed .sb-who { display: flex; width: 44px; height: 44px; min-height: 44px; justify-content: center; flex: 0 0 44px; }
+    .sb2--admin.collapsed .sb-fade { display: none; }
+    .sb2--admin.collapsed .sb-avatar { width: 32px; height: 32px; }
+    .sb2--admin.collapsed .sb-version { display: none; }
+    .sb2--admin .sb-who, .sb2--admin .sb-logout { transition: transform .2s ease, opacity .2s ease; }
+    .sb2--admin .sb-who:focus-visible, .sb2--admin .sb-logout:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+    .sb2--admin .sb-logout:hover .sb-logout-circle { background: rgba(255,255,255,.12); }
+    .sb2--admin .sb-logout .sb-logout-circle { transition: transform .2s ease, opacity .2s ease; }
+    .sb2--admin .sb-logout:hover svg { transform: translateX(2px); }
+    .sb2--admin .sb-logout:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+    @media (prefers-reduced-motion: no-preference) {
+      html.admin-sidebar-seen .sb2--admin.sb-enter .sidebar-nav a { opacity: 1; animation: none; }
+      html.admin-sidebar-seen .sb2--admin.sb-enter .sb-pill { opacity: 1; animation: none; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(1) .nav-link:nth-of-type(1) { animation-delay: 0s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(2) .nav-link:nth-of-type(1) { animation-delay: .03s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(2) .nav-link:nth-of-type(2) { animation-delay: .06s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(2) .nav-link:nth-of-type(3) { animation-delay: .09s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(2) .nav-link:nth-of-type(4) { animation-delay: .12s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(2) .nav-link:nth-of-type(5) { animation-delay: .15s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(2) .nav-link:nth-of-type(6) { animation-delay: .18s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(3) .nav-link:nth-of-type(1) { animation-delay: .21s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(3) .nav-link:nth-of-type(2) { animation-delay: .24s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(3) .nav-link:nth-of-type(3) { animation-delay: .27s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(4) .nav-link:nth-of-type(1) { animation-delay: .30s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(4) .nav-link:nth-of-type(2) { animation-delay: .33s; }
+      html:not(.admin-sidebar-seen) .sb2--admin.sb-enter .admin-nav-group:nth-of-type(5) .nav-link:nth-of-type(1) { animation-delay: .36s; }
+    }
   </style>
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar" id="sidebar">
-      @php $acctLogo = public_path('storage/logos/invoiz-admin.png'); $hasAcctLogo = file_exists($acctLogo); @endphp
-      <div class="acct">
-        <div class="acct-ava">
-          @if ($hasAcctLogo)
-            <img src="{{ asset('storage/logos/invoiz-admin.png') }}" alt="logo">
-          @else
-            {{ mb_strtoupper(mb_substr(auth()->user()->name ?? 'A', 0, 1)) }}
-          @endif
-        </div>
-        <div class="acct-text">
-          <div class="acct-name">{{ auth()->user()->name ?? 'Administrator' }}</div>
-          <div class="acct-role">{{ auth()->user()->email ?? '' }}</div>
-        </div>
-      </div>
+    <aside class="sidebar sb2 sb2--admin" id="sidebar">
+      @php
+        $acctLogo = public_path('storage/logos/invoiz-admin.png');
+        $hasAcctLogo = file_exists($acctLogo);
+        $adminName = auth()->user()->name ?? 'Administrator';
+        $adminEmail = auth()->user()->email ?? '';
+      @endphp
 
-      <div class="brand">
-        <img src="{{ asset('images/logo.png') }}" alt="Invoiz logo" class="brand-logo-img" />
-        <div class="brand-text">
-          <div class="brand-name">Invoiz Admin</div>
-          <div class="brand-sub">Control Panel</div>
+      <div class="sb-brand-header">
+        <div class="sb-logo-row">
+          <span class="sb-logo" data-tip="INVOIZ"><img src="{{ asset('images/logo.png') }}" alt="INVOIZ"></span>
+          <span class="sb-brand-copy sb-hide-collapsed">
+            <span class="sb-brand-name">INVOIZ</span>
+            <span class="sb-brand-sub">Admin control panel</span>
+          </span>
         </div>
       </div>
 
-      <div class="nav-section">
-        <div class="nav-head">Overview</div>
-        <a class="nav-link" href="/admin/dashboard">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10Zm10 8h8V11h-8v10Zm0-18v6h8V3h-8ZM3 21h8v-6H3v6Z"/></svg>
-          Dashboard
-        </a>
-      </div>
+      <nav class="sidebar-nav" aria-label="Admin navigation">
+        <div class="admin-nav-group" role="group" aria-label="Overview">
+          <div class="nav-section sb-hide-collapsed" aria-hidden="true">Overview</div>
+          <a class="nav-link" href="/admin/dashboard" title="Dashboard">
+            <x-icon name="home" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Dashboard</span>
+          </a>
+        </div>
 
-      <div class="nav-section">
-        <div class="nav-head">Management</div>
-        <a class="nav-link" href="/admin/sellers">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4Z"/></svg>
-          Manage Sellers
-        </a>
-        <a class="nav-link" href="/admin/buyers">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M16 14c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4Zm-8 0c2.21 0 4-1.79 4-4S10.21 6 8 6 4 7.79 4 10s1.79 4 4 4Zm0 2c-2.67 0-8 1.34-8 4v2h8v-2c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v2h8v-2c0-2.66-5.33-4-8-4H8Z"/></svg>
-          Manage Buyers
-        </a>
-        <a class="nav-link" href="/admin/riders">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 16V8H2V6h3V4h2v2h10V4h2v2h3v2h-2v8h-5v-2H9v2H4Zm2-8v8h2V8H6Zm10 8h2V8h-2v8Zm-5 0h2V8h-2v8Z"/></svg>
-          Manage Riders
-        </a>
-        <a class="nav-link" href="/admin/products">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Zm2 2v6h12v-6H6Z"/></svg>
-          Manage Products
-        </a>
-        <a class="nav-link" href="/admin/categories">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/></svg>
-          Manage Categories
-        </a>
-        <a class="nav-link" href="/admin/orders">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6Zm0 4h18v2H3v-2Zm0 4h12v2H3v-2Z"/></svg>
-          Manage Orders
-        </a>
-      </div>
+        <div class="admin-nav-group" role="group" aria-label="Management">
+          <div class="nav-section sb-hide-collapsed" aria-hidden="true">Management</div>
+          <a class="nav-link" href="/admin/sellers" title="Manage Sellers">
+            <x-icon name="store" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Manage Sellers</span>
+          </a>
+          <a class="nav-link" href="/admin/buyers" title="Manage Buyers">
+            <x-icon name="users" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Manage Buyers</span>
+          </a>
+          <a class="nav-link" href="/admin/riders" title="Manage Riders">
+            <x-icon name="truck" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Manage Riders</span>
+          </a>
+          <a class="nav-link" href="/admin/products" title="Manage Products">
+            <x-icon name="package" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Manage Products</span>
+          </a>
+          <a class="nav-link" href="/admin/categories" title="Manage Categories">
+            <x-icon name="layers" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Manage Categories</span>
+          </a>
+          <a class="nav-link" href="/admin/orders" title="Manage Orders">
+            <x-icon name="clipboard" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Manage Orders</span>
+          </a>
+        </div>
 
-      <div class="nav-section">
-        <div class="nav-head">Finance</div>
-        <a class="nav-link" href="/admin/payments">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M4 7h16v10H4V7Zm2 2v6h12V9H6Zm2 2h8v2H8v-2Z"/></svg>
-          Manage Payments
-        </a>
-        <a class="nav-link" href="/admin/reports">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M5 20h14V4H5v16Zm2-2v-6h3v6H7Zm5 0v-10h3v10h-3Zm5 0v-4h3v4h-3Z"/></svg>
-          Reports
-        </a>
-        <a class="nav-link" href="/admin/commission">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm1.41 9.41L8 17 7 16l5-5V6h2v5.41Z"/></svg>
-          Commission
-        </a>
-      </div>
+        <div class="admin-nav-group" role="group" aria-label="Finance">
+          <div class="nav-section sb-hide-collapsed" aria-hidden="true">Finance</div>
+          <a class="nav-link" href="/admin/payments" title="Manage Payments">
+            <x-icon name="card" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Manage Payments</span>
+          </a>
+          <a class="nav-link" href="/admin/reports" title="Reports">
+            <x-icon name="chart" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Reports</span>
+          </a>
+          <a class="nav-link" href="/admin/commission" title="Commission">
+            <x-icon name="dollar" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Commission</span>
+          </a>
+        </div>
 
-      <div class="nav-section">
-        <div class="nav-head">Support</div>
-        <a class="nav-link" href="/admin/complaints">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21Zm12-3h-2v-2h2v2Zm0-4h-2v-4h2v4Z"/></svg>
-          Complaints
-        </a>
-        <a class="nav-link" href="/admin/chat">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2Zm0 14H5.17L4 17.17V4h16v12Z"/></svg>
-          Chat / Messaging
-        </a>
-      </div>
+        <div class="admin-nav-group" role="group" aria-label="Support">
+          <div class="nav-section sb-hide-collapsed" aria-hidden="true">Support</div>
+          <a class="nav-link" href="/admin/complaints" title="Complaints">
+            <x-icon name="alert-triangle" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Complaints</span>
+          </a>
+          <a class="nav-link" href="/admin/chat" title="Chat / Messaging">
+            <x-icon name="chat" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Chat / Messaging</span>
+          </a>
+        </div>
 
-      <div class="nav-section">
-        <div class="nav-head">System</div>
-        <a class="nav-link" href="/admin/settings">
-          <svg class="nav-icon" viewBox="0 0 24 24"><path d="M12 8a4 4 0 1 0 4 4 4 4 0 0 0-4-4Zm8.94 4.5-1.07-.2a6.78 6.78 0 0 0-.6-1.47l.7-.81-1.5-1.5-.81.7A6.78 6.78 0 0 0 13.7 6.13l-.2-1.08H10.5l-.2 1.08a6.78 6.78 0 0 0-1.47.6l-.81-.7-1.5 1.5.7.81a6.78 6.78 0 0 0-.6 1.47l-1.07.2V12l1.07.2a6.78 6.78 0 0 0 .6 1.47l-.7.81 1.5 1.5.81-.7a6.78 6.78 0 0 0 1.47.6l.2 1.08h2.3l.2-1.08a6.78 6.78 0 0 0 1.47-.6l.81.7 1.5-1.5-.7-.81a6.78 6.78 0 0 0 .6-1.47l1.07-.2V12Z"/></svg>
-          System Settings
-        </a>
-      </div>
+        <div class="admin-nav-group" role="group" aria-label="System">
+          <div class="nav-section sb-hide-collapsed" aria-hidden="true">System</div>
+          <a class="nav-link" href="/admin/settings" title="System Settings">
+            <x-icon name="settings" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">System Settings</span>
+          </a>
+        </div>
+      </nav>
 
       <div class="sidebar-foot">
-        <form method="POST" action="{{ url('/admin/logout') }}">
-          @csrf
-          <button type="submit" class="logout-btn">
-            <svg viewBox="0 0 24 24"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-            Logout
-          </button>
-        </form>
-        <div class="sidebar-footer">Invoiz e-commerce admin system.</div>
+        <div class="sb-pill">
+          <div class="sb-who" title="{{ $adminName }}{{ $adminEmail ? ' · '.$adminEmail : '' }}">
+            @if ($hasAcctLogo)
+              <img src="{{ asset('storage/logos/invoiz-admin.png') }}" alt="" class="sb-avatar">
+            @else
+              <span class="sb-avatar sb-avatar-fallback" aria-hidden="true">{{ mb_strtoupper(mb_substr($adminName, 0, 1)) }}</span>
+            @endif
+            <span class="sb-fade">
+              <span class="sb-name" title="{{ $adminName }}">{{ $adminName }}</span>
+              <span class="sb-role" title="{{ $adminEmail }}">{{ $adminEmail }}</span>
+            </span>
+          </div>
+          <form method="POST" action="{{ url('/admin/logout') }}" style="margin:0;flex-shrink:0">
+            @csrf
+            <button type="submit" class="logout-btn sb-logout" data-tip="Log out" aria-label="Log out">
+              <span class="sb-logout-circle"><x-icon name="logout" class="h-4 w-4" aria-hidden="true" /></span>
+            </button>
+          </form>
+        </div>
+        <div class="sb-version sb-hide-collapsed">INVOIZ Admin · v1.0</div>
       </div>
     </aside>
     <div class="main">
@@ -259,10 +308,11 @@
     (function () {
       var sb = document.getElementById('sidebar');
       var hb = document.querySelector('.hamburger');
-      if (localStorage.getItem('invSidebarCollapsed') === '1') sb.classList.add('collapsed');
+      if (localStorage.getItem('invSidebarCollapsed') === '1') sb.classList.add('collapsed', 'sidebar-collapsed');
       hb.addEventListener('click', function () {
-        sb.classList.toggle('collapsed');
-        localStorage.setItem('invSidebarCollapsed', sb.classList.contains('collapsed') ? '1' : '0');
+        var collapsed = sb.classList.toggle('collapsed');
+        sb.classList.toggle('sidebar-collapsed', collapsed);
+        localStorage.setItem('invSidebarCollapsed', collapsed ? '1' : '0');
       });
     })();
 
@@ -271,6 +321,7 @@
       var best = null;
       document.querySelectorAll('.nav-link[href]').forEach(function (a) {
         a.classList.remove('active');
+        a.removeAttribute('aria-current');
         var href = a.getAttribute('href').replace(/\/+$/, '');
         if (!href || href === '#') return;
         if ((path === href || path.indexOf(href + '/') === 0) &&
@@ -278,7 +329,10 @@
           best = a;
         }
       });
-      if (best) best.classList.add('active');
+      if (best) {
+        best.classList.add('active');
+        best.setAttribute('aria-current', 'page');
+      }
     })();
   </script>
   <div id="confirmModal" class="confirm-overlay" role="dialog" aria-modal="true">

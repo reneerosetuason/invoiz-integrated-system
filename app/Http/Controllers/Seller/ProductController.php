@@ -58,17 +58,19 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'         => ['required', 'string', 'max:150'],
+            'name'         => ['required', 'string', 'min:5', 'max:120'],
             'category_id'  => ['required', 'exists:categories,id'],
-            'description'  => ['nullable', 'string', 'max:5000'],
-            'price'        => ['required', 'numeric', 'min:0'],
+            'description'  => ['nullable', 'string', 'min:20', 'max:3000'],
+            'price'        => ['required', 'numeric', 'min:1', 'max:1000000', 'decimal:0,2'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
-            'stock'        => ['required', 'integer', 'min:0'],
+            'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'weight'       => ['nullable', 'string', 'max:50'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
-            'image'        => ['nullable', 'image', 'max:5120'],
-            'status'       => ['required', 'in:active,inactive,out_of_stock'],
+        'image'        => ['nullable', 'image', 'max:5120'],
+        'images'       => ['nullable', 'array', 'max:9'],
+        'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
+        'status'       => ['required', 'in:' . implode(',', $this->allowedStatuses())],
         ]);
 
         $validated['seller_id'] = auth()->id();
@@ -82,6 +84,7 @@ class ProductController extends Controller
             $product = Product::create($validated);
 
             $this->saveVariants($product, $request);
+            \App\Support\ProductImages::save($product, $request);
 
             return $product;
         });
@@ -108,17 +111,19 @@ class ProductController extends Controller
         $product = Product::forSeller(auth()->id())->findOrFail($id);
 
         $validated = $request->validate([
-            'name'         => ['required', 'string', 'max:150'],
+            'name'         => ['required', 'string', 'min:5', 'max:120'],
             'category_id'  => ['required', 'exists:categories,id'],
-            'description'  => ['nullable', 'string', 'max:5000'],
-            'price'        => ['required', 'numeric', 'min:0'],
+            'description'  => ['nullable', 'string', 'min:20', 'max:3000'],
+            'price'        => ['required', 'numeric', 'min:1', 'max:1000000', 'decimal:0,2'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
-            'stock'        => ['required', 'integer', 'min:0'],
+            'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'weight'       => ['nullable', 'string', 'max:50'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
-            'image'        => ['nullable', 'image', 'max:5120'],
-            'status'       => ['required', 'in:active,inactive,out_of_stock'],
+        'image'        => ['nullable', 'image', 'max:5120'],
+        'images'       => ['nullable', 'array', 'max:9'],
+        'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
+        'status'       => ['required', 'in:' . implode(',', $this->allowedStatuses())],
         ]);
 
         $validated['low_stock_threshold'] ??= 5;
@@ -133,6 +138,7 @@ class ProductController extends Controller
         DB::transaction(function () use ($product, $validated, $request) {
             $product->update($validated);
             $this->saveVariants($product, $request);
+            \App\Support\ProductImages::save($product, $request);
         });
 
         // Alert (or resolve) based on the new stock / alert level,
@@ -159,6 +165,15 @@ class ProductController extends Controller
         $product->update(['status' => 'active']);
 
         return back()->with('success', 'Product restored.');
+    }
+
+    private function allowedStatuses(): array
+    {
+        $seller = \App\Models\Seller::where('user_id', auth()->id())->first();
+        $approved = $seller && $seller->approval_status === 'approved';
+
+        // Pending sellers can only save drafts; approved sellers publish.
+        return $approved ? ['active', 'inactive', 'out_of_stock'] : ['draft'];
     }
 
     private function saveVariants(Product $product, Request $request): void

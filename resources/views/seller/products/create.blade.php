@@ -35,10 +35,15 @@
                 </div>
                 <div>
                     <label class="field-label">Status</label>
+                    @php $sellerApproved = optional(\App\Models\Seller::where('user_id', auth()->id())->first())->approval_status === 'approved'; @endphp
                     <select name="status" class="select">
-                        <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="out_of_stock" {{ old('status') === 'out_of_stock' ? 'selected' : '' }}>Out of stock</option>
-                        <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                        @if($sellerApproved)
+                            <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
+                            <option value="out_of_stock" {{ old('status') === 'out_of_stock' ? 'selected' : '' }}>Out of stock</option>
+                            <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                        @else
+                            <option value="draft" selected>Draft — published after approval</option>
+                        @endif
                     </select>
                 </div>
                 <div class="md:col-span-2">
@@ -131,10 +136,10 @@
                     </template>
                 </div>
                 <div class="flex-1">
-                    <label class="field-label">Upload image (optional)</label>
-                    <input type="file" name="image" accept="image/*" class="input !py-2.5"
+                    <label class="field-label">Upload images (1–9, JPG/PNG)</label>
+                    <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple
                            @change="preview = URL.createObjectURL($event.target.files[0])">
-                    <p class="mt-2 text-xs text-ink-light">Max 5 MB. The buyer app will show this image on the product listing.</p>
+                    <p class="mt-2 text-xs text-ink-light">Up to 9 images, JPG or PNG (max 5 MB each). The first image is the cover.</p>
                 </div>
             </div>
         </div>

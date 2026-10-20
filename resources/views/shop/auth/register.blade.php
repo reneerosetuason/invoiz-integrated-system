@@ -19,7 +19,30 @@
       <div><label style="font-size:11px;font-weight:700">Phone number *</label><input type="text" name="phone" value="{{ old('phone') }}" required placeholder="0917..." style="width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px"></div>
       <div><label style="font-size:11px;font-weight:700">Email *</label><input type="email" name="email" value="{{ old('email') }}" required style="width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px"></div>
     </div>
-    <label style="font-size:11px;font-weight:700;margin-top:10px;display:block">Address *</label><input type="text" name="address_line" value="{{ old('address_line') }}" required placeholder="House, street, barangay, municipality, province" style="width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px">
+    <label style="font-size:11px;font-weight:700;margin-top:10px;display:block">Address *</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div style="grid-column:1/-1">
+        <input type="text" name="address_line" value="{{ old('address_line') }}" required placeholder="House number, building, street" style="width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px">
+      </div>
+      @include('partials.psgc-address-fields', [
+        'prefix' => '',
+        'uid' => 'register_address',
+        'values' => [
+          'region' => old('region'),
+          'province' => old('province'),
+          'city' => old('city'),
+          'barangay' => old('barangay'),
+        ],
+        'controlStyle' => 'width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px',
+        'labelStyle' => 'font-size:11px;font-weight:700',
+        'fields' => ['region', 'province', 'city', 'barangay'],
+        'required' => ['region', 'province', 'city', 'barangay'],
+      ])
+      <div>
+        <label style="font-size:11px;font-weight:700">Postal code</label>
+        <input type="text" name="postal_code" value="{{ old('postal_code') }}" maxlength="20" placeholder="e.g., 1121" style="width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px">
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
       <div><label style="font-size:11px;font-weight:700">Password *</label><input type="password" name="password" required style="width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px"></div>
       <div><label style="font-size:11px;font-weight:700">Confirm Password *</label><input type="password" name="password_confirmation" required style="width:100%;padding:9px 10px;border:1px solid #d1d5db;border-radius:10px;margin-top:5px;font-size:13px"></div>

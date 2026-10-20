@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Mail\OtpCodeMail;
 use App\Models\Address;
+use App\Models\Province;
 use App\Models\Seller;
 use App\Models\User;
 use App\Rules\PhilippinePhone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -37,7 +40,16 @@ class ProfileController extends Controller
         $addresses = $user->addresses()->orderByDesc('is_default')->orderByDesc('updated_at')->get();
         $pendingEmail = $request->session()->get(self::EMAIL_OTP_KEY)['email'] ?? null;
 
-        return view('profile', compact('user', 'sellerApp', 'pendingEmail', 'addresses'));
+        $provinces = Province::orderBy('name')->get(['id', 'name', 'region_code', 'code']);
+        $regionCodes = $provinces->pluck('region_code')->filter()->unique()->all();
+        $configRegions = config('logistics.psgc_regions', []);
+        $regions = [];
+        foreach ($regionCodes as $code) {
+            $regions[$code] = $configRegions[$code] ?? $code;
+        }
+        ksort($regions);
+
+        return view('profile', compact('user', 'sellerApp', 'pendingEmail', 'addresses', 'regions', 'provinces'));
     }
 
     public function update(Request $request): RedirectResponse
@@ -112,9 +124,16 @@ class ProfileController extends Controller
         $newPhoto = null;
         if ($request->hasFile('profile_picture')) {
             $newPhoto = $request->file('profile_picture')->store('profile-pictures', 'public');
+            if (! is_string($newPhoto) || $newPhoto === '') {
+                return back()->withErrors(['profile_picture' => 'The profile picture could not be saved. Please try again.'])->withInput();
+            }
         }
 
         try {
+            if ($newPhoto) {
+                $this->publishProfilePicture($newPhoto);
+            }
+
             $user->first_name = $data['first_name'];
             $user->last_name = $data['last_name'];
             $user->name = trim($data['first_name'] . ' ' . $data['last_name']);
@@ -130,13 +149,13 @@ class ProfileController extends Controller
             $user->save();
         } catch (Throwable $exception) {
             if ($newPhoto) {
-                Storage::disk('public')->delete($newPhoto);
+                $this->deleteProfilePicture($newPhoto);
             }
             throw $exception;
         }
 
         if ($newPhoto && $oldPhoto && $oldPhoto !== $newPhoto) {
-            Storage::disk('public')->delete($oldPhoto);
+            $this->deleteProfilePicture($oldPhoto);
         }
 
         $this->syncBuyerSession($request, $user);
@@ -386,6 +405,42 @@ class ProfileController extends Controller
             'region' => ['nullable', 'string', 'max:100'],
             'postal_code' => ['nullable', 'string', 'max:20'],
         ];
+    }
+
+    private function publishProfilePicture(string $path): void
+    {
+        if (! str_starts_with($path, 'profile-pictures/') || str_contains($path, '..')) {
+            throw new \RuntimeException('The profile picture path is invalid.');
+        }
+
+        $source = Storage::disk('public')->path($path);
+        $destination = public_path('storage/' . $path);
+        $publicStorageRoot = realpath(public_path('storage'));
+        $diskRoot = realpath(Storage::disk('public')->path(''));
+
+        if ($publicStorageRoot && $diskRoot && $publicStorageRoot === $diskRoot) {
+            return;
+        }
+
+        File::ensureDirectoryExists(dirname($destination));
+        if (! File::copy($source, $destination)) {
+            throw new \RuntimeException('The profile picture could not be published.');
+        }
+    }
+
+    private function deleteProfilePicture(string $path): void
+    {
+        Storage::disk('public')->delete($path);
+
+        if (! str_starts_with($path, 'profile-pictures/') || str_contains($path, '..')) {
+            return;
+        }
+
+        $publicStorageRoot = realpath(public_path('storage'));
+        $diskRoot = realpath(Storage::disk('public')->path(''));
+        if (! $publicStorageRoot || ! $diskRoot || $publicStorageRoot !== $diskRoot) {
+            File::delete(public_path('storage/' . $path));
+        }
     }
 
     private function currentUser(Request $request): ?User

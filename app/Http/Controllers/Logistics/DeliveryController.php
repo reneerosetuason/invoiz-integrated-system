@@ -83,8 +83,18 @@ class DeliveryController extends Controller
 
         $this->applySearch($query, $search);
 
-        if ($status !== '' && in_array($status, ['waiting_for_rider', 'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop', 'picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered', 'delivery_failed', 'cancelled'])) {
-            $query->where('status', $status);
+        // Accept either a KPI group key (pending / in_transit / delivered /
+        // failed) or a raw delivery status. A group key expands to the exact
+        // same set of statuses the dashboard counts, so the rows shown here
+        // always match the dashboard's number for that bucket.
+        $rawStatuses = ['waiting_for_rider', 'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop', 'picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered', 'delivery_failed', 'cancelled'];
+        if ($status !== '') {
+            $group = Delivery::statusGroup($status);
+            if ($group !== null) {
+                $query->whereIn('status', $group);
+            } elseif (in_array($status, $rawStatuses, true)) {
+                $query->where('status', $status);
+            }
         }
 
         if ($dateFrom !== '' && strtotime($dateFrom)) {
@@ -198,10 +208,12 @@ class DeliveryController extends Controller
     {
         $user = Auth::user();
 
-        return (bool) ($user
-            && $user->isLogisticsStaff()
-            && !$this->isLogisticsManager()
-            && $user->center_id);
+        // Any logistics account bound to a center is hard-scoped to that
+        // center, so one logistics center never counts or lists another
+        // center's shipments (the scope is applied at the query level and
+        // cannot be bypassed by a query parameter). Accounts without a center
+        // assignment (e.g. platform admin) continue to see all centers.
+        return (bool) ($user && $user->center_id);
     }
 
     private function ensureCenterAccess(Delivery $delivery): void
@@ -393,6 +405,7 @@ class DeliveryController extends Controller
 
             PickupRequest::create([
                 'delivery_id' => $delivery->id,
+                'center_id' => $delivery->center_id,
                 'requested_at' => now(),
             ]);
 

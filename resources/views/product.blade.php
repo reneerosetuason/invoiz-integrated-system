@@ -67,8 +67,12 @@
       </div>
 
       <div class="pricerow">
-        <span class="bignum">₱{{ number_format($p->price,2) }}</span>
-        @if($hasDeal)
+        @php $effPrice = $salePrice !== null && $salePrice < (float) $p->price ? $salePrice : (float) $p->price; @endphp
+        <span class="bignum">₱{{ number_format($effPrice,2) }}</span>
+        @if($salePrice !== null && $salePrice < (float) $p->price)
+          <span class="pwas">₱{{ number_format($p->price,2) }}</span>
+          <span class="poff">−{{ (int) round((1 - (float)$salePrice/(float)$p->price)*100) }}% {{ $sale?->name ? '· '.$sale->name : 'Sale' }}</span>
+        @elseif($hasDeal)
           <span class="pwas">₱{{ number_format($p->compare_at_price,2) }}</span>
           <span class="poff">−{{ (int) round((1 - (float)$p->price/(float)$p->compare_at_price)*100) }}%</span>
         @endif
@@ -148,6 +152,12 @@
           <span aria-label="{{ $review->rating }} out of 5 stars" style="color:#A16207;letter-spacing:1px">@for($star=1;$star<=5;$star++){{ $star <= (int)$review->rating ? '★' : '☆' }}@endfor</span>
         </div>
         @if($review->comment)<p style="margin:6px 0 0;font-size:13px;color:var(--text2);line-height:1.5">{{ $review->comment }}</p>@endif
+        @if($review->seller_reply)
+          <div style="margin:8px 0 0;padding:8px 10px;border-left:3px solid var(--green);background:#F7F6F2;border-radius:6px">
+            <div style="font-size:11px;font-weight:700;color:var(--text2)">Seller reply</div>
+            <p style="margin:3px 0 0;font-size:12.5px;color:var(--text2);line-height:1.5">{{ $review->seller_reply }}</p>
+          </div>
+        @endif
         <div style="font-size:11px;color:var(--text3);margin-top:5px">{{ $review->created_at?->diffForHumans() }}</div>
       </article>
     @empty
@@ -165,7 +175,7 @@
       <div style="font-weight:800;font-size:15px">Order options</div>
       <button type="button" onclick="closeOpt()" aria-label="Close options" style="background:transparent;border:none;cursor:pointer;color:var(--text3);padding:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">{{ $p->name }} · <b id="optBasePrice" style="color:var(--green)">₱{{ number_format($p->price,2) }}</b></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">{{ $p->name }} · <b id="optBasePrice" style="color:var(--green)">₱{{ number_format($effPrice,2) }}</b></div>
     @if($vgroups->isNotEmpty())
       <div style="font-size:12px;font-weight:700;margin-bottom:6px">Variation <span style="font-weight:400;color:var(--text3)">(choose 1)</span></div>
       @foreach($vgroups as $type => $opts)
@@ -185,7 +195,7 @@
       <button type="button" onclick="optQty(1)" aria-label="Increase quantity" style="width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer">+</button>
       <span id="optAvail" style="font-size:11px;color:var(--text3)">{{ $p->stock }} available</span>
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-weight:800">Total <span id="optTotal" style="color:var(--green);font-size:16px">₱{{ number_format($p->price,2) }}</span></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-weight:800">Total <span id="optTotal" style="color:var(--green);font-size:16px">₱{{ number_format($effPrice,2) }}</span></div>
     <div style="display:flex;gap:10px">
       <button type="button" onclick="confirmOpt('cart')" style="flex:1;padding:11px;border-radius:999px;background:#fff;color:var(--green);border:1.5px solid var(--green);font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">Add to Cart</button>
       <button type="button" onclick="confirmOpt('buy')" style="flex:1;padding:11px;border-radius:999px;background:var(--green);color:#fff;border:none;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">Buy Now</button>
@@ -194,7 +204,7 @@
 </div>
 <script>
 (function(){
-  var base = parseFloat("{{ $p->price }}");
+  var base = parseFloat("{{ $effPrice }}");
   var baseMax = Math.max(1, parseInt("{{ $p->stock }}") || 1);
   var maxQty = baseMax;
   var qty = 1, variantId = '', variantAdj = 0, buyNow = false;

@@ -78,6 +78,8 @@ class OrderController extends Controller
         // shipped/delivered orders keep their stock deducted.
         if (($request->status ?? null) === 'cancelled' && $from !== 'cancelled') {
             \App\Support\Stock::restoreOrder($order->load('items'));
+            \App\Support\Payments::voidForCancel($order);
+            \App\Support\Vouchers::restoreForOrder($order);
         }
 
         // Keep the buyer timeline corresponding: every status change writes history.

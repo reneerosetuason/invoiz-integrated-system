@@ -49,6 +49,28 @@ class ProfileController extends Controller
         return back()->with('success', 'Profile updated successfully.');
     }
 
+    public function updateVacation(Request $request)
+    {
+        $seller = Auth::user()->seller;
+        if (! $seller) {
+            return back()->withErrors(['vacation' => 'No seller profile found for this account.']);
+        }
+
+        $validated = $request->validate([
+            'vacation_mode'    => ['required', 'boolean'],
+            'vacation_message' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $seller->update([
+            'vacation_mode'    => (bool) $validated['vacation_mode'],
+            'vacation_message' => $validated['vacation_message'] ?? null,
+        ]);
+
+        return back()->with('success', $seller->vacation_mode
+            ? 'Vacation mode is ON. Buyers can browse but cannot order from your store.'
+            : 'Vacation mode is OFF. Your store is open for orders again.');
+    }
+
     public function updatePassword(Request $request)
     {
         $user = Auth::user();
