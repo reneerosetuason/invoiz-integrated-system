@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class RiderApplicationController extends Controller
 {
@@ -40,13 +41,27 @@ class RiderApplicationController extends Controller
             $request->merge(['phone' => PhilippinePhone::normalize($request->input('phone'))]);
         }
 
+        $activeApplication = fn ($query) => $query->whereIn('status', ['pending', 'approved']);
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'middle_initial' => 'nullable|string|max:5',
-            'sex' => 'nullable|in:male,female,other',
-            'birthday' => 'nullable|date|before:today',
-            'email' => 'required|email|max:255|unique:riders,email',
-            'phone' => ['required', new PhilippinePhone, 'unique:rider_applications,phone'],
+            'sex' => 'required|in:male,female,other',
+            'birthday' => 'required|date|before:today',
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                'unique:riders,email',
+                Rule::unique('rider_applications', 'email')->where($activeApplication),
+            ],
+            'phone' => [
+                'required',
+                new PhilippinePhone,
+                'unique:riders,phone',
+                Rule::unique('rider_applications', 'phone')->where($activeApplication),
+            ],
+            'accepted_terms' => 'required|accepted',
             'address' => 'required|string|max:500',
             'house_number' => 'nullable|string|max:50',
             'street' => 'nullable|string|max:255',
@@ -54,8 +69,20 @@ class RiderApplicationController extends Controller
             'municipality' => 'nullable|string|max:255',
             'province' => 'nullable|string|max:255',
             'vehicle_type' => 'required|in:' . implode(',', array_keys(VehicleType::activeLabels())),
-            'license_plate' => 'required|string|max:20',
-            'license_number' => 'required|string|max:100',
+            'license_plate' => [
+                'required',
+                'string',
+                'max:20',
+                Rule::unique('riders', 'license_plate'),
+                Rule::unique('rider_applications', 'license_plate')->where($activeApplication),
+            ],
+            'license_number' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('riders', 'license_number'),
+                Rule::unique('rider_applications', 'license_number')->where($activeApplication),
+            ],
             'license_expiry' => 'required|date|after_or_equal:today',
             'vehicle_registration' => 'required|string|max:100',
             'documents.valid_id' => 'required|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx|max:5120',
@@ -91,17 +118,18 @@ class RiderApplicationController extends Controller
         $data['rider_type'] = $data['rider_type'] ?? 'full_time';
         $data['vehicle_ownership'] = $data['vehicle_ownership'] ?? null;
 
-        if (!empty($data['birthday'])) {
-            $data['age'] = (int) \Carbon\Carbon::parse($data['birthday'])->age;
-            if ($data['age'] < 18) {
-                return response()->json([
-                    'message' => 'You must be at least 18 years old to apply as a rider.',
-                    'errors' => [
-                        'birthday' => ['You must be at least 18 years old to apply as a rider.'],
-                    ],
-                ], 422);
-            }
+        $data['age'] = (int) \Carbon\Carbon::parse($data['birthday'])->age;
+
+        if ($data['age'] < 18) {
+            return response()->json([
+                'message' => 'You must be at least 18 years old to apply as a rider.',
+                'errors' => [
+                    'birthday' => ['You must be at least 18 years old to apply as a rider.'],
+                ],
+            ], 422);
         }
+
+        unset($data['accepted_terms']);
 
         $application = DB::transaction(function () use ($data, $request) {
             $app = RiderApplication::create($data);

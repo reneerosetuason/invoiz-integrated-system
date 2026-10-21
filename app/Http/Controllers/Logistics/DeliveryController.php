@@ -120,13 +120,24 @@ class DeliveryController extends Controller
 
         $deliveries = $query->paginate($perPage)->withQueryString();
 
+        // Company isolation: staff never receive another center's rider or
+        // service-area options, even though the filters are not required to
+        // make the request work.
+        $riderOptions = Rider::query();
+        $serviceAreaOptions = ServiceArea::query();
+
+        if ($staffCenterId !== null) {
+            $riderOptions->where('center_id', $staffCenterId);
+            $serviceAreaOptions->where('logistics_center_id', $staffCenterId);
+        }
+
         return view('logistics.deliveries.index', [
             'deliveries' => $deliveries,
             'archivedCount' => Delivery::whereNotNull('archived_at')->count(),
-            'filterRiders' => Rider::orderBy('name')->get(['id', 'name']),
+            'filterRiders' => $riderOptions->orderBy('name')->get(['id', 'name']),
             'vehicleTypes' => array_keys(config('logistics.vehicle_capacities', [])),
             'filterCenters' => LogisticsCenter::orderBy('name')->get(['id', 'name']),
-            'filterServiceAreas' => ServiceArea::orderBy('name')->get(['id', 'name', 'logistics_center_id']),
+            'filterServiceAreas' => $serviceAreaOptions->orderBy('name')->get(['id', 'name', 'logistics_center_id']),
             'filterPriorities' => ['normal', 'high', 'urgent'],
             'staffCenterId' => $staffCenterId,
         ]);
@@ -283,7 +294,14 @@ class DeliveryController extends Controller
 
         $weight = (float) ($delivery->weight ?? 0);
 
-        $riderEligibility = Rider::query()
+        $viewer = Auth::user();
+        $riderQuery = Rider::query();
+
+        if ($this->isCenterScopedStaff() && $viewer->center_id) {
+            $riderQuery->where('center_id', $viewer->center_id);
+        }
+
+        $riderEligibility = $riderQuery
             ->get()
             ->map(function (Rider $rider) use ($weight, $delivery) {
                 $reason = null;
@@ -298,11 +316,10 @@ class DeliveryController extends Controller
                     $reason = 'Vehicle not verified';
                 } elseif (!$rider->vehicleTypeIsActive()) {
                     $reason = 'Vehicle type deactivated';
-                } elseif ($rider->deliveries()
-                    ->where('deliveries.id', '!=', $delivery->id)
-                    ->whereIn('status', Delivery::ACTIVE_STATUSES)
-                    ->exists()) {
-                    $reason = 'Currently delivering';
+                } elseif ($rider->licenseExpired()) {
+                    $reason = 'Driver\'s license expired';
+                } elseif ($rider->activeDeliveryCount() >= Rider::MAX_ACTIVE_DELIVERIES) {
+                    $reason = 'At delivery capacity ('.Rider::MAX_ACTIVE_DELIVERIES.' active)';
                 } elseif (!$rider->matchesDestinationCenter($delivery)) {
                     $reason = 'Different logistics center';
                 } elseif (!$rider->matchesServiceArea($delivery)) {
@@ -499,13 +516,17 @@ class DeliveryController extends Controller
                 return ['error' => 'Cannot assign delivery. The rider’s vehicle type has been deactivated.'];
             }
 
-            $hasOtherActiveDelivery = $rider->deliveries()
-                ->where('deliveries.id', '!=', $lockedDelivery->id)
-                ->whereIn('status', Delivery::ACTIVE_STATUSES)
-                ->lockForUpdate()
-                ->first() !== null;
-            if ($hasOtherActiveDelivery) {
-                return ['error' => 'Cannot assign delivery. Rider is currently delivering.'];
+            if ($rider->licenseExpired()) {
+                return ['error' => 'Cannot assign delivery. The rider\'s driver\'s license expired on '
+                    .$rider->license_expiry->format('M d, Y').'. Ask the rider to renew and re-verify it.'];
+            }
+
+            // Capacity: a rider may hold up to MAX_ACTIVE_DELIVERIES concurrent
+            // active deliveries. A failed delivery is not an active status, so
+            // retrying the same parcel never counts against the limit.
+            if ($rider->activeDeliveryCount() >= Rider::MAX_ACTIVE_DELIVERIES) {
+                return ['error' => 'Cannot assign delivery. Rider already has the maximum of '
+                    .Rider::MAX_ACTIVE_DELIVERIES.' active deliveries.'];
             }
 
             $preferences = LogisticsSetting::forUser(Auth::id())->delivery ?? [];
@@ -766,7 +787,8 @@ class DeliveryController extends Controller
 
         $eligible = $rider->vehicle_verification === 'verified'
             && $rider->vehicleTypeIsActive()
-            && $rider->approved_at !== null;
+            && $rider->approved_at !== null
+            && !$rider->licenseExpired();
 
         $status = !$eligible
             ? 'inactive'

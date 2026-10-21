@@ -114,6 +114,26 @@
                 @endif
             </div>
             <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Number</p>
+                <p class="text-sm font-medium text-gray-900 font-mono">{{ $rider->license_number ?: '—' }}</p>
+            </div>
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Expiry</p>
+                @if(!$rider->license_expiry)
+                    <p class="text-sm text-gray-400">Not on file</p>
+                @elseif($rider->licenseExpired())
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200">
+                        Expired {{ $rider->license_expiry->format('M d, Y') }}
+                    </span>
+                @elseif($rider->licenseExpiringSoon())
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">
+                        Expires {{ $rider->license_expiry->format('M d, Y') }}
+                    </span>
+                @else
+                    <p class="text-sm font-medium text-gray-900">{{ $rider->license_expiry->format('M d, Y') }}</p>
+                @endif
+            </div>
+            <div>
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Availability</p>
                 @if($rider->is_online)
                     <span class="inline-flex items-center gap-1.5 text-sm font-medium text-green-600">
@@ -138,6 +158,48 @@
             </div>
         </div>
     </div>
+
+    @php($canManageRider = Auth::user()->isAdmin() || Auth::user()->center_id == $rider->center_id)
+    @if($canManageRider)
+        {{-- Re-verification: renew licence and clear the block --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">Update / Re-verify License</h3>
+                    <p class="mt-0.5 text-sm text-gray-500">Renew the licence details and clear any expiry block. Verification is recorded against your account.</p>
+                </div>
+                @if($rider->licenseExpired())
+                    <span class="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-red-50 text-red-700 ring-1 ring-inset ring-red-200">Action required</span>
+                @endif
+            </div>
+            <form action="{{ route('riders.reverify', $rider) }}" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                @csrf
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Number</label>
+                    <input type="text" name="license_number" value="{{ old('license_number', $rider->license_number) }}" required
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-teal focus:ring-teal">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Expiry</label>
+                    <input type="date" name="license_expiry" value="{{ old('license_expiry', optional($rider->license_expiry)->format('Y-m-d')) }}" required
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-teal focus:ring-teal">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Vehicle Registration</label>
+                    <input type="text" name="vehicle_registration" value="{{ old('vehicle_registration', $rider->vehicle_registration) }}"
+                           class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-teal focus:ring-teal">
+                </div>
+                <div class="flex items-end">
+                    <button type="submit" class="w-full bg-teal hover:bg-teal-dark text-white px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm">
+                        Save &amp; Verify
+                    </button>
+                </div>
+            </form>
+            @error('license_expiry')
+                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+            @enderror
+        </div>
+    @endif
 
     {{-- Recent Deliveries --}}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

@@ -34,9 +34,18 @@ class RiderRemittanceController extends Controller
                 'created_at' => $r->created_at,
             ]);
 
+        $base = Remittance::query()->where('rider_id', $rider->id);
+
         return response()->json([
             'remittances' => $rows,
             'total_due' => round($rows->sum('amount'), 2),
+            'summary' => [
+                'total_due' => (float) (clone $base)->whereIn('status', ['pending', 'sent'])->sum('amount'),
+                'total_confirmed' => (float) (clone $base)->where('status', 'confirmed')->sum('amount'),
+                'pending_count' => (clone $base)->where('status', 'pending')->count(),
+                'sent_count' => (clone $base)->where('status', 'sent')->count(),
+                'confirmed_count' => (clone $base)->where('status', 'confirmed')->count(),
+            ],
         ]);
     }
 

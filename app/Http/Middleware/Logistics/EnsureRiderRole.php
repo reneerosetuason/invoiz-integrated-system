@@ -21,6 +21,16 @@ class EnsureRiderRole
             ], 403);
         }
 
+        // Existing bearer tokens must stop working as soon as an account is
+        // suspended or deactivated, not only at the next login.
+        if ($user->status !== 'active') {
+            return response()->json([
+                'message' => $user->status === 'suspended'
+                    ? 'Your account has been suspended. Please contact an administrator.'
+                    : 'Your account is currently inactive. Please contact an administrator.',
+            ], 403);
+        }
+
         return $next($request);
     }
 }

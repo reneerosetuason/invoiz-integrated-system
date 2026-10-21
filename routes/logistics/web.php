@@ -16,6 +16,7 @@ use App\Http\Controllers\Logistics\LogisticsCenterController;
 use App\Http\Controllers\Logistics\ServiceAreaController;
 use App\Http\Controllers\Logistics\TransactionController;
 use App\Http\Controllers\Logistics\ReportController;
+use App\Http\Controllers\Logistics\RemittanceController;
 use App\Http\Controllers\Logistics\RiderApplicationAdminController;
 use App\Http\Controllers\Logistics\CenterApplicationAdminController;
 use App\Http\Controllers\Logistics\CenterApplicationPublicController;
@@ -84,6 +85,7 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('riders/{rider}/reset-credentials', [RiderController::class, 'resetCredentials'])->name('riders.reset-credentials');
     Route::post('riders/{rider}/activate', [RiderController::class, 'activate'])->name('riders.activate');
     Route::post('riders/{rider}/deactivate', [RiderController::class, 'deactivate'])->name('riders.deactivate');
+    Route::post('riders/{rider}/reverify', [RiderController::class, 'reverify'])->name('riders.reverify');
 
     // Pickup Requests (staff: approve/reject pickups at their center)
     Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');
@@ -138,6 +140,9 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
 
     // Transactions
     Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
+
+    // Remittances (read-only: COD cash handoffs rider -> seller, center-scoped)
+    Route::get('remittances', [RemittanceController::class, 'index'])->name('remittances.index');
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');

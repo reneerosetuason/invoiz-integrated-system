@@ -11,6 +11,9 @@ class Rider extends Model
 {
     use HasFactory;
 
+    /** Maximum number of simultaneous active deliveries a rider may hold. */
+    public const MAX_ACTIVE_DELIVERIES = 3;
+
     protected $fillable = [
         'user_id',
         'center_id',
@@ -70,6 +73,21 @@ class Rider extends Model
     public function activeDeliveries(): HasMany
     {
         return $this->hasMany(Delivery::class)->whereIn('status', Delivery::ACTIVE_STATUSES);
+    }
+
+    public function activeDeliveryCount(): int
+    {
+        return $this->activeDeliveries()->count();
+    }
+
+    public function canAcceptMoreDeliveries(): bool
+    {
+        return $this->activeDeliveryCount() < self::MAX_ACTIVE_DELIVERIES;
+    }
+
+    public function remittances(): HasMany
+    {
+        return $this->hasMany(Remittance::class);
     }
 
     public function earnings(): HasMany

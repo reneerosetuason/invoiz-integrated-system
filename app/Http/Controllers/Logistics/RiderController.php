@@ -69,15 +69,23 @@ class RiderController extends Controller
 
         $riders = $query->orderBy('name')->paginate($perPage)->withQueryString();
 
+        // Company isolation: staff only see their own center's service areas.
+        $serviceAreaOptions = ServiceArea::query();
+        if ($user->isLogisticsStaff() && $user->center_id) {
+            $serviceAreaOptions->where('logistics_center_id', $user->center_id);
+        }
+
         return view('logistics.riders.index', [
             'riders' => $riders,
-            'filterServiceAreas' => ServiceArea::orderBy('name')->get(['id', 'name']),
+            'filterServiceAreas' => $serviceAreaOptions->orderBy('name')->get(['id', 'name']),
             'filterCenters' => LogisticsCenter::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
     public function show(Rider $rider): View
     {
+        $this->authorizeRiderCenter($rider);
+
         $rider->load(['logisticsCenter', 'serviceArea']);
         $rider->load(['deliveries' => function ($query) {
             $query->notArchived()->latest()->take(10);
@@ -99,6 +107,17 @@ class RiderController extends Controller
             return back()->with('error', 'Rider is already active.');
         }
 
+        // Reactivation is the re-verification gate: an expired licence or an
+        // unverified vehicle must be renewed through Update Verification
+        // before the rider can take work again.
+        if ($rider->licenseExpired()) {
+            return back()->with('error', 'This rider has an expired driver\'s license. Update and re-verify the licence details before activating.');
+        }
+
+        if ($rider->vehicle_verification !== 'verified') {
+            return back()->with('error', 'This rider\'s vehicle is not verified. Complete verification before activating.');
+        }
+
         $hasActiveDelivery = $rider->deliveries()
             ->whereIn('status', Delivery::ACTIVE_STATUSES)
             ->exists();
@@ -117,6 +136,45 @@ class RiderController extends Controller
         return back()->with('success', "Rider {$rider->name} activated and eligible for delivery assignment.");
     }
 
+    /**
+     * Record renewed licence / vehicle details and mark the rider verified
+     * again. Required to clear an expired-licence block before the rider can
+     * be reactivated or assigned new deliveries.
+     */
+    public function reverify(Request $request, Rider $rider): RedirectResponse
+    {
+        $this->authorizeRiderCenter($rider);
+
+        $validated = $request->validate([
+            'license_number' => 'required|string|max:100',
+            'license_expiry' => 'required|date|after_or_equal:today',
+            'vehicle_registration' => 'nullable|string|max:100',
+            'verification_note' => 'nullable|string|max:500',
+        ]);
+
+        $rider->update([
+            'license_number' => $validated['license_number'],
+            'license_expiry' => $validated['license_expiry'],
+            'vehicle_registration' => $validated['vehicle_registration'] ?? $rider->vehicle_registration,
+            'is_verified' => true,
+            'vehicle_verification' => 'verified',
+            'vehicle_verification_note' => $validated['verification_note'] ?? null,
+            'vehicle_verified_at' => now(),
+            'vehicle_verified_by' => Auth::id(),
+        ]);
+
+        Notification::create([
+            'type' => 'rider_status_changed',
+            'title' => 'Rider Re-verified',
+            'message' => "Rider {$rider->name}'s licence and vehicle were re-verified.",
+            'icon' => '✅',
+            'priority' => 'normal',
+            'link' => route('riders.show', $rider),
+        ]);
+
+        return back()->with('success', "Rider {$rider->name} re-verified. Their licence expires on {$rider->fresh()->license_expiry->format('M d, Y')}.");
+    }
+
     public function deactivate(Rider $rider): RedirectResponse
     {
         $this->authorizeRiderCenter($rider);
@@ -125,7 +183,10 @@ class RiderController extends Controller
             return back()->with('error', 'Rider is already inactive.');
         }
 
-        $rider->update(['status' => 'inactive']);
+        // Suspension removes the rider from the online pool. Deliveries they
+        // already picked up are preserved so parcels are not stranded; any
+        // pre-pickup assignment can be reassigned to another rider by staff.
+        $rider->update(['status' => 'inactive', 'is_online' => false]);
 
         Notification::create([
             'type' => 'rider_status_changed',

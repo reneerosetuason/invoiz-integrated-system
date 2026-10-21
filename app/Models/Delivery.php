@@ -200,6 +200,11 @@ class Delivery extends Model
         return $this->hasOne(Transaction::class);
     }
 
+    public function remittance(): HasOne
+    {
+        return $this->hasOne(Remittance::class);
+    }
+
     public function pickupRequest()
     {
         return $this->hasOne(PickupRequest::class);

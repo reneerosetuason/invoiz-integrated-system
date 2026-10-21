@@ -41,6 +41,11 @@ class CenterApplicationAdminController extends Controller
             $query->where(function ($q) use ($like) {
                 $q->where('business_name', 'like', $like)
                   ->orWhere('owner_name', 'like', $like)
+                  ->orWhere('owner_first_name', 'like', $like)
+                  ->orWhere('owner_middle_name', 'like', $like)
+                  ->orWhere('owner_last_name', 'like', $like)
+                  ->orWhere('sec_number', 'like', $like)
+                  ->orWhere('tin', 'like', $like)
                   ->orWhere('email', 'like', $like)
                   ->orWhere('phone', 'like', $like);
             });

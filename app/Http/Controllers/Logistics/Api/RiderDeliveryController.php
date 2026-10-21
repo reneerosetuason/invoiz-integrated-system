@@ -34,6 +34,11 @@ class RiderDeliveryController extends Controller
         'arrived_at_customer' => ['delivered'],
     ];
 
+    private const PRE_PICKUP_STATUSES = [
+        'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop',
+    ];
+
+
     /**
      * List the rider's deliveries, optionally filtered.
      */
@@ -152,6 +157,10 @@ class RiderDeliveryController extends Controller
     {
         $this->authorizeDelivery($request, $delivery);
 
+        if ($blocked = $this->prePickupBlock($request->user()->rider)) {
+            return $blocked;
+        }
+
         if (! in_array('accepted', self::TRANSITIONS[$delivery->status] ?? [])) {
             return $this->invalidTransition($delivery);
         }
@@ -183,6 +192,12 @@ class RiderDeliveryController extends Controller
 
         $next = $validated['status'];
 
+        if (in_array($delivery->status, self::PRE_PICKUP_STATUSES, true)) {
+            if ($blocked = $this->prePickupBlock($request->user()->rider)) {
+                return $blocked;
+            }
+        }
+
         $allowed = self::TRANSITIONS[$delivery->status] ?? [];
         // Sorting-center pickup flow: after the delivery rider has collected the
         // parcel from the center, the next step is out_for_delivery even
@@ -211,6 +226,10 @@ class RiderDeliveryController extends Controller
     public function pickup(Request $request, Delivery $delivery): JsonResponse
     {
         $this->authorizeDelivery($request, $delivery);
+
+        if ($blocked = $this->prePickupBlock($request->user()->rider)) {
+            return $blocked;
+        }
 
         if (! in_array($delivery->status, ['going_to_pickup', 'arrived_at_shop'])) {
             return $this->invalidTransition($delivery);
@@ -263,12 +282,24 @@ class RiderDeliveryController extends Controller
             'longitude' => 'sometimes|numeric',
         ]);
 
-        // COD: the rider must record the received amount.
-        if ($delivery->payment_method === 'cash_on_delivery' && empty($validated['amount_received'])) {
-            return response()->json([
-                'message' => 'Please record the amount received from the customer (Cash on Delivery).',
-                'errors' => ['amount_received' => ['The amount received is required for COD deliveries.']],
-            ], 422);
+        // COD: the rider must record exactly the amount the customer owes.
+        if ($delivery->payment_method === 'cash_on_delivery') {
+            if (! array_key_exists('amount_received', $validated) || $validated['amount_received'] === null || $validated['amount_received'] === '') {
+                return response()->json([
+                    'message' => 'Please record the amount received from the customer (Cash on Delivery).',
+                    'errors' => ['amount_received' => ['The amount received is required for COD deliveries.']],
+                ], 422);
+            }
+
+            $expected = round((float) $delivery->amount_to_collect, 2);
+            $received = round((float) $validated['amount_received'], 2);
+
+            if (abs($received - $expected) > 0.009) {
+                return response()->json([
+                    'message' => 'The amount received must match the amount to collect.',
+                    'errors' => ['amount_received' => ['The amount received must equal '.number_format($expected, 2, '.', '').'.']],
+                ], 422);
+            }
         }
 
         $proofPath = null;
@@ -385,6 +416,10 @@ class RiderDeliveryController extends Controller
     public function sortingCenterPickup(Request $request, Delivery $delivery): JsonResponse
     {
         $this->authorizeDelivery($request, $delivery);
+
+        if ($blocked = $this->prePickupBlock($request->user()->rider)) {
+            return $blocked;
+        }
 
         if ($delivery->sorting_center_handoff_at === null) {
             return response()->json([
@@ -605,6 +640,25 @@ class RiderDeliveryController extends Controller
         if ((int) $delivery->rider_id !== (int) $rider->id) {
             abort(403, 'This delivery is not assigned to you.');
         }
+    }
+
+    /**
+     * Suspended/inactive or non-compliant riders keep ownership of parcels
+     * already picked up so they can finish them, but they must not start new
+     * work (accept, pick up, or advance a pre-pickup delivery).
+     */
+    private function prePickupBlock(Rider $rider): ?JsonResponse
+    {
+        $reason = $rider->assignmentBlockReason();
+
+        if ($reason === null) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => 'You cannot start or continue new deliveries. '.$reason.'.',
+            'errors' => ['status' => ['You cannot start or continue new deliveries. '.$reason.'.']],
+        ], 403);
     }
 
     private function invalidTransition(Delivery $delivery): JsonResponse

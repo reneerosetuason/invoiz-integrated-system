@@ -42,7 +42,7 @@ class CenterApplicationApprovedMail extends Mailable
             view: 'logistics.emails.centers.account-approved',
             with: [
                 'centerName' => $this->application->business_name,
-                'ownerName' => $this->application->owner_name,
+                'ownerName' => $this->application->displayOwnerName(),
                 'centerEmail' => $this->application->email,
                 'temporaryPassword' => $this->temporaryPassword,
                 'referenceNumber' => self::referenceFor($this->application),
