@@ -142,9 +142,10 @@
                                                 <button type="submit" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700">Activate</button>
                                             </form>
                                         @else
-                                            <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data x-on:submit.prevent="if (confirm('Deactivate {{ $rider->name }}?')) $el.submit()">
+                                            <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data x-on:submit.prevent="var reason = prompt('Reason for suspension (minimum 10 characters):'); if (reason !== null) { $el.querySelector('[name=reason]').value = reason; $el.submit(); }">
                                                 @csrf
-                                                <button type="submit" class="text-sm font-semibold text-red-500 hover:text-red-600">Deactivate</button>
+                                                <input type="hidden" name="reason" value="{{ old('reason') }}">
+                                                <button type="submit" class="text-sm font-semibold text-red-500 hover:text-red-600">Suspend</button>
                                             </form>
                                         @endif
                                     @endif

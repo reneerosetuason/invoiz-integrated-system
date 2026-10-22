@@ -6,12 +6,16 @@ use App\Mail\RiderCredentialsResetMail;
 use App\Models\Notification;
 use App\Models\Rider;
 use App\Models\Delivery;
+use App\Models\DeliveryStatusLog;
 use App\Models\LogisticsCenter;
+use App\Models\RiderNotification;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Support\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -128,8 +132,10 @@ class RiderController extends Controller
             'type' => 'rider_status_changed',
             'title' => 'Rider Activated',
             'message' => "Rider {$rider->name} is now {$rider->fresh()->status}.",
-            'icon' => '????',
+            'icon' => '✅',
             'priority' => 'normal',
+            'center_id' => $rider->center_id,
+            'audience' => $rider->center_id ? 'center' : 'admin',
             'link' => route('riders.show', $rider),
         ]);
 
@@ -169,35 +175,129 @@ class RiderController extends Controller
             'message' => "Rider {$rider->name}'s licence and vehicle were re-verified.",
             'icon' => '✅',
             'priority' => 'normal',
+            'center_id' => $rider->center_id,
+            'audience' => $rider->center_id ? 'center' : 'admin',
             'link' => route('riders.show', $rider),
         ]);
 
         return back()->with('success', "Rider {$rider->name} re-verified. Their licence expires on {$rider->fresh()->license_expiry->format('M d, Y')}.");
     }
 
-    public function deactivate(Rider $rider): RedirectResponse
+    public function deactivate(Request $request, Rider $rider, AuditLogger $audit): RedirectResponse
     {
         $this->authorizeRiderCenter($rider);
 
-        if ($rider->status === 'inactive') {
+        $validated = $request->validate([
+            'reason' => 'required|string|min:10|max:500',
+        ]);
+
+        $reason = trim($validated['reason']);
+
+        $result = DB::transaction(function () use ($rider, $reason, $audit): array {
+            $lockedRider = Rider::query()
+                ->whereKey($rider->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedRider->status === 'inactive') {
+                return ['already_inactive' => true];
+            }
+
+            $prePickupStatuses = ['assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop'];
+
+            $activeDeliveries = Delivery::query()
+                ->where('rider_id', $lockedRider->id)
+                ->whereIn('status', Delivery::ACTIVE_STATUSES)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get();
+
+            $prePickupDeliveries = $activeDeliveries
+                ->whereIn('status', $prePickupStatuses)
+                ->values();
+
+            $oldValues = [
+                'status' => $lockedRider->status,
+                'is_online' => (bool) $lockedRider->is_online,
+                'active_delivery_ids' => $activeDeliveries->pluck('id')->all(),
+            ];
+
+            $lockedRider->update([
+                'status' => 'inactive',
+                'is_online' => false,
+            ]);
+
+            foreach ($prePickupDeliveries as $delivery) {
+                $delivery->update([
+                    'rider_id' => null,
+                    'status' => 'waiting_for_rider',
+                    'assigned_at' => null,
+                    'accepted_at' => null,
+                ]);
+
+                DeliveryStatusLog::create([
+                    'delivery_id' => $delivery->id,
+                    'status' => 'waiting_for_rider',
+                    'notes' => "Unassigned from suspended rider {$lockedRider->name}. Reason: {$reason}",
+                    'changed_by' => Auth::id(),
+                ]);
+            }
+
+            $newValues = [
+                'status' => 'inactive',
+                'is_online' => false,
+                'unassigned_delivery_ids' => $prePickupDeliveries->pluck('id')->all(),
+                'preserved_delivery_ids' => $activeDeliveries
+                    ->whereNotIn('status', $prePickupStatuses)
+                    ->pluck('id')
+                    ->values()
+                    ->all(),
+            ];
+
+            Notification::create([
+                'type' => 'rider_status_changed',
+                'title' => 'Rider Suspended',
+                'message' => "Rider {$lockedRider->name} was suspended. Reason: {$reason}",
+                'icon' => '⛔',
+                'priority' => 'high',
+                'center_id' => $lockedRider->center_id,
+                'audience' => $lockedRider->center_id ? 'center' : 'admin',
+                'link' => route('riders.show', $lockedRider),
+            ]);
+
+            RiderNotification::notifyOnce(
+                $lockedRider->id,
+                'system',
+                ['reason' => $reason],
+                'Account suspended',
+                "Your rider account has been suspended. Reason: {$reason}",
+            );
+
+            $audit->record(
+                Auth::user(),
+                'rider.suspended',
+                Rider::class,
+                $lockedRider->id,
+                $oldValues,
+                $newValues,
+                $reason,
+            );
+
+            return [
+                'rider' => $lockedRider,
+                'unassigned_count' => $prePickupDeliveries->count(),
+            ];
+        });
+
+        if (! empty($result['already_inactive'])) {
             return back()->with('error', 'Rider is already inactive.');
         }
 
-        // Suspension removes the rider from the online pool. Deliveries they
-        // already picked up are preserved so parcels are not stranded; any
-        // pre-pickup assignment can be reassigned to another rider by staff.
-        $rider->update(['status' => 'inactive', 'is_online' => false]);
+        $message = $result['unassigned_count'] > 0
+            ? "Rider {$rider->name} suspended. {$result['unassigned_count']} pre-pickup delivery assignment(s) were released; picked-up deliveries remain assigned."
+            : "Rider {$rider->name} suspended. Picked-up deliveries, if any, remain assigned.";
 
-        Notification::create([
-            'type' => 'rider_status_changed',
-            'title' => 'Rider Deactivated',
-            'message' => "Rider {$rider->name} is now inactive.",
-            'icon' => '????',
-            'priority' => 'normal',
-            'link' => route('riders.show', $rider),
-        ]);
-
-        return back()->with('success', "Rider {$rider->name} deactivated. Existing deliveries have been preserved.");
+        return back()->with('success', $message);
     }
 
     /**

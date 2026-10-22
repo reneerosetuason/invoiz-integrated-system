@@ -29,12 +29,16 @@
                             </button>
                         </form>
                     @else
-                        <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data x-on:submit.prevent="if (confirm('Deactivate {{ $rider->name }}? Existing deliveries will be preserved.')) $el.submit()">
+                        <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data x-on:submit.prevent="var reason = prompt('Reason for suspension (minimum 10 characters):'); if (reason !== null) { $el.querySelector('[name=reason]').value = reason; $el.submit(); }">
                             @csrf
+                            <input type="hidden" name="reason" value="{{ old('reason') }}">
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm whitespace-nowrap">
-                                Deactivate
+                                Suspend Rider
                             </button>
                         </form>
+                        @error('reason')
+                            <p class="text-xs text-red-600">{{ $message }}</p>
+                        @enderror
                     @endif
                 @endif
             </div>
