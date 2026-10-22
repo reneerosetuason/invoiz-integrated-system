@@ -37,6 +37,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/orders/checkout', [App\Http\Controllers\Api\OrderController::class, 'checkout']);
     Route::post('/orders/{id}/cancel', [App\Http\Controllers\Api\OrderController::class, 'cancel'])->whereNumber('id');
     Route::post('/orders/{id}/rate', [App\Http\Controllers\Api\OrderController::class, 'rate'])->whereNumber('id');
+    Route::get('/orders/{order}/deliveries/{delivery}/otp', [App\Http\Controllers\Api\DeliveryOtpController::class, 'show'])
+        ->middleware(['role:buyer', 'throttle:20,1'])
+        ->whereNumber('order')
+        ->whereNumber('delivery');
 
     Route::get('/favorites', [App\Http\Controllers\Api\FavoriteController::class, 'index']);
     Route::post('/favorites/toggle', [App\Http\Controllers\Api\FavoriteController::class, 'toggle']);

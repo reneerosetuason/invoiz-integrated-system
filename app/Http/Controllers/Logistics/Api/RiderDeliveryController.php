@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Logistics\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\Logistics\TransactionController;
 use App\Models\Delivery;
 use App\Models\DeliveryFailure;
 use App\Models\DeliveryProof;
@@ -12,10 +12,13 @@ use App\Models\DeliveryStatusLog;
 use App\Models\Order;
 use App\Models\Rider;
 use App\Models\RiderEarning;
+use App\Services\DeliveryOtpService;
+use App\Support\Cod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+
 
 class RiderDeliveryController extends Controller
 {
@@ -50,7 +53,8 @@ class RiderDeliveryController extends Controller
             'status' => 'sometimes|string|in:new,accepted,pickup,in_transit,delivered,failed,cancelled,all',
         ]);
 
-        $query = Delivery::with(['items', 'rider'])->where('rider_id', $rider->id);
+        $query = Delivery::with(['items', 'rider', 'order:id,buyer_id'])->where('rider_id', $rider->id);
+
 
         switch ($validated['status'] ?? 'all') {
             case 'new':
@@ -105,6 +109,7 @@ class RiderDeliveryController extends Controller
             'logisticsCenter',
             'destinationCenter',
             'serviceArea',
+            'order:id,buyer_id',
         ]);
 
         return response()->json([
@@ -212,6 +217,10 @@ class RiderDeliveryController extends Controller
 
         $delivery->update(['status' => $next]);
 
+        if (in_array($next, DeliveryOtpService::ELIGIBLE_STATUSES, true)) {
+            app(DeliveryOtpService::class)->ensureFor($delivery);
+        }
+
         $this->logStatus($delivery, $next, $this->transitionNote($next));
 
         return response()->json([
@@ -264,26 +273,43 @@ class RiderDeliveryController extends Controller
     /**
      * Complete the delivery with optional proof of delivery + COD settlement.
      */
-    public function complete(Request $request, Delivery $delivery): JsonResponse
-    {
+    public function complete(
+        Request $request,
+        Delivery $delivery,
+        DeliveryOtpService $otpService,
+    ): JsonResponse {
         $this->authorizeDelivery($request, $delivery);
 
         if (! in_array($delivery->status, ['out_for_delivery', 'arrived_at_customer'])) {
             return $this->invalidTransition($delivery);
         }
 
+        $otpRequired = $otpService->requiredFor($delivery);
+
         $validated = $request->validate([
             'proof_type' => 'sometimes|string|in:photo,signature,otp',
             'photo' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:8192',
             'signature_name' => 'sometimes|string|max:255',
-            'otp' => 'sometimes|string|max:10',
+            'otp' => $otpRequired ? 'required|string|digits:6' : 'sometimes|string|max:10',
             'amount_received' => 'sometimes|numeric|min:0',
             'latitude' => 'sometimes|numeric',
             'longitude' => 'sometimes|numeric',
-        ]);
+        ], $otpRequired ? [
+            'otp.required' => 'Enter the 6-digit delivery OTP provided by the buyer.',
+            'otp.digits' => 'The delivery OTP must be exactly 6 digits.',
+        ] : []);
 
-        // COD: the rider must record exactly the amount the customer owes.
-        if ($delivery->payment_method === 'cash_on_delivery') {
+
+        if (Cod::isCod($delivery)) {
+            $expected = Cod::expected($delivery);
+
+            if ($expected === null) {
+                return response()->json([
+                    'message' => 'The Cash on Delivery amount could not be determined for this delivery.',
+                    'errors' => ['amount_received' => ['The Cash on Delivery amount is not configured.']],
+                ], 422);
+            }
+
             if (! array_key_exists('amount_received', $validated) || $validated['amount_received'] === null || $validated['amount_received'] === '') {
                 return response()->json([
                     'message' => 'Please record the amount received from the customer (Cash on Delivery).',
@@ -291,7 +317,6 @@ class RiderDeliveryController extends Controller
                 ], 422);
             }
 
-            $expected = round((float) $delivery->amount_to_collect, 2);
             $received = round((float) $validated['amount_received'], 2);
 
             if (abs($received - $expected) > 0.009) {
@@ -303,43 +328,139 @@ class RiderDeliveryController extends Controller
         }
 
         $proofPath = null;
-        if (! empty($validated['photo'])) {
-            $proofPath = $request->file('photo')->store('delivery-proofs', 'public');
+
+        try {
+            $result = DB::transaction(function () use ($request, $delivery, $validated, $otpService, $otpRequired, &$proofPath) {
+                $locked = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+
+                $this->authorizeDelivery($request, $locked);
+
+                if (! in_array($locked->status, ['out_for_delivery', 'arrived_at_customer'], true)) {
+                    return ['conflict' => $this->invalidTransition($locked)];
+                }
+
+                $otpResult = $otpService->verify($locked, $validated['otp'] ?? null);
+
+                if (! $otpResult['ok']) {
+                    return ['otp_error' => $this->otpFailure($otpResult)];
+                }
+
+                if (! empty($validated['photo'])) {
+                    $proofPath = $request->file('photo')->store('delivery-proofs', 'public');
+                }
+
+                if (! empty($validated['proof_type']) || ! empty($validated['photo']) || $locked->payment_method === 'cash_on_delivery') {
+                    DeliveryProof::create([
+                        'delivery_id' => $locked->id,
+                        'rider_id' => $locked->rider_id,
+                        'type' => $validated['proof_type'] ?? ($proofPath ? 'photo' : ($locked->payment_method === 'cash_on_delivery' ? 'signature' : 'photo')),
+                        'file_path' => $proofPath,
+                        'signature_name' => $validated['signature_name'] ?? $locked->recipient_name,
+                        'otp' => $otpRequired ? null : ($validated['otp'] ?? null),
+                        'latitude' => $validated['latitude'] ?? null,
+                        'longitude' => $validated['longitude'] ?? null,
+                        'verified_at' => now(),
+                    ]);
+                }
+
+                $otpService->consume($locked);
+
+                $isCod = Cod::isCod($locked);
+                $codExpected = $isCod ? Cod::expected($locked) : null;
+                $codReceived = $isCod ? round((float) $validated['amount_received'], 2) : null;
+
+                $updates = [
+                    'status' => 'delivered',
+                    'delivered_at' => now(),
+                ];
+
+                if ($isCod) {
+                    $updates['amount_to_collect'] = $locked->amount_to_collect ?? $codExpected;
+                    $updates['cod_amount_received'] = $codReceived;
+                    $updates['cod_received_at'] = now();
+                }
+
+                $locked->update($updates);
+
+                $this->logStatus($locked, 'delivered', 'Package delivered to customer.');
+
+                // Same per-delivery payout rule used by TransactionController:
+                // the delivery fee when set, otherwise the flat shipping fee.
+                $earned = round((float) ($locked->delivery_fee !== null
+                    ? $locked->delivery_fee
+                    : Order::SHIPPING_FEE_PER_SELLER), 2);
+
+                // Logistics owns the ledger and remittance records. Any failure
+                // here must roll back the delivery transition and status log.
+                app(TransactionController::class)->storeForDelivery($locked);
+                \App\Support\Remittances::ensureForDeliveryOrFail($locked->fresh());
+
+                RiderEarning::firstOrCreate(
+                    ['delivery_id' => $locked->id, 'type' => 'delivery'],
+                    [
+                        'rider_id' => $locked->rider_id,
+                        'amount' => $earned,
+                        'earned_on' => now()->toDateString(),
+                        'description' => "Delivery {$locked->tracking_number}",
+                    ]
+                );
+
+                if ($isCod) {
+                    app(\App\Support\AuditLogger::class)->record(
+                        $request->user(),
+                        'cod.collected',
+                        'delivery',
+                        $locked->id,
+                        [],
+                        [
+                            'amount_to_collect' => $codExpected,
+                            'amount_received' => $codReceived,
+                            'variance' => round((float) $codReceived - (float) $codExpected, 2),
+                        ],
+                        null,
+                        [
+                            'order_id' => $locked->order_id,
+                            'rider_id' => $locked->rider_id,
+                            'tracking_number' => $locked->tracking_number,
+                        ],
+                    );
+                }
+
+                return ['delivery' => $locked, 'earned' => $earned];
+            }, 3);
+        } catch (\Throwable $e) {
+            if ($proofPath) {
+                Storage::disk('public')->delete($proofPath);
+            }
+
+            report($e);
+
+            return response()->json([
+                'message' => 'Delivery completion failed. No changes were saved.',
+            ], 500);
         }
 
-        if (! empty($validated['proof_type']) || ! empty($validated['photo']) || $delivery->payment_method === 'cash_on_delivery') {
-            DeliveryProof::create([
-                'delivery_id' => $delivery->id,
-                'rider_id' => $delivery->rider_id,
-                'type' => $validated['proof_type'] ?? ($proofPath ? 'photo' : ($delivery->payment_method === 'cash_on_delivery' ? 'signature' : 'photo')),
-                'file_path' => $proofPath,
-                'signature_name' => $validated['signature_name'] ?? $delivery->recipient_name,
-                'otp' => $validated['otp'] ?? null,
-                'latitude' => $validated['latitude'] ?? null,
-                'longitude' => $validated['longitude'] ?? null,
-                'verified_at' => now(),
-            ]);
+        if (isset($result['otp_error'])) {
+            return $result['otp_error'];
         }
 
-        $delivery->update([
-            'status' => 'delivered',
-            'delivered_at' => now(),
-        ]);
+        if (isset($result['conflict'])) {
+            if ($proofPath) {
+                Storage::disk('public')->delete($proofPath);
+            }
 
-        $this->logStatus($delivery, 'delivered', 'Package delivered to customer.');
+            return $result['conflict'];
+        }
 
-        // Logistics generates the transaction (flat ₱50 rider payout + ₱15         // logistics fee per delivery) using the existing business rules.         // The Rider System must NOT duplicate transaction creation — it         // only reports completion.         app(TransactionController::class)->storeForDelivery($delivery);          // Cash is with the rider now: open the handoff the seller must         // verify before the sale settles.         \App\Support\Remittances::ensureForDelivery($delivery->fresh());          // Record rider earnings for this delivery: the flat per-delivery         // fee, fully independent of any voucher or discount on the order.         $earned = $delivery->delivery_fee !== null             ? (float) $delivery->delivery_fee             : Order::SHIPPING_FEE_PER_SELLER;
+        /** @var Delivery $delivery */
+        $delivery = $result['delivery'];
+        $earned = $result['earned'];
 
-        RiderEarning::create([
-            'rider_id' => $delivery->rider_id,
-            'delivery_id' => $delivery->id,
-            'type' => 'delivery',
-            'amount' => $earned,
-            'earned_on' => now()->toDateString(),
-            'description' => "Delivery {$delivery->tracking_number}",
-        ]);
-
-        $this->markRiderAvailableIfIdle($delivery->rider);
+        try {
+            $this->markRiderAvailableIfIdle($delivery->rider);
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json([
             'message' => 'Delivery completed successfully.',
@@ -670,6 +791,17 @@ class RiderDeliveryController extends Controller
             ],
         ], 409);
     }
+
+    private function otpFailure(array $result): JsonResponse
+    {
+        return response()->json([
+            'message' => $result['message'],
+            'errors' => [
+                'otp' => [$result['message']],
+            ],
+        ], 422);
+    }
+
 
     private function logStatus(Delivery $delivery, string $status, ?string $note): void
     {

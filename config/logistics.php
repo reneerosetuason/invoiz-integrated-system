@@ -49,6 +49,12 @@ return [
         'truck'      => 'Truck',
     ],
 
+    'delivery_otp' => [
+        'ttl_minutes' => 30,
+        'max_attempts' => 5,
+        'length' => 6,
+    ],
+
     // Starter PSGC region dataset for the center-application address
     // cascade (region -> province -> city/municipality -> barangay).
     'psgc_regions' => [

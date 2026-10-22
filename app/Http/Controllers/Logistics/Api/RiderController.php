@@ -8,6 +8,7 @@ use App\Models\Rider;
 use App\Models\RiderApplication;
 use App\Models\RiderApplicationDocument;
 use App\Models\RiderEarning;
+use App\Services\DeliveryOtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\URL;
@@ -297,6 +298,7 @@ class RiderController extends Controller
             'total' => round($total, 2),
             'payment_method' => $delivery->payment_method,
             'amount_to_collect' => $delivery->amount_to_collect !== null ? (float) $delivery->amount_to_collect : null,
+            'otp_required' => app(DeliveryOtpService::class)->requiredFor($delivery),
             'pickup_pin_required' => ! empty($delivery->pickup_pin),
             'notes' => $delivery->notes ?? $delivery->delivery_notes,
             'weight' => $delivery->weight,

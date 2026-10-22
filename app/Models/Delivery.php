@@ -46,6 +46,8 @@ class Delivery extends Model
         'priority',
         'payment_method',
         'amount_to_collect',
+        'cod_amount_received',
+        'cod_received_at',
         'delivery_fee',
         'pickup_pin',
         'estimated_delivery_at',
@@ -75,11 +77,24 @@ class Delivery extends Model
         'sorting_center_pickup_rider_id',
     ];
 
+    protected $hidden = [
+        'delivery_otp',
+        'delivery_otp_expires_at',
+        'delivery_otp_attempts',
+        'delivery_otp_consumed_at',
+    ];
+
     protected function casts(): array
     {
         return [
             'weight' => 'decimal:2',
+            'delivery_otp' => 'encrypted',
+            'delivery_otp_expires_at' => 'datetime',
+            'delivery_otp_attempts' => 'integer',
+            'delivery_otp_consumed_at' => 'datetime',
             'amount_to_collect' => 'decimal:2',
+            'cod_amount_received' => 'decimal:2',
+            'cod_received_at' => 'datetime',
             'delivery_fee' => 'decimal:2',
             'sender_lat' => 'decimal:7',
             'sender_lng' => 'decimal:7',

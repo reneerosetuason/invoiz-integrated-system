@@ -231,6 +231,25 @@ class Order extends Model
         return $hasGroup ? self::LOGISTICS_FEE_PER_DELIVERY : 0.0;
     }
 
+    /** Cash the buyer must hand the rider for this seller group. */
+    public function cashToCollectForSeller($sellerId): float
+    {
+        $hasGroup = $this->relationLoaded('items')
+            ? $this->items->whereIn('seller_id', $sellerId instanceof Seller ? $sellerId->catalogIds() : [(int) $sellerId])->isNotEmpty()
+            : $this->itemsForSeller($sellerId)->exists();
+
+        if (! $hasGroup) {
+            return 0.0;
+        }
+
+        return round(max(0,
+            $this->sellerSubtotal($sellerId)
+            - $this->voucherDiscountForSeller($sellerId)
+            + self::SHIPPING_FEE_PER_SELLER
+            - $this->shippingWaivedForSeller($sellerId)
+        ), 2);
+    }
+
     /** Net shipping the buyer pays on this order (after free-shipping waivers). */
     public function shippingNet(): float
     {

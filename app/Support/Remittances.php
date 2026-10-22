@@ -46,40 +46,52 @@ class Remittances
         return array_values(array_unique(array_map('intval', $ids)));
     }
 
-    /** Ensure exactly one handoff row per delivery (idempotent). */
+    /**
+     * Ensure exactly one handoff row per delivery (idempotent).
+     *
+     * Best-effort callers keep the historical null-on-failure contract.
+     * Completion flows that require a handoff must use
+     * ensureForDeliveryOrFail() so the enclosing transaction can roll back.
+     */
     public static function ensureForDelivery(Delivery $delivery): ?Remittance
     {
         try {
-            if ($delivery->id && ($found = Remittance::where('delivery_id', $delivery->id)->first())) {
-                return $found;
-            }
-            $order = $delivery->order;
-            if (! $order) {
-                return null;
-            }
-            $order->loadMissing(['items', 'orderVouchers.voucher']);
-            $sid = (int) ($delivery->seller_id
-                ?? $order->items->pluck('seller_id')->filter()->first());
-            if (! $sid) {
-                return null;
-            }
-            if (! $delivery->seller_id) {
-                $delivery->update(['seller_id' => $sid]);
-            }
-            return Remittance::firstOrCreate(
-                ['delivery_id' => $delivery->id],
-                [
-                    'order_id'  => $order->id,
-                    'rider_id'  => $delivery->rider_id,
-                    'seller_id' => $sid,
-                    'amount'    => self::amountForGroup($order, $sid),
-                    'status'    => 'pending',
-                ]
-            );
+            return self::ensureForDeliveryOrFail($delivery);
         } catch (\Throwable $e) {
             \Log::warning('Remittance ensure failed: ' . $e->getMessage());
             return null;
         }
+    }
+
+    /** Ensure a handoff row, propagating failures to the caller. */
+    public static function ensureForDeliveryOrFail(Delivery $delivery): Remittance
+    {
+        if ($delivery->id && ($found = Remittance::where('delivery_id', $delivery->id)->first())) {
+            return $found;
+        }
+        $order = $delivery->order()->first();
+        if (! $order) {
+            throw new \RuntimeException("Cannot create remittance for delivery {$delivery->id}: order is missing.");
+        }
+        $order->loadMissing(['items', 'orderVouchers.voucher']);
+        $sid = (int) ($delivery->seller_id
+            ?? $order->items->pluck('seller_id')->filter()->first());
+        if (! $sid) {
+            throw new \RuntimeException("Cannot create remittance for delivery {$delivery->id}: seller is missing.");
+        }
+        if (! $delivery->seller_id) {
+            $delivery->update(['seller_id' => $sid]);
+        }
+        return Remittance::firstOrCreate(
+            ['delivery_id' => $delivery->id],
+            [
+                'order_id'  => $order->id,
+                'rider_id'  => $delivery->rider_id,
+                'seller_id' => $sid,
+                'amount'    => self::amountForGroup($order, $sid),
+                'status'    => 'pending',
+            ]
+        );
     }
 
     /** Ensure handoffs for every delivery row of an order. */
