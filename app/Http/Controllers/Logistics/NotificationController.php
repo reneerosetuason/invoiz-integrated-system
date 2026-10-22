@@ -19,10 +19,13 @@ class NotificationController extends Controller
      */
     public function index(Request $request): View|JsonResponse
     {
-        // The bell only surfaces what this user chose to receive in
-        // Settings — Notification Settings; operational alerts that have no
-        // preference category are always shown.
-        $query = Notification::forUserPreferences($request->user()->id);
+        // The bell only surfaces what this user may see (center scope) and
+        // chose to receive in Settings — Notification Settings; operational
+        // alerts that have no preference category are always shown.
+        $user = $request->user();
+        $query = Notification::query()
+            ->visibleTo($user)
+            ->forUserPreferences($user->id);
 
         if ($request->wantsJson()) {
             $notifications = (clone $query)->latest()->take(20)->get();
@@ -51,30 +54,60 @@ class NotificationController extends Controller
 
         return view('logistics.notifications.index', [
             'notifications' => $query->latest()->paginate(20)->withQueryString(),
-            'unreadCount' => Notification::forUserPreferences($request->user()->id)->unread()->count(),
+            'unreadCount' => Notification::query()
+                ->visibleTo($user)
+                ->forUserPreferences($user->id)
+                ->unread()
+                ->count(),
             'filter' => $filter,
             'activeType' => $type,
-            'types' => Notification::query()->distinct()->orderBy('type')->pluck('type'),
+            'types' => Notification::query()
+                ->visibleTo($user)
+                ->distinct()
+                ->orderBy('type')
+                ->pluck('type'),
         ]);
     }
 
     public function markRead(Request $request, Notification $notification): JsonResponse
     {
+        $user = $request->user();
+
+        $visible = Notification::query()
+            ->visibleTo($user)
+            ->whereKey($notification->id)
+            ->exists();
+
+        abort_unless($visible, 404);
+
         $notification->markAsRead();
 
         return response()->json([
             // Scoped like the bell list itself: suppressed preference types
             // must not inflate the badge.
-            'unread_count' => Notification::forUserPreferences(auth()->id())->unread()->count(),
+            'unread_count' => Notification::query()
+                ->visibleTo($user)
+                ->forUserPreferences($user->id)
+                ->unread()
+                ->count(),
         ]);
     }
 
     public function markAllRead(Request $request): JsonResponse
     {
-        Notification::unread()->update(['is_read' => true]);
+        $user = $request->user();
+
+        Notification::query()
+            ->visibleTo($user)
+            ->unread()
+            ->update(['is_read' => true]);
 
         return response()->json([
-            'unread_count' => Notification::forUserPreferences(auth()->id())->unread()->count(),
+            'unread_count' => Notification::query()
+                ->visibleTo($user)
+                ->forUserPreferences($user->id)
+                ->unread()
+                ->count(),
         ]);
     }
 }

@@ -144,7 +144,33 @@ class User extends Authenticatable
         // approved for a center keeps its marketplace role (single role
         // column), and the center assignment carries logistics access.
         return in_array($this->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true)
-            || ! empty($this->center_id);
+            || $this->hasProvisionedCenterAssignment();
+    }
+
+    /**
+     * True only when a non-staff marketplace account was assigned a center
+     * through an approved, provisioned center application. A center_id alone
+     * is not proof of logistics access.
+     */
+    public function hasProvisionedCenterAssignment(): bool
+    {
+        if (empty($this->center_id)) {
+            return false;
+        }
+
+        if (in_array($this->role, ['staff', 'logistics_staff'], true)) {
+            return true;
+        }
+
+        if (! in_array($this->role, ['buyer', 'seller'], true)) {
+            return false;
+        }
+
+        return LogisticsCenterApplication::query()
+            ->where('email', $this->email)
+            ->where('status', 'approved')
+            ->whereNotNull('provisioned_at')
+            ->exists();
     }
 
     /**

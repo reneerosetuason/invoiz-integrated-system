@@ -18,6 +18,8 @@ class Notification extends Model
         'priority',
         'is_read',
         'link',
+        'center_id',
+        'audience',
     ];
 
     protected $casts = [
@@ -27,6 +29,35 @@ class Notification extends Model
     public function scopeUnread(Builder $query): Builder
     {
         return $query->where('is_read', false);
+    }
+
+    /**
+     * Limit the feed to what the given logistics account may see.
+     *
+     * Global administrators see everything. Center staff see global notices
+     * plus notifications explicitly addressed to their center. Admin-only
+     * notices (such as an unrouted pickup) never leak to center staff.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        if ($user->isAdmin() || $user->isLogisticsAdmin()) {
+            return $query;
+        }
+
+        if (! $user->isLogisticsStaff()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function (Builder $inner) use ($user): void {
+            $inner->where('audience', 'global');
+
+            if ($user->center_id) {
+                $inner->orWhere(function (Builder $center) use ($user): void {
+                    $center->where('audience', 'center')
+                        ->where('center_id', $user->center_id);
+                });
+            }
+        });
     }
 
     /**

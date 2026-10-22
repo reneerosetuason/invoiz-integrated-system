@@ -87,14 +87,18 @@
                 @endforelse
             </div>
 
-            @include('admin.partials.pager', ['paginator' => $notifications])
+            @if($notifications->hasPages())
+                <div class="mt-4">
+                    {{ $notifications->links() }}
+                </div>
+            @endif
         </div>
     </div>
 
     <script>
         document.querySelectorAll('[data-mark-read]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                fetch('/logistics/notifications/' + btn.dataset.markRead + '/read', {
+                fetch('{{ route('notifications.index', [], false) }}/' + btn.dataset.markRead + '/read', {
                     method: 'PATCH',
                     headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                 }).then(function () { window.location.reload(); });

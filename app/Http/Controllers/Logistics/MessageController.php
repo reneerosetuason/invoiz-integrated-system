@@ -255,12 +255,20 @@ class MessageController extends Controller
                 'last_message_at' => now(),
             ]);
 
+            $centerId = $conversation->rider_id
+                ? Rider::query()->whereKey($conversation->rider_id)->value('center_id')
+                : ($conversation->participant_type === 'rider'
+                    ? Rider::query()->where('user_id', $conversation->participant_id)->value('center_id')
+                    : null);
+
             Notification::create([
                 'type' => 'new_message',
                 'title' => 'New Message',
                 'message' => str($validated['body'])->limit(120)->toString(),
-                'icon' => '????',
+                'icon' => '💬',
                 'priority' => 'normal',
+                'center_id' => $centerId,
+                'audience' => $centerId ? 'center' : 'global',
                 'link' => route('messages.index', ['conversation' => $conversation->id]),
             ]);
 
