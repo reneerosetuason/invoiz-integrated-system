@@ -350,11 +350,31 @@ class MessageController extends Controller
     {
         abort_unless(in_array(auth()->user()?->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff']), 403);
         abort_unless($attachment->fileExists(), 404, 'Attachment is missing or was deleted.');
+        abort_if($attachment->fileSizeOnDisk() === 0, 422, 'Attachment file is empty and cannot be opened.');
+        abort_unless($attachment->isServable(), 422, 'Attachment file is corrupt or its contents do not match the expected file type.');
 
-        return response()->file($attachment->absolutePath(), [
-            'Content-Type' => $attachment->contentMime(),
-            'Content-Disposition' => $disposition . '; filename="' . basename($attachment->original_filename) . '"',
-        ]);
+        // Only genuine PDFs/images preview inline; everything else downloads
+        // so the browser never renders an invalid preview.
+        $inline = $disposition === 'inline' && $attachment->isBrowserPreviewable();
+
+        return response()
+            ->file($attachment->absolutePath(), [
+                'Content-Type' => $attachment->contentMime(),
+                'X-Content-Type-Options' => 'nosniff',
+            ])
+            ->setContentDisposition(
+                $inline
+                    ? \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_INLINE
+                    : \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                $this->safeAttachmentFilename($attachment),
+            );
+    }
+
+    private function safeAttachmentFilename(MessageAttachment $attachment): string
+    {
+        $name = basename((string) ($attachment->original_filename ?: $attachment->stored_path));
+
+        return preg_replace('/[\x00-\x1F\x7F"]/', '', $name) ?: 'attachment';
     }
 }
 

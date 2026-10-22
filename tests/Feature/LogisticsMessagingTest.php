@@ -39,6 +39,7 @@ class LogisticsMessagingTest extends TestCase
             'email' => $email,
             'phone' => '+639171234567',
             'vehicle_type' => 'motorcycle',
+            'approved_at' => now(),
         ]);
 
         return $user->fresh();
@@ -148,6 +149,38 @@ class LogisticsMessagingTest extends TestCase
         $this->assertDatabaseMissing('messages', ['body' => 'Flat endpoint']);
     }
 
+    private function validPdf(string $label = 'Attachment'): string
+    {
+        $content = "BT /F1 12 Tf 72 720 Td ({$label}) Tj ET";
+        $objects = [
+            '<< /Type /Catalog /Pages 2 0 R >>',
+            '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+            '<< /Length '.strlen($content)." >>\nstream\n{$content}\nendstream",
+            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+        ];
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [];
+
+        foreach ($objects as $index => $object) {
+            $number = $index + 1;
+            $offsets[$number] = strlen($pdf);
+            $pdf .= $number." 0 obj\n".$object."\nendobj\n";
+        }
+
+        $xrefOffset = strlen($pdf);
+        $size = count($objects) + 1;
+
+        $pdf .= "xref\n0 {$size}\n0000000000 65535 f \n";
+
+        for ($number = 1; $number < $size; $number++) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$number]);
+        }
+
+        return $pdf."trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefOffset}\n%%EOF";
+    }
+
     public function test_rider_web_attachment_preview_authorizes_own_conversation_only(): void
     {
         Storage::fake('public');
@@ -156,14 +189,15 @@ class LogisticsMessagingTest extends TestCase
         $conversation = $this->riderConversation($user);
         $message = $this->logisticsMessage($conversation, $user);
         $path = 'message-attachments/'.$conversation->id.'/license.pdf';
-        Storage::disk('public')->put($path, '%PDF-1.4 test');
+        $pdf = $this->validPdf();
+        Storage::disk('public')->put($path, $pdf);
 
         $attachment = MessageAttachment::create([
             'message_id' => $message->id,
             'original_filename' => 'license.pdf',
             'stored_path' => $path,
             'mime_type' => 'application/pdf',
-            'file_size' => 12,
+            'file_size' => strlen($pdf),
             'disk' => 'public',
         ]);
 
