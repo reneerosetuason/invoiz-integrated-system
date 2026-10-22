@@ -17,11 +17,8 @@ class EnsureRiderWeb
         }
 
         // Linked riders keep their marketplace role; the Rider row carries
-        // rider access. Status still gates entry.
-        $isRider = $user->role === 'rider'
-            || \App\Models\Rider::where('user_id', $user->id)->exists();
-
-        if (! $isRider || $user->status !== 'active') {
+        // rider access. The profile must be approved and not inactive.
+        if (! $user->hasApprovedRiderProfile() || ! $user->isActive()) {
             return redirect('/logistics/login')->with('error', 'This area is for rider accounts only.');
         }
 

@@ -26,21 +26,17 @@ class AuthController extends Controller
             ]);
         }
 
-        if ($user->status !== 'active') {
+        if (! $user->isActive()) {
             return response()->json([
                 'message' => 'Your account is not active. Please contact support.',
             ], 403);
         }
 
-        if ($user->role !== 'rider') {
+        if (! $user->hasApprovedRiderProfile()) {
             return response()->json([
-                'message' => 'This account is not registered as a rider.',
-            ], 403);
-        }
-
-        if (! $user->rider) {
-            return response()->json([
-                'message' => 'Rider profile not found. Please contact support.',
+                'message' => $user->rider
+                    ? 'Your rider account is not active or has not been approved. Please contact support.'
+                    : 'This account is not registered as a rider.',
             ], 403);
         }
 

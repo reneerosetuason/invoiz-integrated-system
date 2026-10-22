@@ -174,6 +174,19 @@ class User extends Authenticatable
     }
 
     /**
+     * A rider login is valid only while the linked Rider profile exists,
+     * has been approved, and is not inactive. Marketplace roles are kept.
+     */
+    public function hasApprovedRiderProfile(): bool
+    {
+        $rider = $this->rider;
+
+        return $rider !== null
+            && $rider->isEligibilityApproved()
+            && $rider->status !== 'inactive';
+    }
+
+    /**
      * True when approval/provisioning flows must NOT replace this account's
      * role or password (one email keeps working everywhere): marketplace
      * roles and real admins keep their own login; only role-less or

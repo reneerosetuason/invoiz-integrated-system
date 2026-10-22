@@ -12,10 +12,11 @@ class EnsureRiderRole
     {
         $user = $request->user();
 
-        $linkedRider = $role === 'rider' && $user
-            && \App\Models\Rider::where('user_id', $user->id)->exists();
+        $allowed = $user && ($role === 'rider'
+            ? $user->hasApprovedRiderProfile()
+            : $user->role === $role);
 
-        if (! $user || ($user->role !== $role && ! $linkedRider)) {
+        if (! $allowed) {
             return response()->json([
                 'message' => 'Forbidden. You are not authorized to access this resource.',
             ], 403);
@@ -23,9 +24,11 @@ class EnsureRiderRole
 
         // Existing bearer tokens must stop working as soon as an account is
         // suspended or deactivated, not only at the next login.
-        if ($user->status !== 'active') {
+        if (! $user->isActive()) {
+            $status = $user->account_status ?: $user->status;
+
             return response()->json([
-                'message' => $user->status === 'suspended'
+                'message' => $status === 'suspended'
                     ? 'Your account has been suspended. Please contact an administrator.'
                     : 'Your account is currently inactive. Please contact an administrator.',
             ], 403);

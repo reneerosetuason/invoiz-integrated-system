@@ -46,7 +46,7 @@ class RiderPasswordResetController extends Controller
         $email = Str::lower(trim($validated['email']));
         $user = User::where('email', $email)->where('role', 'rider')->first();
 
-        if ($user && $user->status === 'active') {
+        if ($user && $user->isActive()) {
             $this->sendResetLink($user);
         }
 
@@ -71,7 +71,7 @@ class RiderPasswordResetController extends Controller
 
         // One generic failure for: unknown email, non-rider, inactive
         // account, wrong/expired/used token. Never reveal which one.
-        if (! $user || $user->status !== 'active') {
+        if (! $user || ! $user->isActive()) {
             return $this->invalidToken();
         }
 
