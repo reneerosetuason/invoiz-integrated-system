@@ -175,6 +175,38 @@ class RiderProfileParityTest extends TestCase
     }
 
     // ------------------------------------------------ signed documents
+    private function validPdf(): string
+    {
+        $content = 'BT /F1 12 Tf 72 720 Td (Rider ID) Tj ET';
+        $objects = [
+            '<< /Type /Catalog /Pages 2 0 R >>',
+            '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+            '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
+            '<< /Length '.strlen($content)." >>\nstream\n{$content}\nendstream",
+            '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+        ];
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [];
+
+        foreach ($objects as $index => $object) {
+            $number = $index + 1;
+            $offsets[$number] = strlen($pdf);
+            $pdf .= $number." 0 obj\n".$object."\nendobj\n";
+        }
+
+        $xrefOffset = strlen($pdf);
+        $size = count($objects) + 1;
+
+        $pdf .= "xref\n0 {$size}\n0000000000 65535 f \n";
+
+        for ($number = 1; $number < $size; $number++) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$number]);
+        }
+
+        return $pdf."trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefOffset}\n%%EOF";
+    }
+
     public function test_profile_lists_documents_and_the_signed_url_serves_them(): void
     {
         Storage::fake('local');
@@ -195,7 +227,8 @@ class RiderProfileParityTest extends TestCase
             'status' => 'approved',
         ]);
 
-        Storage::disk('local')->put('rider-documents/test.pdf', 'hello world');
+        $pdf = $this->validPdf();
+        Storage::disk('local')->put('rider-documents/test.pdf', $pdf);
 
         $document = RiderApplicationDocument::create([
             'rider_application_id' => $application->id,
@@ -203,7 +236,7 @@ class RiderProfileParityTest extends TestCase
             'original_filename' => 'my-id.pdf',
             'stored_path' => 'rider-documents/test.pdf',
             'mime_type' => 'application/pdf',
-            'file_size' => 11,
+            'file_size' => strlen($pdf),
         ]);
 
         Sanctum::actingAs($user);

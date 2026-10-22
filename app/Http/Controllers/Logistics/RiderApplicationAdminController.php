@@ -246,11 +246,25 @@ class RiderApplicationAdminController extends Controller
         }
 
         abort_unless($document->fileExists(), 404, 'Document is missing or was deleted.');
+        abort_if($document->fileSizeOnDisk() === 0, 422, 'Document file is empty and cannot be opened.');
+        abort_unless($document->isServable(), 422, 'Document file is corrupt or its contents do not match the expected file type.');
 
-        return response()->file($document->absolutePath(), [
-            'Content-Type' => $document->contentMime(),
-            'Content-Disposition' => $disposition . '; filename="' . basename($document->original_filename) . '"',
-        ]);
+        // Only genuine PDFs/images are served inline; everything else is a
+        // download so the browser never renders an invalid preview.
+        $preview = $disposition === 'inline' && $document->isBrowserPreviewable();
+        $filename = $document->original_filename ?: basename($document->stored_path);
+
+        return response()
+            ->file($document->absolutePath(), [
+                'Content-Type' => $document->contentMime(),
+                'X-Content-Type-Options' => 'nosniff',
+            ])
+            ->setContentDisposition(
+                $preview
+                    ? \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_INLINE
+                    : \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                $filename,
+            );
     }
 
     private function ensureAdministrator(?User $user): void

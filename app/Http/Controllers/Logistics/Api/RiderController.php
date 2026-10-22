@@ -224,11 +224,23 @@ class RiderController extends Controller
         );
 
         abort_unless($document->fileExists(), 404, 'Document is missing or was deleted.');
+        abort_if($document->fileSizeOnDisk() === 0, 422, 'Document file is empty and cannot be opened.');
+        abort_unless($document->isServable(), 422, 'Document file is corrupt or its contents do not match the expected file type.');
 
-        return response()->file($document->absolutePath(), [
-            'Content-Type' => $document->contentMime(),
-            'Content-Disposition' => 'inline; filename="' . basename($document->original_filename) . '"',
-        ]);
+        $preview = $document->isBrowserPreviewable();
+        $filename = $document->original_filename ?: basename($document->stored_path);
+
+        return response()
+            ->file($document->absolutePath(), [
+                'Content-Type' => $document->contentMime(),
+                'X-Content-Type-Options' => 'nosniff',
+            ])
+            ->setContentDisposition(
+                $preview
+                    ? \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_INLINE
+                    : \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                $filename,
+            );
     }
 
     public function deliveryPayload(Delivery $delivery): array
