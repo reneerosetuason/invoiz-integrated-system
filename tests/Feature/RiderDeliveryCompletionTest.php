@@ -16,6 +16,7 @@ use App\Models\Seller;
 use App\Models\Transaction;
 use App\Models\User;
 use App\Services\DeliveryOtpService;
+use App\Support\Cod;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
@@ -305,7 +306,7 @@ class RiderDeliveryCompletionTest extends TestCase
         ], $this->financialCounts($delivery));
     }
 
-    public function test_cod_requires_the_exact_amount_before_any_writes(): void
+    public function test_cod_requires_a_cash_amount_before_any_writes(): void
     {
         [$user, $rider] = $this->riderUser();
         [$order] = $this->order();
@@ -401,4 +402,208 @@ class RiderDeliveryCompletionTest extends TestCase
         $this->assertSame(170.0, (float) $audit->meta['new_values']['amount_received']);
         $this->assertSame(0.0, (float) $audit->meta['new_values']['variance']);
     }
+
+    public function test_cod_completion_accepts_a_short_payment_and_flags_the_variance(): void
+    {
+        [$user, $rider] = $this->riderUser();
+        [$order] = $this->order();
+        $order->update(['total' => 170, 'total_amount' => 170, 'shipping_fee' => 50]);
+
+        $delivery = $this->delivery($rider, $order, [
+            'payment_method' => 'cash_on_delivery',
+            'amount_to_collect' => 170,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'amount_received' => 165,
+            'signature_name' => 'Short COD Recipient',
+            'otp' => $this->otpFor($delivery),
+        ])->assertOk();
+
+        $fresh = $delivery->fresh();
+        $this->assertSame('delivered', $fresh->status);
+        $this->assertSame(165.0, (float) $fresh->cod_amount_received);
+        $this->assertNotNull($fresh->cod_received_at);
+
+        $remittance = Remittance::where('delivery_id', $delivery->id)->firstOrFail();
+        $reconciliation = Cod::reconcile($remittance);
+
+        $this->assertSame('variance', $reconciliation['state']);
+        $this->assertSame(170.0, $reconciliation['expected']);
+        $this->assertSame(165.0, $reconciliation['received']);
+        $this->assertSame(-5.0, $reconciliation['variance']);
+
+        $audit = AuditLog::where('action', 'cod.collected')
+            ->where('entity', 'delivery')
+            ->where('entity_id', $delivery->id)
+            ->firstOrFail();
+
+        $this->assertSame(165.0, (float) $audit->meta['new_values']['amount_received']);
+        $this->assertSame(-5.0, (float) $audit->meta['new_values']['variance']);
+    }
+
+    public function test_cod_completion_accepts_an_excess_payment_and_flags_the_variance(): void
+    {
+        [$user, $rider] = $this->riderUser();
+        [$order] = $this->order();
+        $order->update(['total' => 170, 'total_amount' => 170, 'shipping_fee' => 50]);
+
+        $delivery = $this->delivery($rider, $order, [
+            'payment_method' => 'cash_on_delivery',
+            'amount_to_collect' => 170,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'amount_received' => 180,
+            'signature_name' => 'Excess COD Recipient',
+            'otp' => $this->otpFor($delivery),
+        ])->assertOk();
+
+        $fresh = $delivery->fresh();
+        $this->assertSame('delivered', $fresh->status);
+        $this->assertSame(180.0, (float) $fresh->cod_amount_received);
+
+        $remittance = Remittance::where('delivery_id', $delivery->id)->firstOrFail();
+        $reconciliation = Cod::reconcile($remittance);
+
+        $this->assertSame('variance', $reconciliation['state']);
+        $this->assertSame(170.0, $reconciliation['expected']);
+        $this->assertSame(180.0, $reconciliation['received']);
+        $this->assertSame(10.0, $reconciliation['variance']);
+
+        $audit = AuditLog::where('action', 'cod.collected')
+            ->where('entity', 'delivery')
+            ->where('entity_id', $delivery->id)
+            ->firstOrFail();
+
+        $this->assertSame(180.0, (float) $audit->meta['new_values']['amount_received']);
+        $this->assertSame(10.0, (float) $audit->meta['new_values']['variance']);
+    }
+
+    public function test_cod_completion_rejects_invalid_cash_amounts_before_any_writes(): void
+    {
+        [$user, $rider] = $this->riderUser();
+        [$order] = $this->order();
+        $delivery = $this->delivery($rider, $order, [
+            'payment_method' => 'cash_on_delivery',
+            'amount_to_collect' => 170,
+        ]);
+
+        Sanctum::actingAs($user);
+        $otp = $this->otpFor($delivery);
+
+        foreach ([-1, 'not-a-number'] as $invalidAmount) {
+            $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+                'amount_received' => $invalidAmount,
+                'otp' => $otp,
+            ])
+                ->assertStatus(422)
+                ->assertJsonValidationErrors('amount_received');
+        }
+
+        $fresh = $delivery->fresh();
+        $this->assertSame('out_for_delivery', $fresh->status);
+        $this->assertNull($fresh->cod_amount_received);
+        $this->assertNull($fresh->cod_received_at);
+        $this->assertSame(0, AuditLog::where('action', 'cod.collected')->count());
+        $this->assertSame([
+            'transactions' => 0,
+            'remittances' => 0,
+            'earnings' => 0,
+        ], $this->financialCounts($delivery));
+    }
+
+    public function test_cod_completion_rolls_back_the_cash_record_when_settlement_fails(): void
+    {
+        [$user, $rider] = $this->riderUser();
+        $delivery = $this->delivery($rider, null, [
+            'order_id' => 999999999,
+            'payment_method' => 'cash_on_delivery',
+            'amount_to_collect' => 170,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'amount_received' => 170,
+            'proof_type' => 'signature',
+        ])
+            ->assertStatus(500)
+            ->assertJsonPath('message', 'Delivery completion failed. No changes were saved.');
+
+        $fresh = $delivery->fresh();
+        $this->assertSame('out_for_delivery', $fresh->status);
+        $this->assertNull($fresh->delivered_at);
+        $this->assertNull($fresh->cod_amount_received);
+        $this->assertNull($fresh->cod_received_at);
+        $this->assertSame(0, AuditLog::where('action', 'cod.collected')->count());
+        $this->assertSame([
+            'transactions' => 0,
+            'remittances' => 0,
+            'earnings' => 0,
+        ], $this->financialCounts($delivery));
+    }
+
+    public function test_repeating_cod_completion_does_not_duplicate_the_cash_record(): void
+    {
+        [$user, $rider] = $this->riderUser();
+        [$order] = $this->order();
+        $order->update(['total' => 170, 'total_amount' => 170, 'shipping_fee' => 50]);
+        $delivery = $this->delivery($rider, $order, [
+            'payment_method' => 'cash_on_delivery',
+            'amount_to_collect' => 170,
+        ]);
+        $url = "/api/logistics/rider/deliveries/{$delivery->id}/complete";
+
+        Sanctum::actingAs($user);
+
+        $this->postJson($url, [
+            'amount_received' => 170,
+            'otp' => $this->otpFor($delivery),
+        ])->assertOk();
+
+        $this->postJson($url, ['amount_received' => 170])->assertStatus(409);
+
+        $this->assertSame(170.0, (float) $delivery->fresh()->cod_amount_received);
+        $this->assertSame(1, AuditLog::where('action', 'cod.collected')
+            ->where('entity_id', $delivery->id)
+            ->count());
+        $this->assertSame([
+            'transactions' => 1,
+            'remittances' => 1,
+            'earnings' => 1,
+        ], $this->financialCounts($delivery));
+    }
+
+    public function test_another_rider_cannot_complete_a_cod_delivery(): void
+    {
+        [, $rider] = $this->riderUser();
+        [$intruder] = $this->riderUser();
+        [$order] = $this->order();
+        $delivery = $this->delivery($rider, $order, [
+            'payment_method' => 'cash_on_delivery',
+            'amount_to_collect' => 170,
+        ]);
+
+        Sanctum::actingAs($intruder);
+
+        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'amount_received' => 170,
+        ])->assertForbidden();
+
+        $fresh = $delivery->fresh();
+        $this->assertSame('out_for_delivery', $fresh->status);
+        $this->assertNull($fresh->cod_amount_received);
+        $this->assertSame(0, AuditLog::where('action', 'cod.collected')->count());
+        $this->assertSame([
+            'transactions' => 0,
+            'remittances' => 0,
+            'earnings' => 0,
+        ], $this->financialCounts($delivery));
+    }
+
 }

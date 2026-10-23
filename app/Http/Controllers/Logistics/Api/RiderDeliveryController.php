@@ -317,14 +317,10 @@ class RiderDeliveryController extends Controller
                 ], 422);
             }
 
-            $received = round((float) $validated['amount_received'], 2);
-
-            if (abs($received - $expected) > 0.009) {
-                return response()->json([
-                    'message' => 'The amount received must match the amount to collect.',
-                    'errors' => ['amount_received' => ['The amount received must equal '.number_format($expected, 2, '.', '').'.']],
-                ], 422);
-            }
+            // The rider records the actual cash collected. Short or excess
+            // amounts are accepted as-is; the variance against the expected
+            // amount is written to the audit trail and surfaces through
+            // Cod::reconcile for staff reconciliation, matching the web flow.
         }
 
         $proofPath = null;
