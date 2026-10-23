@@ -262,6 +262,25 @@ class RiderSuspensionAuditTest extends TestCase
         $this->assertSame('available', $rider->fresh()->status);
     }
 
+    public function test_legacy_admin_flag_does_not_allow_staff_to_suspend_cross_center_rider(): void
+    {
+        $centerA = $this->center('Legacy Admin Staff Center');
+        $centerB = $this->center('Legacy Admin Other Center');
+
+        $staff = $this->user('logistics_staff', $centerA->id);
+        $staff->update(['is_admin' => true]);
+
+        [, $rider] = $this->rider($centerB);
+
+        $this->actingAs($staff)
+            ->post("/logistics/riders/{$rider->id}/deactivate", [
+                'reason' => 'Legacy admin cross-center attempt.',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('available', $rider->fresh()->status);
+    }
+
     public function test_repeated_suspension_is_safe(): void
     {
         $center = $this->center();

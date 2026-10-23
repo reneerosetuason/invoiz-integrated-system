@@ -93,14 +93,22 @@ class RiderController extends Controller
 
         // Company isolation: staff only see their own center's service areas.
         $serviceAreaOptions = ServiceArea::query();
-        if ($user->isLogisticsStaff() && $user->center_id) {
-            $serviceAreaOptions->where('logistics_center_id', $user->center_id);
+        $centerOptions = LogisticsCenter::query();
+
+        if ($isCenterScoped) {
+            if ($staffCenterId === 0) {
+                $serviceAreaOptions->whereRaw('1 = 0');
+                $centerOptions->whereRaw('1 = 0');
+            } else {
+                $serviceAreaOptions->where('logistics_center_id', $staffCenterId);
+                $centerOptions->whereKey($staffCenterId);
+            }
         }
 
         return view('logistics.riders.index', [
             'riders' => $riders,
             'filterServiceAreas' => $serviceAreaOptions->orderBy('name')->get(['id', 'name']),
-            'filterCenters' => LogisticsCenter::orderBy('name')->get(['id', 'name']),
+            'filterCenters' => $centerOptions->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -362,18 +370,27 @@ class RiderController extends Controller
 
     /**
      * Staff may only manage riders from their assigned logistics center.
-     * Admins (and staff without an assigned center) are unrestricted.
      */
     private function authorizeRiderCenter(Rider $rider): void
     {
         $user = Auth::user();
 
-        if ($user->isLogisticsStaff() && $user->center_id && $rider->center_id != $user->center_id) {
-            abort(403, 'You can only manage riders from your assigned logistics center.');
+        if ($user->isLogisticsAdmin()) {
+            return;
         }
+
+        if (
+            $user->isLogisticsStaff()
+            && $user->center_id
+            && $rider->center_id
+            && (int) $rider->center_id === (int) $user->center_id
+        ) {
+            return;
+        }
+
+        abort(403, 'You can only manage riders from your assigned logistics center.');
     }
 }
-
 
 
 
