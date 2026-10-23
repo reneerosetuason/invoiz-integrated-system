@@ -95,6 +95,8 @@
                         <x-th-sort field="plate" label="License Plate"/>
                         <x-th-sort field="status" label="Status"/>
                         <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Availability</th>
+                        <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Jobs</th>
+                        <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Today Completed</th>
                         <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -132,6 +134,18 @@
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
+                                @php($atLimit = $rider->active_jobs >= \App\Models\Rider::MAX_ACTIVE_DELIVERIES)
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold rounded-lg {{ $atLimit ? 'bg-red-100 text-red-700' : ($rider->active_jobs > 0 ? 'bg-teal-light text-teal-dark' : 'bg-gray-100 text-gray-500') }}"
+                                      title="Active jobs (max {{ \App\Models\Rider::MAX_ACTIVE_DELIVERIES }})">
+                                    {{ $rider->active_jobs }}<span class="font-medium text-gray-400">/{{ \App\Models\Rider::MAX_ACTIVE_DELIVERIES }}</span>
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm font-semibold {{ $rider->completed_today > 0 ? 'text-emerald-600' : 'text-gray-400' }}">
+                                    {{ $rider->completed_today }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
                                 @php($canManage = Auth::user()->isAdmin() || Auth::user()->center_id == $rider->center_id)
                                 <div class="flex items-center gap-3">
                                     <a href="{{ route('riders.show', $rider) }}" class="text-sm font-semibold text-teal hover:text-teal-dark">View</a>
@@ -154,7 +168,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-16 text-center">
+                            <td colspan="10" class="px-6 py-16 text-center">
                                 <div class="flex flex-col items-center">
                                     <div class="h-12 w-12 rounded-full bg-teal-light flex items-center justify-center mb-3">
                                         <svg class="h-6 w-6 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor">

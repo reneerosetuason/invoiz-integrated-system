@@ -31,7 +31,19 @@ class RiderController extends Controller
         $serviceAreaId = (int) $request->query('service_area_id', 0);
         $centerId = (int) $request->query('center_id', 0);
 
-        $query = Rider::query()->with(['logisticsCenter', 'serviceArea']);
+        $today = now()->toDateString();
+
+        // Workload counters for the directory table (LOG-RIDER-006). Both are
+        // eager sub-counts so the list stays a single query with no N+1:
+        // - active_jobs: current active deliveries (0..MAX_ACTIVE_DELIVERIES)
+        // - completed_today: delivered today, by the delivery completion date
+        $query = Rider::query()
+            ->with(['logisticsCenter', 'serviceArea'])
+            ->withCount(['activeDeliveries as active_jobs'])
+            ->withCount(['deliveries as completed_today' => function ($q) use ($today) {
+                $q->where('status', 'delivered')
+                  ->whereDate('delivered_at', $today);
+            }]);
 
         $user = Auth::user();
 
