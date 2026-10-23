@@ -3,6 +3,8 @@
 namespace App\Http\Requests;
 
 use App\Models\User;
+use App\Rules\PersonName;
+use App\Support\NameNormalizer;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,10 +16,17 @@ class ProfileUpdateRequest extends FormRequest
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
+    protected function prepareForValidation(): void
+    {
+        if (is_string($this->input('name'))) {
+            $this->merge(['name' => NameNormalizer::clean($this->input('name'))]);
+        }
+    }
+
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'max:255', new PersonName()],
             'email' => [
                 'required',
                 'string',

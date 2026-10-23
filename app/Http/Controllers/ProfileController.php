@@ -6,7 +6,9 @@ use App\Mail\OtpCodeMail;
 use App\Models\Address;
 use App\Models\Seller;
 use App\Models\User;
+use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
+use App\Support\NameNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -47,11 +49,10 @@ class ProfileController extends Controller
             return redirect('/login');
         }
 
-        foreach (['first_name', 'last_name'] as $field) {
-            if (is_string($request->input($field))) {
-                $request->merge([$field => trim($request->input($field))]);
-            }
-        }
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['first_name', 'last_name']),
+            ['first_name', 'last_name']
+        ));
 
         if (is_string($request->input('phone'))) {
             $phone = trim($request->input('phone'));
@@ -61,8 +62,8 @@ class ProfileController extends Controller
         }
 
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
+            'first_name' => ['required', 'string', 'max:100', new PersonName()],
+            'last_name' => ['required', 'string', 'max:100', new PersonName()],
             'phone' => [
                 'nullable',
                 'string',

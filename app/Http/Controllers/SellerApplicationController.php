@@ -6,6 +6,9 @@ use App\Models\Category;
 use App\Models\Seller;
 use App\Models\SellerProfile;
 use App\Models\User;
+use App\Rules\BusinessName;
+use App\Rules\PersonName;
+use App\Support\NameNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,9 +39,13 @@ class SellerApplicationController extends Controller
     {
         $request->merge([
             'email' => strtolower(trim((string) $request->input('email'))),
-            'business_name' => trim((string) $request->input('business_name')),
+            'business_name' => NameNormalizer::clean((string) $request->input('business_name')),
             'tin' => trim((string) $request->input('tin')),
         ]);
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['first_name', 'last_name', 'middle_initial']),
+            ['first_name', 'last_name', 'middle_initial']
+        ));
 
         $userId = session('buyer.id') ?? Auth::id();
         $currentUser = $userId ? User::find($userId) : null;
@@ -56,9 +63,9 @@ class SellerApplicationController extends Controller
         }
 
         $rules = [
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
-            'middle_initial' => ['nullable', 'string', 'max:10'],
+            'first_name' => ['required', 'string', 'max:100', new PersonName()],
+            'last_name' => ['required', 'string', 'max:100', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'email' => [
                 'required', 'email', 'max:150',
                 ...(! $knownUser ? [Rule::unique('users', 'email')] : []),
@@ -71,7 +78,7 @@ class SellerApplicationController extends Controller
             'phone' => ['required', 'string', 'max:30'],
             'business_name' => [
                 'required', 'string', 'min:2', 'max:50',
-                'regex:/^[\p{L} ]+$/u',
+                new BusinessName(),
             ],
             'line_of_business' => ['required', 'string', 'max:100'],
             'seller_type' => ['required', Rule::in([
@@ -126,9 +133,8 @@ class SellerApplicationController extends Controller
         }
 
         $data = $request->validate($rules, [
-            'business_name.min' => 'The store name must contain between 2 and 50 letters.',
+            'business_name.min' => 'The store name must contain between 2 and 50 characters.',
             'business_name.max' => 'The store name cannot be longer than 50 characters.',
-            'business_name.regex' => 'The store name can contain letters and spaces only.',
             'tin.regex' => 'Enter a 12-digit TIN with numbers only.',
             'postal_code.regex' => 'Enter a valid 4-digit Philippine postal code.',
             'id_image.required' => 'Upload a government-issued ID to apply.',
@@ -206,10 +212,10 @@ class SellerApplicationController extends Controller
                         'birthday' => $data['birthday'] ?? null,
                         'age' => $age,
                         'password' => Hash::make($data['password']),
-                        'role' => 'seller',
+                        'role' => 'buyer',
                         'status' => 'active',
                         'account_status' => 'active',
-                        'approval_status' => 'pending',
+                        'approval_status' => 'approved',
                         'email_verified_at' => now(),
                     ];
                     $user = User::create($userUpdates);
