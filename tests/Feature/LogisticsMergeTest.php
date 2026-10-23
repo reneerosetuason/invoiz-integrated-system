@@ -9,9 +9,11 @@ use App\Models\Rider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification as NotificationFacade;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -45,6 +47,7 @@ class LogisticsMergeTest extends TestCase
             'email' => $email,
             'phone' => '+639171234567',
             'vehicle_type' => 'motorcycle',
+            'approved_at' => now(),
         ]);
 
         return $user->fresh();
@@ -384,5 +387,142 @@ class LogisticsMergeTest extends TestCase
             'password' => 'short',
             'password_confirmation' => 'short',
         ])->assertStatus(422)->assertJsonValidationErrors('password');
+    }
+
+    // ------------------------------------------------ audit fix #7: rollback
+
+    /**
+     * Force the LAST write of the operation to fail and assert that every
+     * earlier write in the same transaction is rolled back, leaving the
+     * delivery exactly as it was (so the rider can legitimately retry).
+     */
+    private function failNotificationWrite(): void
+    {
+        Notification::creating(function (): void {
+            throw new \RuntimeException('simulated notification write failure');
+        });
+    }
+
+    private function forgetNotificationHook(): void
+    {
+        Event::forget('eloquent.creating: '.Notification::class);
+    }
+
+    private function callAndCapture(string $url): array
+    {
+        $thrown = null;
+        $response = null;
+
+        try {
+            $response = $this->postJson($url);
+        } catch (\Throwable $e) {
+            $thrown = $e;
+        }
+
+        return [$response, $thrown];
+    }
+
+    public function test_reattempt_rolls_back_every_write_when_the_notification_fails(): void
+    {
+        $user = $this->riderUser();
+        $delivery = $this->delivery($user);
+
+        Sanctum::actingAs($user);
+        $url = "/api/logistics/rider/deliveries/{$delivery->id}/reattempt";
+
+        $this->failNotificationWrite();
+
+        try {
+            [$response, $thrown] = $this->callAndCapture($url);
+
+            if ($thrown === null) {
+                $this->assertSame(500, $response->status(), 'a failed write must surface as a server error');
+            } else {
+                $this->assertStringContainsString('simulated notification write failure', $thrown->getMessage());
+            }
+        } finally {
+            $this->forgetNotificationHook();
+        }
+
+        $after = $delivery->fresh();
+
+        $this->assertNull(
+            $after->reattempt_requested_at,
+            'reattempt_requested_at must be rolled back when a later write fails'
+        );
+        $this->assertSame(
+            0,
+            DeliveryStatusLog::where('delivery_id', $delivery->id)->where('status', 'reattempt_requested')->count(),
+            'the status log write must be rolled back too'
+        );
+        $this->assertSame(
+            0,
+            Notification::where('type', 'reattempt_requested')->count(),
+            'no notification may survive a rolled-back transaction'
+        );
+
+        // The rider must still be able to complete the request afterwards.
+        $this->postJson($url)->assertOk();
+        $this->assertNotNull($delivery->fresh()->reattempt_requested_at, 'a retried request must succeed');
+    }
+
+    public function test_return_to_center_rolls_back_every_write_when_the_notification_fails(): void
+    {
+        $user = $this->riderUser();
+        $delivery = $this->delivery($user, 'delivery_failed', ['failure_reason' => 'Recipient refused']);
+
+        Sanctum::actingAs($user);
+        $url = "/api/logistics/rider/deliveries/{$delivery->id}/return-to-center";
+
+        $this->failNotificationWrite();
+
+        try {
+            [$response, $thrown] = $this->callAndCapture($url);
+
+            if ($thrown === null) {
+                $this->assertSame(500, $response->status());
+            } else {
+                $this->assertStringContainsString('simulated notification write failure', $thrown->getMessage());
+            }
+        } finally {
+            $this->forgetNotificationHook();
+        }
+
+        $after = $delivery->fresh();
+
+        $this->assertNull($after->returned_at, 'returned_at must be rolled back');
+        $this->assertNull($after->return_reason, 'return_reason must be rolled back');
+        $this->assertSame(
+            0,
+            DeliveryStatusLog::where('delivery_id', $delivery->id)->where('status', 'returned_to_center')->count(),
+            'the status log write must be rolled back too'
+        );
+        $this->assertSame(0, Notification::where('type', 'parcel_returned_to_center')->count());
+
+        $this->postJson($url)->assertOk();
+        $after = $delivery->fresh();
+        $this->assertNotNull($after->returned_at, 'a retried request must succeed');
+        $this->assertSame('Recipient refused', $after->return_reason, 'failure reason still preserved on retry');
+    }
+
+    // ------------------------------------------------ audit fix #4: migration guard
+
+    public function test_reattempt_migration_up_is_a_noop_when_the_columns_already_exist(): void
+    {
+        // Every column this migration adds is already present in this schema,
+        // so a correctly guarded up() must be a silent no-op. An unguarded
+        // addColumn would raise "Duplicate column name".
+        $this->assertTrue(Schema::hasColumn('deliveries', 'reattempt_requested_at'), 'precondition: column exists');
+        $this->assertTrue(Schema::hasColumn('deliveries', 'returned_at'), 'precondition: column exists');
+        $this->assertTrue(Schema::hasColumn('deliveries', 'return_reason'), 'precondition: column exists');
+
+        $migration = require __DIR__.'/../../database/migrations/logistics/2026_10_07_000002_add_reattempt_requested_at_to_deliveries_table.php';
+
+        $migration->up();
+        $migration->up();
+
+        $this->assertTrue(Schema::hasColumn('deliveries', 'reattempt_requested_at'));
+        $this->assertTrue(Schema::hasColumn('deliveries', 'returned_at'));
+        $this->assertTrue(Schema::hasColumn('deliveries', 'return_reason'));
     }
 }

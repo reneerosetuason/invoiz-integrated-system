@@ -1,8 +1,14 @@
 <x-app-layout>
     <div class="space-y-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">Remittances</h1>
-            <p class="text-sm text-gray-500 mt-1">COD cash handoffs collected by riders. Sellers confirm receipt; this view is read-only oversight.</p>
+        <div class="flex flex-wrap items-start justify-between gap-3">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Remittances</h1>
+                <p class="text-sm text-gray-500 mt-1">COD collection and rider-to-seller handoffs. Sellers confirm receipt; this view is read-only oversight.</p>
+            </div>
+            <a href="{{ route('remittances.export', request()->only('status')) }}"
+               class="inline-flex items-center gap-2 rounded-xl border border-teal/30 bg-white px-4 py-2.5 text-sm font-semibold text-teal transition hover:border-teal hover:text-teal-dark">
+                Export CSV
+            </a>
         </div>
 
         @php
@@ -54,7 +60,11 @@
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Order #</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tracking #</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Rider</th>
-                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">COD to Collect</th>
+                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Collected</th>
+                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Rider Fee</th>
+                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">For Seller</th>
+                            <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Variance</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Sent</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Confirmed</th>
@@ -62,6 +72,7 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         @forelse ($remittances as $remittance)
+                            @php($info = $reconciliation[$remittance->id] ?? [])
                             <tr class="hover:bg-teal-light/40 transition">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                                     {{ $remittance->order?->order_number ?? ($remittance->order_id ? '#' . $remittance->order_id : '—') }}
@@ -74,7 +85,28 @@
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $remittance->rider?->name ?? '—' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">₱{{ number_format((float) $remittance->amount, 2) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-600">
+                                    {{ ($info['expected'] ?? null) !== null ? '₱' . number_format((float) $info['expected'], 2) : '—' }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                    @if(($info['received'] ?? null) !== null)
+                                        <span class="font-medium text-gray-900">₱{{ number_format((float) $info['received'], 2) }}</span>
+                                    @else
+                                        <span class="text-xs font-semibold text-amber-600">Not recorded</span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-600">₱{{ number_format((float) ($info['rider_fee'] ?? 0), 2) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-900">₱{{ number_format((float) ($info['seller_amount'] ?? $remittance->amount), 2) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+                                    @if(($info['variance'] ?? null) !== null)
+                                        @php($variance = (float) $info['variance'])
+                                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full ring-1 ring-inset {{ abs($variance) > 0.009 ? 'bg-rose-50 text-rose-700 ring-rose-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200' }}">
+                                            {{ $variance > 0 ? '+' : '' }}{{ number_format($variance, 2) }}
+                                        </span>
+                                    @else
+                                        <span class="text-sm text-gray-400">—</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($remittance->status === 'confirmed')
                                         <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200">Confirmed</span>
@@ -89,7 +121,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-16 text-center">
+                                <td colspan="11" class="px-6 py-16 text-center">
                                     <div class="flex flex-col items-center">
                                         <p class="text-sm font-semibold text-gray-900">No remittances found</p>
                                         <p class="mt-1 text-sm text-gray-500">A remittance is opened when a Cash-on-Delivery parcel is delivered.</p>

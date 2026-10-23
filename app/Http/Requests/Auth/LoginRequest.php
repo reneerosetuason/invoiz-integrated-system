@@ -67,10 +67,9 @@ class LoginRequest extends FormRequest
         // Marketplace accounts assigned to a center, or linked as riders
         // (approved without a role change), enter the same way. Any other
         // role has no access to this system.
-        $linkedStaff = in_array($user->role, ['buyer', 'seller'], true) && ! empty($user->center_id);
-        $linkedRider = in_array($user->role, ['buyer', 'seller'], true)
-            && \App\Models\Rider::where('user_id', $user->id)->exists();
-        if (! in_array($user->role, ['admin', 'staff', 'rider', 'logistics_admin', 'logistics_staff'], true) && ! $linkedStaff && ! $linkedRider) {
+        $linkedStaff = $user->hasProvisionedCenterAssignment();
+        $linkedRider = $user->hasApprovedRiderProfile();
+        if (! in_array($user->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true) && ! $linkedStaff && ! $linkedRider) {
             Auth::guard('web')->logout();
 
             throw ValidationException::withMessages([
@@ -89,15 +88,14 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        $statusMessage = match ($user->status) {
-            'active' => null,
-            'inactive' => 'Your account is currently inactive. Please contact an administrator.',
-            'suspended' => 'Your account has been suspended. Please contact an administrator.',
-            'pending' => 'Your account is awaiting approval.',
-            default => 'Your account is currently inactive. Please contact an administrator.',
-        };
+        if (! $user->isActive()) {
+            $status = $user->account_status ?: $user->status;
+            $statusMessage = match ($status) {
+                'suspended' => 'Your account has been suspended. Please contact an administrator.',
+                'pending' => 'Your account is awaiting approval.',
+                default => 'Your account is currently inactive. Please contact an administrator.',
+            };
 
-        if ($statusMessage !== null) {
             Auth::guard('web')->logout();
 
             RateLimiter::hit($this->throttleKey());

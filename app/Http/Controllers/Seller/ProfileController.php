@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 
+use App\Rules\PersonName;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -21,10 +23,15 @@ class ProfileController extends Controller
     {
         $user = Auth::user();
 
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['first_name', 'last_name', 'middle_initial']),
+            ['first_name', 'last_name', 'middle_initial']
+        ));
+
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name'  => ['required', 'string', 'max:100'],
-            'middle_initial' => ['nullable', 'string', 'max:10'],
+            'first_name' => ['required', 'string', 'max:100', new PersonName()],
+            'last_name'  => ['required', 'string', 'max:100', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'phone'      => ['required', 'string', 'max:30'],
             'email'      => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
             'sex'        => ['required', 'in:male,female,other'],

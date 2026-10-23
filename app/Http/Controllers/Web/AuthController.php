@@ -3,6 +3,8 @@ namespace App\Http\Controllers\Web;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\Cart;
+use App\Rules\PersonName;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
@@ -46,9 +48,10 @@ class AuthController extends Controller {
   }
 
   public function register(Request $r){
+    $r->merge(NameNormalizer::cleanKeys($r->only(['first_name', 'last_name']), ['first_name', 'last_name']));
     $r->validate([
-      'first_name'=>'required|string|max:100',
-      'last_name'=>'required|string|max:100',
+      'first_name'=>['required','string','max:100', new PersonName()],
+      'last_name'=>['required','string','max:100', new PersonName()],
       'sex'=>'required|in:male,female,other',
       'birthday'=>'required|date|before:today',
       'email'=>'required|email|max:150|unique:users,email',

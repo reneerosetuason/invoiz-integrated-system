@@ -3,7 +3,7 @@
 @php
   $o = $order;
   $pay = $o->payment;
-  $del = $o->delivery;
+  $del = $o->deliveries->first();
   $steps = [
     ['key' => 'pending', 'label' => 'Placed'],
     ['key' => 'confirmed', 'label' => 'Confirmed'],
@@ -38,6 +38,68 @@
   @if($pay)<div style="font-size:12px;color:var(--text2);margin-top:2px">Payment: {{ strtoupper(str_replace('_',' ',$pay->method)) }} · {{ strtoupper($pay->status) }}</div>@endif
   @if($del)<div style="font-size:12px;color:var(--text2);margin-top:2px">Delivery: {{ strtoupper(str_replace('_',' ',$del->status)) }}</div>@endif
 </div>
+
+@if($o->deliveries->isNotEmpty())
+  <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:12px">
+    <div style="font-weight:800;font-size:14px">Shipment Tracking</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:4px">Use the tracking number when contacting the courier or logistics center.</div>
+    @foreach($o->deliveries as $shipment)
+      <div style="border-top:1px solid var(--border-light);margin-top:10px;padding-top:10px;font-size:12px">
+        @if($o->deliveries->count() > 1)
+          <div style="font-weight:700;margin-bottom:4px">Package {{ $loop->iteration }} of {{ $o->deliveries->count() }}</div>
+        @endif
+        <div>Status: <b style="text-transform:uppercase">{{ str_replace('_',' ',$shipment->status) }}</b></div>
+        @if($shipment->tracking_number)
+          <div style="margin-top:3px">Tracking number: <b style="font-family:monospace;font-size:13px;letter-spacing:.03em">{{ $shipment->tracking_number }}</b></div>
+        @else
+          <div style="margin-top:3px;color:var(--text2)">Tracking number will appear once the parcel is booked.</div>
+        @endif
+      </div>
+    @endforeach
+  </div>
+@endif
+
+@if($del && $del->parcel_status)
+  @php
+    $parcelSteps = [
+      'pending_arrival' => ['label' => 'Pending arrival', 'index' => 0],
+      'received' => ['label' => 'Received', 'index' => 1],
+      'scanned' => ['label' => 'Scanned', 'index' => 2],
+      'sorted' => ['label' => 'Sorted', 'index' => 3],
+      'dispatched' => ['label' => 'Dispatched', 'index' => 4],
+    ];
+    $parcelStatus = $del->parcel_status;
+    $parcelIndex = $parcelSteps[$parcelStatus]['index'] ?? 0;
+    $parcelAtHub = in_array($parcelStatus, ['received', 'scanned', 'sorted'], true);
+  @endphp
+  <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <div style="font-weight:800;font-size:14px">Parcel Processing</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        @if($parcelAtHub)
+          <span style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800">AT HUB</span>
+        @endif
+        <span style="background:#f3f4f6;color:#4b5563;border:1px solid #e5e7eb;border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800">{{ strtoupper(str_replace('_', ' ', $parcelStatus)) }}</span>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:4px">Updates from the logistics hub. This is separate from your order status.</div>
+    <div style="display:flex;align-items:flex-start;margin-top:12px">
+      @foreach($parcelSteps as $key => $step)
+        @php $done = $parcelIndex > $step['index']; $current = $parcelIndex === $step['index']; @endphp
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px">
+          <div style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;
+            {{ $done ? 'background:var(--green);color:#fff;' : ($current ? 'background:#fff;border:2px solid var(--green);color:var(--green);' : 'background:#e5e5e5;color:#fff;') }}">
+            @if($done)<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>@else<span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:block"></span>@endif
+          </div>
+          <div style="font-size:10px;text-align:center;font-weight:{{ $done || $current ? '700' : '400' }};color:{{ $done || $current ? 'var(--green)' : 'var(--text3)' }}">{{ $step['label'] }}</div>
+        </div>
+        @if(!$loop->last)
+          <div style="flex:1;height:3px;border-radius:2px;margin-top:11px;background:{{ $done ? 'var(--green)' : '#e5e5e5' }}"></div>
+        @endif
+      @endforeach
+    </div>
+  </div>
+@endif
 
 @if($o->status === 'cancelled')
   <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:14px;margin-top:12px;color:#991b1b;font-weight:700;font-size:13px">This order was cancelled.@if($o->cancellation_reason)<div style="margin-top:5px;font-weight:500">Reason: {{ $o->cancellation_reason }}</div>@endif</div>

@@ -17,12 +17,12 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label for="first_name" class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
-                    <input type="text" name="first_name" id="first_name" value="{{ old('first_name', $staff->first_name) }}" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                    <input type="text" name="first_name" id="first_name" value="{{ old('first_name', $staff->first_name) }}" required maxlength="100" class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                     @error('first_name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label for="last_name" class="block text-sm font-medium text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
-                    <input type="text" name="last_name" id="last_name" value="{{ old('last_name', $staff->last_name) }}" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                    <input type="text" name="last_name" id="last_name" value="{{ old('last_name', $staff->last_name) }}" required maxlength="100" class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                     @error('last_name')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>

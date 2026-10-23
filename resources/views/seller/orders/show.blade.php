@@ -204,6 +204,14 @@
                 <div class="flex justify-between"><span class="text-ink-light">Payment</span><span class="font-semibold">{{ $order->payment?->method === 'cash_on_delivery' ? 'Cash on Delivery' : ucwords(str_replace('_',' ',$order->payment?->method ?? '—')) }}</span></div>
                 <div class="flex justify-between"><span class="text-ink-light">Payment status</span><span class="badge {{ $order->payment?->status === 'paid' ? 'badge-delivered' : 'badge-pending' }}">{{ ucfirst($order->payment?->status ?? '—') }}</span></div>
                 <div class="flex justify-between"><span class="text-ink-light">Delivery</span><span class="font-semibold">{{ $order->delivery ? delivery_status_label($order->delivery->status) : 'Waiting for rider' }}</span></div>
+                <div class="flex justify-between gap-3">
+                    <span class="text-ink-light">Tracking number</span>
+                    @if($order->delivery?->tracking_number)
+                        <span class="break-all text-right font-mono font-bold">{{ $order->delivery->tracking_number }}</span>
+                    @else
+                        <span class="text-right text-xs font-semibold text-ink-light">Available once the parcel is booked</span>
+                    @endif
+                </div>
                 @if($order->courierPickup)
                     <div class="mt-2 rounded-2xl bg-basebg p-4">
                         <div class="text-xs font-bold uppercase tracking-wider text-ink-light">Pickup Schedule</div>
@@ -219,6 +227,33 @@
         </div>
     </div>
 </div>
+
+@if($order->delivery && $returnState && $returnState['state'] !== 'not_queued')
+    <div class="card mt-6 p-6">
+        <h3 class="mb-2 text-base font-bold">Returned Parcel</h3>
+        <p class="text-sm text-ink-light">Tracking {{ $order->delivery->tracking_number }}</p>
+
+        @if($returnState['state'] === 'received')
+            <p class="mt-3 text-sm font-semibold text-green-700">You confirmed receipt on {{ $returnState['received_at']?->format('M j, Y g:i A') }}.</p>
+        @elseif($returnState['state'] === 'dispatched')
+            <div class="mt-3 rounded-2xl bg-[#FFF8E7] p-4 text-sm">
+                This parcel was sent back to you on {{ $returnState['dispatched_at']?->format('M j, Y g:i A') }}. Confirm only after you physically receive it.
+            </div>
+            @if($returnState['can_confirm'])
+                <form method="POST" action="{{ route('seller.returns.confirm', $order->delivery) }}" class="mt-4 space-y-3">
+                    @csrf
+                    <div>
+                        <label class="field-label">Receipt note (optional)</label>
+                        <textarea name="note" rows="2" maxlength="1000" class="textarea" placeholder="Condition, missing items, or handoff details"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Confirm Return Received</button>
+                </form>
+            @endif
+        @else
+            <p class="mt-3 text-sm text-ink-light">The parcel is back at the sorting center and is waiting to be sent to you.</p>
+        @endif
+    </div>
+@endif
 
 {{-- Schedule pickup modal --}}
 <dialog x-ref="pickupModal" class="m-auto w-full max-w-md rounded-2xl border border-borderline bg-white p-0 shadow-2xl backdrop:bg-black/40">

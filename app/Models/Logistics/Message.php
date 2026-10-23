@@ -66,7 +66,7 @@ class Message extends Model
             return false;
         }
 
-        if (in_array($user->role, ['admin', 'staff'])) {
+        if (in_array($user->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'])) {
             return $this->sender_type === 'logistics' && (int) $this->sender_id === (int) $user->id;
         }
 

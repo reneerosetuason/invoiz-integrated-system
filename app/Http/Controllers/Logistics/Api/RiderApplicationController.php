@@ -8,7 +8,9 @@ use App\Models\RiderApplicationDocument;
 use App\Models\RiderEmailVerification;
 use App\Models\Notification;
 use App\Models\VehicleType;
+use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
+use App\Support\NameNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +33,10 @@ class RiderApplicationController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->merge(['vehicle_type' => strtolower(trim((string) $request->input('vehicle_type')))]);
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['name', 'middle_initial']),
+            ['name', 'middle_initial']
+        ));
 
         // Normalize the phone before validating so the `PhilippinePhone` format
         // check and the `unique:rider_applications,phone` rule both run against
@@ -44,8 +50,8 @@ class RiderApplicationController extends Controller
         $activeApplication = fn ($query) => $query->whereIn('status', ['pending', 'approved']);
 
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:5',
+            'name' => ['required', 'string', 'max:255', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:5', new PersonName()],
             'sex' => 'required|in:male,female,other',
             'birthday' => 'required|date|before:today',
             'email' => [
@@ -154,8 +160,9 @@ class RiderApplicationController extends Controller
             'type' => 'new_rider_application',
             'title' => 'New Rider Application (Mobile)',
             'message' => "A new rider application from {$application->name} via mobile is waiting for review.",
-            'icon' => '?????????????',
+            'icon' => '🛵',
             'priority' => 'high',
+            'audience' => 'admin',
             'link' => route('rider-applications.show', $application),
         ]);
 

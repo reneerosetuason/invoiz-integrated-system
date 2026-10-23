@@ -49,8 +49,9 @@
     ])->values();
 @endphp
 <div x-data="riderMessages({
-        messages: {{ $initialMessages }},
-        csrf: '{{ csrf_token() }}'
+        messages: @js($initialMessages),
+        csrf: @js(csrf_token()),
+        base: @js(route('rider.messages', [], false))
     })"
      class="max-w-3xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="height: calc(100vh - 4rem); min-height: 540px;">
 
@@ -164,6 +165,7 @@
         return {
             messages: init.messages,
             csrf: init.csrf,
+            base: init.base,
             draft: '',
             attachmentName: '',
             editing: null,
@@ -197,7 +199,7 @@
                     const fd = new FormData();
                     fd.append('body', body);
                     if (this.$refs.attachment.files[0]) fd.append('attachment', this.$refs.attachment.files[0]);
-                    const r = await fetch('/rider/messages', {
+                    const r = await fetch(this.base, {
                         method: 'POST',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                         body: fd,
@@ -224,7 +226,7 @@
                 if (!this.editing || !this.draft.trim()) return;
                 this.sending = true;
                 try {
-                    const r = await fetch('/rider/messages/' + this.editing.id, {
+                    const r = await fetch(this.base + '/' + this.editing.id, {
                         method: 'PATCH',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
                         body: JSON.stringify({ body: this.draft.trim() }),
@@ -243,7 +245,7 @@
             async deleteMessage(msg) {
                 if (!confirm('Delete this message?')) return;
                 try {
-                    const r = await fetch('/rider/messages/' + msg.id, {
+                    const r = await fetch(this.base + '/' + msg.id, {
                         method: 'DELETE',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                     });
@@ -257,7 +259,7 @@
 
             async poll() {
                 try {
-                    const r = await fetch('/rider/messages/poll', { headers: { 'Accept': 'application/json' } });
+                    const r = await fetch(this.base + '/poll', { headers: { 'Accept': 'application/json' } });
                     if (r.ok) {
                         const data = await r.json();
                         this.messages = data.messages;

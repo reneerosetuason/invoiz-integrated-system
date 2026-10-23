@@ -41,6 +41,11 @@ class RiderAccountProvisioner
     public function approve(RiderApplication $application, User $admin, array $settings): Rider
     {
         return DB::transaction(function () use ($application, $admin, $settings) {
+            $application = RiderApplication::query()
+                ->whereKey($application->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             if ($application->status !== 'pending') {
                 abort(422, 'Only pending applications can be approved.');
             }
@@ -156,6 +161,7 @@ class RiderAccountProvisioner
                 'message' => "{$application->name} was approved and a rider account was provisioned.",
                 'icon' => 'check',
                 'priority' => 'high',
+                'audience' => 'admin',
                 'link' => null,
             ]);
 
@@ -169,6 +175,11 @@ class RiderAccountProvisioner
     public function reject(RiderApplication $application, User $admin, string $reason): void
     {
         DB::transaction(function () use ($application, $admin, $reason) {
+            $application = RiderApplication::query()
+                ->whereKey($application->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
             if ($application->status !== 'pending') {
                 abort(422, 'Only pending applications can be rejected.');
             }
@@ -194,6 +205,7 @@ class RiderAccountProvisioner
                 'message' => "{$application->name}'s rider application was rejected.",
                 'icon' => 'close',
                 'priority' => 'normal',
+                'audience' => 'admin',
                 'link' => null,
             ]);
         });

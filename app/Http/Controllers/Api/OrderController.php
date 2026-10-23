@@ -11,12 +11,14 @@ use App\Models\OrderItem;
 use App\Models\OrderStatusHistory;
 use App\Models\OrderVoucher;
 use App\Models\Payment;
+use App\Models\PickupRequest;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\Voucher;
 use App\Models\VoucherClaim;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\DeliveryServiceability;
 use App\Support\Shipping;
 
 class OrderController extends Controller
@@ -56,6 +58,10 @@ class OrderController extends Controller
             ->where('buyer_id', $user->id)
             ->firstOrFail();
 
+        if ($problem = DeliveryServiceability::dropoffAddressProblem($address)) {
+            return response()->json(['message' => $problem], 422);
+        }
+
         // Validate stock for all items up front.
         foreach ($cart->items as $item) {
             $available = $item->variant_id ? $item->variant->stock : $item->product->stock;
@@ -87,6 +93,12 @@ class OrderController extends Controller
                 'quantity'      => $item->quantity,
                 'price'         => $unit,
             ];
+        }
+
+        foreach (array_unique(array_column($lineItems, 'seller_id')) as $sellerId) {
+            if ($problem = DeliveryServiceability::pickupAddressProblem((int) $sellerId)) {
+                return response()->json(['message' => $problem], 422);
+            }
         }
 
         // Shipping: flat fee once per seller group (never per item).
@@ -129,6 +141,7 @@ class OrderController extends Controller
                     $voucher = $lockedVoucher;
                 }
                 $order = Order::create([
+                    'seller_id'      => $groupIds[0] ?? null,
                     'buyer_id'       => $user->id,
                     'address_id'     => $address->id,
                     'shipping_address' => $address->toShippingSnapshot(),
@@ -154,17 +167,6 @@ class OrderController extends Controller
                 // Open the money ledger row (pending until delivery settles it).
                 \App\Support\Payments::recordCheckout($order);
 
-                // One delivery per seller group: the rider earns the flat
-                // fee once per delivery, independent of any voucher.
-                foreach ($groupIds as $sid) {
-                    Delivery::create([
-                        'order_id'     => $order->id,
-                        'seller_id'    => $sid,
-                        'status'       => 'waiting_for_rider',
-                        'delivery_fee' => Order::SHIPPING_FEE_PER_SELLER,
-                    ]);
-                }
-
                 OrderStatusHistory::create([
                     'order_id'   => $order->id,
                     'to_status'  => 'pending',
@@ -180,6 +182,21 @@ class OrderController extends Controller
                     ]);
                     $voucher->increment('used_count');
                     $voucherClaim->update(['order_id' => $order->id, 'used_at' => now()]);
+                }
+
+                // One delivery per seller group: the rider earns the flat
+                // fee once per delivery, independent of any voucher.
+                foreach ($groupIds as $sid) {
+                    $delivery = Delivery::create([
+                        'order_id'         => $order->id,
+                        'seller_id'        => $sid,
+                        'status'           => 'waiting_for_rider',
+                        'payment_method'   => $validated['payment_method'],
+                        'amount_to_collect' => $order->cashToCollectForSeller((int) $sid),
+                        'delivery_fee'     => Order::SHIPPING_FEE_PER_SELLER,
+                    ]);
+
+                    PickupRequest::openForDelivery($delivery);
                 }
 
                 // Deduct stock (guarded: fails the whole checkout when short).

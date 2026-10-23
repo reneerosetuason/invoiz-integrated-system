@@ -145,8 +145,8 @@ tailwind.config = { theme: { extend: {
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label class="lbl">Store Name <span class="req">*</span></label>
-              <input name="business_name" id="store-name" value="{{ old('business_name', $existing->business_name ?? $existing->store_name ?? '') }}" required minlength="2" maxlength="50" pattern="[A-Za-zÀ-ÖØ-öø-ÿĀ-ž ]{2,50}" title="Use 2–50 letters and spaces only. The letter ñ is allowed." class="inp" placeholder="e.g. Maria Clara Handicrafts" aria-describedby="store-name-help">
-              <p id="store-name-help" class="mt-1 text-xs text-gray-500">2–50 characters. Letters and spaces only; ñ is allowed.</p>
+              <input name="business_name" id="store-name" value="{{ old('business_name', $existing->business_name ?? $existing->store_name ?? '') }}" required minlength="2" maxlength="50" title="Use 2–50 characters. Letters, numbers, spaces, and common business punctuation are allowed." class="inp" placeholder="e.g. Maria Clara Handicrafts" aria-describedby="store-name-help">
+              <p id="store-name-help" class="mt-1 text-xs text-gray-500">2–50 characters. Letters, numbers, spaces, and common business punctuation are allowed.</p>
             </div>
             <div>
               <label class="lbl">Shop Category <span class="req">*</span></label>
@@ -336,9 +336,9 @@ tailwind.config = { theme: { extend: {
   if (!form) return;
 
   const storeName = document.getElementById('store-name');
-  const validStoreName = /^[\p{L} ]{2,50}$/u;
+  const validStoreName = /^[\p{L}\p{M}\p{N}][\p{L}\p{M}\p{N}\s&'’.,()+\-\/#]{1,49}$/u;
   storeName.addEventListener('input', () => {
-    storeName.setCustomValidity(validStoreName.test(storeName.value.trim()) ? '' : 'Use 2–50 letters and spaces only. The letter ñ is allowed.');
+    storeName.setCustomValidity(validStoreName.test(storeName.value.trim()) ? '' : 'Use 2–50 characters. Letters, numbers, spaces, and common business punctuation are allowed.');
   });
 
   const tin = document.getElementById('seller-tin');

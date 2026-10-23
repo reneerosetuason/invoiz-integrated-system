@@ -84,31 +84,6 @@ class CenterApplicationPublicController extends Controller
 
     public function store(Request $request, CenterApplicationService $service): RedirectResponse
     {
-        // Terms consent gate (web form only; the mobile API owns its own
-        // consent screen): the submit button is disabled until checked, and
-        // this rejects any direct POST without it.
-        if (! $request->boolean('terms')) {
-            return redirect()
-                ->route('center-application.apply')
-                ->withInput()
-                ->withErrors(['terms' => 'You must agree to the Logistics Terms of Service to submit your application.']);
-        }
-
-        // Email OTP gate (mirrors the rider apply flow): only a server-side
-        // consumed verification for the exact submitted address authorizes
-        // the submission. Runs only for well-formed addresses so missing or
-        // malformed emails still surface the standard validation errors.
-        // The shared service and the mobile API are intentionally untouched.
-        $email = strtolower(trim((string) $request->input('email', '')));
-
-        if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)
-            && ! RiderEmailVerification::isVerified($email)) {
-            return redirect()
-                ->route('center-application.apply')
-                ->withInput()
-                ->withErrors(['email' => 'Please verify your email address before submitting your application.']);
-        }
-
         $application = $service->create($request, 'web');
         $service->notifyNewApplication($application);
 

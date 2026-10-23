@@ -6,6 +6,8 @@ use App\Models\Cart;
 use App\Models\Seller;
 use App\Models\User;
 use App\Mail\OtpCodeMail;
+use App\Rules\PersonName;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +25,9 @@ use Illuminate\Support\Facades\Mail;
  */
 class UnifiedAuthController extends Controller
 {
+    private const OTP_MAX_ATTEMPTS = 5;
+    private const OTP_ATTEMPT_WINDOW_MINUTES = 10;
+
     public function showLogin()
     {
         if (Auth::check()) {
@@ -57,9 +62,11 @@ class UnifiedAuthController extends Controller
             $request->merge(['phone' => $p === '' ? null : \App\Rules\PhilippinePhone::normalize($p)]);
         }
 
+        $request->merge(NameNormalizer::cleanKeys($request->only(['first_name', 'last_name']), ['first_name', 'last_name']));
+
         $data = $request->validate([
-            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\s\'.\-]+$/u'],
-            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\s\'.\-]+$/u'],
+            'first_name' => ['required', 'string', 'min:2', 'max:50', new PersonName()],
+            'last_name' => ['required', 'string', 'min:2', 'max:50', new PersonName()],
             'sex' => 'required|in:male,female,other',
             'birthday' => [
                 'required', 'date', 'before:today',
@@ -119,8 +126,6 @@ class UnifiedAuthController extends Controller
             ],
             'terms' => 'accepted',
         ], [
-            'first_name.regex' => 'The first name may only contain letters.',
-            'last_name.regex' => 'The last name may only contain letters.',
             'phone.unique' => 'This mobile number is already in use. Please use a different number.',
         ]);
 
@@ -197,6 +202,10 @@ class UnifiedAuthController extends Controller
 
     public function verifyCode(Request $request)
     {
+        if (Auth::check() && Auth::user()->email_verified_at) {
+            return $this->redirectForRole(Auth::user());
+        }
+
         // Trim first so a padded address still identifies the account and
         // the code is checked against the stored canonical email.
         if (is_string($request->input('email'))) {
@@ -212,18 +221,40 @@ class UnifiedAuthController extends Controller
         if (! $user) {
             return back()->withErrors(['code' => 'Account not found.'])->withInput();
         }
-        if ($user->email_verified_at) {
-            Auth::login($user);
-            $request->session()->regenerate();
-            $this->putBuyerSession($request, $user);
-            return $this->redirectForRole($user);
+        if (! $user->isActive()) {
+            return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
         }
-        if (! $user->otp || $user->otp !== $data['code']) {
-            return back()->withErrors(['code' => 'Wrong code — check and try again.'])->withInput();
+        if ($user->hasBlockedMarketplaceApproval()) {
+            return back()->withErrors(['email' => 'Your account is not approved.'])->withInput();
+        }
+        if ($user->email_verified_at) {
+            return redirect('/login')->with('success', 'Already verified — you can log in.');
+        }
+
+        $attemptKey = $this->otpAttemptsKey($user);
+        $attempts = (int) cache()->get($attemptKey, 0);
+
+        if (! $user->otp) {
+            return back()->withErrors(['code' => 'No active code — tap Resend for a new one.'])->withInput();
         }
         if ($user->otp_expires_at && $user->otp_expires_at->isPast()) {
             return back()->withErrors(['code' => 'Code expired — tap Resend for a new one.'])->withInput();
         }
+        if ($attempts >= self::OTP_MAX_ATTEMPTS) {
+            return back()->withErrors(['code' => 'Too many incorrect codes — tap Resend for a new code.'])->withInput();
+        }
+        if (! hash_equals((string) $user->otp, (string) $data['code'])) {
+            $attempts++;
+            cache()->put($attemptKey, $attempts, now()->addMinutes(self::OTP_ATTEMPT_WINDOW_MINUTES));
+
+            if ($attempts >= self::OTP_MAX_ATTEMPTS) {
+                return back()->withErrors(['code' => 'Too many incorrect codes — tap Resend for a new code.'])->withInput();
+            }
+
+            return back()->withErrors(['code' => 'Wrong code — check and try again.'])->withInput();
+        }
+
+        cache()->forget($attemptKey);
 
         $user->update(['email_verified_at' => now(), 'otp' => null, 'otp_expires_at' => null]);
 
@@ -233,6 +264,11 @@ class UnifiedAuthController extends Controller
 
         return $this->redirectForRole($user)
             ->with('success', 'Email verified — welcome, ' . ($user->first_name ?? 'buyer') . '!');
+    }
+
+    private function otpAttemptsKey(User $user): string
+    {
+        return 'otp_verify_attempts_' . $user->id;
     }
 
     public function resendCode(Request $request)
@@ -258,6 +294,7 @@ class UnifiedAuthController extends Controller
         }
         $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $user->update(['otp' => $otp, 'otp_expires_at' => now()->addMinutes(10)]);
+        cache()->forget($this->otpAttemptsKey($user));
         cache()->put($key, true, 60);
         try {
             Mail::to($user->email)->send(new OtpCodeMail($otp, $user->first_name ?? ''));
@@ -282,6 +319,10 @@ class UnifiedAuthController extends Controller
 
         if (! $user->isActive()) {
             return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
+        }
+
+        if ($user->hasBlockedMarketplaceApproval()) {
+            return back()->withErrors(['email' => 'Your account is not approved.'])->withInput();
         }
 
         // Logistics accounts have their own dedicated login page.
@@ -321,6 +362,7 @@ class UnifiedAuthController extends Controller
                 'otp' => $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT),
                 'otp_expires_at' => now()->addMinutes(10),
             ]);
+            cache()->forget($this->otpAttemptsKey($user));
         } else {
             $otp = $user->otp;
         }
@@ -385,6 +427,9 @@ class UnifiedAuthController extends Controller
             if (! $user->isActive()) {
                 return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
             }
+            if ($user->hasBlockedMarketplaceApproval()) {
+                return redirect('/login')->withErrors(['email' => 'Your account is not approved.']);
+            }
             // Logistics accounts have their own dedicated login page.
             if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
                 return redirect('/login')->withErrors(['email' => 'This is a Logistics account. Please sign in on the Logistics login page.']);
@@ -440,11 +485,10 @@ class UnifiedAuthController extends Controller
 
         $seller = Seller::where('user_id', $user->id)->first();
 
-        if ($seller && method_exists($seller, 'isApproved') && ! $seller->isApproved()) {
-            // Keep behaviour of original seller app: pending sellers cannot enter.
+        if ($seller && ! $seller->isApproved()) {
+            // Pending applications must not sign out an otherwise valid buyer account.
             if (strtolower((string) ($seller->approval_status ?? '')) === 'pending') {
-                Auth::logout();
-                return redirect('/login')->withErrors(['email' => 'Your seller application is still pending approval.']);
+                return redirect()->intended('/shop')->with('error', 'Your seller application is still pending approval.');
             }
         }
 

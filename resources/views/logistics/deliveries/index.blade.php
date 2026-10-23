@@ -9,6 +9,10 @@
             ['label' => 'Out for Delivery', 'status' => 'out_for_delivery'],
             ['label' => 'Delivered', 'status' => 'delivered'],
             ['label' => 'Failed', 'status' => 'delivery_failed'],
+            ['label' => 'Exceptions', 'status' => 'exceptions'],
+            ['label' => 'Lost', 'status' => 'lost'],
+            ['label' => 'Damaged', 'status' => 'damaged'],
+            ['label' => 'Returned to Seller', 'status' => 'returned_to_seller'],
             ['label' => 'Cancelled', 'status' => 'cancelled'],
         ];
         $tabUrl = fn ($status) => route('deliveries.index', collect(request()->query())->except('page')->merge(['status' => $status])->filter(fn ($v) => $v !== null && $v !== '')->all());
@@ -30,6 +34,10 @@
                         <span class="bg-gray-200 text-gray-700 text-xs font-bold px-2 py-0.5 rounded-full">{{ $archivedCount }}</span>
                     </a>
                 @endif
+                <a href="{{ route('deliveries.export', collect(request()->query())->except(['page', 'per_page'])->all()) }}"
+                   class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-teal bg-white border border-teal/30 shadow-sm hover:border-teal hover:text-teal-dark transition">
+                    Export CSV
+                </a>
                 <a href="{{ route('deliveries.create') }}"
                    class="inline-flex items-center justify-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -125,11 +133,62 @@
         <x-per-page route="deliveries.index"/>
     </div>
 
+    @if($filterRiders->isNotEmpty())
+        <form id="bulk-assign-form" method="POST" action="{{ route('deliveries.bulk-assign') }}" class="mb-4 flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+            @csrf
+            <div>
+                <p class="text-sm font-semibold text-gray-900">Bulk assign selected deliveries</p>
+                <p class="mt-0.5 text-xs text-gray-500">Select up to 25 assignable deliveries. Each delivery is revalidated independently and already-assigned rows are left unchanged.</p>
+            </div>
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <select name="rider_id" required class="h-10 min-w-48 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:border-teal focus:outline-none">
+                    <option value="">Select rider</option>
+                    @foreach($filterRiders as $rider)
+                        <option value="{{ $rider->id }}">{{ $rider->name }}</option>
+                    @endforeach
+                </select>
+                <button type="submit" class="inline-flex h-10 items-center justify-center rounded-xl bg-teal px-4 text-sm font-semibold text-white transition hover:bg-teal-dark">
+                    Assign selected
+                </button>
+                <span id="bulk-selected-count" class="text-xs font-medium text-gray-500">0 selected</span>
+            </div>
+        </form>
+    @endif
+
+    @if(session('bulk_assignment_results'))
+        <div class="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+            <p class="text-sm font-semibold text-gray-900">Bulk assignment results</p>
+            <ul class="mt-3 space-y-2">
+                @foreach(session('bulk_assignment_results') as $result)
+                    <li class="flex flex-col gap-1 rounded-xl bg-gray-50 px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                        <span class="font-medium text-gray-700">
+                            Delivery #{{ $result['delivery_id'] }}
+                            @if(!empty($result['tracking_number']))
+                                <span class="font-mono text-xs text-gray-500">{{ $result['tracking_number'] }}</span>
+                            @endif
+                        </span>
+                        <span class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset {{ ($result['status'] ?? 'failed') === 'failed' ? 'bg-red-50 text-red-700 ring-red-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200' }}">
+                                {{ ucwords(str_replace('_', ' ', $result['status'] ?? 'failed')) }}
+                            </span>
+                            <span class="text-xs text-gray-500">{{ $result['message'] ?? '' }}</span>
+                        </span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
+                        @if($filterRiders->isNotEmpty())
+                            <th class="w-10 px-3 py-3.5 text-left">
+                                <input id="bulk-select-all" type="checkbox" aria-label="Select all assignable deliveries" class="h-4 w-4 rounded border-gray-300 text-teal focus:ring-teal">
+                            </th>
+                        @endif
                         <x-th-sort field="tracking_number" label="Tracking #"/>
                         <x-th-sort field="sender" label="Sender"/>
                         <x-th-sort field="recipient" label="Recipient"/>
@@ -147,6 +206,13 @@
                 <tbody class="bg-white divide-y divide-gray-100">
                     @forelse($deliveries as $delivery)
                         <tr class="hover:bg-gray-50 transition">
+                            @if($filterRiders->isNotEmpty())
+                                <td class="px-3 py-4">
+                                    @if(in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
+                                        <input form="bulk-assign-form" type="checkbox" name="delivery_ids[]" value="{{ $delivery->id }}" aria-label="Select {{ $delivery->tracking_number }}" class="bulk-delivery-checkbox h-4 w-4 rounded border-gray-300 text-teal focus:ring-teal">
+                                    @endif
+                                </td>
+                            @endif
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-mono font-semibold text-gray-900">
                                 {{ $delivery->tracking_number }}
                             </td>
@@ -195,7 +261,7 @@
                                 <a href="{{ route('deliveries.show', $delivery) }}" class="text-teal hover:text-teal-dark font-semibold">View</a>
                                 <a href="{{ route('deliveries.edit', $delivery) }}" class="text-gray-600 hover:text-gray-900">Edit</a>
                                 <button type="button"
-                                        data-archive-url="{{ route('deliveries.archive', $delivery, false) }}"
+                                        data-archive-url="{{ route('deliveries.archive', $delivery) }}"
                                         @click="archiveUrl = $el.dataset.archiveUrl; archiveOpen = true"
                                         class="text-gray-500 hover:text-gray-900 font-semibold">
                                     Archive
@@ -204,7 +270,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="12" class="px-6 py-16 text-center">
+                            <td colspan="{{ $filterRiders->isNotEmpty() ? 13 : 12 }}" class="px-6 py-16 text-center">
                                 <div class="flex flex-col items-center justify-center text-gray-400">
                                     <svg class="h-16 w-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -234,9 +300,20 @@
             </table>
         </div>
 
-        </div>
+        @if($deliveries->count() > 0)
+            <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <p class="text-xs text-gray-500">
+                    Showing <span class="font-semibold text-gray-700">{{ $deliveries->firstItem() }}–{{ $deliveries->lastItem() }}</span>
+                    of <span class="font-semibold text-gray-700">{{ $deliveries->total() }}</span> deliveries
+                </p>
+                <p class="text-xs text-gray-400">Page {{ $deliveries->currentPage() }} of {{ $deliveries->lastPage() }}</p>
+            </div>
+        @endif
+    </div>
 
-        @include('admin.partials.pager', ['paginator' => $deliveries])
+    <div class="mt-4">
+        {{ $deliveries->onEachSide(2)->links() }}
+    </div>
 
     {{-- Archive Confirmation Modal --}}
     <div x-show="archiveOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
@@ -260,4 +337,34 @@
         </form>
     </div>
 </div>
+
+@if($filterRiders->isNotEmpty())
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const selectAll = document.getElementById('bulk-select-all');
+        const countLabel = document.getElementById('bulk-selected-count');
+        const checkboxes = () => Array.from(document.querySelectorAll('.bulk-delivery-checkbox'));
+
+        if (!selectAll || !countLabel) return;
+
+        const updateCount = () => {
+            const boxes = checkboxes();
+            const selected = boxes.filter((box) => box.checked).length;
+
+            countLabel.textContent = `${selected} selected`;
+            selectAll.checked = boxes.length > 0 && selected === boxes.length;
+            selectAll.indeterminate = selected > 0 && selected < boxes.length;
+        };
+
+        selectAll.addEventListener('change', () => {
+            checkboxes().forEach((box) => { box.checked = selectAll.checked; });
+            updateCount();
+        });
+
+        checkboxes().forEach((box) => box.addEventListener('change', updateCount));
+
+        updateCount();
+    });
+</script>
+@endif
 </x-app-layout>

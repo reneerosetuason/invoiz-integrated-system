@@ -7,11 +7,13 @@ use App\Models\Rider;
 use App\Models\Transaction;
 use App\Models\LogisticsCenter;
 use App\Models\ServiceArea;
+use App\Support\CsvExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -25,9 +27,9 @@ class ReportController extends Controller
         $serviceAreaId = (int) $request->query('service_area_id', 0);
 
         $user = Auth::user();
-        $staffCenterId = $user->isLogisticsStaff() ? $user->center_id : null;
+        $staffCenterId = $this->staffCenterScope($user);
 
-        if ($staffCenterId) {
+        if ($staffCenterId !== null) {
             $centerId = $staffCenterId;
         }
 
@@ -37,6 +39,23 @@ class ReportController extends Controller
         $riderStats = $this->riderStats($dateFrom, $dateTo, $centerId, $riderId, $staffCenterId);
         $financialStats = $this->financialStats($dateFrom, $dateTo, $centerId, $staffCenterId);
 
+        $centersQuery = LogisticsCenter::query();
+        $ridersQuery = Rider::query();
+        $serviceAreasQuery = ServiceArea::query();
+
+        if ($staffCenterId === 0) {
+            $centersQuery->whereRaw('1 = 0');
+            $ridersQuery->whereRaw('1 = 0');
+            $serviceAreasQuery->whereRaw('1 = 0');
+        } elseif ($staffCenterId !== null) {
+            $centersQuery->whereKey($staffCenterId);
+            $ridersQuery->where('center_id', $staffCenterId);
+            $serviceAreasQuery->where('logistics_center_id', $staffCenterId);
+        } else {
+            $centersQuery->where('is_active', true);
+            $serviceAreasQuery->where('is_active', true);
+        }
+
         return view('logistics.reports.index', [
             'tab' => $tab,
             'deliveryStats' => $deliveryStats,
@@ -44,9 +63,9 @@ class ReportController extends Controller
             'areaStats' => $areaStats,
             'riderStats' => $riderStats,
             'financialStats' => $financialStats,
-            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
-            'riders' => Rider::orderBy('name')->get(['id', 'name']),
-            'serviceAreas' => ServiceArea::where('is_active', true)->orderBy('name')->get(['id', 'name', 'logistics_center_id']),
+            'centers' => $centersQuery->orderBy('name')->get(),
+            'riders' => $ridersQuery->orderBy('name')->get(['id', 'name']),
+            'serviceAreas' => $serviceAreasQuery->orderBy('name')->get(['id', 'name', 'logistics_center_id']),
             'filters' => compact('dateFrom', 'dateTo', 'centerId', 'riderId', 'serviceAreaId'),
         ]);
     }
@@ -66,9 +85,9 @@ class ReportController extends Controller
         $serviceAreaId = (int) $request->query('service_area_id', 0);
 
         $user = Auth::user();
-        $staffCenterId = $user->isLogisticsStaff() ? $user->center_id : null;
+        $staffCenterId = $this->staffCenterScope($user);
 
-        if ($staffCenterId) {
+        if ($staffCenterId !== null) {
             $centerId = $staffCenterId;
         }
 
@@ -139,6 +158,175 @@ class ReportController extends Controller
         return $pdf->download($filename);
     }
 
+    public function exportCsv(Request $request): StreamedResponse
+    {
+        $tab = $request->query('tab', 'delivery');
+        $validTabs = ['all', 'delivery', 'center', 'area', 'rider', 'financial'];
+        if (! in_array($tab, $validTabs, true)) {
+            $tab = 'delivery';
+        }
+
+        $dateFrom = trim((string) $request->query('date_from', ''));
+        $dateTo = trim((string) $request->query('date_to', ''));
+        $centerId = (int) $request->query('center_id', 0);
+        $riderId = (int) $request->query('rider_id', 0);
+        $serviceAreaId = (int) $request->query('service_area_id', 0);
+
+        $user = Auth::user();
+        $staffCenterId = $this->staffCenterScope($user);
+
+        if ($staffCenterId !== null) {
+            $centerId = $staffCenterId;
+        }
+
+        $stats = match ($tab) {
+            'all' => [
+                'delivery' => $this->deliveryStats($dateFrom, $dateTo, $centerId, $riderId, $serviceAreaId, $staffCenterId),
+                'center' => $this->centerStats($dateFrom, $dateTo, $staffCenterId),
+                'area' => $this->areaStats($dateFrom, $dateTo, $centerId, $staffCenterId),
+                'rider' => $this->riderStats($dateFrom, $dateTo, $centerId, $riderId, $staffCenterId),
+                'financial' => $this->financialStats($dateFrom, $dateTo, $centerId, $staffCenterId),
+            ],
+            'center' => $this->centerStats($dateFrom, $dateTo, $staffCenterId),
+            'area' => $this->areaStats($dateFrom, $dateTo, $centerId, $staffCenterId),
+            'rider' => $this->riderStats($dateFrom, $dateTo, $centerId, $riderId, $staffCenterId),
+            'financial' => $this->financialStats($dateFrom, $dateTo, $centerId, $staffCenterId),
+            default => $this->deliveryStats($dateFrom, $dateTo, $centerId, $riderId, $serviceAreaId, $staffCenterId),
+        };
+
+        [$headers, $rows] = $this->csvRows($tab, $stats);
+
+        return CsvExport::stream(
+            'invoiz-logistics-' . $tab . '-report-' . now()->format('Y-m-d') . '.csv',
+            $headers,
+            $rows,
+            $user,
+            'logistics.reports.' . $tab,
+            [
+                'tab' => $tab,
+                'date_from' => $dateFrom !== '' ? $dateFrom : null,
+                'date_to' => $dateTo !== '' ? $dateTo : null,
+                'center_id' => $centerId > 0 ? $centerId : null,
+                'rider_id' => $riderId > 0 ? $riderId : null,
+                'service_area_id' => $serviceAreaId > 0 ? $serviceAreaId : null,
+                'center_scope' => $staffCenterId !== null ? (int) $staffCenterId : 'global',
+            ]
+        );
+    }
+
+    private function csvRows(string $tab, array $stats): array
+    {
+        if ($tab === 'all') {
+            $rows = [];
+            foreach (['delivery', 'center', 'area', 'rider', 'financial'] as $section) {
+                [$sectionHeaders, $sectionRows] = $this->csvRows($section, $stats[$section] ?? []);
+                $rows[] = [ucfirst($section) . ' Report'];
+                $rows[] = $sectionHeaders;
+                foreach ($sectionRows as $row) {
+                    $rows[] = $row;
+                }
+                $rows[] = [];
+            }
+
+            return [[], $rows];
+        }
+
+        if ($tab === 'center') {
+            return [
+                ['Center', 'City', 'Deliveries', 'Service Areas', 'Riders'],
+                array_map(fn ($center) => [
+                    $center['name'] ?? '',
+                    $center['city'] ?? '',
+                    (int) ($center['deliveries_count'] ?? 0),
+                    (int) ($center['service_areas_count'] ?? 0),
+                    (int) ($center['riders_count'] ?? 0),
+                ], $stats),
+            ];
+        }
+
+        if ($tab === 'area') {
+            $centerNames = LogisticsCenter::pluck('name', 'id');
+
+            return [
+                ['Service Area', 'Center', 'Deliveries', 'Riders'],
+                array_map(fn ($area) => [
+                    $area['name'] ?? '',
+                    $centerNames[(int) ($area['logistics_center_id'] ?? 0)] ?? '',
+                    (int) ($area['deliveries_count'] ?? 0),
+                    (int) ($area['riders_count'] ?? 0),
+                ], $stats),
+            ];
+        }
+
+        if ($tab === 'rider') {
+            return [
+                ['Rider', 'Vehicle', 'Total Deliveries', 'Active Deliveries', 'Completed Deliveries'],
+                array_map(fn ($rider) => [
+                    $rider['name'] ?? '',
+                    ucfirst((string) ($rider['vehicle_type'] ?? '')),
+                    (int) ($rider['total_deliveries'] ?? 0),
+                    (int) ($rider['active_deliveries'] ?? 0),
+                    (int) ($rider['completed_deliveries'] ?? 0),
+                ], $stats),
+            ];
+        }
+
+        if ($tab === 'financial') {
+            return [
+                ['Metric', 'Value'],
+                [
+                    ['Transactions', (int) ($stats['total_transactions'] ?? 0)],
+                    ['Total Amount', (float) ($stats['total_amount'] ?? 0)],
+                    ['Total Rider Fees', (float) ($stats['total_rider_fees'] ?? 0)],
+                    ['Management Commissions', (float) ($stats['total_commissions'] ?? 0)],
+                    ['Completed Amount', (float) ($stats['completed_amount'] ?? 0)],
+                    ['Completed Rider Fees', (float) ($stats['completed_rider_fees'] ?? 0)],
+                    ['Completed Commissions', (float) ($stats['completed_commissions'] ?? 0)],
+                ],
+            ];
+        }
+
+        return [
+            ['Metric', 'Value'],
+            [
+                ['Total Deliveries', (int) ($stats['total'] ?? 0)],
+                ['Received', (int) ($stats['received'] ?? 0)],
+                ['Scanned', (int) ($stats['scanned'] ?? 0)],
+                ['Sorted', (int) ($stats['sorted'] ?? 0)],
+                ['Waiting for Rider', (int) ($stats['waiting_for_rider'] ?? 0)],
+                ['Assigned', (int) ($stats['assigned'] ?? 0)],
+                ['Picked Up', (int) ($stats['picked_up'] ?? 0)],
+                ['Out for Delivery', (int) ($stats['out_for_delivery'] ?? 0)],
+                ['Delivered', (int) ($stats['delivered'] ?? 0)],
+                ['Failed', (int) ($stats['failed'] ?? 0)],
+                ['Cancelled', (int) ($stats['cancelled'] ?? 0)],
+            ],
+        ];
+    }
+
+    /**
+     * Null means global access, 0 means a centerless scoped account, and a
+     * positive id means that account's assigned center.
+     */
+    private function staffCenterScope($user): ?int
+    {
+        if (! $user) {
+            return 0;
+        }
+
+        if ($user->isLogisticsAdmin()) {
+            return null;
+        }
+
+        if (! $user->isLogisticsStaff()) {
+            return 0;
+        }
+
+        $centerId = (int) ($user->center_id ?? 0);
+
+        return $centerId > 0 ? $centerId : 0;
+    }
+
     private function preparedByName($user): string
     {
         // Use the user-facing role label (e.g. "Logistics Manager" for the
@@ -151,8 +339,10 @@ class ReportController extends Controller
     {
         $query = Delivery::query();
 
-        $effectiveCenter = $staffCenterId ?: $centerId;
-        if ($effectiveCenter > 0) {
+        $effectiveCenter = $staffCenterId !== null ? $staffCenterId : $centerId;
+        if ($staffCenterId === 0) {
+            $query->whereRaw('1 = 0');
+        } elseif ($effectiveCenter > 0) {
             $query->where('center_id', $effectiveCenter);
         }
 
@@ -208,23 +398,29 @@ class ReportController extends Controller
             'picked_up' => $statusCounts['picked_up'] ?? 0,
             'out_for_delivery' => $statusCounts['out_for_delivery'] ?? 0,
             'delivered' => $statusCounts['delivered'] ?? 0,
-            'failed' => $statusCounts['failed'] ?? 0,
+            'failed' => (int) (($statusCounts['delivery_failed'] ?? 0)
+                + ($statusCounts['lost'] ?? 0)
+                + ($statusCounts['damaged'] ?? 0)),
             'cancelled' => $statusCounts['cancelled'] ?? 0,
         ];
     }
 
     private function centerStats(?string $dateFrom, ?string $dateTo, ?int $staffCenterId): array
     {
-        $query = LogisticsCenter::query()->withCount(['deliveries' => function ($q) use ($dateFrom, $dateTo) {
-            if ($dateFrom !== '' && strtotime($dateFrom)) {
-                $q->whereDate('created_at', '>=', $dateFrom);
-            }
-            if ($dateTo !== '' && strtotime($dateTo)) {
-                $q->whereDate('created_at', '<=', $dateTo);
-            }
-        }]);
+        $query = LogisticsCenter::query()
+            ->withCount(['serviceAreas', 'riders'])
+            ->withCount(['deliveries' => function ($q) use ($dateFrom, $dateTo) {
+                if ($dateFrom !== '' && strtotime($dateFrom)) {
+                    $q->whereDate('created_at', '>=', $dateFrom);
+                }
+                if ($dateTo !== '' && strtotime($dateTo)) {
+                    $q->whereDate('created_at', '<=', $dateTo);
+                }
+            }]);
 
-        if ($staffCenterId) {
+        if ($staffCenterId === 0) {
+            $query->whereRaw('1 = 0');
+        } elseif ($staffCenterId) {
             $query->where('id', $staffCenterId);
         }
 
@@ -233,10 +429,22 @@ class ReportController extends Controller
 
     private function areaStats(?string $dateFrom, ?string $dateTo, int $centerId, ?int $staffCenterId): array
     {
-        $effectiveCenter = $staffCenterId ?: $centerId;
-        $query = ServiceArea::query()->withCount(['deliveries', 'riders']);
+        $effectiveCenter = $staffCenterId !== null ? $staffCenterId : $centerId;
+        $query = ServiceArea::query()->withCount([
+            'deliveries' => function ($q) use ($dateFrom, $dateTo) {
+                if ($dateFrom !== '' && strtotime($dateFrom)) {
+                    $q->whereDate('deliveries.created_at', '>=', $dateFrom);
+                }
+                if ($dateTo !== '' && strtotime($dateTo)) {
+                    $q->whereDate('deliveries.created_at', '<=', $dateTo);
+                }
+            },
+            'riders',
+        ]);
 
-        if ($effectiveCenter > 0) {
+        if ($staffCenterId === 0) {
+            $query->whereRaw('1 = 0');
+        } elseif ($effectiveCenter > 0) {
             $query->where('logistics_center_id', $effectiveCenter);
         }
 
@@ -245,14 +453,29 @@ class ReportController extends Controller
 
     private function riderStats(?string $dateFrom, ?string $dateTo, int $centerId, int $riderId, ?int $staffCenterId): array
     {
-        $effectiveCenter = $staffCenterId ?: $centerId;
+        $effectiveCenter = $staffCenterId !== null ? $staffCenterId : $centerId;
+        $applyDateFilter = function ($q) use ($dateFrom, $dateTo) {
+            if ($dateFrom !== '' && strtotime($dateFrom)) {
+                $q->whereDate('deliveries.created_at', '>=', $dateFrom);
+            }
+            if ($dateTo !== '' && strtotime($dateTo)) {
+                $q->whereDate('deliveries.created_at', '<=', $dateTo);
+            }
+        };
+
         $query = Rider::query()
-            ->withCount(['deliveries as total_deliveries', 'activeDeliveries as active_deliveries'])
-            ->withCount(['deliveries as completed_deliveries' => function ($q) {
+            ->withCount([
+                'deliveries as total_deliveries' => $applyDateFilter,
+                'activeDeliveries as active_deliveries',
+            ])
+            ->withCount(['deliveries as completed_deliveries' => function ($q) use ($applyDateFilter) {
                 $q->where('status', 'delivered');
+                $applyDateFilter($q);
             }]);
 
-        if ($effectiveCenter > 0) {
+        if ($staffCenterId === 0) {
+            $query->whereRaw('1 = 0');
+        } elseif ($effectiveCenter > 0) {
             $query->where('center_id', $effectiveCenter);
         }
 
@@ -267,8 +490,10 @@ class ReportController extends Controller
     {
         $query = Transaction::query();
 
-        $effectiveCenter = $staffCenterId ?: $centerId;
-        if ($effectiveCenter > 0) {
+        $effectiveCenter = $staffCenterId !== null ? $staffCenterId : $centerId;
+        if ($staffCenterId === 0) {
+            $query->whereRaw('1 = 0');
+        } elseif ($effectiveCenter > 0) {
             $query->where('logistics_center_id', $effectiveCenter);
         }
 

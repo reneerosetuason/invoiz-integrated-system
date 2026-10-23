@@ -78,6 +78,7 @@ class RiderLicenseExpiryTest extends TestCase
             'phone' => '09171234567',
             'vehicle_type' => 'motorcycle',
             'status' => 'available',
+            'approved_at' => now(),
         ], $riderExtra));
 
         return $user->fresh();

@@ -64,14 +64,22 @@ class Seller extends Model
     public function scopeApproved($query)
     {
         return $query->where(function ($q) {
-            $q->where('approval_status', 'approved')
-              ->orWhere('status', 'approved');
+            $q->where(function ($q2) {
+                $q2->where('approval_status', 'approved')
+                    ->where(function ($q3) {
+                        $q3->whereNull('status')->orWhere('status', '!=', 'inactive');
+                    });
+            })->orWhere('status', 'approved');
         });
     }
 
     public function isApproved(): bool
     {
-        return $this->approval_status === 'approved' || $this->status === 'approved';
+        if ($this->status === 'approved') {
+            return true;
+        }
+
+        return $this->approval_status === 'approved' && $this->status !== 'inactive';
     }
 
     /** Display name that works regardless of which column was filled. */

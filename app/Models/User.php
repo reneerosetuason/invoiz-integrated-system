@@ -231,7 +231,31 @@ class User extends Authenticatable
 
     public function canSell(): bool
     {
-        return $this->seller?->isApproved() ?? false;
+        return $this->isActive() && ($this->seller?->isApproved() ?? false);
+    }
+
+    public function hasBlockedMarketplaceApproval(): bool
+    {
+        if ($this->seller !== null) {
+            return false;
+        }
+
+        return in_array(strtolower((string) $this->approval_status), ['pending', 'rejected'], true);
+    }
+
+    public function canUseBuyerArea(): bool
+    {
+        if (! $this->isActive() || $this->hasBlockedMarketplaceApproval()) {
+            return false;
+        }
+
+        if ($this->isBuyer() || $this->canSell()) {
+            return true;
+        }
+
+        return $this->isSeller()
+            && $this->seller !== null
+            && ! $this->seller->isApproved();
     }
 
     public function orders()

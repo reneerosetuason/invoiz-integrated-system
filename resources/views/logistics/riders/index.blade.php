@@ -43,7 +43,7 @@
                        class="w-full bg-white border border-gray-200 rounded-xl pl-10 pr-4 py-2 text-sm focus:border-teal focus:ring-teal shadow-sm placeholder-gray-400">
             </div>
 
-            @if(Auth::user()->isAdmin())
+            @if(Auth::user()->isLogisticsAdmin())
                 <select name="center_id" title="Filter by logistics center"
                         class="bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 focus:border-teal focus:ring-teal shadow-sm max-w-[200px]">
                     <option value="">All centers</option>
@@ -146,7 +146,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                @php($canManage = Auth::user()->isAdmin() || Auth::user()->center_id == $rider->center_id)
+                                @php($canManage = Auth::user()->isLogisticsAdmin() || (Auth::user()->center_id && (int) Auth::user()->center_id === (int) $rider->center_id))
                                 <div class="flex items-center gap-3">
                                     <a href="{{ route('riders.show', $rider) }}" class="text-sm font-semibold text-teal hover:text-teal-dark">View</a>
                                     @if($canManage)
@@ -196,6 +196,19 @@
             </table>
         </div>
 
-        {{-- Pagination --}}
-        @include('admin.partials.pager', ['paginator' => $riders])
+        @if($riders->count() > 0)
+            <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
+                <p class="text-xs text-gray-500">
+                    Showing <span class="font-semibold text-gray-700">{{ $riders->firstItem() }}–{{ $riders->lastItem() }}</span>
+                    of <span class="font-semibold text-gray-700">{{ $riders->total() }}</span> riders
+                </p>
+                <p class="text-xs text-gray-400">Page {{ $riders->currentPage() }} of {{ $riders->lastPage() }}</p>
+            </div>
+        @endif
+    </div>
+
+    {{-- Pagination --}}
+    <div class="mt-6">
+        {{ $riders->onEachSide(2)->links() }}
+    </div>
 </x-app-layout>

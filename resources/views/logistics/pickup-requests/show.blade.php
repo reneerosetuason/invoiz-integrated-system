@@ -22,6 +22,8 @@
             @endif
             @if($pickupRequest->center)
                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700 ring-1 ring-inset ring-gray-200">{{ $pickupRequest->center->name }}</span>
+            @elseif($pickupRequest->status === 'pending')
+                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">Needs routing</span>
             @else
                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200">Not yet received at a center</span>
             @endif
@@ -109,6 +111,33 @@
             </div>
         @endif
     </div>
+
+    {{-- Routing (admin only, before review) --}}
+    @if($canRoute)
+        <div class="bg-white rounded-2xl shadow-sm border border-amber-200 p-6 mb-6">
+            <h3 class="text-base font-bold text-gray-900 mb-1">Route to a Logistics Center</h3>
+            <p class="text-sm text-gray-500 mb-5">
+                This pickup has no handling center. Assign one before the pickup can be reviewed. The delivery will be routed to the same center.
+            </p>
+            <form action="{{ route('pickup-requests.route', $pickupRequest) }}" method="POST" class="flex flex-col sm:flex-row sm:items-end gap-3">
+                @csrf
+                <div class="flex-1">
+                    <label for="center_id" class="block text-sm font-medium text-gray-700 mb-1.5">Logistics center *</label>
+                    <select name="center_id" id="center_id" required
+                            class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('center_id') border-red-500 @enderror">
+                        <option value="">Select a center</option>
+                        @foreach($centers as $center)
+                            <option value="{{ $center->id }}" @selected(old('center_id') == $center->id)>{{ $center->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('center_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                </div>
+                <button type="submit" class="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
+                    Assign Center
+                </button>
+            </form>
+        </div>
+    @endif
 
     {{-- Review actions (pending + authorized only) --}}
     @if($pickupRequest->status === 'pending' && $canReview)

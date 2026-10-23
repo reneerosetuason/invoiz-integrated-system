@@ -5,7 +5,11 @@ namespace App\Services;
 use App\Models\LogisticsCenterApplication;
 use App\Models\LogisticsCenterApplicationDocument;
 use App\Models\Notification;
+use App\Models\RiderEmailVerification;
+use App\Rules\BusinessName;
+use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -36,12 +40,13 @@ class CenterApplicationService
         return [
             'business_name' => [
                 'required', 'string', 'min:2', 'max:255',
+                new BusinessName(),
                 $notRejected('business_name'),
             ],
-            'owner_name' => 'nullable|string|max:255',
-            'owner_first_name' => 'required_without:owner_name|nullable|string|min:2|max:50',
-            'owner_middle_name' => 'nullable|string|max:50',
-            'owner_last_name' => 'required_without:owner_name|nullable|string|min:2|max:50',
+            'owner_name' => ['nullable', 'string', 'max:255', new PersonName()],
+            'owner_first_name' => ['required_without:owner_name', 'nullable', 'string', 'min:2', 'max:50', new PersonName()],
+            'owner_middle_name' => ['nullable', 'string', 'max:50', new PersonName()],
+            'owner_last_name' => ['required_without:owner_name', 'nullable', 'string', 'min:2', 'max:50', new PersonName()],
             'sec_number' => [
                 'required', 'string', 'regex:/^[A-Za-z]{2}\d{9}$/',
                 $notRejected('sec_number'),
@@ -68,9 +73,16 @@ class CenterApplicationService
                     $fail('The selected province does not belong to the chosen region.');
                 }
             }],
+            'terms' => 'required|accepted',
             'email' => [
                 'required', 'email', 'max:255',
                 $notRejected('email'),
+                function ($attribute, $value, $fail) {
+                    if (is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL)
+                        && ! RiderEmailVerification::isVerified($value)) {
+                        $fail('Please verify your email address before submitting your application.');
+                    }
+                },
             ],
             'phone' => [
                 'required',
@@ -112,6 +124,8 @@ class CenterApplicationService
     public static function validationMessages(): array
     {
         return [
+            'terms.required' => 'You must agree to the Logistics Terms of Service to submit your application.',
+            'terms.accepted' => 'You must agree to the Logistics Terms of Service to submit your application.',
             'business_name.unique' => 'This company name is already registered. Please check your application status or use a different company name.',
             'email.unique' => 'This email address already has an application on file. Check your application status or use a different email address.',
             'phone.unique' => 'This contact number is already on file for another application. Check your application status or use a different number.',
@@ -148,6 +162,13 @@ class CenterApplicationService
         if (is_string($input['email'] ?? null)) {
             $input['email'] = strtolower(trim($input['email']));
         }
+        $input = NameNormalizer::cleanKeys($input, [
+            'business_name',
+            'owner_name',
+            'owner_first_name',
+            'owner_middle_name',
+            'owner_last_name',
+        ]);
 
         $validator = Validator::make(
             $input,
@@ -161,6 +182,7 @@ class CenterApplicationService
         }
 
         $data = $validator->validated();
+        unset($data['terms']);
 
         $data['phone'] = PhilippinePhone::normalize($data['phone']);
         $data['status'] = 'pending';
@@ -288,6 +310,7 @@ class CenterApplicationService
             'message' => "A new Logistics Center application from {$application->business_name} is waiting for review.",
             'icon' => '🏬',
             'priority' => 'high',
+            'audience' => 'admin',
             'link' => route('center-applications.show', $application),
         ]);
     }

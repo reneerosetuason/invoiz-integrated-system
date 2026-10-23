@@ -15,7 +15,7 @@ class BuyerChatController extends Controller
             if (Auth::user()->canSell() && session('active_role') !== 'buyer') {
                 return redirect()->route('choose');
             }
-            if (Auth::user()->isBuyer() || Auth::user()->canSell()) {
+            if (Auth::user()->canUseBuyerArea()) {
                 return redirect('/buyer/chat');
             }
         }
@@ -34,14 +34,14 @@ class BuyerChatController extends Controller
 
             $hasApprovedStore = $user->canSell();
 
-            if (! $user->isBuyer() && ! $hasApprovedStore) {
-                Auth::logout();
-                return back()->withErrors(['email' => 'This is not a buyer account.']);
-            }
-
             if (! $user->isActive()) {
                 Auth::logout();
                 return back()->withErrors(['email' => 'Your account is not active.']);
+            }
+
+            if (! $user->canUseBuyerArea()) {
+                Auth::logout();
+                return back()->withErrors(['email' => 'This is not a buyer account.']);
             }
 
             $request->session()->regenerate();

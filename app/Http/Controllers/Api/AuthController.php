@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\User;
+use App\Rules\PersonName;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -14,10 +16,15 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['first_name', 'last_name', 'middle_initial']),
+            ['first_name', 'last_name', 'middle_initial']
+        ));
+
         $validated = $request->validate([
-            'last_name'      => ['required', 'string', 'max:100'],
-            'first_name'     => ['required', 'string', 'max:100'],
-            'middle_initial' => ['nullable', 'string', 'max:10'],
+            'last_name'      => ['required', 'string', 'max:100', new PersonName()],
+            'first_name'     => ['required', 'string', 'max:100', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'sex'            => ['required', Rule::in(['male', 'female', 'other'])],
             'email'          => ['required', 'email', 'max:150', 'unique:users,email'],
             'password'       => ['required', 'string', 'min:8', 'confirmed'],
@@ -75,19 +82,24 @@ class AuthController extends Controller
             return response()->json(['message' => 'Logistics accounts must use the Logistics login page.'], 403);
         }
 
-        if ($user->approval_status === 'pending') {
+        // A pending or rejected seller application must not revoke an
+        // otherwise valid buyer account. Legacy seller accounts may still
+        // carry the application state on the user row.
+        $hasSellerApplication = $user->seller !== null;
+
+        if ($user->approval_status === 'pending' && ! $hasSellerApplication) {
             return response()->json([
                 'message' => 'Your account is still pending approval. Please wait for the administrator.',
             ], 403);
         }
 
-        if ($user->approval_status === 'rejected') {
+        if ($user->approval_status === 'rejected' && ! $hasSellerApplication) {
             return response()->json([
                 'message' => 'Your registration was rejected. Please contact support.',
             ], 403);
         }
 
-        if ($user->status !== 'active') {
+        if (! $user->isActive()) {
             return response()->json(['message' => 'Your account is not active.'], 403);
         }
 
@@ -134,10 +146,15 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['first_name', 'last_name', 'middle_initial']),
+            ['first_name', 'last_name', 'middle_initial']
+        ));
+
         $validated = $request->validate([
-            'last_name'      => ['sometimes', 'string', 'max:100'],
-            'first_name'     => ['sometimes', 'string', 'max:100'],
-            'middle_initial' => ['nullable', 'string', 'max:10'],
+            'last_name'      => ['sometimes', 'string', 'max:100', new PersonName()],
+            'first_name'     => ['sometimes', 'string', 'max:100', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'sex'            => ['sometimes', Rule::in(['male', 'female', 'other'])],
             'phone'          => ['sometimes', 'string', 'max:30'],
             'province'       => ['nullable', 'string', 'max:100'],

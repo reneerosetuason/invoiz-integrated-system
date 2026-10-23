@@ -12,7 +12,28 @@ return [
         'arrived_at_customer'  => ['delivered', 'delivery_failed'],
         'delivered'            => [],
         'delivery_failed'      => [],
+        'lost'                 => [],
+        'damaged'              => [],
+        'returned_to_seller'   => [],
         'cancelled'            => [],
+    ],
+
+    'exception_reasons' => [
+        'lost' => [
+            'Cannot locate parcel',
+            'Missing after sorting scan',
+            'Missing after rider handoff',
+            'Suspected theft',
+            'Other',
+        ],
+        'damaged' => [
+            'Damaged during transit',
+            'Damaged during sorting',
+            'Damaged packaging',
+            'Contents broken',
+            'Water damage',
+            'Other',
+        ],
     ],
 
     'failure_reasons' => [
@@ -53,6 +74,26 @@ return [
         'ttl_minutes' => 30,
         'max_attempts' => 5,
         'length' => 6,
+    ],
+
+    'dispatch' => [
+        // Rider GPS pings older than this are not used to recommend a rider.
+        // Stale/missing locations fall back to workload, then rider name.
+        'location_fresh_minutes' => 30,
+    ],
+
+    /*
+     * Operational alert thresholds, in minutes. These are configurable
+     * defaults (not contractual SLAs): change them per deployment without
+     * touching queries or views. Alerts are derived from live records, so an
+     * alert disappears as soon as the underlying condition is corrected.
+     */
+    'alerts' => [
+        'unassigned_after_minutes' => 120,
+        'incoming_after_minutes'   => 120,
+        'pickup_review_after_minutes' => 120,
+        'sorting_after_minutes'    => 240,
+        'failed_review_after_minutes' => 60,
     ],
 
     // Starter PSGC region dataset for the center-application address

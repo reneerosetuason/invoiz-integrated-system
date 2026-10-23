@@ -181,6 +181,26 @@ class LogisticsMessagingTest extends TestCase
         return $pdf."trailer\n<< /Size {$size} /Root 1 0 R >>\nstartxref\n{$xrefOffset}\n%%EOF";
     }
 
+    public function test_rider_web_message_page_uses_logistics_route_base(): void
+    {
+        $user = $this->riderUser();
+        $conversation = $this->riderConversation($user);
+        $this->logisticsMessage($conversation, $user, "Quote ' and \"double\"");
+
+        $html = $this->actingAs($user)
+            ->get(route('rider.messages'))
+            ->assertOk()
+            ->getContent();
+
+        $normalized = str_replace('\\/', '/', $html);
+
+        $this->assertStringContainsString('/logistics/rider/messages', $normalized);
+        $this->assertStringContainsString('base:', $normalized);
+        $this->assertStringContainsString('this.base', $normalized);
+        $this->assertStringNotContainsString("fetch('/rider/messages", $normalized);
+        $this->assertStringNotContainsString('fetch("/rider/messages', $normalized);
+    }
+
     public function test_rider_web_attachment_preview_authorizes_own_conversation_only(): void
     {
         Storage::fake('public');

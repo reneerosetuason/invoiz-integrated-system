@@ -36,7 +36,7 @@
 <label class="mb-1 block text-[13px] font-medium text-teal-dark" for="first_name">First name</label>
 <div class="relative">
 <svg class="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-<input id="first_name" name="first_name" value="{{ old('first_name', $google['first_name'] ?? '') }}" required placeholder="Juan" autocomplete="given-name" @if($errors->has('first_name')) aria-describedby="first_name-error" aria-invalid="true" @endif class="@if($errors->has('first_name')) field-error @endif">
+<input id="first_name" name="first_name" value="{{ old('first_name', $google['first_name'] ?? '') }}" required maxlength="50" placeholder="Juan" autocomplete="given-name" @if($errors->has('first_name')) aria-describedby="first_name-error" aria-invalid="true" @endif class="@if($errors->has('first_name')) field-error @endif">
 </div>
 <span class="bar" aria-hidden="true"></span>
 @if($errors->has('first_name'))
@@ -47,7 +47,7 @@
 <label class="mb-1 block text-[13px] font-medium text-teal-dark" for="last_name">Last name</label>
 <div class="relative">
 <svg class="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-<input id="last_name" name="last_name" value="{{ old('last_name', $google['last_name'] ?? '') }}" required placeholder="Dela Cruz" autocomplete="family-name" @if($errors->has('last_name')) aria-describedby="last_name-error" aria-invalid="true" @endif class="@if($errors->has('last_name')) field-error @endif">
+<input id="last_name" name="last_name" value="{{ old('last_name', $google['last_name'] ?? '') }}" required maxlength="50" placeholder="Dela Cruz" autocomplete="family-name" @if($errors->has('last_name')) aria-describedby="last_name-error" aria-invalid="true" @endif class="@if($errors->has('last_name')) field-error @endif">
 </div>
 <span class="bar" aria-hidden="true"></span>
 @if($errors->has('last_name'))

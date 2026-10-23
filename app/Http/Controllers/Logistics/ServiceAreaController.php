@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Logistics;
 
 use App\Models\ServiceArea;
 use App\Models\LogisticsCenter;
+use App\Support\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class ServiceAreaController extends Controller
@@ -52,7 +54,7 @@ class ServiceAreaController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, AuditLogger $audit): RedirectResponse
     {
         $validated = $request->validate([
             'logistics_center_id' => 'required|exists:logistics_centers,id',
@@ -60,7 +62,16 @@ class ServiceAreaController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
-        ServiceArea::create($validated);
+        $serviceArea = ServiceArea::create($validated);
+
+        $audit->record(
+            Auth::user(),
+            'service_area.created',
+            ServiceArea::class,
+            $serviceArea->id,
+            [],
+            $this->auditValues($serviceArea),
+        );
 
         return redirect()->route('service-areas.index')->with('success', 'Service area created successfully.');
     }
@@ -79,7 +90,7 @@ class ServiceAreaController extends Controller
         ]);
     }
 
-    public function update(Request $request, ServiceArea $serviceArea): RedirectResponse
+    public function update(Request $request, ServiceArea $serviceArea, AuditLogger $audit): RedirectResponse
     {
         $validated = $request->validate([
             'logistics_center_id' => 'required|exists:logistics_centers,id',
@@ -87,22 +98,62 @@ class ServiceAreaController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
+        $before = $this->auditValues($serviceArea);
         $serviceArea->update($validated);
+        $after = $this->auditValues($serviceArea->fresh());
+
+        if ($before !== $after) {
+            $audit->record(
+                Auth::user(),
+                'service_area.updated',
+                ServiceArea::class,
+                $serviceArea->id,
+                $before,
+                $after,
+            );
+        }
 
         return redirect()->route('service-areas.show', $serviceArea)->with('success', 'Service area updated successfully.');
     }
 
-    public function toggle(ServiceArea $serviceArea): RedirectResponse
+    public function toggle(ServiceArea $serviceArea, AuditLogger $audit): RedirectResponse
     {
+        $before = $this->auditValues($serviceArea);
         $serviceArea->update(['is_active' => !$serviceArea->is_active]);
         $label = $serviceArea->is_active ? 'activated' : 'deactivated';
+
+        $audit->record(
+            Auth::user(),
+            'service_area.' . $label,
+            ServiceArea::class,
+            $serviceArea->id,
+            $before,
+            $this->auditValues($serviceArea->fresh()),
+        );
+
         return redirect()->back()->with('success', "Service area {$label}.");
     }
 
-    public function destroy(ServiceArea $serviceArea): RedirectResponse
+    public function destroy(ServiceArea $serviceArea, AuditLogger $audit): RedirectResponse
     {
+        $values = $this->auditValues($serviceArea);
         $serviceArea->delete();
+
+        $audit->record(
+            Auth::user(),
+            'service_area.deleted',
+            ServiceArea::class,
+            $serviceArea->id,
+            $values,
+            [],
+        );
+
         return redirect()->route('service-areas.index')->with('success', 'Service area deleted.');
+    }
+
+    private function auditValues(ServiceArea $serviceArea): array
+    {
+        return $serviceArea->only(['logistics_center_id', 'name', 'description', 'is_active']);
     }
 }
 

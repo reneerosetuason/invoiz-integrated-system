@@ -8,7 +8,10 @@ use App\Models\CourierPickup;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
+use App\Models\PickupRequest;
 use App\Models\SellerNotification;
+use App\Services\ReturnToSellerService;
+use App\Support\Remittances;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -74,7 +77,7 @@ class OrderController extends Controller
             'address',
             'items',
             'payment',
-            'delivery',
+            'deliveries.statusLogs',
             'courierPickup',
             'orderVouchers.voucher',
             'statusHistories',
@@ -90,7 +93,43 @@ class OrderController extends Controller
         $order->seller_shipping_waived = $order->shippingWaivedForSeller($sellerId);
         $order->seller_net = $order->sellerNetForSeller($sellerId);
 
-        return view('seller.orders.show', compact('order'));
+        $sellerKeys = array_map('intval', Remittances::sellerKeys($sellerId));
+        $sellerDeliveries = $order->deliveries
+            ->filter(fn ($delivery) => in_array((int) $delivery->seller_id, $sellerKeys, true))
+            ->values();
+
+        $sellerDelivery = $sellerDeliveries->first();
+        $returnState = null;
+
+        if ($sellerDelivery) {
+            $returns = app(ReturnToSellerService::class);
+
+            foreach ($sellerDeliveries as $delivery) {
+                $state = $returns->state($delivery);
+                if ($state['state'] !== 'not_queued') {
+                    $sellerDelivery = $delivery;
+                    $returnState = $state;
+                    break;
+                }
+            }
+
+            $returnState ??= $returns->state($sellerDelivery);
+        }
+
+        $order->setRelation('delivery', $sellerDelivery);
+
+        return view('seller.orders.show', compact('order', 'returnState'));
+    }
+
+    public function confirmReturn(Request $request, Delivery $delivery, ReturnToSellerService $returns)
+    {
+        $validated = $request->validate([
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $returns->confirm($delivery, $request->user(), $validated['note'] ?? null);
+
+        return back()->with('success', 'Returned parcel confirmed. Stock has been restored once for this return.');
     }
 
     public function updateStatus(Request $request, $id)
@@ -216,6 +255,7 @@ class OrderController extends Controller
 
         if (! $delivery) {
             $delivery = Delivery::create(['order_id' => $order->id]);
+            PickupRequest::openForDelivery($delivery);
         }
 
         if ($target === 'out_for_delivery') {

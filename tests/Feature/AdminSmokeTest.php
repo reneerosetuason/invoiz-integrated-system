@@ -13,15 +13,19 @@ use App\Models\WithdrawalRequest;
 use App\Models\PaymentDispute;
 use App\Models\CommissionRate;
 use Database\Seeders\DatabaseSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class AdminSmokeTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function seedData(): void
     {
+        if (User::where('is_admin', true)->exists()) {
+            return;
+        }
+
         $this->seed(DatabaseSeeder::class);
     }
 
@@ -226,13 +230,14 @@ class AdminSmokeTest extends TestCase
         $this->actingAs($admin)
             ->post("/admin/sellers/{$seller->id}/suspend")
             ->assertRedirect();
-        $this->assertEquals('suspended', $seller->fresh()->status);
+        $this->assertEquals('inactive', $seller->fresh()->status);
         $this->assertEquals('suspended', $seller->user->fresh()->account_status);
 
         $this->actingAs($admin)
             ->post("/admin/sellers/{$seller->id}/reinstate")
             ->assertRedirect();
-        $this->assertEquals('approved', $seller->fresh()->status);
+        $this->assertEquals('active', $seller->fresh()->status);
+        $this->assertEquals('approved', $seller->fresh()->approval_status);
         $this->assertEquals('active', $seller->user->fresh()->account_status);
     }
 
@@ -251,7 +256,8 @@ class AdminSmokeTest extends TestCase
         $this->actingAs($admin)
             ->post("/admin/sellers/{$seller->id}/approve")
             ->assertRedirect();
-        $this->assertEquals('approved', $seller->fresh()->status);
+        $this->assertEquals('approved', $seller->fresh()->approval_status);
+        $this->assertEquals('active', $seller->fresh()->status);
     }
 
     public function test_settings_page_renders_all_sections(): void

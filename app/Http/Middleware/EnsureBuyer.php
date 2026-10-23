@@ -19,7 +19,7 @@ class EnsureBuyer
 
         $hasApprovedStore = $user->canSell();
 
-        if ((! $user->isBuyer() && ! $hasApprovedStore) || ! $user->isActive()) {
+        if (! $user->canUseBuyerArea() || ! $user->isActive()) {
             Auth::logout();
             return redirect('/login');
         }

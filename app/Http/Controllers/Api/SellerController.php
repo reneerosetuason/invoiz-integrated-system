@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Seller;
+use App\Rules\BusinessName;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -26,8 +28,10 @@ class SellerController extends Controller
             ], 422);
         }
 
+        $request->merge(['business_name' => NameNormalizer::clean((string) $request->input('business_name'))]);
+
         $validated = $request->validate([
-            'business_name'    => ['required', 'string', 'max:150'],
+            'business_name'    => ['required', 'string', 'max:150', new BusinessName()],
             'line_of_business' => ['required', 'string', 'max:100'],
             'id_image'         => ['nullable', 'image', 'max:5120'],
             'business_permit'  => ['nullable', 'image', 'max:5120'],

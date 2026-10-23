@@ -2,6 +2,7 @@
 
 namespace App\Models\Logistics;
 
+use App\Models\Delivery;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;

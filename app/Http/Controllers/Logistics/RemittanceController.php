@@ -3,8 +3,13 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Models\Remittance;
+use App\Models\User;
+use App\Support\Cod;
+use App\Support\CsvExport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Read-only COD remittance oversight (rider -> seller cash handoffs).
@@ -15,27 +20,83 @@ use Illuminate\View\View;
  */
 class RemittanceController extends Controller
 {
+    public function export(Request $request): StreamedResponse
+    {
+        $user = $request->user();
+        $base = $this->baseQuery($user);
+
+        $status = $request->query('status');
+        if (in_array($status, ['pending', 'sent', 'confirmed'], true)) {
+            $base->where('status', $status);
+        }
+
+        $rows = $base
+            ->with([
+                'delivery.transaction',
+                'delivery.logisticsCenter',
+                'delivery.destinationCenter',
+                'rider',
+                'order',
+            ])
+            ->latest()
+            ->lazy(500)
+            ->map(function (Remittance $remittance): array {
+                $info = Cod::reconcile($remittance);
+                $delivery = $remittance->delivery;
+
+                return [
+                    $remittance->order?->order_number ?? ($remittance->order_id ? '#' . $remittance->order_id : ''),
+                    $delivery?->tracking_number,
+                    $remittance->rider?->name,
+                    $delivery?->logisticsCenter?->name,
+                    $delivery?->destinationCenter?->name,
+                    $remittance->status,
+                    $info['expected'],
+                    $info['received'],
+                    $info['rider_fee'],
+                    $info['seller_amount'],
+                    $info['variance'],
+                    $info['state'],
+                    $remittance->sent_at?->format('Y-m-d H:i:s'),
+                    $remittance->confirmed_at?->format('Y-m-d H:i:s'),
+                    $remittance->created_at?->format('Y-m-d H:i:s'),
+                ];
+            });
+
+        return CsvExport::stream(
+            'invoiz-logistics-cod-remittances-' . now()->format('Y-m-d') . '.csv',
+            [
+                'Order Number',
+                'Tracking Number',
+                'Rider',
+                'Origin Center',
+                'Destination Center',
+                'Remittance Status',
+                'COD To Collect',
+                'Cash Collected',
+                'Rider Fee',
+                'For Seller',
+                'Variance',
+                'Reconciliation State',
+                'Sent At',
+                'Confirmed At',
+                'Created At',
+            ],
+            $rows,
+            $user,
+            'logistics.remittances',
+            [
+                'status' => in_array($status, ['pending', 'sent', 'confirmed'], true) ? $status : null,
+                'center_scope' => ($user->isLogisticsAdmin() ? 'global' : (int) ($user->center_id ?? 0)),
+            ]
+        );
+    }
+
     public function index(Request $request): View
     {
         $user = $request->user();
 
-        $base = Remittance::query();
-
-        // Center isolation for non-admins: a remittance belongs to a center
-        // when its delivery was handled by that center or its rider is based
-        // there. Admins are unrestricted.
-        if (! $user->isAdmin() && $user->center_id) {
-            $centerId = (int) $user->center_id;
-
-            $base->where(function ($query) use ($centerId) {
-                $query->whereHas('delivery', function ($delivery) use ($centerId) {
-                    $delivery->where(function ($scope) use ($centerId) {
-                        $scope->where('center_id', $centerId)
-                            ->orWhere('destination_center_id', $centerId);
-                    });
-                })->orWhereHas('rider', fn ($rider) => $rider->where('center_id', $centerId));
-            });
-        }
+        $base = $this->baseQuery($user);
 
         $status = $request->query('status');
 
@@ -51,15 +112,51 @@ class RemittanceController extends Controller
         ];
 
         $remittances = (clone $base)
-            ->with(['delivery', 'rider', 'order'])
+            ->with(['delivery.transaction', 'rider', 'order'])
             ->latest()
             ->paginate(20)
             ->withQueryString();
+
+        $reconciliation = $remittances->getCollection()
+            ->mapWithKeys(fn (Remittance $remittance) => [
+                $remittance->id => Cod::reconcile($remittance),
+            ]);
 
         return view('logistics.remittances.index', [
             'remittances' => $remittances,
             'totals' => $totals,
             'status' => $status,
+            'reconciliation' => $reconciliation,
         ]);
+    }
+
+    private function baseQuery(User $user): Builder
+    {
+        $query = Remittance::query();
+
+        // Global logistics admins are unrestricted. Every other logistics
+        // account is center-scoped, including accounts with no center: those
+        // accounts must see no rows rather than every center's cash.
+        if ($user->isLogisticsAdmin()) {
+            return $query;
+        }
+
+        if (! $user->isLogisticsStaff()) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $centerId = (int) ($user->center_id ?? 0);
+        if ($centerId <= 0) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($scope) use ($centerId) {
+            $scope->whereHas('delivery', function ($delivery) use ($centerId) {
+                $delivery->where(function ($deliveryScope) use ($centerId) {
+                    $deliveryScope->where('center_id', $centerId)
+                        ->orWhere('destination_center_id', $centerId);
+                });
+            })->orWhereHas('rider', fn ($rider) => $rider->where('center_id', $centerId));
+        });
     }
 }

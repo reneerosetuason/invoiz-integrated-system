@@ -13,6 +13,9 @@
         'arrived_at_customer'  => ['bg-violet-50 text-violet-700 ring-violet-200', 'Arrived at Customer'],
         'delivered'            => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Delivered'],
         'delivery_failed'      => ['bg-red-50 text-red-700 ring-red-200', 'Delivery Failed'],
+        'lost'                 => ['bg-red-100 text-red-800 ring-red-300', 'Lost'],
+        'damaged'              => ['bg-orange-50 text-orange-700 ring-orange-200', 'Damaged'],
+        'returned_to_seller'   => ['bg-slate-100 text-slate-700 ring-slate-200', 'Returned to Seller'],
         'cancelled'            => ['bg-gray-100 text-gray-600 ring-gray-200', 'Cancelled'],
         // rider statuses
         'available'            => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Available'],

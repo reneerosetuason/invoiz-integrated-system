@@ -137,6 +137,32 @@
                 </template>
             </div>
 
+            {{-- Registered parcels awaiting scan: gives the operator a valid
+                 tracking number to test manual entry with, and a clear empty
+                 state when nothing is ready at this center. --}}
+            <div x-show="!result" x-cloak class="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
+                <div class="flex items-center justify-between gap-3 mb-2">
+                    <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Parcels Awaiting Scan</h3>
+                    <span class="text-[11px] text-gray-400">{{ $awaitingScan->count() }} shown</span>
+                </div>
+                @if($awaitingScan->isEmpty())
+                    <p class="text-sm text-gray-500">No parcels are awaiting scan right now. Receive a parcel at your center first, then scan it or enter its tracking number.</p>
+                @else
+                    <p class="text-xs text-gray-500 mb-2">Choose a registered parcel to fill the manual entry field:</p>
+                    <ul class="space-y-1.5">
+                        @foreach($awaitingScan as $parcel)
+                            <li>
+                                <button type="button" @click="formCode = @js($parcel->tracking_number); $refs.manualCode.focus()"
+                                        class="w-full flex items-center justify-between gap-3 rounded-xl bg-white border border-gray-200 hover:border-teal px-3 py-2 text-left transition">
+                                    <span class="font-mono text-xs font-semibold text-gray-900">{{ $parcel->tracking_number }}</span>
+                                    <span class="text-xs text-gray-500 truncate">{{ $parcel->recipient_name ?: '—' }}</span>
+                                </button>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </div>
+
             {{-- Manual entry fallback --}}
             <div class="mt-auto">
                 <div class="flex items-center gap-2 mb-3">
@@ -148,6 +174,7 @@
                     <label for="manual_code" class="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
                     <div class="flex flex-col sm:flex-row gap-2">
                         <input type="text" id="manual_code" name="tracking_number"
+                               x-ref="manualCode"
                                x-model="formCode"
                                autocomplete="off" autocapitalize="characters" spellcheck="false"
                                placeholder="TRK-YYYYMMDD-XXXX"

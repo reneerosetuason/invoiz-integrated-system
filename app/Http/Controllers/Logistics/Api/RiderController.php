@@ -104,7 +104,7 @@ class RiderController extends Controller
             'to_pick_up' => (clone $query)->whereIn('status', ['accepted', 'going_to_pickup', 'arrived_at_shop'])->count(),
             'in_transit' => (clone $query)->whereIn('status', ['picked_up', 'out_for_delivery', 'arrived_at_customer'])->count(),
             'completed' => (clone $query)->where('status', 'delivered')->count(),
-            'failed' => (clone $query)->where('status', 'delivery_failed')->count(),
+            'failed' => (clone $query)->whereIn('status', ['delivery_failed', 'lost', 'damaged'])->count(),
         ];
 
         $todayEarnings = RiderEarning::where('rider_id', $rider->id)
@@ -169,7 +169,7 @@ class RiderController extends Controller
             'avatar' => $rider->avatar ? url('storage/' . $rider->avatar) : null,
             'total_deliveries' => $rider->deliveries_count,
             'completed_deliveries' => Delivery::where('rider_id', $rider->id)->where('status', 'delivered')->count(),
-            'failed_deliveries' => Delivery::where('rider_id', $rider->id)->where('status', 'delivery_failed')->count(),
+            'failed_deliveries' => Delivery::where('rider_id', $rider->id)->whereIn('status', ['delivery_failed', 'lost', 'damaged'])->count(),
             'documents' => $this->documentsPayload($rider),
         ];
     }
@@ -340,6 +340,8 @@ class RiderController extends Controller
             'arrived_at_customer' => 'Arrived at Customer',
             'delivered' => 'Delivered',
             'delivery_failed' => 'Delivery Failed',
+            'lost' => 'Parcel Lost',
+            'damaged' => 'Parcel Damaged',
             'cancelled' => 'Cancelled',
             default => ucwords(str_replace('_', ' ', $status)),
         };

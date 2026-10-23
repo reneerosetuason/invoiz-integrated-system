@@ -25,8 +25,18 @@ class TransactionController extends Controller
         $query = Transaction::with(['delivery', 'rider', 'logisticsCenter', 'serviceArea']);
 
         $user = Auth::user();
-        if ($user && $user->isLogisticsStaff() && $user->center_id) {
-            $query->where('logistics_center_id', $user->center_id);
+        $isCenterScoped = $user
+            && $user->isLogisticsStaff()
+            && ! $user->isAdmin()
+            && ! $user->isLogisticsAdmin();
+        $staffCenterId = $isCenterScoped ? (int) ($user->center_id ?? 0) : null;
+
+        if ($isCenterScoped) {
+            if ($staffCenterId === 0) {
+                $query->whereRaw('1 = 0');
+            } else {
+                $query->where('logistics_center_id', $staffCenterId);
+            }
         }
 
         if ($search !== '') {
@@ -49,7 +59,7 @@ class TransactionController extends Controller
             $query->whereDate('created_at', '<=', $dateTo);
         }
 
-        if ($centerId > 0) {
+        if (! $isCenterScoped && $centerId > 0) {
             $query->where('logistics_center_id', $centerId);
         }
 
@@ -63,10 +73,22 @@ class TransactionController extends Controller
             COALESCE(SUM(admin_commission), 0) as total_commission
         ')->first();
 
+        $centersQuery = LogisticsCenter::query();
+
+        if ($isCenterScoped) {
+            if ($staffCenterId === 0) {
+                $centersQuery->whereRaw('1 = 0');
+            } else {
+                $centersQuery->whereKey($staffCenterId);
+            }
+        } else {
+            $centersQuery->where('is_active', true);
+        }
+
         return view('logistics.transactions.index', [
             'transactions' => $transactions,
             'totals' => $totals,
-            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
+            'centers' => $centersQuery->orderBy('name')->get(),
         ]);
     }
 

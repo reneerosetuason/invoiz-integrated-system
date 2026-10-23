@@ -5,10 +5,16 @@
                 <h2 class="text-2xl font-bold text-gray-900 leading-tight">Sorting Center</h2>
                 <p class="mt-1 text-sm text-gray-500">Receive, scan, sort, and dispatch parcels — assignment happens on the delivery record</p>
             </div>
-            <a href="{{ route('deliveries.scan-page') }}"
-               class="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-teal px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-dark">
-                Scan Parcel
-            </a>
+            <div class="flex shrink-0 items-center gap-2">
+                <a href="{{ route('sorting-center.export', array_filter(['tab' => $tab !== 'all' ? $tab : null, 'search' => $search ?: null, 'center_id' => $centerId ?: null, 'service_area_id' => $serviceAreaId ?: null])) }}"
+                   class="inline-flex h-10 items-center justify-center rounded-lg border border-teal/30 bg-white px-4 text-sm font-semibold text-teal transition-colors hover:border-teal hover:text-teal-dark">
+                    Export CSV
+                </a>
+                <a href="{{ route('deliveries.scan-page') }}"
+                   class="inline-flex h-10 items-center justify-center rounded-lg bg-teal px-4 text-sm font-semibold text-white transition-colors hover:bg-teal-dark">
+                    Scan Parcel
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -93,6 +99,9 @@
                                             @if($hasReattemptRequestedAt && $delivery->reattempt_requested_at)
                                                 <span class="mt-1 inline-flex items-center whitespace-nowrap rounded-full bg-orange-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-orange-700 ring-1 ring-inset ring-orange-100">Re-attempt</span>
                                             @endif
+                                            @if(in_array($delivery->parcel_status, ['scanned', 'sorted'], true) && (!$delivery->destination_center_id || !$delivery->service_area_id))
+                                                <span class="mt-1 inline-flex items-center whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 ring-1 ring-inset ring-amber-100" title="Select a destination center and service area before dispatch.">Needs destination</span>
+                                            @endif
                                         </div>
                                     </td>
                                     <td class="px-4 py-4 align-middle text-sm leading-5 text-gray-500">
@@ -119,6 +128,24 @@
                                         <div class="flex items-center justify-end gap-2">
                                             <a href="{{ route('deliveries.show', $delivery) }}"
                                                class="inline-flex h-8 items-center justify-center rounded-lg border border-teal/30 px-3 text-xs font-semibold text-teal transition hover:border-teal hover:text-teal-dark">Open</a>
+                                            @php
+                                                $returnDispatched = $delivery->statusLogs->contains('status', 'return_dispatched_to_seller');
+                                                $returnReceived = $delivery->statusLogs->contains('status', 'return_received_by_seller');
+                                            @endphp
+                                            @if($delivery->returned_at && in_array($delivery->status, ['delivery_failed', 'damaged'], true))
+                                                @if($returnReceived)
+                                                    <span class="inline-flex h-8 items-center rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-100">Seller received</span>
+                                                @elseif($returnDispatched)
+                                                    <span class="inline-flex h-8 items-center rounded-lg bg-blue-50 px-3 text-xs font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">With seller</span>
+                                                @else
+                                                    <form method="POST" action="{{ route('deliveries.return-to-seller', $delivery) }}" class="inline-flex items-center gap-1">
+                                                        @csrf
+                                                        <input type="text" name="reference" maxlength="150" placeholder="Handoff ref"
+                                                               class="h-8 w-24 rounded-lg border border-gray-200 px-2 text-xs">
+                                                        <button type="submit" class="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700">Send to seller</button>
+                                                    </form>
+                                                @endif
+                                            @endif
                                             @if($delivery->parcel_status === 'pending_arrival')
                                                 @if($centers->isNotEmpty())
                                                     <form method="POST" action="{{ route('deliveries.receive', $delivery) }}" class="inline-flex items-center gap-1">

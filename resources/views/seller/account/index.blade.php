@@ -47,11 +47,11 @@
                     @csrf
                     <div>
                         <label class="field-label">First Name</label>
-                        <input type="text" name="first_name" value="{{ old('first_name', auth()->user()->first_name) }}" class="input" required>
+                        <input type="text" name="first_name" value="{{ old('first_name', auth()->user()->first_name) }}" class="input" required maxlength="100">
                     </div>
                     <div>
                         <label class="field-label">Last Name</label>
-                        <input type="text" name="last_name" value="{{ old('last_name', auth()->user()->last_name) }}" class="input" required>
+                        <input type="text" name="last_name" value="{{ old('last_name', auth()->user()->last_name) }}" class="input" required maxlength="100">
                     </div>
                     <div>
                         <label class="field-label">Middle Initial</label>

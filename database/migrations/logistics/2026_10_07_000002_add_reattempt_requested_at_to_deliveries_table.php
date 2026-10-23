@@ -19,7 +19,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('deliveries', function (Blueprint $table) {
-            $table->timestamp('reattempt_requested_at')->nullable();
+            if (! Schema::hasColumn('deliveries', 'reattempt_requested_at')) {
+                $table->timestamp('reattempt_requested_at')->nullable();
+            }
             if (! Schema::hasColumn('deliveries', 'returned_at')) {
                 $table->timestamp('returned_at')->nullable();
             }

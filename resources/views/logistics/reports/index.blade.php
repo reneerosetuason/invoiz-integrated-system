@@ -19,13 +19,19 @@
                 <h1 class="text-2xl font-bold text-gray-900">Reports</h1>
                 <p class="text-sm text-gray-500 mt-1">Operational and financial analytics</p>
             </div>
-            <a href="{{ route('reports.export', request()->query()) }}"
-               class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                </svg>
-                {{ $tab === 'all' ? 'Download Consolidated PDF' : 'Download PDF' }}
-            </a>
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ route('reports.export', request()->query()) }}"
+                   class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    {{ $tab === 'all' ? 'Download Consolidated PDF' : 'Download PDF' }}
+                </a>
+                <a href="{{ route('reports.export.csv', request()->query()) }}"
+                   class="inline-flex items-center gap-2 bg-white border border-teal/30 hover:border-teal hover:text-teal-dark text-teal font-semibold px-5 py-2.5 rounded-xl transition text-sm shadow-sm">
+                    Download CSV
+                </a>
+            </div>
         </div>
 
         {{-- Tabs --}}

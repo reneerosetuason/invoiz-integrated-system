@@ -18,9 +18,44 @@
             </div>
         </div>
 
+        {{-- Shipment date filter (LOG-DASH-003) --}}
+        <section class="bg-white rounded-2xl border border-gray-200 shadow-sm px-4 sm:px-5 py-3" aria-label="Shipment date filter">
+            <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-3">
+                {{-- Preserve the independent trends range across submissions. --}}
+                <input type="hidden" name="trends_range" value="{{ $trendsRange }}">
+                <div>
+                    <label for="date_from" class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider">From</label>
+                    <input id="date_from" type="date" name="date_from" value="{{ $dateFrom }}" max="{{ $dateTo }}"
+                        class="mt-1 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                </div>
+                <div>
+                    <label for="date_to" class="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider">To</label>
+                    <input id="date_to" type="date" name="date_to" value="{{ $dateTo }}" min="{{ $dateFrom }}"
+                        class="mt-1 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                </div>
+                <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-teal hover:bg-teal-dark shadow-sm transition">
+                    Apply
+                </button>
+                @if($dateFilterActive)
+                    <a href="{{ route('dashboard', ['trends_range' => $trendsRange]) }}" class="inline-flex items-center px-3 py-2 rounded-xl text-sm font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition">
+                        Clear
+                    </a>
+                @endif
+                <p class="text-xs text-gray-500 ml-auto">
+                    @if($dateFilterActive)
+                        Showing shipments created
+                        {{ $dateFrom ? 'from '.$dateFrom : '' }}{{ $dateFrom && $dateTo ? ' ' : '' }}{{ $dateTo ? 'to '.$dateTo : '' }}
+                        &middot; status counts and lists below are within this range.
+                    @else
+                        All-time counts. Filter by shipment date to narrow the status counts and lists below.
+                    @endif
+                </p>
+            </form>
+        </section>
+
         {{-- LEVEL 1 — Needs Attention (actionable problems first) --}}
         <section class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" aria-label="Items needing attention">
-            @php $attentionTotal = $needsAttention['waitingForRider'] + $needsAttention['failed'] + $needsAttention['processing']; @endphp
+            @php $attentionTotal = $needsAttention['waitingForRider'] + $needsAttention['failed'] + $needsAttention['processing'] + $needsAttention['pickups']; @endphp
             <div class="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center gap-2.5">
                 <span class="inline-flex items-center justify-center w-6 h-6 rounded-full {{ $attentionTotal > 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600' }}" aria-hidden="true">
                     @if($attentionTotal > 0)
@@ -44,7 +79,7 @@
                     <p class="text-sm text-gray-500 mt-1">No items require Logistics attention right now.</p>
                 </div>
             @else
-                <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
                     <a href="{{ route('deliveries.index', ['status' => 'waiting_for_rider']) }}" class="flex items-center justify-between gap-3 px-5 sm:px-6 py-5 border-l-4 border-l-amber-400 hover:bg-amber-50/40 transition group {{ $needsAttention['waitingForRider'] === 0 ? 'opacity-60' : '' }}">
                         <div>
                             <p class="text-sm font-semibold text-gray-900">Waiting for rider</p>
@@ -55,17 +90,17 @@
                             <p class="text-xs font-semibold text-teal group-hover:underline mt-1">View</p>
                         </div>
                     </a>
-                    <a href="{{ route('deliveries.index', ['status' => 'delivery_failed']) }}" class="flex items-center justify-between gap-3 px-5 sm:px-6 py-5 border-l-4 border-l-red-400 hover:bg-red-50/40 transition group {{ $needsAttention['failed'] === 0 ? 'opacity-60' : '' }}">
+                    <a href="{{ route('deliveries.index', ['status' => 'exceptions']) }}" class="flex items-center justify-between gap-3 px-5 sm:px-6 py-5 border-l-4 border-l-red-400 hover:bg-red-50/40 transition group {{ $needsAttention['failed'] === 0 ? 'opacity-60' : '' }}">
                         <div>
-                            <p class="text-sm font-semibold text-gray-900">Failed deliveries</p>
-                            <p class="text-xs text-gray-500 mt-0.5">Failed out for delivery</p>
+                            <p class="text-sm font-semibold text-gray-900">Failed / exceptions</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Failed, lost, or damaged</p>
                         </div>
                         <div class="text-right">
                             <span class="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded-lg bg-red-100 text-red-700 text-lg font-extrabold">{{ $needsAttention['failed'] }}</span>
                             <p class="text-xs font-semibold text-teal group-hover:underline mt-1">View</p>
                         </div>
                     </a>
-                    <a href="{{ route('deliveries.index', ['status' => 'waiting_for_rider']) }}" class="flex items-center justify-between gap-3 px-5 sm:px-6 py-5 border-l-4 border-l-teal hover:bg-teal-light/40 transition group {{ $needsAttention['processing'] === 0 ? 'opacity-60' : '' }}">
+                    <a href="{{ route('sorting-center.index') }}" class="flex items-center justify-between gap-3 px-5 sm:px-6 py-5 border-l-4 border-l-teal hover:bg-teal-light/40 transition group {{ $needsAttention['processing'] === 0 ? 'opacity-60' : '' }}">
                         <div>
                             <p class="text-sm font-semibold text-gray-900">Requires processing</p>
                             <p class="text-xs text-gray-500 mt-0.5">Parcels at center not yet dispatched</p>
@@ -75,11 +110,63 @@
                             <p class="text-xs font-semibold text-teal group-hover:underline mt-1">View</p>
                         </div>
                     </a>
+                    <a href="{{ route('pickup-requests.index', ['status' => 'pending']) }}" class="flex items-center justify-between gap-3 px-5 sm:px-6 py-5 border-l-4 border-l-violet-400 hover:bg-violet-50/40 transition group {{ $needsAttention['pickups'] === 0 ? 'opacity-60' : '' }}">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">Pickup reviews</p>
+                            <p class="text-xs text-gray-500 mt-0.5">Requests waiting for approval</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded-lg bg-violet-100 text-violet-700 text-lg font-extrabold">{{ $needsAttention['pickups'] }}</span>
+                            <p class="text-xs font-semibold text-teal group-hover:underline mt-1">Review</p>
+                        </div>
+                    </a>
                 </div>
             @endif
         </section>
 
         {{-- LEVEL 2 — Operations at a glance (primary KPIs) --}}
+        {{-- Operational alerts: derived live from unresolved conditions. --}}
+        @if(count($operationalAlerts) > 0)
+            <section class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden" aria-label="Operational alerts">
+                <div class="px-5 sm:px-6 py-4 border-b border-amber-100 flex items-center gap-2.5">
+                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700" aria-hidden="true">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                    </span>
+                    <h2 class="text-base font-bold text-gray-900">Operational alerts</h2>
+                    <span class="ml-auto inline-flex items-center px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-xs font-bold">{{ $alertTotal }} flagged</span>
+                </div>
+                <ul class="divide-y divide-gray-100">
+                    @foreach($operationalAlerts as $alert)
+                        @php
+                            $tone = match ($alert['severity']) {
+                                'danger' => ['bg-red-500', 'text-red-700', 'bg-red-50'],
+                                'warning' => ['bg-amber-500', 'text-amber-700', 'bg-amber-50'],
+                                default => ['bg-sky-500', 'text-sky-700', 'bg-sky-50'],
+                            };
+                        @endphp
+                        <li>
+                            <a href="{{ $alert['url'] }}" class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-5 sm:px-6 py-4 hover:bg-gray-50 transition">
+                                <span class="flex items-center gap-2 min-w-0 sm:w-64">
+                                    <span class="h-2 w-2 rounded-full flex-shrink-0 {{ $tone[0] }}" aria-hidden="true"></span>
+                                    <span class="text-sm font-semibold text-gray-900 truncate">{{ $alert['title'] }}</span>
+                                </span>
+                                <span class="text-sm text-gray-500 flex-1 min-w-0">
+                                    {{ $alert['description'] }}
+                                    @if($alert['oldest'])
+                                        <span class="text-xs text-gray-400">Oldest {{ $alert['oldest']->diffForHumans() }}.</span>
+                                    @endif
+                                </span>
+                                <span class="inline-flex items-center gap-2 flex-shrink-0">
+                                    <span class="inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-lg text-xs font-extrabold {{ $tone[1] }} {{ $tone[2] }}">{{ $alert['count'] }}</span>
+                                    <span class="text-xs font-semibold text-teal">{{ $alert['action'] }}</span>
+                                </span>
+                            </a>
+                        </li>
+                    @endforeach
+                </ul>
+            </section>
+        @endif
+
         <section aria-label="Operations at a glance">
             @php $completionRate = $deliveries['total'] > 0 ? (int) round($deliveries['delivered'] / $deliveries['total'] * 100) : 0; @endphp
             <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Operations at a glance</p>
@@ -87,7 +174,7 @@
                 <a href="{{ route('deliveries.index') }}" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 hover:shadow-md hover:border-teal/30 transition">
                     <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Deliveries</p>
                     <p class="mt-1 text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900">{{ $deliveries['total'] }}</p>
-                    <p class="text-xs text-gray-500 mt-1">All time</p>
+                    <p class="text-xs text-gray-500 mt-1">{{ $dateFilterActive ? 'Selected date range' : 'All time' }}</p>
                 </a>
                 <a href="{{ route('deliveries.index', ['status' => 'delivered']) }}" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 hover:shadow-md hover:border-emerald-300 transition">
                     <div class="flex items-center justify-between gap-2">
@@ -105,9 +192,9 @@
                     <p class="mt-1 text-3xl sm:text-4xl font-extrabold tracking-tight text-gray-900">{{ $deliveries['waiting_for_rider'] }}</p>
                     <p class="text-xs text-amber-600 font-medium mt-1">Needs dispatch</p>
                 </a>
-                <a href="{{ route('deliveries.index', ['status' => 'delivery_failed']) }}" class="bg-white rounded-2xl border {{ $deliveries['failed'] > 0 ? 'border-red-200 ring-1 ring-red-100' : 'border-gray-100' }} shadow-sm p-5 sm:p-6 hover:shadow-md hover:border-red-300 transition">
+                <a href="{{ route('deliveries.index', ['status' => 'exceptions']) }}" class="bg-white rounded-2xl border {{ $deliveries['failed'] > 0 ? 'border-red-200 ring-1 ring-red-100' : 'border-gray-100' }} shadow-sm p-5 sm:p-6 hover:shadow-md hover:border-red-300 transition">
                     <div class="flex items-center justify-between gap-2">
-                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Delivery Failed</p>
+                        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Exceptions</p>
                         <span class="h-2.5 w-2.5 rounded-full flex-shrink-0 {{ $deliveries['failed'] > 0 ? 'bg-red-500 motion-safe:animate-pulse' : 'bg-gray-300' }}" aria-hidden="true"></span>
                     </div>
                     <p class="mt-1 text-3xl sm:text-4xl font-extrabold tracking-tight {{ $deliveries['failed'] > 0 ? 'text-red-600' : 'text-gray-900' }}">{{ $deliveries['failed'] }}</p>
@@ -122,6 +209,15 @@
                     <p class="text-xs text-gray-500 mt-1">of {{ $riders['total'] }} total riders · Available now</p>
                 </a>
             </div>
+            {{-- Today's activity is deliberately separate from all-time KPIs. --}}
+            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-gray-100 bg-white px-4 py-2.5 text-xs text-gray-500 shadow-sm">
+                <span class="font-semibold text-gray-700">Today</span>
+                <span>Created <span class="font-bold text-gray-900">{{ $todayCounts['created'] }}</span></span>
+                <span>Delivered <span class="font-bold text-emerald-600">{{ $todayCounts['delivered'] }}</span></span>
+                <span>Failed <span class="font-bold {{ $todayCounts['failed'] > 0 ? 'text-red-600' : 'text-gray-900' }}">{{ $todayCounts['failed'] }}</span></span>
+                <span class="ml-auto text-gray-400">{{ $dateFilterActive ? 'Totals above are filtered by the selected shipment dates.' : 'All-time totals are shown above.' }}</span>
+            </div>
+
             {{-- Secondary delivery statuses (compact) --}}
             <div class="mt-3 grid grid-cols-2 gap-3">
                 <a href="{{ route('deliveries.index', ['status' => 'assigned']) }}" class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-3 flex items-center justify-between gap-3 hover:border-blue-300 transition">
@@ -1059,7 +1155,7 @@
             statusClass(raw) {
                 // Mini-pill hues mirror the canonical status badge so the same
                 // status reads identically in both places.
-                const map = { 'waiting_for_rider':'bg-amber-100 text-amber-700', 'assigned':'bg-blue-100 text-blue-700', 'accepted':'bg-cyan-100 text-cyan-700', 'going_to_pickup':'bg-sky-100 text-sky-700', 'arrived_at_shop':'bg-sky-100 text-sky-700', 'picked_up':'bg-indigo-100 text-indigo-700', 'out_for_delivery':'bg-purple-100 text-purple-700', 'arrived_at_customer':'bg-violet-100 text-violet-700', 'delivered':'bg-emerald-100 text-emerald-700', 'delivery_failed':'bg-red-100 text-red-700', 'cancelled':'bg-gray-100 text-gray-600' };
+                const map = { 'waiting_for_rider':'bg-amber-100 text-amber-700', 'assigned':'bg-blue-100 text-blue-700', 'accepted':'bg-cyan-100 text-cyan-700', 'going_to_pickup':'bg-sky-100 text-sky-700', 'arrived_at_shop':'bg-sky-100 text-sky-700', 'picked_up':'bg-indigo-100 text-indigo-700', 'out_for_delivery':'bg-purple-100 text-purple-700', 'arrived_at_customer':'bg-violet-100 text-violet-700', 'delivered':'bg-emerald-100 text-emerald-700', 'delivery_failed':'bg-red-100 text-red-700', 'lost':'bg-red-100 text-red-800', 'damaged':'bg-orange-100 text-orange-700', 'returned_to_seller':'bg-slate-100 text-slate-700', 'cancelled':'bg-gray-100 text-gray-600' };
                 return map[raw] || 'bg-gray-100 text-gray-600';
             }
         }

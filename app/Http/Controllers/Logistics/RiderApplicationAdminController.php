@@ -191,7 +191,7 @@ class RiderApplicationAdminController extends Controller
     public function reject(Request $request, RiderApplication $application): RedirectResponse
     {
         $validated = $request->validate([
-            'reason' => 'required|string|max:2000',
+            'reason' => 'required|string|min:10|max:300',
         ]);
 
         $admin = $request->user();

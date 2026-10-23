@@ -35,6 +35,10 @@ if (! function_exists('delivery_status_label')) {
             'out_for_delivery'  => 'Out for Delivery',
             'delivered'         => 'Delivered',
             'failed'            => 'Delivery Failed',
+            'delivery_failed'   => 'Delivery Failed',
+            'lost'              => 'Lost',
+            'damaged'           => 'Damaged',
+            'returned_to_seller' => 'Returned to Seller',
             default             => ucfirst($status),
         };
     }

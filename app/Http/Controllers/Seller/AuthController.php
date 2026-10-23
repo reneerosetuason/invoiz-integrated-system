@@ -51,6 +51,15 @@ class AuthController extends Controller
                 ])->onlyInput('email');
             }
 
+            if (! $user->isActive()) {
+                Auth::logout();
+                $request->session()->invalidate();
+
+                return back()->withErrors([
+                    'email' => 'Your account is not active. Please contact the administrator.',
+                ])->onlyInput('email');
+            }
+
             if (! $user->seller) {
                 Auth::logout();
                 $request->session()->invalidate();

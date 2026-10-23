@@ -19,6 +19,10 @@ class Delivery extends Model
         'arrived_at_customer',
     ];
 
+    public const EXCEPTION_STATUSES = ['lost', 'damaged'];
+
+    public const RETURN_TO_SELLER_STATUSES = ['delivery_failed', 'damaged'];
+
     protected $fillable = [
         'tracking_number',
         'order_id',
@@ -133,14 +137,35 @@ class Delivery extends Model
         });
 
         static::saving(function (Delivery $delivery): void {
-            if ($delivery->isDirty('status') && $delivery->status === 'picked_up') {
-                $pickupRequest = $delivery->pickupRequest()->first();
-                if ($pickupRequest && $pickupRequest->status !== 'completed') {
-                    $pickupRequest->update([
-                        'status' => 'completed',
-                        'reviewed_at' => now(),
-                    ]);
-                }
+            // The pickup request is operationally complete as soon as the
+            // parcel has been picked up. Checking the timestamp/status (not
+            // only the transition to "picked_up") also repairs rows saved
+            // directly into a later status, which previously left a stale
+            // "pending" request driving the sidebar badge forever.
+            $reachedPickup = $delivery->picked_up_at !== null
+                || in_array($delivery->status, ['picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered'], true);
+
+            // Cancellation closes only an unreviewed pickup: there is no
+            // parcel left to review. Approved, rejected and completed
+            // decisions are preserved, including after pickup.
+            $closedByCancellation = $delivery->status === 'cancelled';
+
+            if (! $reachedPickup && ! $closedByCancellation) {
+                return;
+            }
+
+            $pickupRequest = $delivery->pickupRequest()->first();
+
+            // Reaching pickup may complete pending or approved requests, but
+            // must never overwrite a reviewed rejection or an existing
+            // completion. Cancellation only closes a pending request.
+            $completableStatuses = $closedByCancellation ? ['pending'] : ['pending', 'approved'];
+
+            if ($pickupRequest && in_array($pickupRequest->status, $completableStatuses, true)) {
+                $pickupRequest->update([
+                    'status' => 'completed',
+                    'reviewed_at' => now(),
+                ]);
             }
         });
     }

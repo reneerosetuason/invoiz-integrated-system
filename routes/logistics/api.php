@@ -75,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/deliveries/{delivery}/sorting-center-pickup', [RiderDeliveryController::class, 'sortingCenterPickup']);
         Route::post('/deliveries/{delivery}/complete', [RiderDeliveryController::class, 'complete']);
         Route::post('/deliveries/{delivery}/failed', [RiderDeliveryController::class, 'failed']);
+        Route::post('/deliveries/{delivery}/exception', [RiderDeliveryController::class, 'reportException']);
         Route::post('/deliveries/{delivery}/reattempt', [RiderDeliveryController::class, 'requestReattempt']);
         Route::post('/deliveries/{delivery}/return-to-center', [RiderDeliveryController::class, 'returnToCenter']);
 

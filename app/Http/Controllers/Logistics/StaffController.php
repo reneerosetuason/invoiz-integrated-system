@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Logistics;
 
 use App\Models\User;
 use App\Models\LogisticsCenter;
+use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
+use App\Support\NameNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -19,7 +21,7 @@ class StaffController extends Controller
         $search = trim((string) $request->query('search', ''));
         $centerId = (int) $request->query('center_id', 0);
 
-        $query = User::where('role', 'staff')->with('logisticsCenter');
+        $query = User::whereIn('role', ['staff', 'logistics_staff'])->with('logisticsCenter');
 
         if ($search !== '') {
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
@@ -51,10 +53,12 @@ class StaffController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->normalizeNameInput($request);
+
         $validated = $request->validate([
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'middle_initial' => 'nullable|string|max:10',
+            'first_name' => ['required', 'string', 'max:100', new PersonName()],
+            'last_name' => ['required', 'string', 'max:100', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'sex' => 'required|in:male,female,other',
             'email' => 'required|email|max:150|unique:users,email',
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
@@ -79,12 +83,15 @@ class StaffController extends Controller
 
     public function show(User $staff): View
     {
+        $this->ensureStaffAccount($staff);
         $staff->load('logisticsCenter');
         return view('logistics.staff.show', ['staff' => $staff]);
     }
 
     public function edit(User $staff): View
     {
+        $this->ensureStaffAccount($staff);
+
         return view('logistics.staff.edit', [
             'staff' => $staff,
             'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
@@ -93,10 +100,14 @@ class StaffController extends Controller
 
     public function update(Request $request, User $staff): RedirectResponse
     {
+        $this->ensureStaffAccount($staff);
+
+        $this->normalizeNameInput($request);
+
         $validated = $request->validate([
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'middle_initial' => 'nullable|string|max:10',
+            'first_name' => ['required', 'string', 'max:100', new PersonName()],
+            'last_name' => ['required', 'string', 'max:100', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'sex' => 'required|in:male,female,other',
             'email' => 'required|email|max:150|unique:users,email,' . $staff->id,
             'phone' => ['required', new PhilippinePhone],
@@ -116,14 +127,34 @@ class StaffController extends Controller
 
     public function destroy(User $staff): RedirectResponse
     {
+        $this->ensureStaffAccount($staff);
         $staff->update(['status' => 'inactive']);
         return redirect()->route('staff.index')->with('success', 'Staff account deactivated.');
     }
 
     public function activate(User $staff): RedirectResponse
     {
+        $this->ensureStaffAccount($staff);
         $staff->update(['status' => 'active']);
         return redirect()->route('staff.show', $staff)->with('success', 'Staff account activated.');
+    }
+
+    /**
+     * Staff management is scoped to logistics staff accounts. Route-model
+     * binding accepts any user id, so guard every mutating action against a
+     * buyer/seller/admin being edited through the staff resource.
+     */
+    private function normalizeNameInput(Request $request): void
+    {
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['first_name', 'last_name', 'middle_initial']),
+            ['first_name', 'last_name', 'middle_initial']
+        ));
+    }
+
+    private function ensureStaffAccount(User $staff): void
+    {
+        abort_unless(in_array($staff->role, ['staff', 'logistics_staff'], true), 404);
     }
 }
 

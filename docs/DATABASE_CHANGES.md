@@ -1,5 +1,9 @@
 # Invoize — Rider App Database Changes
 
+> **Status: historical snapshot.** Some endpoint names, schema details, and
+> seed-account notes below are outdated. Use the current migrations, routes,
+> and `README-INTEGRATED.md` for account and authorization decisions.
+>
 > **Scope:** `invoizdb` (MySQL 8)
 > **Date:** 2026-08-19
 > **SQL file:** [`database/changes/2026_08_19_invoize_rider.sql`](../database/changes/2026_08_19_invoize_rider.sql)
@@ -19,14 +23,10 @@
 | `is_online` | boolean   | `false` | Rider availability switch (online/offline) |
 | `avatar`    | varchar   | null    | Profile photo path (stored in `storage/`)  |
 
-> Existing riders are linked to `users` accounts (`riders.user_id`) with
-> `role = 'rider'` so they can log in to the mobile app.
-> **Seeder logins** (password = `password`):
-> - `ahmad@riders.com`
-> - `siti@riders.com`
-> - `ali@riders.com`
-> - `fatimah@riders.com`
-> - `hassan@riders.com`
+> Existing riders are linked to `users` accounts (`riders.user_id`) so they can
+> log in to the mobile app. Use the current provisioning flows (rider
+> application approval) for production accounts; local/demo seed credentials
+> must not be committed to shared documentation.
 
 ### `deliveries` (delivery / shipment)
 

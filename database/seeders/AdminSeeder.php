@@ -10,8 +10,21 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $email = env('ADMIN_SEED_EMAIL', 'cmiavenus@gmail.com');
-        $password = env('ADMIN_SEED_PASSWORD', 'skyler091101');
+        $isLocal = app()->environment(['local', 'testing']);
+
+        $email = env('ADMIN_SEED_EMAIL');
+        $password = env('ADMIN_SEED_PASSWORD');
+
+        if (! $isLocal && (! $email || ! $password)) {
+            $this->command?->warn('AdminSeeder skipped: set ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD.');
+
+            return;
+        }
+
+        if ($isLocal) {
+            $email ??= 'admin@invoiz.test';
+            $password ??= substr(hash('sha256', (string) config('app.key').'|admin-seed'), 0, 32);
+        }
 
         // Compatible with shared invoizdb schema (buyer/seller apps require
         // first_name, last_name, sex, phone, birthday, age as NOT NULL).

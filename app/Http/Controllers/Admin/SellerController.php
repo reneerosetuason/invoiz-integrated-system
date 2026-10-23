@@ -66,11 +66,14 @@ class SellerController extends Controller
             $seller->save();
 
             if ($seller->user) {
-                $seller->user->role = 'seller';
-                $seller->user->approval_status = 'approved';
-                $seller->user->account_status = 'active';
-                $seller->user->status = 'active';
-                $seller->user->save();
+                $user = $seller->user;
+
+                if (! $user->isAdmin() && ! $user->isLogisticsStaff() && ! $user->hasApprovedRiderProfile()) {
+                    $user->role = 'seller';
+                }
+
+                $user->approval_status = 'approved';
+                $user->save();
             }
         });
 
@@ -111,7 +114,7 @@ class SellerController extends Controller
             $seller->save();
 
             if ($seller->user && $seller->user->role === 'seller') {
-                $seller->user->approval_status = 'rejected';
+                $seller->user->approval_status = 'approved';
                 $seller->user->save();
             }
         });

@@ -11,6 +11,7 @@ use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -86,75 +87,87 @@ class CenterApplicationAdminController extends Controller
 
         $password = $validated['password'] ?? Str::random(12);
 
-        $center = LogisticsCenter::create([
-            'name' => $application->business_name,
-            'address' => $application->composedAddress(),
-            'city' => $application->municipality ?: '',
-            'province' => $application->province,
-            'phone' => $application->phone,
-            'is_active' => true,
-        ]);
+        [$application, $keepLogin] = DB::transaction(function () use ($application, $validated, $admin, $password): array {
+            $application = LogisticsCenterApplication::query()
+                ->whereKey($application->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $first = trim((string) ($application->owner_first_name ?? ''));
-        $middle = trim((string) ($application->owner_middle_name ?? ''));
-        $last = trim((string) ($application->owner_last_name ?? ''));
-        if ($first === '' || $last === '') {
-            // Legacy single-field rows (and mobile API submissions): split it.
-            $nameParts = array_values(array_filter(array_map('trim', explode(' ', $application->owner_name ?? ''))));
-            $first = $first !== '' ? $first : ($nameParts[0] ?? $application->displayOwnerName());
-            $last = $last !== '' ? $last : ($nameParts[1] ?? $application->displayOwnerName());
-        }
+            abort_unless($application->status === 'pending', 422, 'Only pending applications can be approved.');
 
-        $user = User::where('email', $application->email)->first();
-        // Never strand an existing account: marketplace/admin logins are
-        // preserved (one email keeps working everywhere); only the center
-        // assignment is added. Brand-new applicants get a staff login with
-        // mailed credentials as before.
-        $keepLogin = $user && $user->keepsOwnLogin();
-        if (! $user) {
-            $user = User::create([
-                'name' => $application->displayOwnerName(),
-                'first_name' => $first,
-                'last_name' => $last,
-                'middle_initial' => $middle !== '' ? mb_strtoupper(mb_substr($middle, 0, 1)) : null,
-                'email' => $application->email,
+            $center = LogisticsCenter::create([
+                'name' => $application->business_name,
+                'address' => $application->composedAddress(),
+                'city' => $application->municipality ?: '',
+                'province' => $application->province,
                 'phone' => $application->phone,
-                'birthday' => '1970-01-01',
-                'age' => 0,
-                'password' => Hash::make($password),
-                'role' => 'logistics_staff',
-                'status' => 'active',
-                'center_id' => $center->id,
-                'email_verified_at' => now(),
+                'is_active' => true,
             ]);
-        } else {
-            $update = [
-                'status' => 'active',
-                'center_id' => $center->id,
-            ];
-            if (! $keepLogin) {
-                $update['role'] = 'logistics_staff';
-                $update['password'] = Hash::make($password);
+
+            $first = trim((string) ($application->owner_first_name ?? ''));
+            $middle = trim((string) ($application->owner_middle_name ?? ''));
+            $last = trim((string) ($application->owner_last_name ?? ''));
+            if ($first === '' || $last === '') {
+                // Legacy single-field rows (and mobile API submissions): split it.
+                $nameParts = array_values(array_filter(array_map('trim', explode(' ', $application->owner_name ?? ''))));
+                $first = $first !== '' ? $first : ($nameParts[0] ?? $application->displayOwnerName());
+                $last = $last !== '' ? $last : ($nameParts[1] ?? $application->displayOwnerName());
             }
-            $user->update($update);
-        }
 
-        $application->update([
-            'status' => 'approved',
-            'reviewed_at' => now(),
-            'approved_by' => $admin->id,
-            'provisioned_at' => now(),
-            'notes' => $validated['notes'] ?? $application->notes,
-        ]);
+            $user = User::where('email', $application->email)->first();
+            // Never strand an existing account: marketplace/admin logins are
+            // preserved (one email keeps working everywhere); only the center
+            // assignment is added. Brand-new applicants get a staff login with
+            // mailed credentials as before.
+            $keepLogin = $user && $user->keepsOwnLogin();
+            if (! $user) {
+                $user = User::create([
+                    'name' => $application->displayOwnerName(),
+                    'first_name' => $first,
+                    'last_name' => $last,
+                    'middle_initial' => $middle !== '' ? mb_strtoupper(mb_substr($middle, 0, 1)) : null,
+                    'email' => $application->email,
+                    'phone' => $application->phone,
+                    'birthday' => '1970-01-01',
+                    'age' => 0,
+                    'password' => Hash::make($password),
+                    'role' => 'logistics_staff',
+                    'status' => 'active',
+                    'center_id' => $center->id,
+                    'email_verified_at' => now(),
+                ]);
+            } else {
+                $update = [
+                    'status' => 'active',
+                    'center_id' => $center->id,
+                ];
+                if (! $keepLogin) {
+                    $update['role'] = 'logistics_staff';
+                    $update['password'] = Hash::make($password);
+                }
+                $user->update($update);
+            }
 
-        Notification::create([
-            'type' => 'center_approved',
-            'title' => 'Logistics Center Approved',
-            'message' => "{$application->business_name} was approved and a staff account was provisioned.",
-            'icon' => '????',
-            'priority' => 'high',
-            'link' => null,
-        ]);
+            $application->update([
+                'status' => 'approved',
+                'reviewed_at' => now(),
+                'approved_by' => $admin->id,
+                'provisioned_at' => now(),
+                'notes' => $validated['notes'] ?? $application->notes,
+            ]);
+
+            Notification::create([
+                'type' => 'center_approved',
+                'title' => 'Logistics Center Approved',
+                'message' => "{$application->business_name} was approved and a staff account was provisioned.",
+                'icon' => '✅',
+                'priority' => 'high',
+                'audience' => 'admin',
+                'link' => null,
+            ]);
+
+            return [$application, (bool) $keepLogin];
+        });
 
         $mailSent = false;
         if ($keepLogin) {
@@ -228,21 +241,33 @@ class CenterApplicationAdminController extends Controller
 
         abort_unless($application->status === 'pending', 422, 'Only pending applications can be rejected.');
 
-        $application->update([
-            'status' => 'rejected',
-            'reviewed_at' => now(),
-            'approved_by' => $admin->id,
-            'notes' => $validated['reason'],
-        ]);
+        $application = DB::transaction(function () use ($application, $validated, $admin) {
+            $application = LogisticsCenterApplication::query()
+                ->whereKey($application->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        Notification::create([
-            'type' => 'center_rejected',
-            'title' => 'Center Application Rejected',
-            'message' => "{$application->business_name}'s center application was rejected.",
-            'icon' => '????',
-            'priority' => 'normal',
-            'link' => null,
-        ]);
+            abort_unless($application->status === 'pending', 422, 'Only pending applications can be rejected.');
+
+            $application->update([
+                'status' => 'rejected',
+                'reviewed_at' => now(),
+                'approved_by' => $admin->id,
+                'notes' => $validated['reason'],
+            ]);
+
+            Notification::create([
+                'type' => 'center_rejected',
+                'title' => 'Center Application Rejected',
+                'message' => "{$application->business_name}'s center application was rejected.",
+                'icon' => '❌',
+                'priority' => 'normal',
+                'audience' => 'admin',
+                'link' => null,
+            ]);
+
+            return $application;
+        });
 
         $mailSent = false;
         try {

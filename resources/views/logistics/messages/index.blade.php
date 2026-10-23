@@ -16,12 +16,15 @@
             search: @js(request('search', '')),
             filter: @js(request('filter', 'all')),
             perPage: {{ (int) request('per_page', 10) }},
-            csrf: @js(csrf_token())
+            csrf: @js(csrf_token()),
+            base: @js(route('messages.index', [], false)),
+            mobileList: @js(! $activeConversation || ! request()->filled('conversation'))
         })"
          class="h-[calc(100vh-7rem)] flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
 
         {{-- ================= Conversation List Panel ================= --}}
-        <div class="w-full sm:w-80 lg:w-96 border-r border-gray-200 flex-col bg-gray-50/50 flex-shrink-0 {{ $activeConversation ? 'hidden sm:flex' : 'flex' }}">
+        <div class="w-full sm:w-80 lg:w-96 border-r border-gray-200 flex-col bg-gray-50/50 flex-shrink-0"
+             :class="mobileList || !active ? 'flex' : 'hidden sm:flex'">
 
             {{-- Header --}}
             <div class="px-4 py-4 border-b border-gray-200 bg-white">
@@ -134,22 +137,28 @@
             </div>
 
             @if($conversations->count() > 0)
-                <div class="px-4 py-2.5 border-t border-gray-200 bg-white flex items-center justify-end gap-2 flex-wrap">
+                <div class="px-4 py-2.5 border-t border-gray-200 bg-white flex items-center justify-between gap-2 flex-wrap">
+                    <p class="text-[11px] text-gray-500">
+                        Showing {{ $conversations->firstItem() }}–{{ $conversations->lastItem() }} of {{ $conversations->total() }} conversations
+                    </p>
                     <x-per-page route="messages.index" align=""/>
                 </div>
+                <div class="border-t border-gray-100 bg-gray-50 px-2 py-1.5">
+                    {{ $conversations->onEachSide(1)->links() }}
+                </div>
             @endif
-            @include('admin.partials.pager', ['paginator' => $conversations])
         </div>
 
         {{-- ================= Chat Panel ================= --}}
-        <div class="flex-1 flex flex-col min-w-0" x-show="active">
+        <div class="flex-1 min-w-0"
+             :class="!active ? 'hidden' : (mobileList ? 'hidden sm:flex sm:flex-col' : 'flex flex-col')">
             {{-- Chat Header --}}
             <div class="px-5 py-3.5 border-b border-gray-200 bg-white flex items-center gap-3 flex-shrink-0">
-                <a href="{{ route('messages.index') }}" class="sm:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-gray-500" title="Back">
+                <button type="button" @click="mobileList = true" class="sm:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-gray-100 text-gray-500" title="Back to conversations" aria-label="Back to conversations">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                     </svg>
-                </a>
+                </button>
 
                 <div class="relative flex-shrink-0">
                     <div class="h-10 w-10 rounded-full flex items-center justify-center text-sm font-bold bg-teal-light text-teal-dark"
@@ -332,6 +341,8 @@
                 filter: init.filter,
                 perPage: init.perPage,
                 csrf: init.csrf,
+                base: init.base,
+                mobileList: init.mobileList,
                 draft: '',
                 attachmentName: '',
                 attachmentPreview: '',
@@ -374,7 +385,7 @@
                 async selectConversation(id) {
                     this.error = '';
                     try {
-                        const r = await fetch('/logistics/messages/' + id, { headers: { 'Accept': 'application/json' } });
+                        const r = await fetch(this.base + '/' + id, { headers: { 'Accept': 'application/json' } });
                         if (!r.ok) throw new Error('Could not open this conversation.');
                         const data = await r.json();
                         this.active = data.active;
@@ -384,6 +395,7 @@
                         this.editing = null;
                         this.draft = '';
                         this.openMenu = null;
+                        this.mobileList = false;
 
                         // Keep the selected conversation after a page refresh.
                         const params = new URLSearchParams(window.location.search);
@@ -417,7 +429,7 @@
                         if (this.$refs.attachment.files[0]) {
                             fd.append('attachment', this.$refs.attachment.files[0]);
                         }
-                        const r = await fetch('/logistics/messages', {
+                        const r = await fetch(this.base, {
                             method: 'POST',
                             headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                             body: fd,
@@ -500,7 +512,7 @@
                     this.sending = true;
                     this.error = '';
                     try {
-                        const r = await fetch('/logistics/messages/' + this.editing.id, {
+                        const r = await fetch(this.base + '/' + this.editing.id, {
                             method: 'PATCH',
                             headers: { 'X-CSRF-TOKEN': this.csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
                             body: JSON.stringify({ body: this.draft.trim() }),
@@ -522,7 +534,7 @@
                     if (!confirm('Delete this message?')) return;
                     this.error = '';
                     try {
-                        const r = await fetch('/logistics/messages/' + msg.id, {
+                        const r = await fetch(this.base + '/' + msg.id, {
                             method: 'DELETE',
                             headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                         });
@@ -544,7 +556,7 @@
                             filter: this.filter || 'all',
                             per_page: this.perPage || 10,
                         });
-                        const r = await fetch('/logistics/messages/poll?' + params.toString(), { headers: { 'Accept': 'application/json' } });
+                        const r = await fetch(this.base + '/poll?' + params.toString(), { headers: { 'Accept': 'application/json' } });
                         if (!r.ok) return;
                         const data = await r.json();
                         this.conversations = data.conversations;

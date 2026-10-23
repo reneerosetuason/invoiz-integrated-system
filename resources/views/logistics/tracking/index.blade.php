@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="text-2xl font-bold text-gray-900 leading-tight">Tracking</h2>
-        <p class="mt-1 text-sm text-gray-500">Search for any delivery by its tracking number</p>
+        <p class="mt-1 text-sm text-gray-500">Search for a delivery by its exact tracking number</p>
     </x-slot>
 
     <div class="flex items-center justify-center py-8">
@@ -62,7 +62,8 @@
                     </div>
                 </form>
 
-                <p class="mt-4 text-center text-sm text-gray-400">e.g. TRK-20260101-XXXX</p>
+                <p class="mt-4 text-center text-sm text-gray-400">Center staff can only find deliveries handled by their assigned center.</p>
+                <p class="mt-2 text-center text-sm text-gray-400">e.g. TRK-20260101-XXXX</p>
             </div>
 
             <div class="mt-5 flex flex-wrap items-center justify-center gap-2">

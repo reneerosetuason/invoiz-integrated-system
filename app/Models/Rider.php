@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Rider extends Model
 {
@@ -98,6 +99,11 @@ class Rider extends Model
     public function locations(): HasMany
     {
         return $this->hasMany(RiderLocation::class);
+    }
+
+    public function latestLocation(): HasOne
+    {
+        return $this->hasOne(RiderLocation::class)->latestOfMany();
     }
 
     public function notifications(): HasMany
@@ -202,7 +208,14 @@ class Rider extends Model
      */
     public function matchesDestinationCenter(Delivery $delivery): bool
     {
-        if ($delivery->destination_center_id === null) {
+        // Sorted parcels are matched against their destination. Before sorting,
+        // the handling center is the only known scope, so use it as the fallback
+        // instead of treating an unset destination as a wildcard.
+        $targetCenterId = $delivery->destination_center_id ?? $delivery->center_id;
+
+        if ($targetCenterId === null) {
+            // A completely unrouted parcel must remain assignable during
+            // onboarding; access to it is still restricted to global admins.
             return true;
         }
 
@@ -210,7 +223,7 @@ class Rider extends Model
             return false;
         }
 
-        return (int) $this->center_id === (int) $delivery->destination_center_id;
+        return (int) $this->center_id === (int) $targetCenterId;
     }
 
     /**

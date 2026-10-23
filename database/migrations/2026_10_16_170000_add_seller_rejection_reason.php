@@ -10,7 +10,9 @@ return new class extends Migration
     {
         if (! Schema::hasColumn('sellers', 'rejection_reason')) {
             Schema::table('sellers', function (Blueprint $table) {
-                $table->text('rejection_reason')->nullable()->after('approval_status');
+                Schema::hasColumn('sellers', 'approval_status')
+                    ? $table->text('rejection_reason')->nullable()->after('approval_status')
+                    : $table->text('rejection_reason')->nullable();
             });
         }
     }

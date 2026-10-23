@@ -81,12 +81,12 @@
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center gap-3">
                                         <button type="button"
-                                                data-restore-url="{{ route('deliveries.restore', $delivery, false) }}"
+                                                data-restore-url="{{ route('deliveries.restore', $delivery) }}"
                                                 @click="restoreUrl = $el.dataset.restoreUrl; restoreOpen = true"
                                                 class="text-sm font-semibold text-teal hover:text-teal-dark">Restore</button>
                                         @can('permanentlyDelete')
                                             <button type="button"
-                                                    data-delete-url="{{ route('deliveries.destroy', $delivery, false) }}"
+                                                    data-delete-url="{{ route('deliveries.destroy', $delivery) }}"
                                                     @click="deleteUrl = $el.dataset.deleteUrl; deleteOpen = true"
                                                     class="text-sm font-semibold text-red-500 hover:text-red-700">Delete Permanently</button>
                                         @endcan
@@ -112,9 +112,20 @@
                 </table>
             </div>
 
+            @if($deliveries->count() > 0)
+                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <p class="text-xs text-gray-500">
+                        Showing <span class="font-semibold text-gray-700">{{ $deliveries->firstItem() }}–{{ $deliveries->lastItem() }}</span>
+                        of <span class="font-semibold text-gray-700">{{ $deliveries->total() }}</span> archived deliveries
+                    </p>
+                    <p class="text-xs text-gray-400">Page {{ $deliveries->currentPage() }} of {{ $deliveries->lastPage() }}</p>
+                </div>
+            @endif
         </div>
 
-        @include('admin.partials.pager', ['paginator' => $deliveries])
+        <div class="mt-4">
+            {{ $deliveries->onEachSide(2)->links() }}
+        </div>
 
         {{-- Restore Modal --}}
         <div x-show="restoreOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>

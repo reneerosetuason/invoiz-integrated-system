@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="text-2xl font-bold text-gray-900 leading-tight">Tracking Result</h2>
-        <p class="mt-1 text-sm text-gray-500">Live status of your delivery</p>
+        <p class="mt-1 text-sm text-gray-500">Shipment status, parcel processing, and delivery history</p>
     </x-slot>
 
     @if ($delivery === null)
@@ -57,7 +57,14 @@
                         <h4 class="font-mono text-3xl font-bold text-gray-900">{{ $delivery->tracking_number }}</h4>
                         <p class="mt-2 text-xs text-gray-400">Order #{{ $delivery->order_id ?? $delivery->id }} · Last updated {{ $delivery->updated_at->format('M d, Y \a\t g:i A') }}</p>
                     </div>
-                    <x-status-badge :status="$delivery->status" class="px-4 py-2 text-sm" />
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if($delivery->archived_at)
+                            <span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">
+                                Archived {{ $delivery->archived_at->format('M d, Y') }}
+                            </span>
+                        @endif
+                        <x-status-badge :status="$delivery->status" class="px-4 py-2 text-sm" />
+                    </div>
                 </div>
             </div>
 
@@ -66,11 +73,11 @@
 
                 @if ($currentIndex === -1)
                     <div class="flex flex-col items-center text-center py-2">
-                        <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold {{ $delivery->status === 'delivery_failed' ? 'bg-red-100 text-red-700 ring-1 ring-red-200' : 'bg-gray-100 text-gray-600 ring-1 ring-gray-200' }}">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $delivery->status === 'delivery_failed' ? 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' : 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'}}"/></svg>
-                            Final Status: {{ ucfirst(str_replace('_', ' ', $delivery->status)) }} — this delivery was not completed
+                        <span class="inline-flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold {{ in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) ? 'bg-red-100 text-red-700 ring-1 ring-red-200' : 'bg-gray-100 text-gray-600 ring-1 ring-gray-200' }}">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) ? 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' : 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'}}"/></svg>
+                            Final Status: {{ delivery_status_label($delivery->status) }} — this delivery was not completed
                         </span>
-                        @if($delivery->status === 'delivery_failed' && $delivery->failure_reason)
+                        @if(in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) && $delivery->failure_reason)
                             <p class="text-sm text-red-600 mt-3"><strong>Failure reason:</strong> {{ $delivery->failure_reason }}</p>
                         @endif
                         @if($delivery->status === 'cancelled' && $delivery->cancellation_reason)
@@ -111,6 +118,62 @@
                             @endforeach
                         </div>
                     </div>
+                @endif
+            </div>
+
+            @php
+                $parcelSteps = [
+                    'pending_arrival' => ['label' => 'Pending Arrival', 'index' => 0],
+                    'received'        => ['label' => 'Received', 'index' => 1],
+                    'scanned'         => ['label' => 'Scanned', 'index' => 2],
+                    'sorted'          => ['label' => 'Sorted', 'index' => 3],
+                    'dispatched'      => ['label' => 'Dispatched', 'index' => 4],
+                ];
+                $parcelStatus = $delivery->parcel_status ?? 'pending_arrival';
+                $currentParcelIndex = $parcelSteps[$parcelStatus]['index'] ?? null;
+                $atHub = in_array($parcelStatus, ['received', 'scanned', 'sorted'], true);
+            @endphp
+
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Parcel Processing</h4>
+                        <p class="mt-1 text-xs text-gray-400">Where the physical parcel is inside the sorting center. This is separate from the delivery status above.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if($atHub)
+                            <span class="inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 ring-1 ring-inset ring-amber-200">At Hub</span>
+                        @endif
+                        <span class="inline-flex items-center rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600 ring-1 ring-inset ring-gray-200">{{ $parcelSteps[$parcelStatus]['label'] ?? ucwords(str_replace('_', ' ', $parcelStatus)) }}</span>
+                    </div>
+                </div>
+
+                @if($currentParcelIndex !== null)
+                    <div class="relative mt-8">
+                        <div class="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
+                        <div class="absolute top-5 left-0 h-1 bg-teal rounded-full transition-all duration-700" style="width: {{ ($currentParcelIndex / (count($parcelSteps) - 1)) * 100 }}%"></div>
+
+                        <div class="relative flex justify-between">
+                            @foreach($parcelSteps as $step)
+                                @php
+                                    $done = $currentParcelIndex > $step['index'];
+                                    $current = $currentParcelIndex === $step['index'];
+                                @endphp
+                                <div class="flex flex-col items-center flex-1 min-w-0 text-center">
+                                    <div class="h-10 w-10 rounded-full flex items-center justify-center {{ $done ? 'bg-teal text-white' : ($current ? 'bg-teal text-white shadow-lg shadow-teal/30' : 'bg-gray-200 text-gray-400') }}">
+                                        @if($done)
+                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                        @else
+                                            <span class="h-3 w-3 rounded-full {{ $current ? 'bg-white' : 'bg-gray-400' }}"></span>
+                                        @endif
+                                    </div>
+                                    <p class="mt-3 text-xs font-medium {{ $current ? 'text-teal-dark' : ($done ? 'text-teal' : 'text-gray-400') }}">{{ $step['label'] }}</p>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @else
+                    <p class="mt-4 text-sm text-gray-500">Parcel processing information is not available yet.</p>
                 @endif
             </div>
 
@@ -285,6 +348,9 @@
                                         'picked_up'         => 'bg-indigo-500',
                                         'assigned'          => 'bg-blue-500',
                                         'waiting_for_rider' => 'bg-amber-500',
+                                        'lost'              => 'bg-red-700',
+                                        'damaged'           => 'bg-orange-500',
+                                        'returned_to_seller' => 'bg-slate-500',
                                     ];
                                     $dotColor = $dotColors[$log->status] ?? 'bg-gray-400';
                                 @endphp

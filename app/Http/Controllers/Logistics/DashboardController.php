@@ -5,9 +5,12 @@ namespace App\Http\Controllers\Logistics;
 use App\Models\Delivery;
 use App\Models\DeliveryStatusLog;
 use App\Models\LogisticsCenter;
+use App\Models\PickupRequest;
 use App\Models\Rider;
 use App\Models\ServiceArea;
 use App\Models\Transaction;
+use App\Models\User;
+use App\Support\LogisticsAlerts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -29,6 +32,9 @@ class DashboardController extends Controller
         'arrived_at_customer' => 'Arrived at Customer',
         'delivered'         => 'Delivered',
         'delivery_failed'   => 'Delivery Failed',
+        'lost'              => 'Lost',
+        'damaged'           => 'Damaged',
+        'returned_to_seller' => 'Returned to Seller',
         'cancelled'         => 'Cancelled',
     ];
 
@@ -43,6 +49,9 @@ class DashboardController extends Controller
         'arrived_at_customer' => '#EC4899',
         'delivered'         => '#059669',
         'delivery_failed'   => '#EF4444',
+        'lost'              => '#991B1B',
+        'damaged'           => '#F97316',
+        'returned_to_seller' => '#64748B',
         'cancelled'         => '#6B7280',
     ];
 
@@ -55,13 +64,29 @@ class DashboardController extends Controller
     public function index(Request $request): View
     {
         $user = Auth::user();
-        $staffCenterId = $user && $user->isLogisticsStaff() && $user->center_id ? (int) $user->center_id : null;
+        // Null is global, 0 is a center-scoped staff account without a center.
+        $staffCenterId = $user && $this->isCenterScopedStaff($user)
+            ? (int) ($user->center_id ?? 0)
+            : null;
 
         $trendsRange = $request->query('trends_range', '7');
         $trendsRange = in_array($trendsRange, ['7', '30'], true) ? (int) $trendsRange : 7;
 
+        // Dashboard-wide shipment date filter. Dates are normalised to the
+        // project's Y-m-d format; anything invalid is treated as "not set" so
+        // a bad query string can never error or widen the company scope. A
+        // reversed range (date_to before date_from) is not an error: both
+        // bounds are applied as-is, which safely matches no shipments.
+        $dateFrom = $this->normalizeDate($request->query('date_from'));
+        $dateTo = $this->normalizeDate($request->query('date_to'));
+        $dateFilterActive = $dateFrom !== null || $dateTo !== null;
+
         // ?????? Delivery status counts (single grouped query) ??????????????????????????????????????????
-        $statusCounts = $this->deliveryQuery($staffCenterId)
+        $statusCounts = $this->applyDeliveryDateRange(
+            $this->deliveryQuery($staffCenterId),
+            $dateFrom,
+            $dateTo
+        )
             ->selectRaw('status, count(*) as total')
             ->groupBy('status')
             ->pluck('total', 'status');
@@ -72,25 +97,45 @@ class DashboardController extends Controller
             'assigned' => (int) ($statusCounts['assigned'] ?? 0),
             'out_for_delivery' => (int) ($statusCounts['out_for_delivery'] ?? 0),
             'delivered' => (int) ($statusCounts['delivered'] ?? 0),
-            'failed' => (int) ($statusCounts['delivery_failed'] ?? 0),
+            'failed' => (int) (($statusCounts['delivery_failed'] ?? 0) + ($statusCounts['lost'] ?? 0) + ($statusCounts['damaged'] ?? 0)),
         ];
 
-        // ?????? Needs attention ????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????????
-        // Unassigned deliveries waiting for a rider.
+        // Needs attention: actionable operational counts, scoped to the
+        // viewer's center exactly like the delivery list.
         $needsAttention = [
             'waitingForRider' => $deliveries['waiting_for_rider'],
             'failed' => $deliveries['failed'],
-            // Parcels received at a center but still being processed (not yet dispatched).
+            // Parcels at a center that still need sorting/dispatch. This is
+            // a parcel-stage measure; it must not depend on the rider status.
             'processing' => (int) $this->deliveryQuery($staffCenterId)
                 ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
-                ->where('status', 'waiting_for_rider')
+                ->whereNotIn('status', ['delivered', 'cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller'])
                 ->count(),
+            'pickups' => (int) PickupRequest::query()->pendingReview($user)->count(),
         ];
+
+        // Today's activity is intentionally separate from the all-time KPI
+        // cards above so "Total" and "Delivered" cannot be misread as today.
+        $today = now()->toDateString();
+        $todayCounts = [
+            'created' => (int) $this->deliveryQuery($staffCenterId)
+                ->whereDate('created_at', $today)->count(),
+            'delivered' => (int) $this->deliveryQuery($staffCenterId)
+                ->whereNotNull('delivered_at')->whereDate('delivered_at', $today)->count(),
+            'failed' => (int) $this->deliveryQuery($staffCenterId)
+                ->whereNotNull('failed_at')->whereDate('failed_at', $today)->count(),
+        ];
+
+        $operationalAlerts = LogisticsAlerts::forUser($user);
 
         // ?????? Riders: online/offline availability ????????????????????????????????????????????????????????????????????????
         $riderQuery = Rider::query();
-        if ($staffCenterId) {
-            $riderQuery->where('center_id', $staffCenterId);
+        if ($staffCenterId !== null) {
+            if ($staffCenterId === 0) {
+                $riderQuery->whereRaw('1 = 0');
+            } else {
+                $riderQuery->where('center_id', $staffCenterId);
+            }
         }
 
         $riderCounts = (clone $riderQuery)
@@ -122,10 +167,13 @@ class DashboardController extends Controller
             ->get();
 
         // ?????? Financial summary for today (uses stored transaction values) ???
-        $today = now()->toDateString();
         $financialQuery = Transaction::query();
-        if ($staffCenterId) {
-            $financialQuery->where('logistics_center_id', $staffCenterId);
+        if ($staffCenterId !== null) {
+            if ($staffCenterId === 0) {
+                $financialQuery->whereRaw('1 = 0');
+            } else {
+                $financialQuery->where('logistics_center_id', $staffCenterId);
+            }
         }
         $financial = $financialQuery->whereDate('created_at', $today)
             ->selectRaw('
@@ -182,8 +230,12 @@ class DashboardController extends Controller
             ->whereNull('deliveries.archived_at')
             ->with(['delivery:id,tracking_number,recipient_name', 'changer:id,name']);
 
-        if ($staffCenterId) {
-            $activityQuery->where('deliveries.center_id', $staffCenterId);
+        if ($staffCenterId !== null) {
+            if ($staffCenterId === 0) {
+                $activityQuery->whereRaw('1 = 0');
+            } else {
+                $activityQuery->where('deliveries.center_id', $staffCenterId);
+            }
         }
 
         $activities = $activityQuery
@@ -202,7 +254,7 @@ class DashboardController extends Controller
             });
 
         // ?????? Chart: Delivery Status Overview (doughnut) ?????????????????????????????????????????????????????????
-        $statusChart = $this->buildStatusChartData($statusCounts);
+        $statusChart = $this->buildStatusChartData($statusCounts, $staffCenterId);
 
         // ?????? Chart: Delivery Trends (last 7 / 30 days) ????????????????????????????????????????????????????????????
         $trendsChart = $this->buildTrendsChartData($staffCenterId, $trendsRange);
@@ -214,13 +266,13 @@ class DashboardController extends Controller
         // Intentionally lightweight (not the full Deliveries manager): the
         // limit applies before any filtering, and the view links out to
         // deliveries.index for server-side search across all records.
-        $recentDeliveriesForView = $this->deliveryQuery($staffCenterId)
+        $recentDeliveriesForView = $this->applyDeliveryDateRange($this->deliveryQuery($staffCenterId), $dateFrom, $dateTo)
             ->latest('updated_at')
             ->with(['rider', 'serviceArea', 'logisticsCenter'])
             ->take(6)
             ->get();
 
-        $detailedRecords = $this->deliveryQuery($staffCenterId)
+        $detailedRecords = $this->applyDeliveryDateRange($this->deliveryQuery($staffCenterId), $dateFrom, $dateTo)
             ->latest('updated_at')
             ->with(['logisticsCenter'])
             ->take(50)
@@ -248,6 +300,9 @@ class DashboardController extends Controller
             'status_counts' => $statusCounts,
             'status_labels' => self::STATUS_LABELS,
             'needsAttention' => $needsAttention,
+            'todayCounts' => $todayCounts,
+            'operationalAlerts' => $operationalAlerts,
+            'alertTotal' => (int) collect($operationalAlerts)->sum('count'),
             'serviceAreas' => $serviceAreas,
             'activities' => $activities,
             'staffCenterId' => $staffCenterId,
@@ -258,7 +313,47 @@ class DashboardController extends Controller
             'trendsChart' => $trendsChart,
             'trendsRange' => $trendsRange,
             'centerPerformanceChart' => $centerPerformanceChart,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'dateFilterActive' => $dateFilterActive,
         ]);
+    }
+
+    /**
+     * Normalise an incoming date to the project's Y-m-d format. Returns null
+     * for blank, malformed, or impossible calendar dates (for example
+     * 2026-02-30) so the caller simply skips that bound.
+     */
+    private function normalizeDate($value): ?string
+    {
+        $value = trim((string) $value);
+
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            return null;
+        }
+
+        [$year, $month, $day] = array_map('intval', explode('-', $value));
+
+        return checkdate($month, $day, $year) ? $value : null;
+    }
+
+    /**
+     * Apply the dashboard shipment date filter to a delivery query by the
+     * shipment's registration date (created_at). This is the same business
+     * date used by the Deliveries list, so dashboard counts stay consistent
+     * with the filtered list. Only applied when at least one bound is set.
+     */
+    private function applyDeliveryDateRange($query, ?string $dateFrom, ?string $dateTo)
+    {
+        if ($dateFrom !== null) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo !== null) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        return $query;
     }
 
     /**
@@ -268,13 +363,26 @@ class DashboardController extends Controller
     private function deliveryQuery(?int $staffCenterId)
     {
         $query = Delivery::notArchived();
-        if ($staffCenterId) {
-            $query->where('center_id', $staffCenterId);
+
+        if ($staffCenterId === null) {
+            return $query;
         }
-        return $query;
+
+        if ($staffCenterId === 0) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where('center_id', $staffCenterId);
     }
 
-    private function buildStatusChartData($statusCounts): array
+    private function isCenterScopedStaff(User $user): bool
+    {
+        return $user->isLogisticsStaff()
+            && !$user->isAdmin()
+            && !$user->isLogisticsAdmin();
+    }
+
+    private function buildStatusChartData($statusCounts, ?int $staffCenterId): array
     {
         $labels = [];
         $data = [];
@@ -293,7 +401,7 @@ class DashboardController extends Controller
         }
 
         // Include parcel_status breakdown for sorting center stages if they exist
-        $parcelCounts = $this->deliveryQueryForParcelStatus();
+        $parcelCounts = $this->deliveryQueryForParcelStatus($staffCenterId);
         foreach (['pending_arrival' => 'Pending Arrival', 'received' => 'Received', 'scanned' => 'Scanned', 'sorted' => 'Sorted', 'dispatched' => 'Dispatched'] as $pKey => $pLabel) {
             $count = (int) ($parcelCounts[$pKey] ?? 0);
             if ($count > 0 && !in_array($pLabel, $labels, true)) {
@@ -310,13 +418,8 @@ class DashboardController extends Controller
         ];
     }
 
-    private function deliveryQueryForParcelStatus()
+    private function deliveryQueryForParcelStatus(?int $staffCenterId)
     {
-        // Parcel status counts respect same center scoping as deliveries
-        // This is called from buildStatusChartData which already has staffCenterId context
-        // For simplicity, use the same deliveryQuery logic via Auth
-        $user = Auth::user();
-        $staffCenterId = $user && $user->isLogisticsStaff() && $user->center_id ? (int) $user->center_id : null;
         return $this->deliveryQuery($staffCenterId)
             ->selectRaw('parcel_status, count(*) as total')
             ->groupBy('parcel_status')
@@ -355,7 +458,7 @@ class DashboardController extends Controller
             ->map(fn ($v) => (int) $v);
 
         $failedByDate = $this->deliveryQuery($staffCenterId)
-            ->where('status', 'delivery_failed')
+            ->whereIn('status', ['delivery_failed', 'lost', 'damaged'])
             ->whereNotNull('failed_at')
             ->whereBetween('failed_at', [$start . ' 00:00:00', $end . ' 23:59:59'])
             ->selectRaw('DATE(failed_at) as d, count(*) as c')
@@ -387,7 +490,11 @@ class DashboardController extends Controller
 
     private function buildCenterPerformanceData(?int $staffCenterId): array
     {
-        if ($staffCenterId) {
+        if ($staffCenterId === 0) {
+            return ['labels' => [], 'total' => [], 'delivered' => [], 'pending' => [], 'failed' => [], 'empty' => true];
+        }
+
+        if ($staffCenterId !== null) {
             $centers = LogisticsCenter::where('id', $staffCenterId)->where('is_active', true)->get(['id', 'name']);
         } else {
             $centers = LogisticsCenter::where('is_active', true)->orderBy('name')->get(['id', 'name']);
@@ -405,7 +512,7 @@ class DashboardController extends Controller
             ->selectRaw('center_id, count(*) as c')->groupBy('center_id')->pluck('c', 'center_id');
         $pending = Delivery::notArchived()->whereIn('center_id', $centerIds)->where('status', 'waiting_for_rider')
             ->selectRaw('center_id, count(*) as c')->groupBy('center_id')->pluck('c', 'center_id');
-        $failed = Delivery::notArchived()->whereIn('center_id', $centerIds)->where('status', 'delivery_failed')
+        $failed = Delivery::notArchived()->whereIn('center_id', $centerIds)->whereIn('status', ['delivery_failed', 'lost', 'damaged'])
             ->selectRaw('center_id, count(*) as c')->groupBy('center_id')->pluck('c', 'center_id');
 
         // Staff sees only own center; admin sees all. Enforce scoping already via $centerIds.
@@ -449,6 +556,9 @@ class DashboardController extends Controller
             'arrived_at_customer' => 'rider arrived at customer',
             'delivered' => 'delivered successfully',
             'delivery_failed' => 'failed delivery',
+            'lost' => 'reported lost',
+            'damaged' => 'reported damaged',
+            'returned_to_seller' => 'returned to seller',
             'cancelled' => 'cancelled',
             default => 'status updated',
         };

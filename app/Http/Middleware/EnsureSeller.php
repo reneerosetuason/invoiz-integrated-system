@@ -20,7 +20,7 @@ class EnsureSeller
 
         if (! $user->isActive()) {
             Auth::logout();
-            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+            return redirect('/seller/login')->withErrors(['email' => 'Your account is not active.']);
         }
 
         // Seller approval changes the account role to "seller" while buyer

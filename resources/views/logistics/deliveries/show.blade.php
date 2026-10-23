@@ -7,6 +7,11 @@
             'out_for_delivery'       => 'bg-purple-500',
             'delivered'              => 'bg-emerald-500',
             'delivery_failed'        => 'bg-red-500',
+            'lost'                   => 'bg-red-700',
+            'damaged'                => 'bg-orange-500',
+            'returned_to_seller'     => 'bg-slate-500',
+            'return_dispatched_to_seller' => 'bg-blue-400',
+            'return_received_by_seller'   => 'bg-emerald-400',
             'cancelled'              => 'bg-gray-400',
             'dispatched'             => 'bg-sky-500',
             'sorting_center_handoff' => 'bg-orange-500',
@@ -17,12 +22,14 @@
         $stepOrder = ['assigned', 'picked_up', 'out_for_delivery', 'delivered'];
         $stepLabels = ['assigned' => 'Assigned', 'picked_up' => 'Picked Up', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered'];
         $currentIndex = array_search($delivery->status, $stepOrder);
-        $isTerminalBad = in_array($delivery->status, ['delivery_failed', 'cancelled']);
+        $isTerminalBad = in_array($delivery->status, ['delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'cancelled']);
         $weight = (float) ($delivery->weight ?? 0);
         $capacities = \App\Models\LogisticsSetting::vehicleCapacities();
         $attemptPrefs = \App\Models\LogisticsSetting::forUser(auth()->id())->delivery ?? [];
         $maxAttempts = (int) ($attemptPrefs['max_attempts'] ?? 2);
         $failedAttempts = $delivery->statusLogs->where('status', 'delivery_failed')->count();
+        $isCodDelivery = \App\Support\Cod::isCod($delivery);
+        $codExpected = $isCodDelivery ? \App\Support\Cod::expected($delivery) : null;
     @endphp
 
     <div class="flex items-center gap-4 mb-6">
@@ -48,11 +55,11 @@
 
     {{-- Failure / Cancellation banner --}}
     @if($isTerminalBad && ($delivery->failure_reason || $delivery->cancellation_reason))
-        <div class="mb-6 flex items-start gap-3 rounded-2xl border p-5 {{ $delivery->status === 'delivery_failed' ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200' }}">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $delivery->status === 'delivery_failed' ? 'text-red-600' : 'text-gray-500' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <div class="mb-6 flex items-start gap-3 rounded-2xl border p-5 {{ in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200' }}">
+            <svg class="h-5 w-5 flex-shrink-0 {{ in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) ? 'text-red-600' : 'text-gray-500' }}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
             <div>
-                <p class="text-sm font-bold {{ $delivery->status === 'delivery_failed' ? 'text-red-700' : 'text-gray-700' }}">
-                    {{ $delivery->status === 'delivery_failed' ? 'Delivery Failed' : 'Delivery Cancelled' }}
+                <p class="text-sm font-bold {{ in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) ? 'text-red-700' : 'text-gray-700' }}">
+                    {{ $delivery->status === 'cancelled' ? 'Delivery Cancelled' : delivery_status_label($delivery->status) }}
                     @if($delivery->status === 'delivery_failed' && $delivery->failed_at)<span class="font-normal">· {{ $delivery->failed_at->format('M d, Y h:i A') }}</span>@endif
                     @if($delivery->status === 'cancelled' && $delivery->cancelled_at)<span class="font-normal">· {{ $delivery->cancelled_at->format('M d, Y h:i A') }}</span>@endif
                 </p>
@@ -120,7 +127,7 @@
 
             @if($isTerminalBad)
                 <div class="mt-4 flex justify-center">
-                    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold {{ $delivery->status === 'delivery_failed' ? 'bg-red-100 text-red-700 ring-1 ring-red-200' : 'bg-gray-100 text-gray-600 ring-1 ring-gray-200' }}">
+                    <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold {{ in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) ? 'bg-red-100 text-red-700 ring-1 ring-red-200' : 'bg-gray-100 text-gray-600 ring-1 ring-gray-200' }}">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="{{ $delivery->status === 'delivery_failed' ? 'M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z' : 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636'}}"/></svg>
                         Final Status: {{ ucfirst(str_replace('_', ' ', $delivery->status)) }} — not completed
                     </span>
@@ -220,6 +227,9 @@
             <dl class="space-y-3">
                 <div><dt class="text-xs text-gray-500">Payment Method</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->payment_method ? strtoupper($delivery->payment_method) : '—' }}</dd></div>
                 <div><dt class="text-xs text-gray-500">Cash on Delivery</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->amount_to_collect !== null && (float) $delivery->amount_to_collect > 0 ? '₱' . number_format((float) $delivery->amount_to_collect, 2) : '—' }}</dd></div>
+                @if($delivery->cod_amount_received !== null)
+                    <div><dt class="text-xs text-gray-500">Cash Received</dt><dd class="text-sm font-medium text-gray-900">₱{{ number_format((float) $delivery->cod_amount_received, 2) }}</dd></div>
+                @endif
                 @if($delivery->transaction)
                     <div><dt class="text-xs text-gray-500">Transaction Amount</dt><dd class="text-sm font-medium text-gray-900">₱{{ number_format((float) $delivery->transaction->amount, 2) }}</dd></div>
                     <div><dt class="text-xs text-gray-500">Rider Fee</dt><dd class="text-sm font-medium text-gray-900">₱{{ number_format((float) $delivery->transaction->rider_fee, 2) }}</dd></div>
@@ -720,7 +730,7 @@
                                 <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
                                     <span class="text-sm font-semibold text-gray-900">
                                         {{ \Illuminate\Support\Str::title(str_replace('_', ' ', $log->status)) }}
-                                        @if(in_array($log->status, ['delivery_failed', 'cancelled']))<span class="ml-1 text-xs font-normal text-red-500">(final)</span>@endif
+                                        @if(in_array($log->status, ['delivery_failed', 'lost', 'returned_to_seller', 'cancelled']))<span class="ml-1 text-xs font-normal text-red-500">(final)</span>@endif
                                         @if(in_array($log->status, $parcelEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark">Parcel</span>@endif
                                         @if(in_array($log->status, $centerEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Sorting Center</span>@endif
                                         @if(in_array($log->status, $recordEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
@@ -765,39 +775,47 @@
         @if(!$delivery->archived_at)
             <div class="flex flex-wrap gap-3">
                 @if($delivery->status === 'waiting_for_rider')
-                    <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-xl">
+                    <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-2xl">
                         @csrf
-                        <label for="rider_id" class="block text-sm font-medium text-gray-700 mb-1">Assign Rider</label>
-                        <div class="flex flex-col sm:flex-row gap-2">
-                            <select name="rider_id" id="rider_id" required
-                                    class="flex-1 min-w-0 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                                <option value="">— Select a rider —</option>
-                                @if($riderEligibility->where('eligible', true)->isNotEmpty())
-                                    <optgroup label="✓ Available — Online">
-                                        @foreach($riderEligibility->where('eligible', true) as $item)
-                                            <option value="{{ $item['rider']->id }}">
-                                                ✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg
-                                            </option>
-                                        @endforeach
-                                    </optgroup>
-                                @endif
-                                @if($riderEligibility->where('eligible', false)->isNotEmpty())
-                                    <optgroup label="✕ Unavailable">
-                                        @foreach($riderEligibility->where('eligible', false) as $item)
-                                            <option value="" disabled>
-                                                @if(!$item['is_online'])
-                                                    ○ Offline — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
-                                                @else
-                                                    ✕ {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
-                                                @endif
-                                            </option>
-                                        @endforeach
-                                    </optgroup>
-                                @endif
-                            </select>
-                            <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold py-2 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                                Assign Rider
-                            </button>
+                        <div class="flex flex-col sm:flex-row sm:items-end gap-2">
+                            <div class="flex-1 min-w-0">
+                                <label for="rider_id" class="block text-sm font-medium text-gray-700 mb-1">Assign Rider</label>
+                                <select name="rider_id" id="rider_id" required
+                                        class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                                    <option value="">— Select a rider —</option>
+                                    @if($riderEligibility->where('eligible', true)->isNotEmpty())
+                                        <optgroup label="✓ Available — Online">
+                                            @foreach($riderEligibility->where('eligible', true) as $item)
+                                                <option value="{{ $item['rider']->id }}">
+                                                    @if($item['recommended']) Recommended — @endif✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg ({{ $item['active_deliveries'] }} active)@if($item['distance_km'] !== null) - {{ number_format($item['distance_km'], 2) }} km {{ $item['distance_basis'] === 'pickup' ? 'to pickup' : 'to destination' }}@else - distance unavailable @endif
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                    @if($riderEligibility->where('eligible', false)->isNotEmpty())
+                                        <optgroup label="✕ Unavailable">
+                                            @foreach($riderEligibility->where('eligible', false) as $item)
+                                                <option value="" disabled>
+                                                    @if(!$item['is_online'])
+                                                        ○ Offline — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
+                                                    @else
+                                                        ✕ {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
+                                                    @endif
+                                                </option>
+                                            @endforeach
+                                        </optgroup>
+                                    @endif
+                                </select>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="submit" class="inline-flex items-center justify-center bg-teal hover:bg-teal-dark text-white font-semibold py-2.5 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
+                                    Assign Rider
+                                </button>
+                                <button type="button" @click="cancelOpen = true"
+                                        class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm whitespace-nowrap">
+                                    Cancel Delivery
+                                </button>
+                            </div>
                         </div>
                         @if($riderEligibility->where('eligible', true)->isEmpty())
                             <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination center and service area.</p>
@@ -807,10 +825,15 @@
                         @endif
                     </form>
 
-                    <button type="button" @click="cancelOpen = true"
-                            class="inline-flex items-center gap-2 self-start bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                        Cancel Delivery
-                    </button>
+                    @if($riderEligibility->where('eligible', true)->isNotEmpty())
+                        <form action="{{ route('deliveries.auto-assign', $delivery) }}" method="POST" class="mt-2 flex flex-wrap items-center gap-2">
+                            @csrf
+                            <button type="submit" class="inline-flex items-center justify-center bg-white border border-teal/30 hover:border-teal hover:text-teal-dark text-teal font-semibold py-2 px-4 rounded-xl transition text-sm">
+                                Auto-assign recommended rider
+                            </button>
+                            <span class="text-xs text-gray-500">Nearest eligible rider with a fresh GPS ping; workload is the fallback. Eligibility is rechecked before assignment.</span>
+                        </form>
+                    @endif
                 @endif
 
                 @if(in_array($delivery->status, ['assigned', 'delivery_failed'], true))
@@ -829,7 +852,7 @@
                                     <optgroup label="✓ Available — Online">
                                         @foreach($riderEligibility->where('eligible', true) as $item)
                                             <option value="{{ $item['rider']->id }}">
-                                                ✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg
+                                                @if($item['recommended']) Recommended — @endif✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg ({{ $item['active_deliveries'] }} active)@if($item['distance_km'] !== null) - {{ number_format($item['distance_km'], 2) }} km {{ $item['distance_basis'] === 'pickup' ? 'to pickup' : 'to destination' }}@else - distance unavailable @endif
                                             </option>
                                         @endforeach
                                     </optgroup>
@@ -892,10 +915,28 @@
                 @endif
 
                 @if($delivery->status === 'out_for_delivery')
-                    <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
+                    <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST" class="flex flex-wrap items-end gap-2">
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="status" value="delivered">
+                        @if($isCodDelivery)
+                            <div>
+                                <label for="amount_received" class="block text-xs font-medium text-gray-600 mb-1">Cash Received (COD)</label>
+                                <input type="number" name="amount_received" id="amount_received"
+                                       value="{{ old('amount_received') }}" min="0" step="0.01" inputmode="decimal" required
+                                       class="w-44 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                                <p class="mt-1 text-[11px] text-gray-500">
+                                    @if($codExpected !== null)
+                                        Amount to collect: &#8369;{{ number_format($codExpected, 2) }}. Differences are flagged for reconciliation.
+                                    @else
+                                        Enter the actual cash received; the amount to collect is not configured.
+                                    @endif
+                                </p>
+                                @error('amount_received')
+                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                @enderror
+                            </div>
+                        @endif
                         <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
                             Mark as Delivered
                         </button>
@@ -1067,6 +1108,111 @@
                     <button type="submit" class="px-5 py-2.5 bg-gray-800 hover:bg-black text-white text-sm font-bold rounded-xl transition">Archive Delivery</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    @php
+        $damageProof = $delivery->proofs->firstWhere('type', 'damage_evidence')
+            ?? $delivery->proofs->firstWhere('type', 'parcel_evidence');
+        $canReportException = $delivery->rider_id
+            && ! in_array($delivery->status, ['delivered', 'cancelled', 'lost', 'damaged', 'returned_to_seller'], true);
+    @endphp
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center gap-2 mb-5">
+            <div class="h-2 w-1 rounded-full bg-amber-500"></div>
+            <h2 class="text-lg font-semibold text-gray-900">Shipment Exceptions &amp; Return to Seller</h2>
+        </div>
+
+        @if($damageProof)
+            <div class="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                Exception evidence:
+                <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($damageProof->file_path) }}"
+                   target="_blank" class="font-semibold underline">view uploaded photo</a>
+            </div>
+        @endif
+
+        <div class="grid gap-5 lg:grid-cols-2">
+            <div class="rounded-xl border border-gray-200 p-4">
+                <h3 class="font-semibold text-gray-900 mb-1">Report Lost or Damaged</h3>
+                <p class="text-xs text-gray-500 mb-3">Reporting does not refund the buyer or move stock. A damage photo is required.</p>
+
+                @if($canReportException)
+                    <form action="{{ route('deliveries.exception', $delivery) }}" method="POST" enctype="multipart/form-data"
+                          class="space-y-3" x-data="{ exceptionType: 'damaged' }">
+                        @csrf
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Exception</label>
+                            <select name="type" x-model="exceptionType" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                                <option value="damaged">Damaged</option>
+                                <option value="lost">Lost</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                            <select name="reason" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                                <option value="">Select a reason</option>
+                                @foreach(($exceptionReasons ?? config('logistics.exception_reasons')) as $type => $reasons)
+                                    <optgroup label="{{ ucfirst($type) }}">
+                                        @foreach($reasons as $reason)
+                                            <option value="{{ $reason }}">{{ $reason }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Photo <span x-show="exceptionType === 'damaged'" class="text-red-500">*</span></label>
+                            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
+                                   :required="exceptionType === 'damaged'"
+                                   class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white">
+                            <p class="mt-1 text-xs text-gray-500">JPEG, PNG, or WebP up to 8 MB.</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                            <textarea name="notes" rows="2" maxlength="2000" class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
+                        </div>
+                        <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-xl text-sm">
+                            Record Exception
+                        </button>
+                    </form>
+                @else
+                    <p class="text-sm text-gray-500">
+                        @if(! $delivery->rider_id)
+                            Assign a rider before recording a lost or damaged report.
+                        @else
+                            This parcel is already {{ str_replace('_', ' ', $delivery->status) }}.
+                        @endif
+                    </p>
+                @endif
+            </div>
+
+            <div class="rounded-xl border border-gray-200 p-4">
+                <h3 class="font-semibold text-gray-900 mb-1">Return to Seller</h3>
+                @if($returnState)
+                    @if($returnState['state'] === 'received')
+                        <p class="text-sm font-semibold text-emerald-700">Seller confirmed receipt on {{ $returnState['received_at']?->format('M d, Y h:i A') }}.</p>
+                        <p class="text-xs text-gray-500 mt-1">Stock was restored once. No automatic refund was issued.</p>
+                    @elseif($returnState['state'] === 'dispatched')
+                        <p class="text-sm font-semibold text-blue-700">Return sent to seller on {{ $returnState['dispatched_at']?->format('M d, Y h:i A') }}.</p>
+                        <p class="text-xs text-gray-500 mt-1">Waiting for the seller to confirm physical receipt. Stock and refunds are still pending.</p>
+                    @elseif($returnState['can_dispatch'])
+                        <p class="text-sm text-gray-600 mb-3">The parcel is back at the center. Record the handoff/courier reference before it leaves to the seller.</p>
+                        <form action="{{ route('deliveries.return-to-seller', $delivery) }}" method="POST" class="flex flex-col sm:flex-row gap-2">
+                            @csrf
+                            <input type="text" name="reference" maxlength="150" placeholder="Courier / handoff reference"
+                                   class="flex-1 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                            <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-xl text-sm whitespace-nowrap">
+                                Send to Seller
+                            </button>
+                        </form>
+                    @else
+                        <p class="text-sm text-gray-500">A failed or damaged parcel must be returned to the sorting center before it can be sent back to the seller.</p>
+                    @endif
+                @else
+                    <p class="text-sm text-gray-500">Return state is unavailable.</p>
+                @endif
+            </div>
         </div>
     </div>
 

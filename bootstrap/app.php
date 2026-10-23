@@ -28,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'seller' => \App\Http\Middleware\EnsureSeller::class,
             'buyer' => \App\Http\Middleware\EnsureBuyer::class,
+            'account.active' => \App\Http\Middleware\EnsureAccountActive::class,
+            'marketplace.admin' => \App\Http\Middleware\EnsureMarketplaceAdmin::class,
             'staff' => \App\Http\Middleware\Logistics\EnsureLogisticsStaff::class,
             'admin' => \App\Http\Middleware\Logistics\EnsureAdmin::class,
             'rider.web' => \App\Http\Middleware\Logistics\EnsureRiderWeb::class,

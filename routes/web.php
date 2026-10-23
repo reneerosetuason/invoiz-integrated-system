@@ -375,6 +375,9 @@ Route::post('/checkout', function(Request $request){
   if (! $addr) {
     return back()->withErrors(['address_id' => 'Select one of your saved delivery addresses before placing the order.'])->withInput();
   }
+  if ($dropoffProblem = \App\Support\DeliveryServiceability::dropoffAddressProblem($addr)) {
+    return back()->with('error', $dropoffProblem)->withInput();
+  }
   $checkoutMode = $request->input('checkout_mode', session('checkout_single') ? 'single' : (session('checkout_all') ? 'all' : (session('checkout_selected') ? 'selected' : 'seller')));
   $ordersCreated = 0;
   try {
@@ -396,6 +399,9 @@ Route::post('/checkout', function(Request $request){
       if(!is_array($raw)) $raw = ['id'=>$request->input('single'),'qty'=>$request->input('qty',1),'variant_id'=>$request->input('variant_id')];
       $product = Product::find((int)($raw['id'] ?? 0));
       if(!$product) throw new \Exception('Product not found');
+      if ($pickupProblem = \App\Support\DeliveryServiceability::pickupAddressProblem((int) $product->seller_id)) {
+        throw new \Exception($pickupProblem);
+      }
       $variant = Cart::resolveVariant($product, $raw['variant_id'] ?? null);
       $qty = max(1, min(200, (int)($raw['qty'] ?? 1)));
       $unit = Cart::unitFor($product, $variant);
@@ -412,9 +418,9 @@ Route::post('/checkout', function(Request $request){
       $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
       $total = round($subtotal - $merch + $shipping - $waived, 2);
       if(! \App\Support\Stock::deduct($product->id, $variant?->id, $qty)) throw new \Exception('Not enough stock for "'.$product->name.'".');
-      $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
+      $order = \App\Models\Order::create(['seller_id'=>(int) $product->seller_id,'buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
       \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-      if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $product->seller_id,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
+      if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $product->seller_id,'status'=>'waiting_for_rider','payment_method'=>'cash_on_delivery','amount_to_collect'=>$total,'delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
       \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$product->id,'product_variant_id'=>$variant?->id,'seller_id'=>$product->seller_id,'product_name'=>$product->name,'variant_label'=>Cart::labelFor($variant),'quantity'=>$qty,'price'=>$unit,'unit_price'=>$unit,'total_price'=>$subtotal]);
       if ($voucher) {
         \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$voucher->id,'discount_amount'=>round($merch + $waived, 2)]);
@@ -440,6 +446,9 @@ Route::post('/checkout', function(Request $request){
       $voucherError = null;
       $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [(int) $lines->first()['product']->seller_id => $lines];
       foreach($bySeller as $groupSid => $sLines){
+        if ($pickupProblem = \App\Support\DeliveryServiceability::pickupAddressProblem((int) $groupSid)) {
+          throw new \Exception($pickupProblem);
+        }
         foreach($sLines as $l){
           if(! \App\Support\Stock::deduct($l['product']->id, $l['variant']?->id, $l['qty'])) throw new \Exception('Not enough stock for "'.$l['product']->name.'".');
         }
@@ -461,9 +470,9 @@ Route::post('/checkout', function(Request $request){
         }
         $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
         $total = round($subtotal - $merch + $shipping - $waived, 2);
-        $order = \App\Models\Order::create(['buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
+        $order = \App\Models\Order::create(['seller_id'=>(int) $groupSid,'buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
         \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-        if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $groupSid,'status'=>'waiting_for_rider','delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
+        if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $groupSid,'status'=>'waiting_for_rider','payment_method'=>'cash_on_delivery','amount_to_collect'=>$total,'delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
         foreach($sLines as $l){
           \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$l['product']->id,'product_variant_id'=>$l['variant']?->id,'seller_id'=>$l['product']->seller_id,'product_name'=>$l['product']->name,'variant_label'=>$l['label'],'quantity'=>$l['qty'],'price'=>$l['unit'],'unit_price'=>$l['unit'],'total_price'=>$l['line']]);
           $l['item']->delete();
@@ -584,7 +593,7 @@ Route::get('/orders', function(Request $request){
 Route::get('/orders/{id}', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
-  $order = \App\Models\Order::with(['items.product','payment','delivery','statusHistories'])->where('buyer_id',$buyer['id'])->findOrFail($id);
+  $order = \App\Models\Order::with(['items.product','payment','deliveries','statusHistories'])->where('buyer_id',$buyer['id'])->findOrFail($id);
   $reviews = \App\Models\Review::where('buyer_id',$buyer['id'])->where('order_id',$order->id)->get()->keyBy('product_id');
   return view('order', ['order'=>$order, 'reviews'=>$reviews]);
 })->whereNumber('id');
@@ -759,6 +768,7 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     Route::get('/orders', [SellerAppOrders::class, 'index'])->name('seller.orders.index');
     Route::get('/orders/{order}', [SellerAppOrders::class, 'show'])->name('seller.orders.show');
     Route::post('/orders/{order}/status', [SellerAppOrders::class, 'updateStatus'])->name('seller.orders.status');
+    Route::post('/returns/{delivery}/confirm', [SellerAppOrders::class, 'confirmReturn'])->name('seller.returns.confirm');
     Route::post('/orders/{order}/pickup', [SellerAppOrders::class, 'schedulePickup'])->name('seller.orders.pickup');
     Route::get('/orders/{order}/waybill', [SellerAppOrders::class, 'waybill'])->name('seller.orders.waybill');
 
@@ -823,7 +833,7 @@ Route::prefix('buyer')->middleware('buyer')->group(function () {
 // Logistics routes are included via require __DIR__.'/logistics/web.php';
 // The /logistics route is defined in logistics/web.php and goes to CentralEntryController
 
-Route::prefix('admin')->middleware('auth')->group(function () {
+Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(function () {
     Route::get('dashboard', function () {
         $orders = \App\Models\Order::query();
         // Revenue counts SETTLED sales only: delivered AND cash handoff

@@ -20,12 +20,12 @@ class RiderHistoryController extends Controller
             'search' => 'sometimes|string|max:255',
             'from' => 'sometimes|date',
             'to' => 'sometimes|date',
-            'status' => 'sometimes|string|in:delivered,failed',
+            'status' => 'sometimes|string|in:delivered,failed,lost,damaged',
         ]);
 
         $query = Delivery::with(['items'])
             ->where('rider_id', $rider->id)
-            ->whereIn('status', ['delivered', 'delivery_failed']);
+            ->whereIn('status', ['delivered', 'delivery_failed', 'lost', 'damaged']);
 
         if (! empty($validated['search'])) {
             $query->where(function ($q) use ($validated) {
@@ -44,7 +44,11 @@ class RiderHistoryController extends Controller
         }
 
         if (! empty($validated['status'])) {
-            $query->where('status', $validated['status']);
+            if ($validated['status'] === 'failed') {
+                $query->whereIn('status', ['delivery_failed', 'lost', 'damaged']);
+            } else {
+                $query->where('status', $validated['status']);
+            }
         }
 
         $items = $query->latest()->paginate(15);
@@ -58,7 +62,7 @@ class RiderHistoryController extends Controller
                     'customer_name' => $d->recipient_name,
                     'delivered_at' => $d->delivered_at?->toIso8601String(),
                     'status' => $d->status,
-                    'status_label' => $d->status === 'delivered' ? 'Delivered' : 'Failed',
+                    'status_label' => $d->status === 'delivered' ? 'Delivered' : ($d->status === 'lost' ? 'Lost' : ($d->status === 'damaged' ? 'Damaged' : 'Failed')),
                     'payment_method' => $d->payment_method,
                     'total' => $d->amount_to_collect,
                     'earned' => $d->earnings()->value('amount'),

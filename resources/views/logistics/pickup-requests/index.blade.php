@@ -2,9 +2,26 @@
     <div class="space-y-6">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">Pickup Requests</h1>
-                <p class="text-sm text-gray-500 mt-1">Review pickup requests before riders confirm pickup at the shop</p>
+                <h1 class="text-2xl font-bold text-gray-900">
+                    {{ $activeStatus === 'routing' ? 'Pickup Requests Needing Routing' : 'Pickup Requests' }}
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    {{ $activeStatus === 'routing'
+                        ? 'Route unassigned pickups to a logistics center before review'
+                        : 'Review pickup requests before riders confirm pickup at the shop' }}
+                </p>
             </div>
+            @if($isAdmin)
+                <a href="{{ route('pickup-requests.index', ['status' => 'routing']) }}"
+                   class="inline-flex items-center gap-2 self-start sm:self-auto rounded-xl px-4 py-2.5 text-sm font-semibold transition {{ $activeStatus === 'routing' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700 border border-amber-200 hover:border-amber-400' }}">
+                    Needs Routing
+                    @if($needsRoutingCount > 0)
+                        <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full text-[11px] font-bold {{ $activeStatus === 'routing' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800' }}">
+                            {{ $needsRoutingCount }}
+                        </span>
+                    @endif
+                </a>
+            @endif
         </div>
 
         {{-- Filter toolbar --}}
@@ -19,6 +36,9 @@
                 </div>
                 <select name="status" class="rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                     <option value="">All Statuses</option>
+                    @if($isAdmin)
+                        <option value="routing" @selected(request('status') === 'routing')>Needs Routing</option>
+                    @endif
                     @foreach(['pending', 'approved', 'rejected', 'completed'] as $s)
                         <option value="{{ $s }}" @selected(request('status') === $s)>{{ ucfirst($s) }}</option>
                     @endforeach
@@ -57,7 +77,13 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->delivery->sender_name }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->delivery->recipient_name }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->center?->name ?? '—' }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    @if($pickupRequest->center)
+                                        {{ $pickupRequest->center->name }}
+                                    @else
+                                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">Needs routing</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($pickupRequest->status === 'pending')
                                         <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">Pending</span>
@@ -71,7 +97,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $pickupRequest->requested_at?->format('M d, Y h:i A') ?? '—' }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <a href="{{ route('pickup-requests.show', $pickupRequest) }}" class="text-sm font-semibold text-teal hover:text-teal-dark">Review</a>
+                                    <a href="{{ route('pickup-requests.show', $pickupRequest) }}" class="text-sm font-semibold text-teal hover:text-teal-dark">{{ $pickupRequest->center_id ? 'Review' : 'Route' }}</a>
                                 </td>
                             </tr>
                         @empty
@@ -90,8 +116,14 @@
                     </tbody>
                 </table>
             </div>
+            @if($pickupRequests->total() > 0)
+                <div class="px-6 py-3 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <p class="text-xs text-gray-500">Showing {{ $pickupRequests->firstItem() }}–{{ $pickupRequests->lastItem() }} of {{ $pickupRequests->total() }} requests</p>
+                    <p class="text-xs text-gray-400">Page {{ $pickupRequests->currentPage() }} of {{ $pickupRequests->lastPage() }}</p>
+                </div>
+            @endif
         </div>
 
-        @include('admin.partials.pager', ['paginator' => $pickupRequests])
+        <div class="mt-6">{{ $pickupRequests->links() }}</div>
     </div>
 </x-app-layout>

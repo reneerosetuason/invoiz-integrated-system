@@ -43,7 +43,9 @@ return new class extends Migration
                 $table->string('bir_2303', 255)->nullable()->after('dti_certificate');
             }
             if (! Schema::hasColumn('sellers', 'terms_accepted')) {
-                $table->boolean('terms_accepted')->default(false)->after('approval_status');
+                Schema::hasColumn('sellers', 'approval_status')
+                    ? $table->boolean('terms_accepted')->default(false)->after('approval_status')
+                    : $table->boolean('terms_accepted')->default(false);
             }
         });
 

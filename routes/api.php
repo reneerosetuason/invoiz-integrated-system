@@ -22,7 +22,7 @@ Route::get('/stores/{seller}/reviews', [App\Http\Controllers\Api\StoreController
 Route::post('/register', [App\Http\Controllers\Api\AuthController::class, 'register']);
 Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::apiResource('categories', CategoryController::class)->only(['index','show']);
     Route::apiResource('products', ProductController::class)->only(['index','show']);
     Route::apiResource('stores', StoreController::class)->only(['index','show']);
@@ -55,7 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/chat/{id}/messages', [App\Http\Controllers\Api\ChatController::class, 'messages'])->whereNumber('id');
     Route::post('/chat/{id}/reply', [App\Http\Controllers\Api\ChatController::class, 'reply'])->whereNumber('id');
 
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('marketplace.admin')->group(function () {
         Route::apiResource('sellers', SellerController::class)->only(['index','show']);
         Route::post('sellers/{seller}/approve', [SellerController::class, 'approve']);
         Route::post('sellers/{seller}/reject', [SellerController::class, 'reject']);
@@ -63,7 +63,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 });
 
-Route::get('/user', fn (Request $request) => $request->user())->middleware('auth:sanctum');
+Route::get('/user', fn (Request $request) => $request->user())->middleware(['auth:sanctum', 'account.active']);
 
 require __DIR__.'/logistics/api.php';
 

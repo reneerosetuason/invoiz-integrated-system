@@ -28,7 +28,7 @@ Route::prefix('logistics')->group(function () {
 
 // Central entry: guests see the public landing page, authenticated
 // users are routed to their role destination (never a platform chooser).
-Route::get('/', [CentralEntryController::class, 'index'])->name('landing');
+Route::get('/', [CentralEntryController::class, 'index'])->name('logistics.landing');
 
 // Public: Open a Logistics Center / check application status
 // Shared logic with the mobile API via CenterApplicationService.
@@ -58,6 +58,7 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // Sorting Center operational hub (read-only aggregation; mutations
     // post to the existing deliveries.* routes).
     Route::get('sorting-center', [SortingCenterController::class, 'index'])->name('sorting-center.index');
+    Route::get('sorting-center/export', [SortingCenterController::class, 'export'])->name('sorting-center.export');
 
     // Deliveries
     // Parcel QR scanner (page + verify endpoint). The GET route must be
@@ -65,9 +66,14 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // captured by the "deliveries/{delivery}" show route.
     Route::get('deliveries/scan', [DeliveryController::class, 'scanPage'])->name('deliveries.scan-page');
     Route::post('deliveries/scan-verify', [DeliveryController::class, 'scanByTracking'])->name('deliveries.scan-verify');
+    Route::post('deliveries/bulk-assign-rider', [DeliveryController::class, 'bulkAssignRider'])->name('deliveries.bulk-assign');
+    Route::get('deliveries/export', [DeliveryController::class, 'export'])->name('deliveries.export');
     Route::resource('deliveries', DeliveryController::class)->except(['destroy']);
     Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
+    Route::post('deliveries/{delivery}/auto-assign', [DeliveryController::class, 'autoAssign'])->name('deliveries.auto-assign');
     Route::patch('deliveries/{delivery}/update-status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+    Route::post('deliveries/{delivery}/exception', [DeliveryController::class, 'reportException'])->name('deliveries.exception');
+    Route::post('deliveries/{delivery}/return-to-seller', [DeliveryController::class, 'dispatchReturnToSeller'])->name('deliveries.return-to-seller');
     Route::post('deliveries/{delivery}/receive', [DeliveryController::class, 'receive'])->name('deliveries.receive');
     Route::patch('deliveries/{delivery}/scan', [DeliveryController::class, 'scan'])->name('deliveries.scan');
     Route::post('deliveries/{delivery}/sort', [DeliveryController::class, 'sort'])->name('deliveries.sort');
@@ -90,6 +96,9 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // Pickup Requests (staff: approve/reject pickups at their center)
     Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');
     Route::get('pickup-requests/{pickupRequest}', [PickupRequestController::class, 'show'])->name('pickup-requests.show');
+    Route::post('pickup-requests/{pickupRequest}/route', [PickupRequestController::class, 'route'])
+        ->middleware('admin')
+        ->name('pickup-requests.route');
     Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->name('pickup-requests.approve');
     Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->name('pickup-requests.reject');
 
@@ -143,10 +152,12 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
 
     // Remittances (read-only: COD cash handoffs rider -> seller, center-scoped)
     Route::get('remittances', [RemittanceController::class, 'index'])->name('remittances.index');
+    Route::get('remittances/export', [RemittanceController::class, 'export'])->name('remittances.export');
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+    Route::get('reports/export/csv', [ReportController::class, 'exportCsv'])->name('reports.export.csv');
 
     // Settings
     // (Profile editing lives only on the Profile page; Settings manages

@@ -27,6 +27,10 @@ class AdminAuthController extends Controller
                 Auth::logout();
                 return back()->withErrors(['email' => 'Logistics accounts must use the Logistics login page.']);
             }
+            if (! $user->isActive()) {
+                Auth::logout();
+                return back()->withErrors(['email' => 'Your account is not active.']);
+            }
             if (! $user->is_admin) {
                 Auth::logout();
                 return back()->withErrors(['email' => 'Not authorized as admin']);

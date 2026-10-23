@@ -13,6 +13,9 @@ use App\Models\ProductVariant;
 use App\Models\Seller;
 use App\Models\SellerProfile;
 use App\Models\Voucher;
+use App\Rules\BusinessName;
+use App\Rules\PersonName;
+use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -205,6 +208,7 @@ class SellerCenterController extends Controller
         $delivery = $order->delivery;
         if (! $delivery) {
             $delivery = \App\Models\Delivery::create(['order_id' => $order->id]);
+            \App\Models\PickupRequest::openForDelivery($delivery);
         }
         if ($target === 'out_for_delivery') {
             $data = ['status' => 'picked_up'];
@@ -818,8 +822,10 @@ class SellerCenterController extends Controller
     {
         $seller = $this->seller();
 
+        $request->merge(NameNormalizer::cleanKeys($request->only(['store_name']), ['store_name']));
+
         $data = $request->validate([
-            'store_name' => 'required|string|max:255',
+            'store_name' => ['required', 'string', 'max:255', new BusinessName()],
             'business_info' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:1000',
             'contact_email' => 'nullable|email|max:255',
@@ -856,10 +862,15 @@ class SellerCenterController extends Controller
     {
         $user = Auth::user();
 
+        $request->merge(NameNormalizer::cleanKeys(
+            $request->only(['first_name', 'last_name', 'middle_initial']),
+            ['first_name', 'last_name', 'middle_initial']
+        ));
+
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name'  => ['required', 'string', 'max:100'],
-            'middle_initial' => ['nullable', 'string', 'max:10'],
+            'first_name' => ['required', 'string', 'max:100', new PersonName()],
+            'last_name'  => ['required', 'string', 'max:100', new PersonName()],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'phone'      => ['required', 'string', 'max:30'],
             'email'      => ['required', 'email', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($user->id)],
             'sex'        => ['required', 'in:male,female,other'],

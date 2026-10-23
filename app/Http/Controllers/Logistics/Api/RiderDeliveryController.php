@@ -13,6 +13,7 @@ use App\Models\Order;
 use App\Models\Rider;
 use App\Models\RiderEarning;
 use App\Services\DeliveryOtpService;
+use App\Services\ShipmentExceptionService;
 use App\Support\Cod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,7 +74,7 @@ class RiderDeliveryController extends Controller
                 $query->where('status', 'delivered');
                 break;
             case 'failed':
-                $query->where('status', 'delivery_failed');
+                $query->whereIn('status', ['delivery_failed', 'lost', 'damaged']);
                 break;
             case 'cancelled':
                 $query->where('status', 'cancelled');
@@ -148,6 +149,7 @@ class RiderDeliveryController extends Controller
             'logisticsCenter',
             'destinationCenter',
             'serviceArea',
+            'order:id,buyer_id',
         ]);
 
         return response()->json([
@@ -228,6 +230,7 @@ class RiderDeliveryController extends Controller
             'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
         ]);
     }
+
 
     /**
      * Confirm pickup at the shop (optionally PIN-verified).
@@ -656,6 +659,48 @@ class RiderDeliveryController extends Controller
     }
 
     /**
+     * Report a lost or damaged parcel.
+     */
+    public function reportException(
+        Request $request,
+        Delivery $delivery,
+        ShipmentExceptionService $exceptions,
+    ): JsonResponse {
+        $this->authorizeDelivery($request, $delivery);
+
+        $validated = $request->validate([
+            'type' => 'required|string|in:lost,damaged',
+            'reason' => 'required|string|max:255',
+            'notes' => 'nullable|string|max:2000',
+            'photo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+        ]);
+
+        if ($validated['type'] === 'damaged' && ! $request->hasFile('photo')) {
+            return response()->json([
+                'message' => 'A photo is required when reporting a damaged parcel.',
+                'errors' => ['photo' => ['A photo is required when reporting a damaged parcel.']],
+            ], 422);
+        }
+
+        $delivery = $exceptions->report(
+            $delivery,
+            $validated['type'],
+            $validated['reason'],
+            $validated['notes'] ?? null,
+            $request->file('photo'),
+            $request->user(),
+            'rider',
+        );
+
+        $this->markRiderAvailableIfIdle($delivery->rider);
+
+        return response()->json([
+            'message' => ucfirst($validated['type']).' parcel reported.',
+            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+        ]);
+    }
+
+    /**
      * Request a re-attempt of a failed delivery.
      *
      * The delivery record, tracking number, and failure history are
@@ -668,37 +713,58 @@ class RiderDeliveryController extends Controller
     {
         $this->authorizeDelivery($request, $delivery);
 
-        if ($delivery->status !== 'delivery_failed') {
-            return $this->invalidTransition($delivery);
-        }
-        if ($delivery->reattempt_requested_at !== null) {
-            return response()->json([
-                'message' => 'A re-attempt has already been requested for this delivery.',
-                'errors' => ['reattempt' => ['A re-attempt has already been requested for this delivery.']],
-            ], 409);
-        }
-        if ($delivery->returned_at !== null) {
-            return response()->json([
-                'message' => 'This parcel was already returned to the sorting center.',
-                'errors' => ['reattempt' => ['This parcel was already returned to the sorting center.']],
-            ], 409);
-        }
+        $result = DB::transaction(function () use ($request, $delivery) {
+            // Re-read under a row lock so concurrent requests serialise: the
+            // loser observes the committed flag and is rejected instead of
+            // writing a duplicate status log and notification. Guard order
+            // (state, then this-cycle duplicates) is unchanged.
+            $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
 
-        $delivery->update(['reattempt_requested_at' => now()]);
-        $this->logStatus($delivery, 'reattempt_requested', 'Rider requested a delivery re-attempt.');
+            // Re-check ownership against the locked row: a concurrent
+            // reassignment must not let a stale request still write.
+            $this->authorizeDelivery($request, $locked);
 
-        Notification::create([
-            'type' => 'reattempt_requested',
-            'title' => 'Re-attempt Requested',
-            'message' => "Rider requested a re-attempt for {$delivery->tracking_number}.",
-            'icon' => '🔁',
-            'priority' => 'normal',
-            'link' => route('deliveries.show', $delivery),
-        ]);
+            if ($locked->status !== 'delivery_failed') {
+                return ['conflict' => $this->invalidTransition($locked)];
+            }
+            if ($locked->reattempt_requested_at !== null) {
+                return ['conflict' => response()->json([
+                    'message' => 'A re-attempt has already been requested for this delivery.',
+                    'errors' => ['reattempt' => ['A re-attempt has already been requested for this delivery.']],
+                ], 409)];
+            }
+            if ($locked->returned_at !== null) {
+                return ['conflict' => response()->json([
+                    'message' => 'This parcel was already returned to the sorting center.',
+                    'errors' => ['reattempt' => ['This parcel was already returned to the sorting center.']],
+                ], 409)];
+            }
+
+            $locked->update(['reattempt_requested_at' => now()]);
+
+            $this->logStatus($locked, 'reattempt_requested', 'Rider requested a delivery re-attempt.');
+
+            Notification::create([
+                'type' => 'reattempt_requested',
+                'title' => 'Re-attempt Requested',
+                'message' => "Rider requested a re-attempt for {$locked->tracking_number}.",
+                'icon' => '🔁',
+                'priority' => 'normal',
+                'center_id' => $locked->center_id,
+                'audience' => $locked->center_id ? 'center' : 'admin',
+                'link' => route('deliveries.show', $locked),
+            ]);
+
+            return ['delivery' => $locked];
+        });
+
+        if (isset($result['conflict'])) {
+            return $result['conflict'];
+        }
 
         return response()->json([
             'message' => 'Re-attempt requested. Logistics will review and reassign the delivery.',
-            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+            'delivery' => $this->detailPayload($result['delivery']->load(['items', 'statusLogs', 'proof', 'failure'])),
         ]);
     }
 
@@ -714,35 +780,53 @@ class RiderDeliveryController extends Controller
     {
         $this->authorizeDelivery($request, $delivery);
 
-        if ($delivery->status !== 'delivery_failed') {
-            return $this->invalidTransition($delivery);
-        }
-        if ($delivery->returned_at !== null) {
-            return response()->json([
-                'message' => 'This parcel was already returned to the sorting center.',
-                'errors' => ['return' => ['This parcel was already returned to the sorting center.']],
-            ], 409);
-        }
+        $result = DB::transaction(function () use ($request, $delivery) {
+            // Row lock serialises concurrent returns; see requestReattempt().
+            $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
 
-        $delivery->update([
-            'returned_at' => now(),
-            'return_reason' => $delivery->failure_reason,
-            'reattempt_requested_at' => null,
-        ]);
-        $this->logStatus($delivery, 'returned_to_center', 'Parcel returned to the sorting center.');
+            $this->authorizeDelivery($request, $locked);
 
-        Notification::create([
-            'type' => 'parcel_returned_to_center',
-            'title' => 'Parcel Returned to Center',
-            'message' => "{$delivery->tracking_number} was returned to the sorting center.",
-            'icon' => '🏢',
-            'priority' => 'normal',
-            'link' => route('deliveries.show', $delivery),
-        ]);
+            if (! in_array($locked->status, ['delivery_failed', 'damaged'], true)) {
+                return ['conflict' => $this->invalidTransition($locked)];
+            }
+            if ($locked->returned_at !== null) {
+                return ['conflict' => response()->json([
+                    'message' => 'This parcel was already returned to the sorting center.',
+                    'errors' => ['return' => ['This parcel was already returned to the sorting center.']],
+                ], 409)];
+            }
+
+            $locked->update([
+                'returned_at' => now(),
+                // The failure reason is preserved verbatim as the return reason.
+                'return_reason' => $locked->failure_reason,
+                // Returning supersedes any pending re-attempt request.
+                'reattempt_requested_at' => null,
+            ]);
+
+            $this->logStatus($locked, 'returned_to_center', 'Parcel returned to the sorting center.');
+
+            Notification::create([
+                'type' => 'parcel_returned_to_center',
+                'title' => 'Parcel Returned to Center',
+                'message' => "{$locked->tracking_number} was returned to the sorting center.",
+                'icon' => '🏢',
+                'priority' => 'normal',
+                'center_id' => $locked->center_id,
+                'audience' => $locked->center_id ? 'center' : 'admin',
+                'link' => route('deliveries.show', $locked),
+            ]);
+
+            return ['delivery' => $locked];
+        });
+
+        if (isset($result['conflict'])) {
+            return $result['conflict'];
+        }
 
         return response()->json([
             'message' => 'Parcel marked as returned to the sorting center.',
-            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+            'delivery' => $this->detailPayload($result['delivery']->load(['items', 'statusLogs', 'proof', 'failure'])),
         ]);
     }
 
