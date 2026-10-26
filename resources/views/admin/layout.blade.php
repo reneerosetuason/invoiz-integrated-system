@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Invoiz Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ asset('css/app-sidebar.css') }}?v={{ filemtime(public_path('css/app-sidebar.css')) }}">
   <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}" defer></script>
   <script>
@@ -23,7 +26,7 @@
       --primary-dark: #0E4A57;
       --secondary: #F0A202;
       --accent: #EAF4F3;
-      --background: #F7F6F2;
+      --background: #FBF9F6;
       --card: #FFFFFF;
       --text-primary: #1B1B1E;
       --text-secondary: #6E6E73;
@@ -34,7 +37,7 @@
       --surface-soft: #F0EEE9;
     }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(180deg, #F8F7F4 0%, #F3F1EB 100%) fixed; color: var(--text-primary); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+    body { margin: 0; font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif; background: var(--background); color: var(--text-primary); font-size: 14px; line-height: 1.55; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
     ::placeholder { color: #9CA3AF; opacity: 1; }
     ::selection { background: rgba(22,105,122,.15); }
     ::-webkit-scrollbar { width: 9px; height: 9px; }
@@ -47,14 +50,14 @@
     .sb2--admin.sidebar { width: 256px; min-width: 256px; flex: 0 0 256px; background: #FBF9F6; border-right: 0; padding: 0; position: sticky; top: 0; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; transition: none; }
     .sb2--admin.sidebar.collapsed { width: 72px; min-width: 72px; flex-basis: 72px; }
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-    .topbar { height: 64px; background: var(--card); border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(16,24,40,.03); display: flex; align-items: center; gap: 14px; padding: 0 20px; position: sticky; top: 0; z-index: 10; }
-    .hamburger { width: 40px; height: 40px; border: 1px solid var(--border); background: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .15s, background .15s; flex-shrink: 0; }
-    .hamburger:hover { background: var(--surface-soft); transform: scale(1.05); }
-    .hamburger svg { width: 20px; height: 20px; stroke: var(--primary); fill: none; stroke-width: 2; stroke-linecap: round; }
+    .topbar { height: 64px; background: #FBF9F6; border-bottom: 0; box-shadow: none; display: flex; align-items: center; gap: 14px; padding: 0 20px; position: sticky; top: 0; z-index: 10; font-family: 'Inter', system-ui, sans-serif; }
+    .hamburger { width: 40px; height: 40px; border: 0; background: transparent; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-dark); cursor: pointer; flex-shrink: 0; }
+    .hamburger:hover { background: #EDF3F1; }
+    .hamburger svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; }
     .hamburger:focus-visible { outline: 2px solid #0E4A57; outline-offset: 2px; }
     @media (max-width: 1023.98px) { .hamburger { width: 44px; height: 44px; } }
-    .topbar-title { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -.3px; line-height: 1.2; }
-    .topbar-sub { font-size: 12px; color: var(--text-secondary); }
+    .topbar-title { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: -.2px; line-height: 1.2; }
+    .topbar-sub { font-size: 12.5px; color: #56696B; }
     .content { flex: 1; padding: 28px 32px; max-width: 1280px; }
     .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -14px rgba(16,24,40,.10); }
     .page-title { margin-top: 0; margin-bottom: 16px; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.25; color: var(--text-primary); }
@@ -291,7 +294,7 @@
     </aside>
     <div class="main">
       <header class="topbar">
-        <button class="hamburger" type="button" aria-label="Toggle sidebar">
+        <button class="hamburger" type="button" aria-label="Toggle sidebar" aria-controls="sidebar" aria-expanded="true">
           <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
         </button>
         <div>
@@ -308,11 +311,15 @@
     (function () {
       var sb = document.getElementById('sidebar');
       var hb = document.querySelector('.hamburger');
-      if (localStorage.getItem('invSidebarCollapsed') === '1') sb.classList.add('collapsed', 'sidebar-collapsed');
+      var collapsed = localStorage.getItem('invSidebarCollapsed') === '1';
+      if (window.matchMedia('(max-width: 1023.98px)').matches) collapsed = true;
+      if (collapsed) sb.classList.add('collapsed', 'sidebar-collapsed');
+      hb.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
       hb.addEventListener('click', function () {
         var collapsed = sb.classList.toggle('collapsed');
         sb.classList.toggle('sidebar-collapsed', collapsed);
         localStorage.setItem('invSidebarCollapsed', collapsed ? '1' : '0');
+        hb.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
       });
     })();
 
@@ -407,5 +414,6 @@
     })();
   </script>
   <script src="{{ asset('js/table-enhancer.js') }}"></script>
+  @stack('scripts')
 </body>
 </html>

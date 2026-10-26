@@ -15,9 +15,60 @@ $sections = [
     'content' => ['mega', 'Announcements & Policies'],
 ];
 @endphp
-<div class="card">
+<style>
+    .admin-settings{max-width:1040px;margin:0 auto;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#19383E}
+    .admin-settings .page-title{margin:0!important;color:#0E4A57;font-family:'Fraunces',Georgia,serif;font-size:28px;font-weight:560;letter-spacing:-.02em;line-height:1.15}
+    .admin-settings>.settings-intro{margin:7px 0 18px!important;color:#5C7073!important;font-size:14px;line-height:1.5}
+    .admin-settings .settings-nav{display:flex;gap:8px;margin:18px 0 27px;padding:2px 0 5px;overflow-x:auto;scrollbar-width:thin;scroll-snap-type:x proximity}
+    .admin-settings .settings-nav-link{display:inline-flex;min-height:38px;flex:0 0 auto;align-items:center;gap:7px;padding:7px 13px;border:1px solid rgba(15,76,92,.14);border-radius:999px;background:#fff;color:#31565D;font-size:12.5px;font-weight:600;text-decoration:none;scroll-snap-align:start;transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+    .admin-settings .settings-nav-link:hover,.admin-settings .settings-nav-link:focus-visible{border-color:#86AEB1;background:#EAF3F2;color:#0E4A57}
+    .admin-settings h2[id^="section-"]{display:flex;align-items:center;gap:9px;margin:28px 0 11px!important;scroll-margin-top:92px;color:#0E4A57;font-family:'Fraunces',Georgia,serif;font-size:21px!important;font-weight:560;line-height:1.2}
+    .admin-settings #section-general{margin-top:0!important}
+    .admin-settings form[style]{padding:20px 22px!important;border:1px solid rgba(15,76,92,.13)!important;border-radius:14px!important;background:#fff!important;color:#19383E}
+    .admin-settings input:not([type="checkbox"]):not([type="file"]),.admin-settings select,.admin-settings textarea{width:100%!important;min-height:42px!important;padding:9px 12px!important;border:1px solid rgba(15,76,92,.18)!important;border-radius:9px!important;background:#fff!important;color:#19383E!important;font-family:inherit!important;font-size:13.5px!important;box-shadow:none}
+    .admin-settings textarea{min-height:110px!important;resize:vertical}
+    .admin-settings input:focus,.admin-settings select:focus,.admin-settings textarea:focus{border-color:#5A9298!important;outline:0;box-shadow:0 0 0 3px rgba(22,105,122,.1)!important}
+    .admin-settings label{color:#36555B}
+    .admin-settings input[type="checkbox"]{width:17px!important;height:17px!important;flex:0 0 17px;accent-color:#0E4A57}
+    .admin-settings .settings-checks{display:grid;gap:9px!important;margin:16px 0 0!important}
+    .admin-settings .settings-checks label{display:flex;align-items:center;gap:10px;padding:5px 0;color:#36555B;font-size:13px}
+    .admin-settings .settings-checks--single{display:block!important}
+    .admin-settings .settings-check-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px!important;margin-bottom:16px!important}
+    .admin-settings .settings-check-option{min-height:44px;padding:10px 13px!important;border:1px solid rgba(15,76,92,.13)!important;border-radius:10px!important;background:#F7F9F8!important;color:#36555B}
+    .admin-settings .settings-save{margin-top:18px}
+    .admin-settings .settings-save button,.admin-settings .settings-content-form button{min-height:40px;padding:9px 18px!important;border:0!important;border-radius:9px!important;background:#0E4A57!important;color:#fff!important;font-family:inherit;font-size:13px;font-weight:650;cursor:pointer;transition:background-color .15s ease,transform .15s ease}
+    .admin-settings .settings-save button:hover,.admin-settings .settings-content-form button:hover{background:#16697A!important;transform:translateY(-1px)}
+    .admin-settings .settings-logo-row{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:16px}
+    .admin-settings .settings-logo-preview{display:flex;width:64px;height:64px;flex:0 0 64px;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(15,76,92,.18);border-radius:14px;background:#F7F9F8}
+    .admin-settings .settings-logo-preview img{width:100%;height:100%;object-fit:contain}
+    .admin-settings .settings-logo-control{min-width:220px;flex:1}
+    .admin-settings .settings-logo-control label{display:block;margin-bottom:6px;color:#36555B;font-size:13px;font-weight:600}
+    .admin-settings input[type="file"]{max-width:100%;padding:7px!important;border:1px solid rgba(15,76,92,.16);border-radius:9px;background:#F7F9F8;color:#496267;font-family:inherit;font-size:12px}
+    .admin-settings .settings-content-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .admin-settings .settings-content-form{padding:18px!important;border:1px solid rgba(15,76,92,.13)!important;border-radius:14px!important;background:#fff!important}
+    .admin-settings .settings-content-form label{display:block;margin:0 0 5px;color:#36555B;font-size:13px;font-weight:600}
+    .admin-settings .settings-content-form>div{margin-bottom:12px}
+    .admin-settings .settings-content-form textarea{width:100%!important}
+    .admin-settings .settings-subhead{margin:20px 0 10px;color:#0E4A57;font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:560}
+    .admin-settings .settings-content-record{position:relative;margin:0 0 9px;padding:13px 15px;border:1px solid rgba(15,76,92,.12);border-radius:11px;background:#fff}
+    .admin-settings .settings-content-record strong{color:#19383E;font-size:13.5px}
+    .admin-settings .settings-content-record p{margin:4px 0;color:#5C7073;font-size:13px;line-height:1.5}
+    .admin-settings .settings-content-meta{color:#687B7E;font-size:12px}
+    .admin-settings .settings-active-indicator{display:inline-block;width:8px;height:8px;margin-right:7px;border-radius:50%;background:#899698;vertical-align:1px}
+    .admin-settings .settings-active-indicator.is-active{background:#4B8B69}
+    .admin-settings .settings-section-empty{color:#687B7E;font-size:13px}
+    .admin-settings :focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+    @media(max-width:700px){
+        .admin-settings .page-title{font-size:25px}
+        .admin-settings .settings-nav{margin:15px 0 23px}
+        .admin-settings form[style]{padding:17px 15px!important}
+        .admin-settings .settings-content-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+    }
+    @media(prefers-reduced-motion:reduce){.admin-settings *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+</style>
+<main class="card admin-settings">
     <h1 class="page-title">System Settings</h1>
-    <p style="color:#6E6E73;margin-top:-8px;">Main configuration center for the Invoiz platform.</p>
+    <p class="settings-intro">Main configuration center for the Invoiz platform.</p>
 
     @if(session('status'))
     <div class="alert alert-success">{{ session('status') }}</div>
@@ -26,17 +77,17 @@ $sections = [
     <div class="alert alert-warn">{{ $errors->first() }}</div>
     @endif
 
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;">
+    <nav class="settings-nav" aria-label="Settings sections">
         @foreach ($sections as $id => [$icon, $label])
-        <a href="#section-{{ $id }}" style="padding:7px 15px;border-radius:999px;background:#F0EEE9;color:#374151;font-size:12.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;"><x-ui-icon :name="$icon" :size="14" />{{ $label }}</a>
+        <a href="#section-{{ $id }}" class="settings-nav-link"><x-ui-icon :name="$icon" :size="14" />{{ $label }}</a>
         @endforeach
-    </div>
+    </nav>
 
     @php
-    $inputStyle = 'width:100%;padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;background:#fff;';
-    $labelStyle = 'display:block;margin-bottom:4px;font-weight:600;font-size:13px;';
-    $cardStyle = 'background:#F7F6F2;padding:22px;border-radius:14px;border:1px solid #E8E6E0;';
-    $saveBtn = 'padding:10px 26px;background:#16697A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;';
+    $inputStyle = 'width:100%;min-height:42px;padding:9px 12px;border:1px solid rgba(15,76,92,.18);border-radius:9px;box-sizing:border-box;background:#fff;color:#19383E;';
+    $labelStyle = 'display:block;margin-bottom:5px;font-weight:600;font-size:13px;color:#36555B;';
+    $cardStyle = 'background:#fff;padding:20px 22px;border-radius:14px;border:1px solid rgba(15,76,92,.13);';
+    $saveBtn = 'min-height:40px;padding:9px 18px;background:#0E4A57;color:white;border:none;border-radius:9px;cursor:pointer;font-weight:650;';
     @endphp
 
     {{-- ============================ GENERAL ============================ --}}
@@ -90,20 +141,22 @@ $sections = [
                 </select>
             </div>
         </div>
-        <div style="margin-top:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-            <div style="width:64px;height:64px;border-radius:50%;border:2px solid #E8E6E0;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <div class="settings-logo-row">
+                <div class="settings-logo-preview" data-photo-preview-target-key="admin-store-logo-preview">
                 @if ($settings->get('store_logo'))
                 <img src="{{ url('storage/'.$settings->get('store_logo')) }}" alt="logo" style="width:100%;height:100%;object-fit:cover;" />
                 @else
                 <img src="{{ asset('images/logo.png') }}" alt="logo" style="width:100%;height:100%;object-fit:cover;" />
                 @endif
             </div>
-            <div>
-                <label style="{{ $labelStyle }}">Store Logo (PNG/JPG/SVG, max 2MB)</label>
-                <input type="file" name="store_logo" accept="image/*" style="padding:6px;" />
+            <div class="settings-logo-control">
+                <label for="settings-store-logo">Store Logo (PNG/JPG/SVG, max 2MB)</label>
+                <input id="settings-store-logo" type="file" name="store_logo" accept="image/*"
+                       data-photo-editor data-photo-aspect="1" data-photo-max-bytes="2097152" data-photo-output-format="png"
+                       data-photo-preview-key="admin-store-logo-preview" />
             </div>
         </div>
-        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save General Settings</button></div>
+        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save General Settings</button></div>
     </form>
 
     {{-- ============================ MARKETPLACE ============================ --}}
@@ -136,7 +189,7 @@ $sections = [
                 </select>
             </div>
         </div>
-        <div style="margin-top:16px;display:grid;gap:10px;">
+        <div class="settings-checks">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="auto_approve_sellers" value="1" {{ $checked('auto_approve_sellers') }} style="width:16px;height:16px;" />
                 Auto-approve new seller registrations (skip manual review)
@@ -146,7 +199,7 @@ $sections = [
                 Require admin approval before new products go live
             </label>
         </div>
-        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Marketplace Settings</button></div>
+        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Marketplace Settings</button></div>
     </form>
 
     {{-- ============================ ORDERS ============================ --}}
@@ -164,7 +217,7 @@ $sections = [
                 <input type="number" name="return_window_days" value="{{ $s('return_window_days', '7') }}" min="0" style="{{ $inputStyle }}" />
             </div>
         </div>
-        <div style="margin-top:16px;display:grid;gap:10px;">
+        <div class="settings-checks">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="allow_cancellations" value="1" {{ $checked('allow_cancellations', '1') }} style="width:16px;height:16px;" />
                 Allow buyers to cancel orders
@@ -174,7 +227,7 @@ $sections = [
                 Allow product returns
             </label>
         </div>
-        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Order Settings</button></div>
+        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Order Settings</button></div>
     </form>
 
     {{-- ============================ PAYMENTS ============================ --}}
@@ -183,9 +236,9 @@ $sections = [
         @csrf
         <input type="hidden" name="section" value="payments" />
         <label style="{{ $labelStyle }}">Enabled Payment Methods</label>
-        <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:16px;">
+        <div class="settings-check-options">
             @foreach (['pm_gcash' => 'GCash', 'pm_maya' => 'Maya', 'pm_card' => 'Credit / Debit Card', 'pm_cod' => 'Cash on Delivery'] as $key => $label)
-            <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;background:#fff;border:1px solid #E8E6E0;border-radius:10px;padding:10px 14px;">
+            <label class="settings-check-option" style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="{{ $key }}" value="1" {{ $checked($key, '1') }} style="width:16px;height:16px;" />
                 {{ $label }}
             </label>
@@ -204,13 +257,13 @@ $sections = [
                 <input type="number" name="refund_window_days" value="{{ $s('refund_window_days', '14') }}" min="0" style="{{ $inputStyle }}" />
             </div>
         </div>
-        <div style="margin-top:16px;">
+        <div class="settings-checks settings-checks--single">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="auto_refund" value="1" {{ $checked('auto_refund') }} style="width:16px;height:16px;" />
                 Automatically refund approved disputes
             </label>
         </div>
-        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Payment Settings</button></div>
+        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Payment Settings</button></div>
     </form>
 
     {{-- ============================ DELIVERY ============================ --}}
@@ -237,13 +290,13 @@ $sections = [
             </div>
             @endforeach
         </div>
-        <div style="margin-top:16px;">
+        <div class="settings-checks settings-checks--single">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="auto_assign_rider" value="1" {{ $checked('auto_assign_rider', '1') }} style="width:16px;height:16px;" />
                 Auto-assign available riders to paid orders
             </label>
         </div>
-        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Delivery Settings</button></div>
+        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Delivery Settings</button></div>
     </form>
 
     {{-- ============================ NOTIFICATIONS ============================ --}}
@@ -251,7 +304,7 @@ $sections = [
     <form method="POST" action="{{ url('/admin/settings/update') }}" style="{{ $cardStyle }}">
         @csrf
         <input type="hidden" name="section" value="notifications" />
-        <div style="display:grid;gap:10px;max-width:520px;margin-bottom:16px;">
+        <div class="settings-checks">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="notif_email" value="1" {{ $checked('notif_email', '1') }} style="width:16px;height:16px;" />
                 <x-ui-icon name="mail" :size="15" /> Email Notifications (order updates, approvals)
@@ -273,7 +326,7 @@ $sections = [
                 @endforeach
             </select>
         </div>
-        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Notification Settings</button></div>
+        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Notification Settings</button></div>
     </form>
 
     {{-- ============================ SECURITY ============================ --}}
@@ -295,7 +348,7 @@ $sections = [
                 <input type="number" name="max_login_attempts" value="{{ $s('max_login_attempts', '5') }}" min="1" style="{{ $inputStyle }}" />
             </div>
         </div>
-        <div style="margin-top:16px;display:grid;gap:10px;">
+        <div class="settings-checks">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="password_require_symbols" value="1" {{ $checked('password_require_symbols', '1') }} style="width:16px;height:16px;" />
                 Require symbols & numbers in passwords
@@ -305,14 +358,14 @@ $sections = [
                 Require Two-Factor Authentication (2FA) for admins
             </label>
         </div>
-        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Security Settings</button></div>
+        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Security Settings</button></div>
     </form>
 
     {{-- ============================ ANNOUNCEMENTS & POLICIES ============================ --}}
     <h2 id="section-content" style="font-size:18px;margin:28px 0 12px;display:flex;align-items:center;gap:8px;"><x-ui-icon name="mega" :size="18" /> Announcements & Policies</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div class="settings-content-grid">
         <div>
-            <form method="POST" action="{{ url('/admin/settings/announcement') }}" style="background:#F0EEE9;padding:20px;border-radius:12px;">
+            <form method="POST" action="{{ url('/admin/settings/announcement') }}" class="settings-content-form">
                 @csrf
                 <div style="margin-bottom:12px;">
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Announcement Title</label>
@@ -322,23 +375,24 @@ $sections = [
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Body</label>
                     <textarea name="body" rows="4" required style="width:100%;padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;"></textarea>
                 </div>
-                <button type="submit" style="padding:10px 24px;background:#16697A;color:white;border:none;border-radius:8px;cursor:pointer;">Post Announcement</button>
+                <button type="submit">Post Announcement</button>
             </form>
 
-            <h3 style="font-size:15px;margin:20px 0 12px;">Recent Announcements</h3>
+            <h3 class="settings-subhead">Recent Announcements</h3>
             @forelse($announcements as $ann)
-            <div style="background:#F0EEE9;padding:14px;border-radius:10px;margin-bottom:10px;border-left:3px solid {{ $ann->is_active ? '#2E8B57' : '#6E6E73' }};">
+            <div class="settings-content-record">
+                <span class="settings-active-indicator {{ $ann->is_active ? 'is-active' : 'is-inactive' }}" title="{{ $ann->is_active ? 'Active' : 'Inactive' }}" aria-label="{{ $ann->is_active ? 'Active' : 'Inactive' }}"></span>
                 <strong>{{ $ann->title }}</strong>
                 <p style="color:#6E6E73;margin:4px 0 0;font-size:13px;">{{ Str::limit($ann->body, 100) }}</p>
-                <span style="font-size:12px;color:#6E6E73;">{{ $ann->created_at->diffForHumans() }} by {{ $ann->creator->name ?? 'Admin' }}</span>
+                <span class="settings-content-meta">{{ $ann->created_at->diffForHumans() }} by {{ $ann->creator->name ?? 'Admin' }}</span>
             </div>
             @empty
-            <p style="color:#6E6E73;">No announcements yet.</p>
+            <p class="settings-section-empty">No announcements yet.</p>
             @endforelse
         </div>
 
         <div>
-            <form method="POST" action="{{ url('/admin/settings/policy') }}" style="background:#F0EEE9;padding:20px;border-radius:12px;margin-bottom:20px;">
+            <form method="POST" action="{{ url('/admin/settings/policy') }}" class="settings-content-form">
                 @csrf
                 <div style="margin-bottom:12px;">
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Policy Title</label>
@@ -348,19 +402,23 @@ $sections = [
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Content</label>
                     <textarea name="content" rows="5" required style="width:100%;padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;"></textarea>
                 </div>
-                <button type="submit" style="padding:10px 24px;background:#8b5cf6;color:white;border:none;border-radius:8px;cursor:pointer;">Create Policy</button>
+                <button type="submit">Create Policy</button>
             </form>
 
             @forelse($policies as $policy)
-            <div style="background:#F0EEE9;padding:14px;border-radius:10px;margin-bottom:10px;border-left:3px solid {{ $policy->is_active ? '#8b5cf6' : '#6E6E73' }};">
+            <div class="settings-content-record">
+                <span class="settings-active-indicator {{ $policy->is_active ? 'is-active' : 'is-inactive' }}" title="{{ $policy->is_active ? 'Active' : 'Inactive' }}" aria-label="{{ $policy->is_active ? 'Active' : 'Inactive' }}"></span>
                 <strong>{{ $policy->title }}</strong>
                 <span style="font-size:12px;color:#6E6E73;margin-left:8px;">v{{ $policy->version }}</span>
                 <p style="color:#6E6E73;margin:4px 0 0;font-size:13px;">{{ Str::limit($policy->content, 100) }}</p>
             </div>
             @empty
-            <p style="color:#6E6E73;">No policies created yet.</p>
+            <p class="settings-section-empty">No policies created yet.</p>
             @endforelse
         </div>
     </div>
-</div>
+</main>
+@push('scripts')
+    @include('partials.seller-photo-editor')
+@endpush
 @endsection

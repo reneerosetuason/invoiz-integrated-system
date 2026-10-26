@@ -1,173 +1,180 @@
-﻿@extends('admin.layout')
+@extends('admin.layout')
 
 @section('content')
+@include('admin.partials.list-ui-styles')
 <style>
-  .prod-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
-  .p-stat { background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; text-align:center; transition:transform .15s, box-shadow .15s; }
-  .p-stat:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(16,24,40,.08); }
-  .p-stat span { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-secondary); }
-  .p-stat strong { display:block; font-size:22px; font-weight:800; margin-top:4px; }
-  .cat-pills { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-  .cat-pill { padding:7px 14px; border-radius:999px; font-size:12.5px; font-weight:700; border:1px solid var(--border); background:#fff; color:#374151; text-decoration:none; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
-  .cat-pill:hover { border-color:#16697A; color:#16697A; }
-  .cat-pill.active { background:#16697A; color:#fff; border-color:#16697A; }
-  .cat-pill small { font-weight:600; opacity:.7; }
-  .cat-pill.active small { color:#fff; opacity:.8; }
-  .cat-section { background:#fff; border:1px solid var(--border); border-radius:16px; overflow:hidden; margin-bottom:14px; box-shadow:0 1px 3px rgba(16,24,40,.04); }
-  .cat-header { display:flex; align-items:center; gap:12px; padding:14px 18px; cursor:pointer; user-select:none; background:linear-gradient(180deg,#FAFAF8 0%,#fff 100%); border-bottom:1px solid transparent; transition:background .15s; }
-  .cat-header:hover { background:#F8F9FA; }
-  .cat-section.open .cat-header { border-bottom-color:var(--border); }
-  .cat-icon { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#16697A 0%,#1A9CB0 100%); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .cat-icon svg { width:18px; height:18px; stroke:#fff; fill:none; stroke-width:1.8; }
-  .cat-name { font-size:14px; font-weight:800; letter-spacing:-.2px; }
-  .cat-count { font-size:11.5px; color:var(--text-secondary); font-weight:600; }
-  .cat-meta { margin-left:auto; display:flex; gap:10px; align-items:center; }
-  .cat-badge { background:#F0FAFA; border:1px solid #E6F1F2; color:#16697A; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; }
-  .cat-toggle { width:28px; height:28px; border-radius:50%; background:#F3F4F6; display:flex; align-items:center; justify-content:center; transition:transform .2s; }
-  .cat-section.open .cat-toggle { transform:rotate(180deg); }
-  .cat-toggle svg { width:14px; height:14px; stroke:#6B7280; fill:none; stroke-width:2; }
-  .cat-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(180px, 1fr)); gap:12px; padding:14px; }
-  .cat-section:not(.open) .cat-grid { display:none; }
-  .prod-card { background:#fff; border:1px solid #E8E6E0; border-radius:14px; overflow:hidden; transition:transform .15s, box-shadow .15s, border-color .15s; }
-  .prod-card:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(16,24,40,.08); border-color:#D1D5DB; }
-  .prod-thumb { height:120px; background:linear-gradient(135deg,#E6F1F2 0%,#F0FAFA 100%); display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; }
-  .prod-thumb-letter { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,#16697A 0%,#1A9CB0 100%); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:19px; box-shadow:0 4px 12px rgba(22,105,122,.15); }
-  .prod-status { position:absolute; top:8px; right:8px; font-size:10px; font-weight:700; padding:4px 8px; border-radius:999px; border:1px solid; }
-  .prod-status.active { background:#E8F5EE; color:#166534; border-color:#BFE3D0; }
-  .prod-status.suspended { background:#FEE2E2; color:#991B1B; border-color:#FECACA; }
-  .prod-status.inactive { background:#F3F4F6; color:#6B7280; border-color:#E5E7EB; }
-  .prod-body { padding:12px; }
-  .prod-name { font-size:13.5px; font-weight:700; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .prod-sku { font-size:11px; color:#9CA3AF; font-family:monospace; margin-top:2px; }
-  .prod-cat { display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; background:#F0FAFA; color:#16697A; border:1px solid #E6F1F2; padding:2px 7px; border-radius:999px; margin-top:8px; }
-  .prod-seller { font-size:11.5px; color:#6B7280; margin-top:6px; display:flex; align-items:center; gap:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .prod-price { font-size:15px; font-weight:800; color:#16697A; margin-top:8px; }
-  @media (max-width: 900px) { .prod-stats { grid-template-columns:repeat(2,1fr); } .cat-grid { grid-template-columns:repeat(2,1fr); } }
+  .admin-products .admin-list-stats{margin-top:0}
+  .admin-products .admin-list-filters{overflow-x:auto;scrollbar-width:none}
+  .admin-products .admin-list-filters::-webkit-scrollbar{display:none}
+  .admin-products .cat-pills{margin:0}
+  .admin-products .cat-section{margin:0 0 10px;border-top:1px solid var(--list-hair)}
+  .admin-products .cat-section:not(.open) .cat-grid{display:none}
+  .admin-products .cat-header{display:flex;width:100%;min-height:60px;align-items:center;gap:11px;padding:10px 2px;border:0;border-bottom:1px solid transparent;background:transparent;color:inherit;text-align:left;cursor:pointer;transition:background-color .16s ease}
+  .admin-products .cat-header:hover{background:rgba(234,243,242,.55)}
+  .admin-products .cat-section.open .cat-header{border-bottom-color:var(--list-hair)}
+  .admin-products .cat-icon{display:flex;width:32px;height:32px;flex:0 0 32px;align-items:center;justify-content:center;border-radius:9px;background:#EAF3F2;color:var(--list-deep)}
+  .admin-products .cat-icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.55;stroke-linecap:round;stroke-linejoin:round}
+  .admin-products .cat-heading{min-width:0}
+  .admin-products .cat-name{color:var(--list-deep);font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:560;line-height:1.2;overflow-wrap:anywhere}
+  .admin-products .cat-count{margin-top:3px;color:var(--list-muted);font-size:12.5px;line-height:1.3}
+  .admin-products .cat-meta{display:flex;min-width:0;align-items:center;gap:8px;margin-left:auto}
+  .admin-products .cat-badge{display:inline-flex;min-height:28px;align-items:center;padding:5px 9px;border:1px solid var(--list-hair);border-radius:999px;background:#fff;color:var(--list-deep);font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .admin-products .cat-badge--suspended{background:#F5E9E6;color:#8F4038}
+  .admin-products .cat-toggle{display:flex;width:36px;height:36px;flex:0 0 36px;align-items:center;justify-content:center;border:1px solid var(--list-hair);border-radius:50%;background:#fff;color:var(--list-deep)}
+  .admin-products .cat-toggle svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .18s ease}
+  .admin-products .cat-section.open .cat-toggle svg{transform:rotate(180deg)}
+  .admin-products .cat-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;padding:14px 0 8px}
+  .admin-products .prod-card{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid rgba(15,76,92,.12);border-radius:14px;background:#fff;transition:transform .16s cubic-bezier(.22,1,.36,1),border-color .16s ease,box-shadow .16s ease}
+  .admin-products .prod-card:hover{transform:translateY(-2px);border-color:rgba(15,76,92,.28);box-shadow:0 8px 20px rgba(14,74,87,.07)}
+  .admin-products .prod-thumb{position:relative;display:flex;width:100%;aspect-ratio:1;align-items:center;justify-content:center;overflow:hidden;background:#F4F3EE}
+  .admin-products .prod-thumb>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .admin-products .prod-thumb-letter{display:flex;width:48px;height:48px;align-items:center;justify-content:center;border:1px solid var(--list-hair);border-radius:12px;background:#EAF3F2;color:var(--list-deep);font-size:18px;font-weight:650}
+  .admin-products .prod-status{position:absolute;top:9px;left:9px;display:inline-flex;min-height:26px;align-items:center;gap:6px;padding:5px 9px;border:1px solid rgba(15,76,92,.12);border-radius:999px;background:rgba(251,249,246,.94);color:var(--list-deep);font-size:11.5px;font-weight:650;line-height:1.2;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+  .admin-products .prod-status::before{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#16697A;content:""}
+  .admin-products .prod-status.suspended{border-color:#E7CFCA;background:rgba(245,233,230,.96);color:#8F4038}
+  .admin-products .prod-status.suspended::before{background:#A44F45}
+  .admin-products .prod-status.inactive{background:rgba(243,240,233,.96);color:#43575A}
+  .admin-products .prod-status.inactive::before{background:#718184}
+  .admin-products .prod-body{display:flex;min-width:0;flex:1;flex-direction:column;padding:11px 12px 12px}
+  .admin-products .prod-name{min-height:2.6em;color:#1B1B1E;font-size:14.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  .admin-products .prod-sku{min-width:0;margin-top:3px;color:var(--list-muted);font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+  .admin-products .prod-cat{display:inline-flex;max-width:100%;min-height:26px;align-self:flex-start;align-items:center;gap:5px;margin-top:8px;padding:4px 8px;border:1px solid var(--list-hair);border-radius:999px;background:#fff;color:var(--list-deep);font-size:11.5px;font-weight:550;line-height:1.2;overflow-wrap:anywhere}
+  .admin-products .prod-cat svg,.admin-products .prod-seller svg{width:13px;height:13px;flex:0 0 13px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .admin-products .prod-seller{display:flex;min-width:0;align-items:center;gap:5px;margin-top:7px;color:var(--list-muted);font-size:12.5px;line-height:1.35}
+  .admin-products .prod-seller span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .admin-products .prod-price{margin-top:auto;padding-top:10px;color:var(--list-deep);font-size:15px;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .admin-products .product-action-form{display:flex;margin-top:9px}
+  .admin-products .prod-action{width:100%;min-height:36px}
+  .admin-products .product-empty{padding:28px 16px;border:1px solid var(--list-hair);border-radius:16px;background:#fff;color:var(--list-ink);text-align:center}
+  .admin-products .product-empty strong{font-size:14px;font-weight:650}
+  .admin-products .product-empty p{margin:5px 0 0;color:var(--list-muted);font-size:13px;line-height:1.45}
+  @media(max-width:1199.98px){.admin-products .cat-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media(max-width:900px){.admin-products .cat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:767.98px){.admin-products .cat-header{min-height:64px;gap:8px}.admin-products .cat-meta{gap:5px}.admin-products .cat-badge{min-height:27px;padding:5px 7px;font-size:11px}.admin-products .cat-toggle{width:44px;height:44px;flex-basis:44px}.admin-products .cat-grid{gap:12px;padding-top:12px}}
+  @media(max-width:339.98px){.admin-products .cat-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 
-<div class="card">
-  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:4px;">
-    <div>
-      <h1 class="page-title" style="margin-bottom:4px;">Manage Products</h1>
-      <p style="color:var(--text-secondary); font-size:13.5px; margin:0;">All products grouped by category — toys with toys, jewelry with jewelry. Review, filter, and manage each collection at a glance.</p>
-    </div>
-  </div>
+<div class="admin-list admin-products" data-ui="admin-products">
+  <header class="admin-list-head">
+    <h1>Manage Products</h1>
+    <p>All products grouped by category — toys with toys, jewelry with jewelry. Review, filter, and manage each collection at a glance.</p>
+  </header>
 
   @if(session('status'))
-  <div style="padding:12px 16px;background:#E8F5EE;color:#166534;border-radius:12px;margin:16px 0 0;border:1px solid #BFE3D0;">{{ session('status') }}</div>
+    <div class="admin-list-flash" role="status" aria-live="polite">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+      <span>{{ session('status') }}</span>
+    </div>
   @endif
 
-  <div class="prod-stats" style="margin-top:18px;">
-    <div class="p-stat">
-      <span>All Products</span><strong>{{ $stats['all'] }}</strong><small>total items</small>
-    </div>
-    <div class="p-stat" style="border-left:3px solid #2E8B57;">
-      <span>Active</span><strong style="color:#166534;">{{ $stats['active'] }}</strong><small>visible in store</small>
-    </div>
-    <div class="p-stat" style="border-left:3px solid #DC2626;">
-      <span>Suspended</span><strong style="color:#991B1B;">{{ $stats['suspended'] }}</strong><small>hidden</small>
-    </div>
-    <div class="p-stat" style="border-left:3px solid #16697A;">
-      <span>Categories</span><strong>{{ $stats['categories'] }}</strong><small>collections</small>
-    </div>
-  </div>
+  <nav class="admin-list-stats admin-list-stats--4" aria-label="Product totals">
+    <div class="admin-list-stat"><span class="admin-list-stat-label">All Products</span><strong class="{{ $stats['all'] ? '' : 'is-zero' }}">{{ $stats['all'] }}</strong><small>total items</small></div>
+    <div class="admin-list-stat"><span class="admin-list-stat-label">Active</span><strong class="{{ $stats['active'] ? '' : 'is-zero' }}">{{ $stats['active'] }}</strong><small>visible in store</small></div>
+    <div class="admin-list-stat"><span class="admin-list-stat-label">Suspended</span><strong class="{{ $stats['suspended'] ? '' : 'is-zero' }}">{{ $stats['suspended'] }}</strong><small>hidden</small></div>
+    <div class="admin-list-stat"><span class="admin-list-stat-label">Categories</span><strong class="{{ $stats['categories'] ? '' : 'is-zero' }}">{{ $stats['categories'] }}</strong><small>collections</small></div>
+  </nav>
 
-  <form method="GET" style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-    @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
-    <div style="position:relative; flex:1; min-width:220px;">
-      <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; stroke:#9CA3AF; fill:none; stroke-width:1.8;" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input type="search" name="search" value="{{ request('search') }}" placeholder="Search by product name or SKU..." style="padding:9px 14px 9px 36px;border:1px solid #d1d5db;border-radius:10px;width:100%;background:#fff;" />
-    </div>
-    <button type="submit" style="padding:9px 18px;background:#16697A;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Search</button>
-    @if(request('search') || request('category'))<a href="{{ url('/admin/products') }}" style="align-self:center;color:#6E6E73;font-size:13px;font-weight:600;">Clear</a>@endif
-  </form>
+  <section class="admin-list-toolbar" aria-label="Find products">
+    <nav class="admin-list-filters cat-pills" aria-label="Filter products by category">
+      <a href="{{ url('/admin/products'.(request('search')?'?search='.request('search'):'')) }}" class="admin-list-filter cat-pill {{ !request('category') ? 'is-active active' : '' }}" {{ !request('category') ? 'aria-current=page' : '' }}>All <span class="admin-list-filter-count">{{ $stats['all'] }}</span></a>
+      @foreach($categories as $cat)
+        @if($cat->products_count > 0)
+          <a href="{{ url('/admin/products?category='.$cat->slug.(request('search')?'&search='.request('search'):'')) }}" class="admin-list-filter cat-pill {{ request('category')===$cat->slug || request('category')===$cat->name ? 'is-active active' : '' }}" {{ request('category')===$cat->slug || request('category')===$cat->name ? 'aria-current=page' : '' }}>
+            {{ $cat->name }} <span class="admin-list-filter-count">{{ $cat->products_count }}</span>
+          </a>
+        @endif
+      @endforeach
+    </nav>
 
-  <div class="cat-pills">
-    <a href="{{ url('/admin/products'.(request('search')?'?search='.request('search'):'')) }}" class="cat-pill {{ !request('category') ? 'active' : '' }}">All <small>{{ $stats['all'] }}</small></a>
-    @foreach($categories as $cat)
-      @if($cat->products_count > 0)
-      <a href="{{ url('/admin/products?category='.$cat->slug.(request('search')?'&search='.request('search'):'')) }}" class="cat-pill {{ request('category')===$cat->slug || request('category')===$cat->name ? 'active' : '' }}">
-        {{ $cat->name }} <small>{{ $cat->products_count }}</small>
-      </a>
-      @endif
-    @endforeach
-  </div>
+    <form class="admin-list-search" method="GET" role="search">
+      @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
+      <div class="admin-list-search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.6"/><path d="m16 16 4.2 4.2"/></svg>
+        <input type="search" name="search" value="{{ request('search') }}" placeholder="Search by product name or SKU..." aria-label="Search by product name or SKU">
+        <button type="submit">Search</button>
+      </div>
+      @if(request('search') || request('category'))<a class="admin-list-clear" href="{{ url('/admin/products') }}">Clear</a>@endif
+    </form>
+  </section>
 
   @if($products->isEmpty())
-    <div style="text-align:center; padding:48px 20px; background:#fff; border:1px solid var(--border); border-radius:16px;">
-      <div style="width:56px; height:56px; border-radius:50%; background:#F3F4F6; display:flex; align-items:center; justify-content:center; margin:0 auto 12px;">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Z"/></svg>
-      </div>
-      <div style="font-weight:700; color:#374151;">No products found</div>
-      <div style="font-size:13px; color:#9CA3AF; margin-top:4px;">Try a different search or category.</div>
+    <div class="product-empty">
+      <strong>No products found</strong>
+      <p>Try a different search or category.</p>
     </div>
   @else
     @foreach($grouped as $categoryName => $catProducts)
-      <div class="cat-section open">
-        <div class="cat-header" onclick="this.parentElement.classList.toggle('open')">
-          <div class="cat-icon">
+      @php $groupId = 'product-category-grid-'.$loop->index; @endphp
+      <section class="cat-section open admin-list-category-section" aria-label="{{ $categoryName }} products">
+        <button type="button" class="cat-header" aria-expanded="true" aria-controls="{{ $groupId }}" aria-label="Collapse {{ $categoryName }} products" onclick="var section=this.closest('.cat-section');section.classList.toggle('open');var expanded=section.classList.contains('open');this.setAttribute('aria-expanded',expanded?'true':'false');this.setAttribute('aria-label',(expanded?'Collapse ':'Expand ')+section.querySelector('.cat-name').textContent.trim()+' products')">
+          <span class="cat-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/></svg>
-          </div>
-          <div>
-            <div class="cat-name">{{ $categoryName }}</div>
-            <div class="cat-count">{{ $catProducts->count() }} product{{ $catProducts->count()>1?'s':'' }}</div>
-          </div>
-          <div class="cat-meta">
+          </span>
+          <span class="cat-heading">
+            <span class="cat-name">{{ $categoryName }}</span>
+            <span class="cat-count">{{ $catProducts->count() }} product{{ $catProducts->count()>1?'s':'' }}</span>
+          </span>
+          <span class="cat-meta">
             <span class="cat-badge">{{ $catProducts->where('status','active')->count() }} active</span>
             @if($catProducts->where('status','suspended')->count() > 0)
-              <span class="cat-badge" style="background:#FEE2E2; border-color:#FECACA; color:#991B1B;">{{ $catProducts->where('status','suspended')->count() }} suspended</span>
+              <span class="cat-badge cat-badge--suspended">{{ $catProducts->where('status','suspended')->count() }} suspended</span>
             @endif
-            <span class="cat-toggle"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
-          </div>
-        </div>
-        <div class="cat-grid">
+            <span class="cat-toggle" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+          </span>
+        </button>
+        <div class="cat-grid" id="{{ $groupId }}">
           @foreach($catProducts as $product)
-            @php $img = $product->images->first(); @endphp
-            <div class="prod-card">
-              <div class="prod-thumb" style="{{ $img ? 'background:#fff;' : '' }}">
+            @php $img = $product->images->first(); $st = $product->status; @endphp
+            <article class="prod-card">
+              <div class="prod-thumb">
                 @if($img)
-                  <img src="{{ asset('storage/'.$img->path) }}" alt="{{ $product->name }}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                  <div class="prod-thumb-letter" style="display:none;">{{ strtoupper(mb_substr($product->name,0,1)) }}</div>
+                  <img src="{{ asset('storage/'.$img->path) }}" alt="{{ $product->name }}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                  <div class="prod-thumb-letter" style="display:none;" aria-hidden="true">{{ strtoupper(mb_substr($product->name,0,1)) }}</div>
                 @else
-                  <div class="prod-thumb-letter">{{ strtoupper(mb_substr($product->name,0,1)) }}</div>
+                  <div class="prod-thumb-letter" aria-hidden="true">{{ strtoupper(mb_substr($product->name,0,1)) }}</div>
                 @endif
-                @php $st = $product->status; @endphp
-                <span class="prod-status {{ $st === 'active' ? 'active' : ($st === 'suspended' ? 'suspended' : 'inactive') }}">{{ ucfirst($st) }}</span>
+                <span class="prod-status {{ $st === 'active' ? 'active' : ($st === 'suspended' ? 'suspended' : 'inactive') }}">
+                  {{ ucfirst(str_replace('_', ' ', $st)) }}
+                </span>
               </div>
               <div class="prod-body">
                 <div class="prod-name" title="{{ $product->name }}">{{ $product->name }}</div>
                 <div class="prod-sku">{{ $product->sku }}</div>
                 <span class="prod-cat">
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#16697A" stroke-width="2"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4Z"/></svg>
-                  {{ $product->category->name ?? 'Uncategorized' }}
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4Z"/></svg>
+                  <span>{{ $product->category->name ?? 'Uncategorized' }}</span>
                 </span>
                 <div class="prod-seller" title="{{ $product->seller->store_name ?? '' }}">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4Z"/></svg>
-                  {{ $product->seller->store_name ?? 'No seller' }}
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.418 0-8 1.79-8 4v2h16v-2c0-2.21-3.582-4-8-4Z"/></svg>
+                  <span>{{ $product->seller->store_name ?? 'No seller' }}</span>
                 </div>
-                <div class="prod-price">₱{{ number_format($product->price, 2) }}</div>
-                <div style="margin-top:10px; display:flex; gap:6px;">
-                  @if($product->status === 'active')
-                    <form method="POST" action="{{ url('/admin/products/'.$product->id.'/status') }}" style="display:inline;" data-confirm="This product will be suspended and hidden from the store. Continue?" data-confirm-title="Suspend Product?" data-confirm-ok="Suspend" data-confirm-class="btn-danger" data-confirm-icon="suspend">
-                      @csrf
-                      <input type="hidden" name="status" value="suspended" />
-                      <button type="submit" style="padding:5px 10px;background:#E05A33;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">Suspend</button>
-                    </form>
-                  @else
-                    <form method="POST" action="{{ url('/admin/products/'.$product->id.'/status') }}" style="display:inline;">
-                      @csrf
-                      <input type="hidden" name="status" value="active" />
-                      <button type="submit" style="padding:5px 10px;background:#2E8B57;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;">Activate</button>
-                    </form>
-                  @endif
-                </div>
+                <div class="prod-price">&#8369;{{ number_format($product->price, 2) }}</div>
+                @if($product->status === 'active')
+                  <form class="product-action-form" method="POST" action="{{ url('/admin/products/'.$product->id.'/status') }}" data-confirm="This product will be suspended and hidden from the store. Continue?" data-confirm-title="Suspend Product?" data-confirm-ok="Suspend" data-confirm-class="btn-danger" data-confirm-icon="suspend">
+                    @csrf
+                    <input type="hidden" name="status" value="suspended" />
+                    <button class="admin-list-action admin-list-action--quiet prod-action" type="submit" aria-label="Suspend {{ $product->name }}">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3v10M10 3v10"/></svg>Suspend
+                    </button>
+                  </form>
+                @else
+                  <form class="product-action-form" method="POST" action="{{ url('/admin/products/'.$product->id.'/status') }}">
+                    @csrf
+                    <input type="hidden" name="status" value="active" />
+                    <button class="admin-list-action prod-action" type="submit" aria-label="Activate {{ $product->name }}">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>Activate
+                    </button>
+                  </form>
+                @endif
               </div>
-            </div>
+            </article>
           @endforeach
         </div>
-      </div>
+      </section>
     @endforeach
   @endif
-  @include('admin.partials.pager', ['paginator' => $products])
+  <div class="admin-list-pagination">
+    @include('admin.partials.pager', ['paginator' => $products])
+  </div>
 </div>
 @endsection

@@ -197,7 +197,7 @@
                     const fd = new FormData();
                     fd.append('body', body);
                     if (this.$refs.attachment.files[0]) fd.append('attachment', this.$refs.attachment.files[0]);
-                    const r = await fetch('/rider/messages', {
+                    const r = await fetch('{{ route('rider.messages.send') }}', {
                         method: 'POST',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                         body: fd,
@@ -224,7 +224,7 @@
                 if (!this.editing || !this.draft.trim()) return;
                 this.sending = true;
                 try {
-                    const r = await fetch('/rider/messages/' + this.editing.id, {
+                    const r = await fetch('{{ url('/logistics/rider/messages') }}/' + this.editing.id, {
                         method: 'PATCH',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Content-Type': 'application/json', 'Accept': 'application/json' },
                         body: JSON.stringify({ body: this.draft.trim() }),
@@ -243,7 +243,7 @@
             async deleteMessage(msg) {
                 if (!confirm('Delete this message?')) return;
                 try {
-                    const r = await fetch('/rider/messages/' + msg.id, {
+                    const r = await fetch('{{ url('/logistics/rider/messages') }}/' + msg.id, {
                         method: 'DELETE',
                         headers: { 'X-CSRF-TOKEN': this.csrf, 'Accept': 'application/json' },
                     });
@@ -257,7 +257,7 @@
 
             async poll() {
                 try {
-                    const r = await fetch('/rider/messages/poll', { headers: { 'Accept': 'application/json' } });
+                    const r = await fetch('{{ route('rider.messages.poll') }}', { headers: { 'Accept': 'application/json' } });
                     if (r.ok) {
                         const data = await r.json();
                         this.messages = data.messages;

@@ -20,7 +20,16 @@ class OrderController extends Controller
                       $b->where('name', 'like', "%{$search}%");
                   })
                   ->orWhereHas('seller', function ($s) use ($search) {
-                      $s->where('store_name', 'like', "%{$search}%");
+                      $s->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('items.seller.seller', function ($s) use ($search) {
+                      $s->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('items.product.seller', function ($s) use ($search) {
+                      $s->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%");
                   });
             });
         }
@@ -42,6 +51,7 @@ class OrderController extends Controller
         if ($request->wantsJson()) {
             return $orders;
         }
+        $orders->loadMissing(['seller.user', 'items.seller.seller.user', 'items.product.seller.user']);
         return view('admin.orders', compact('orders', 'stats'));
     }
 

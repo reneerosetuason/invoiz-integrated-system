@@ -5,123 +5,163 @@
   $support = $support ?? config('support');
   $faqs = $support['faqs'] ?? [];
 @endphp
-<div style="max-width:860px;margin:0 auto">
-  <h2 style="font-weight:800;margin:6px 0 2px">Help Center</h2>
-  <p style="font-size:13px;color:var(--text2);margin:0 0 14px">Answers, ways to reach us, and a form to report order problems.</p>
+<div class="helpx buyerfeature-page">
+  <div class="bfp-wrap help-wrap">
+    <header class="help-head">
+      <h1>Help Center</h1>
+      <p>Answers, ways to reach us, and a form to report order problems.</p>
+    </header>
 
-  @if(session('success'))<div style="background:#f0fdf4;color:#166534;padding:10px;border-radius:8px;border:1px solid #bbf7d0;margin-bottom:10px;font-size:13px;font-weight:600">{{ session('success') }}</div>@endif
-  @if(session('error'))<div style="background:#fef2f2;color:#991b1b;padding:10px;border-radius:8px;border:1px solid #fecaca;margin-bottom:10px;font-size:13px;font-weight:600">{{ session('error') }}</div>@endif
-  @if($errors->any())
-    <div style="background:#fef2f2;color:#991b1b;padding:10px;border-radius:8px;border:1px solid #fecaca;margin-bottom:10px;font-size:13px;font-weight:600">
-      @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
-    </div>
-  @endif
+    @if(session('success'))<div class="help-feedback help-feedback-success" role="status">{{ session('success') }}</div>@endif
+    @if(session('error'))<div class="help-feedback help-feedback-error" role="alert">{{ session('error') }}</div>@endif
+    @if($errors->any())
+      <div class="help-feedback help-feedback-error" role="alert">
+        @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
+      </div>
+    @endif
 
-  {{-- Contact cards --}}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:16px">
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text3)">Email us</div>
-      <a href="mailto:{{ $support['email'] }}" style="font-weight:700;font-size:13px;color:var(--green);word-break:break-all">{{ $support['email'] }}</a>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px">Replies {{ $support['response_time'] }}</div>
-    </div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text3)">Hotline</div>
-      @if(!empty($support['phone']))
-        <a href="tel:{{ preg_replace('/[^+\d]/', '', $support['phone']) }}" style="font-weight:700;font-size:13px;color:var(--green)">{{ $support['phone'] }}</a>
-      @else
-        <div style="font-weight:700;font-size:13px">Coming soon</div>
-      @endif
-      <div style="font-size:11px;color:var(--text2);margin-top:4px">{{ $support['hours'] }}</div>
-    </div>
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:14px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--text3)">Prefer chat?</div>
-      <div style="font-weight:700;font-size:13px">Assistant is online now</div>
-      <div style="font-size:11px;color:var(--text2);margin-top:4px">Tap the chat bubble at the bottom-right of any page.</div>
-    </div>
-  </div>
+    <nav class="help-jumps" aria-label="Help topics">
+      <a href="#faq">Frequently asked questions</a>
+      <a href="#report">Report an order problem</a>
+      @if($buyer)<a href="#reports">Your reports</a>@endif
+    </nav>
 
-  {{-- FAQ search + accordion --}}
-  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-    <h3 style="margin:0 0 8px;font-size:14px">Frequently asked questions</h3>
-    <input id="faqSearch" type="text" placeholder="Search answers… e.g. refund, shipping, voucher" oninput="filterFaqs(this.value)"
-           style="width:100%;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:13px;margin-bottom:10px">
-    <div id="faqEmpty" style="display:none;font-size:13px;color:var(--text2);padding:8px 0">No answers match — try different words, or ask the chatbot below.</div>
-    @foreach($faqs as $gi => $group)
-      <div class="faq-group" data-group="{{ strtolower($group['category']) }}">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--green);margin:14px 0 6px">{{ $group['category'] }}</div>
-        @foreach($group['items'] as $ii => $item)
-          <details class="faq-item" data-text="{{ strtolower($item['q'].' '.$item['a']) }}" style="border:1px solid var(--border-light);border-radius:10px;margin-bottom:6px;background:#fff">
-            <summary style="cursor:pointer;padding:10px 12px;font-size:13px;font-weight:700;list-style:none">{{ $item['q'] }}</summary>
-            <div style="padding:0 12px 12px;font-size:13px;color:var(--text2);line-height:1.6">{!! nl2br(e($item['a'])) !!}</div>
-          </details>
+    <section class="help-contact" aria-label="Contact support">
+      <div class="help-contact-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>
+        <div class="help-contact-copy">
+          <div class="help-contact-label">Email us</div>
+          <a href="mailto:{{ $support['email'] }}" class="help-inline-link">{{ $support['email'] }}</a>
+          <p>Replies {{ $support['response_time'] }}</p>
+        </div>
+      </div>
+      <div class="help-contact-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M7 3h3l2 5-2.5 1.5a14 14 0 0 0 5 5L16 12l5 2v3c0 1.1-.9 2-2 2C10.7 19 5 13.3 5 5c0-1.1.9-2 2-2Z"/></svg>
+        <div class="help-contact-copy">
+          <div class="help-contact-label">Hotline</div>
+          @if(!empty($support['phone']))
+            <a href="tel:{{ preg_replace('/[^+\d]/', '', $support['phone']) }}" class="help-contact-value">{{ $support['phone'] }}</a>
+          @else
+            <div class="help-contact-value">Coming soon</div>
+          @endif
+          <p>{{ $support['hours'] }}</p>
+        </div>
+      </div>
+      <div class="help-contact-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <div class="help-contact-copy">
+          <div class="help-contact-label">Prefer chat?</div>
+          <div class="help-contact-value">Assistant is online now</div>
+          <p>Tap the chat bubble at the bottom-right of any page.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq" class="help-section help-faq" aria-labelledby="faqTitle">
+      <header class="help-section-head">
+        <h2 id="faqTitle">Frequently asked questions</h2>
+        <label class="help-search-field">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16 16 4 4"/></svg>
+          <input id="faqSearch" type="search" placeholder="Search answers… e.g. refund, shipping, voucher" aria-label="Search answers" oninput="filterFaqs(this.value)" autocomplete="off">
+        </label>
+      </header>
+      <div id="faqEmpty" class="help-no-results" style="display:none">No answers match — try different words, or ask the chatbot below.</div>
+      <div class="faq-groups">
+        @foreach($faqs as $gi => $group)
+          <div class="faq-group" data-group="{{ strtolower($group['category']) }}">
+            <h3 class="faq-category">{{ $group['category'] }}</h3>
+            <div class="faq-questions">
+              @foreach($group['items'] as $ii => $item)
+                <details class="faq-item" data-text="{{ strtolower($item['q'].' '.$item['a']) }}">
+                  <summary class="faq-question">{{ $item['q'] }}</summary>
+                  <div class="faq-answer">{!! nl2br(e($item['a'])) !!}</div>
+                </details>
+              @endforeach
+            </div>
+          </div>
         @endforeach
       </div>
-    @endforeach
-  </div>
+    </section>
 
-  {{-- Complaint / contact form --}}
-  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-    <h3 style="margin:0 0 4px;font-size:14px">Report an order problem</h3>
-    <p style="font-size:12px;color:var(--text2);margin:0 0 10px">Damaged, wrong, or missing item? Send details and photos description — it goes straight to our support queue.</p>
+    <section id="report" class="help-section help-report" aria-labelledby="reportTitle">
+      <header class="help-section-intro">
+        <h2 id="reportTitle">Report an order problem</h2>
+        <p>Damaged, wrong, or missing item? Send details and photos description — it goes straight to our support queue.</p>
+      </header>
+      <div class="help-form-area">
+        @if($buyer)
+          <form method="POST" action="{{ url('/help/complaint') }}" class="help-form">
+            @csrf
+            <div class="help-form-row">
+              <div class="help-field">
+                <label for="helpSubject">Subject</label>
+                <input id="helpSubject" type="text" name="subject" maxlength="150" required placeholder="e.g. Damaged item in order #123">
+              </div>
+              <div class="help-field">
+                <label for="helpOrder">Related order <span>(optional)</span></label>
+                <span class="help-select-wrap">
+                  <select id="helpOrder" name="order_id">
+                    <option value="">No specific order</option>
+                    @foreach($orders as $o)
+                      <option value="{{ $o->id }}">#{{ $o->id }} — {{ $o->status }} ({{ $o->created_at->format('M j, Y') }})</option>
+                    @endforeach
+                  </select>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="help-field help-description-field">
+              <label for="helpDescription">What happened?</label>
+              <textarea id="helpDescription" name="description" rows="4" maxlength="2000" required placeholder="Describe the problem, including item names and what you received…"></textarea>
+            </div>
+            <button type="submit" class="btn-p btn-solid help-submit">Send complaint</button>
+          </form>
+        @else
+          <a href="{{ url('/login') }}" class="btn-p btn-line help-login">Login to file a complaint</a>
+        @endif
+      </div>
+    </section>
+
     @if($buyer)
-      <form method="POST" action="{{ url('/help/complaint') }}">
-        @csrf
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div>
-            <label style="font-size:12px;font-weight:700">Subject</label>
-            <input type="text" name="subject" maxlength="150" required placeholder="e.g. Damaged item in order #123"
-                   style="width:100%;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:13px">
-          </div>
-          <div>
-            <label style="font-size:12px;font-weight:700">Related order <span style="font-weight:400;color:var(--text3)">(optional)</span></label>
-            <select name="order_id" style="width:100%;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:13px">
-              <option value="">No specific order</option>
-              @foreach($orders as $o)
-                <option value="{{ $o->id }}">#{{ $o->id }} — {{ $o->status }} ({{ $o->created_at->format('M j, Y') }})</option>
-              @endforeach
-            </select>
-          </div>
+      <section id="reports" class="help-section help-reports" aria-labelledby="reportsTitle">
+        <header class="help-section-intro">
+          <h2 id="reportsTitle">Your reports</h2>
+          <p>Track what our team did with each report. Replies from support appear here and in your notification bell.</p>
+        </header>
+        <div class="help-report-list">
+          @forelse($complaints as $c)
+            @php
+              $reportStatus = strtolower((string) $c->status);
+              $reportResolved = in_array($reportStatus, ['resolved', 'closed'], true);
+              $reportStatusType = $reportStatus === 'open' ? 'neutral' : ($reportResolved ? 'resolved' : 'unknown');
+            @endphp
+            <article class="help-report-row">
+              <div class="help-report-top">
+                <span class="help-report-subject">{{ $c->subject }}</span>
+                <span class="help-status help-status-{{ $reportStatusType }}">
+                  @if($reportResolved)<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>@endif
+                  {{ str_replace('_', ' ', $c->status) }}
+                </span>
+                <span class="help-report-meta">{{ $c->created_at->format('M j, Y') }}@if($c->order_id) · Order #{{ $c->order_id }}@endif</span>
+              </div>
+              @if($c->resolution)
+                <div class="help-response">
+                  <div class="help-response-label">Response from support{{ $c->resolved_at ? ' · '.$c->resolved_at->format('M j, Y g:i A') : '' }}</div>
+                  <div class="help-response-text">{{ $c->resolution }}</div>
+                </div>
+              @elseif($c->status !== 'open')
+                <p class="help-report-state">Our team is looking into this ({{ str_replace('_', ' ', $c->status) }}).</p>
+              @else
+                <p class="help-report-state">Waiting for our team to review.</p>
+              @endif
+            </article>
+          @empty
+            <p class="help-report-empty">No reports yet — anything you file above will show up here.</p>
+          @endforelse
         </div>
-        <div style="margin-top:10px">
-          <label style="font-size:12px;font-weight:700">What happened?</label>
-          <textarea name="description" rows="4" maxlength="2000" required placeholder="Describe the problem, including item names and what you received…"
-                    style="width:100%;margin-top:4px;padding:10px;border:1px solid var(--border);border-radius:10px;font-size:13px"></textarea>
-        </div>
-        <button type="submit" style="margin-top:10px;padding:11px 18px;background:var(--green);color:#fff;border:none;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer">Send complaint</button>
-      </form>
-    @else
-      <a href="{{ url('/login') }}" style="display:inline-block;padding:11px 18px;background:var(--green);color:#fff;border-radius:10px;font-weight:800;font-size:13px;text-decoration:none">Login to file a complaint</a>
+      </section>
     @endif
   </div>
-
-  {{-- Buyer's own reports + staff resolutions --}}
-  @if($buyer)
-    <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-top:16px">
-      <h3 style="margin:0 0 4px;font-size:14px">Your reports</h3>
-      <p style="font-size:12px;color:var(--text2);margin:0 0 10px">Track what our team did with each report. Replies from support appear here and in your notification bell.</p>
-      @forelse($complaints as $c)
-        <div style="border:1px solid var(--border-light);border-radius:10px;padding:10px 12px;margin-bottom:8px">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-weight:700;font-size:13px">{{ $c->subject }}</span>
-            <span style="font-size:10px;font-weight:800;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:{{ $c->status === 'open' ? '#FCE9E4' : ($c->status === 'resolved' || $c->status === 'closed' ? '#E8F5EE' : '#FDF3E3') }};color:{{ $c->status === 'open' ? '#991b1b' : (($c->status === 'resolved' || $c->status === 'closed') ? '#166534' : '#92400e') }}">{{ str_replace('_', ' ', $c->status) }}</span>
-            <span style="margin-left:auto;font-size:11px;color:var(--text3)">{{ $c->created_at->format('M j, Y') }}@if($c->order_id) · Order #{{ $c->order_id }}@endif</span>
-          </div>
-          @if($c->resolution)
-            <div style="margin-top:8px;background:#E8F5EE;border:1px solid #BFE3D0;border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.6">
-              <div style="font-weight:800;color:#166534;margin-bottom:2px">Response from support{{ $c->resolved_at ? ' · '.$c->resolved_at->format('M j, Y g:i A') : '' }}</div>
-              {{ $c->resolution }}
-            </div>
-          @elseif($c->status !== 'open')
-            <div style="margin-top:8px;font-size:12px;color:var(--text2)">Our team is looking into this ({{ str_replace('_', ' ', $c->status) }}).</div>
-          @else
-            <div style="margin-top:8px;font-size:12px;color:var(--text2)">Waiting for our team to review.</div>
-          @endif
-        </div>
-      @empty
-        <p style="font-size:13px;color:var(--text2)">No reports yet — anything you file above will show up here.</p>
-      @endforelse
-    </div>
-  @endif
 </div>
 
 <script>

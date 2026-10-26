@@ -111,7 +111,7 @@
 function salesPage() {
     return {
         form: { id: null, name: '', discount_type: 'percent', discount_value: '', starts_at: '', ends_at: '', status: 'active', products: [] },
-        saleMap: @json($sales->getCollection()->mapWithKeys(fn($s) => [$s->id => [
+        saleMap: {{ \Illuminate\Support\Js::from($sales->getCollection()->mapWithKeys(fn($s) => [$s->id => [
             'id' => $s->id,
             'name' => $s->name,
             'discount_type' => $s->discount_type,
@@ -120,7 +120,7 @@ function salesPage() {
             'ends_at' => $s->ends_at?->format('Y-m-d\TH:i'),
             'status' => $s->status,
             'products' => $s->items->pluck('product_id')->values(),
-        ]])),
+        ]])) }},
         openEdit(id) {
             const s = this.saleMap[id];
             if (!s) return;

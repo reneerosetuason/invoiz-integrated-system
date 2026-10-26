@@ -273,8 +273,9 @@ class User extends Authenticatable
      */
     public function roleBadges(): array
     {
-        $badges = [Message::roleBadge($this->role ?? 'buyer')];
-        if (($this->role ?? '') !== 'seller' && ($this->role ?? '') !== 'admin') {
+        $role = $this->role ?? 'buyer';
+        $badges = [Message::roleBadge($role)];
+        if ($role === 'buyer') {
             try {
                 $hasStore = Seller::where('user_id', $this->id)
                     ->where(function ($q) {
@@ -287,6 +288,11 @@ class User extends Authenticatable
                 $badges[] = Message::roleBadge('seller');
             }
         }
+        // Center-linked buyer/seller accounts keep their marketplace role,
+        // while also having logistics staff access.
+        if (in_array($role, ['buyer', 'seller'], true) && ! empty($this->center_id)) {
+            $badges[] = Message::roleBadge('logistics_staff');
+        }
         return $badges;
     }
 
@@ -296,9 +302,18 @@ class User extends Authenticatable
         if (! $user) {
             return 'buyer';
         }
-        if (($user->role ?? '') === 'admin') {
-            return 'admin';
+
+        $role = $user->role ?? 'buyer';
+        if (in_array($role, ['admin', 'logistics_admin', 'logistics_staff', 'staff', 'rider'], true)) {
+            return match ($role) {
+                'staff' => 'logistics_staff',
+                default => $role,
+            };
         }
+        if ($role === 'seller') {
+            return 'seller';
+        }
+
         try {
             $isSeller = Seller::where('user_id', $user->id)->exists();
         } catch (\Throwable $e) {

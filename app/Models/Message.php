@@ -47,11 +47,9 @@ class Message extends Model
     protected static array $roleCache = [];
 
     /**
-     * Role of the sender in this thread (seller/buyer/admin/rider).
-     * Corresponds across buyer chat, seller chat and admin chat:
-     * admin senders are always labelled admin; otherwise the
-     * conversation's seller_id/buyer_id decides, falling back to the
-     * sender's account role.
+     * Role of the sender in this thread.
+     * Admin senders are always labelled admin; otherwise the conversation's
+     * seller_id/buyer_id decides, falling back to the sender's account role.
      */
     public function senderRole(): string
     {
@@ -82,7 +80,9 @@ class Message extends Model
             'seller' => ['Seller', '#0E4A57', '#e0f2f1'],
             'admin' => ['Admin', '#92400e', '#fef3c7'],
             'rider' => ['Rider', '#1e40af', '#dbeafe'],
-            default => ['Buyer', '#4b5563', '#f3f4f6'],
+            'logistics_admin' => ['Logistics Admin', '#0E4A57', '#e0f2f1'],
+            'staff', 'logistics_staff' => ['Logistics Staff', '#0E4A57', '#e0f2f1'],
+            default => [ucfirst(str_replace('_', ' ', $role ?: 'User')), '#4b5563', '#f3f4f6'],
         };
     }
 }

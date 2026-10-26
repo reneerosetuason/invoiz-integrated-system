@@ -18,6 +18,54 @@
             </div>
         </div>
 
+        {{-- Shipment status KPIs — each card links to the exact filtered
+             shipment list, so its count always equals the rows shown there. --}}
+        <section aria-label="Shipments by status">
+            @php
+                $dateQuery = array_filter(['date_from' => $dateFrom ?: null, 'date_to' => $dateTo ?: null]);
+                $kpis = [
+                    ['key' => 'pending', 'label' => 'Pending', 'desc' => 'Waiting for a rider', 'dot' => 'bg-amber-400'],
+                    ['key' => 'in_transit', 'label' => 'In Transit', 'desc' => 'With a rider / on the way', 'dot' => 'bg-purple-500'],
+                    ['key' => 'delivered', 'label' => 'Delivered', 'desc' => 'Completed bring-to-door', 'dot' => 'bg-emerald-500'],
+                    ['key' => 'failed', 'label' => 'Failed', 'desc' => 'Delivery failed', 'dot' => 'bg-red-500'],
+                ];
+            @endphp
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Shipments by status</p>
+                <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-2">
+                    @if($trendsRange !== 7)
+                        <input type="hidden" name="trends_range" value="{{ $trendsRange }}">
+                    @endif
+                    <label class="flex flex-col gap-1">
+                        <span class="text-[10px] font-semibold text-gray-600">From</span>
+                        <input type="date" name="date_from" value="{{ $dateFrom }}" class="rounded-lg border-gray-200 text-xs px-2.5 py-1.5 focus:border-teal focus:ring-teal">
+                    </label>
+                    <label class="flex flex-col gap-1">
+                        <span class="text-[10px] font-semibold text-gray-600">To</span>
+                        <input type="date" name="date_to" value="{{ $dateTo }}" class="rounded-lg border-gray-200 text-xs px-2.5 py-1.5 focus:border-teal focus:ring-teal">
+                    </label>
+                    <button type="submit" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-teal hover:bg-teal-dark">Apply</button>
+                    @if($dateFrom || $dateTo)
+                        <a href="{{ route('dashboard', $trendsRange !== 7 ? ['trends_range' => $trendsRange] : []) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-600 bg-white border border-gray-200 hover:bg-gray-50">Clear</a>
+                    @endif
+                </form>
+            </div>
+            <div class="mt-3 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                @foreach($kpis as $kpi)
+                    <a href="{{ route('deliveries.index', array_merge(['status' => $kpi['key']], $dateQuery)) }}"
+                       class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md hover:border-teal/30 transition">
+                        <div class="flex items-center justify-between gap-2">
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">{{ $kpi['label'] }}</p>
+                            <span class="h-2.5 w-2.5 rounded-full {{ $kpi['dot'] }} flex-shrink-0" aria-hidden="true"></span>
+                        </div>
+                        <p class="mt-1 text-3xl font-extrabold tracking-tight text-gray-900">{{ $statusGroupCounts[$kpi['key']] ?? 0 }}</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ $kpi['desc'] }}</p>
+                    </a>
+                @endforeach
+            </div>
+            <p class="mt-2 text-[10px] text-gray-400">Each count matches the deliveries list filtered by the same status{{ ($dateFrom || $dateTo) ? ' and date range (both dates inclusive)' : '' }}.</p>
+        </section>
+
         {{-- LEVEL 1 — Needs Attention (actionable problems first) --}}
         <section class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden" aria-label="Items needing attention">
             @php $attentionTotal = $needsAttention['waitingForRider'] + $needsAttention['failed'] + $needsAttention['processing']; @endphp

@@ -10,7 +10,12 @@ class PaymentController extends Controller
 {
     public function index(Request $request)
     {
-        $txQuery = PaymentTransaction::with('order.seller', 'order.buyer');
+        $txQuery = PaymentTransaction::with(
+            'order.seller',
+            'order.buyer',
+            'order.items.seller.seller',
+            'order.items.product.seller'
+        );
 
         $stats = [
             'all' => (clone $txQuery)->count(),

@@ -296,5 +296,6 @@
 </style>
 <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}"></script>
 @stack('scripts')
+@include('partials.seller-photo-editor')
 </body>
 </html>

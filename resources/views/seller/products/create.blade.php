@@ -126,20 +126,16 @@
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Product Image</h3>
-            <div x-data="{ preview: null }" class="flex items-start gap-4">
-                <div class="flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-borderline bg-basebg">
-                    <template x-if="preview">
-                        <img :src="preview" class="h-full w-full object-cover">
-                    </template>
-                    <template x-if="!preview">
-                        <x-icon name="box" class="h-8 w-8 text-ink-light" />
-                    </template>
+            <div class="flex items-start gap-4">
+                <div data-photo-preview-target-key="product-cover-preview" class="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-borderline bg-basebg">
+                    <x-icon name="box" class="h-8 w-8 text-ink-light" />
                 </div>
                 <div class="flex-1">
                     <label class="field-label">Upload images (1–9, JPG/PNG)</label>
                     <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple
-                           @change="preview = URL.createObjectURL($event.target.files[0])">
+                           data-photo-editor data-photo-preview-key="product-cover-preview" data-photo-gallery-key="product-gallery-preview">
                     <p class="mt-2 text-xs text-ink-light">Up to 9 images, JPG or PNG (max 5 MB each). The first image is the cover.</p>
+                    <div data-photo-gallery-target-key="product-gallery-preview" aria-live="polite"></div>
                 </div>
             </div>
         </div>

@@ -182,7 +182,9 @@ tailwind.config = { theme: { extend: {
             </div>
             <div class="sm:col-span-2">
               <label class="lbl">Shop Logo / Picture (Optional)</label>
-              <input type="file" name="logo" accept="image/*" class="inp">
+              <input type="file" name="logo" accept="image/*" class="inp"
+                     data-photo-editor data-photo-aspect="1" data-photo-preview-key="seller-application-logo">
+              <div data-photo-preview-target-key="seller-application-logo" hidden class="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-gray-200 bg-gray-50" aria-label="Edited logo preview"></div>
               <p class="mt-1 text-xs text-gray-500">JPG or PNG. Maximum 5 MB.</p>
               @if(!empty($existing?->logo))
                 <p class="text-xs text-gray-500 mt-1">Current: <a href="{{ $existing->logoUrl() }}" target="_blank" class="text-teal font-semibold underline">View existing logo</a></p>
@@ -327,5 +329,6 @@ tailwind.config = { theme: { extend: {
 })();
 </script>
 @endif
+@include('partials.seller-photo-editor')
 </body>
 </html>
