@@ -55,15 +55,30 @@ class BuyerFeaturesController extends Controller
         $buyerId = $this->buyerId($request);
         if (! $buyerId) return redirect('/login')->with('error', 'Please login to claim vouchers.');
 
+        // Determine which sellers the buyer has in their cart so we only
+        // surface vouchers they can actually apply at checkout.
+        $cartSellerIds = \App\Models\Cart::linesFor($buyerId)
+            ->map(fn ($line) => (int) $line['product']->seller_id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
         $voucherClaims = VoucherClaim::where('buyer_id', $buyerId)->get()->keyBy('voucher_id');
         $claimedIds = $voucherClaims->keys()->map(fn ($id) => (int) $id)->all();
+
         $vouchers = Voucher::active()
             ->where(function ($q) {
                 $q->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit');
             })
+            ->where(function ($q) use ($cartSellerIds) {
+                // Platform-wide vouchers (no seller) or vouchers from a seller in the buyer's cart.
+                $q->whereNull('seller_id')
+                  ->orWhereIn('seller_id', $cartSellerIds);
+            })
             ->latest()->paginate(12);
 
-        return view('buyer.vouchers', compact('vouchers', 'claimedIds', 'voucherClaims'));
+        return view('buyer.vouchers', compact('vouchers', 'claimedIds', 'voucherClaims', 'cartSellerIds'));
     }
 
     public function claimVoucher(Request $request, Voucher $voucher)
@@ -87,7 +102,7 @@ class BuyerFeaturesController extends Controller
 
         $data = $request->validate([
             'rating' => ['required', 'integer', 'between:1,5'],
-            'comment' => ['nullable', 'string', 'max:2000'],
+            'comment' => ['nullable', 'string', 'max:500'],
         ]);
 
         $order = Order::where('buyer_id', $buyerId)->with('items')->findOrFail($orderId);

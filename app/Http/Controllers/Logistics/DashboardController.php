@@ -100,6 +100,14 @@ class DashboardController extends Controller
             'failed' => (int) (($statusCounts['delivery_failed'] ?? 0) + ($statusCounts['lost'] ?? 0) + ($statusCounts['damaged'] ?? 0)),
         ];
 
+        // Use the same grouped counts and rider center/date scope for the
+        // redesigned status cards and the deliveries list.
+        $statusGroupCounts = [];
+        foreach (Delivery::STATUS_GROUPS as $groupKey => $groupStatuses) {
+            $statusGroupCounts[$groupKey] = (int) collect($groupStatuses)
+                ->sum(fn ($status) => (int) ($statusCounts[$status] ?? 0));
+        }
+
         // Needs attention: actionable operational counts, scoped to the
         // viewer's center exactly like the delivery list.
         $needsAttention = [
@@ -293,6 +301,7 @@ class DashboardController extends Controller
 
         return view('logistics.dashboard', [
             'deliveries' => $deliveries,
+            'statusGroupCounts' => $statusGroupCounts,
             'riders' => $riders,
             'onlineRiders' => $onlineRiders,
             'riderWorkload' => $riderWorkload,

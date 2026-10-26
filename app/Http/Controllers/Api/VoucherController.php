@@ -65,11 +65,11 @@ class VoucherController extends Controller
     public function validateCode(Request $request)
     {
         $validated = $request->validate([
-            'code'      => ['required', 'string', 'max:50'],
+            'code'      => ['required', 'string', 'max:12'],
             'subtotal'  => ['required', 'numeric', 'min:0'],
         ]);
 
-        $voucher = Voucher::active()->where('code', $validated['code'])->first();
+        $voucher = Voucher::active()->where('code', strtoupper(trim($validated['code'])))->first();
 
         if (! $voucher) {
             return response()->json(['message' => 'Invalid or expired voucher code.'], 422);

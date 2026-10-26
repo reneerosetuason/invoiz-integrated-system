@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Logistics;
 use App\Models\Logistics\Conversation;
 use App\Models\Logistics\Message;
 use App\Models\MessageAttachment;
+use App\Models\Rider;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,14 +22,43 @@ class RiderMessageController extends Controller
 {
     private function conversationFor(\Illuminate\Foundation\Auth\User $user): Conversation
     {
-        return Conversation::firstOrCreate(
-            ['participant_type' => 'rider', 'participant_id' => $user->id],
-            [
+        $rider = Rider::query()->where('user_id', $user->id)->first();
+
+        // Prefer the stable rider profile ID so a thread created before the
+        // rider account was linked becomes visible as soon as they sign in.
+        $conversation = $rider
+            ? Conversation::query()
+                ->where('participant_type', 'rider')
+                ->where('rider_id', $rider->id)
+                ->first()
+            : null;
+
+        $conversation ??= Conversation::query()
+            ->where('participant_type', 'rider')
+            ->where('participant_id', $user->id)
+            ->first();
+
+        if (! $conversation) {
+            return Conversation::create([
+                'rider_id' => $rider?->id,
+                'participant_type' => 'rider',
+                'participant_id' => $user->id,
                 'participant_name' => $user->name,
                 'subject' => 'Rider Support',
                 'last_message_at' => now(),
-            ],
-        );
+            ]);
+        }
+
+        $conversation->participant_id = $user->id;
+        $conversation->participant_name = $user->name;
+        if ($rider) {
+            $conversation->rider_id = $rider->id;
+        }
+        if ($conversation->isDirty()) {
+            $conversation->save();
+        }
+
+        return $conversation;
     }
 
     private function messagesFor(Conversation $conversation)

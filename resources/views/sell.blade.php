@@ -182,7 +182,9 @@ tailwind.config = { theme: { extend: {
             </div>
             <div class="sm:col-span-2">
               <label class="lbl">Shop Logo / Picture (Optional)</label>
-              <input type="file" name="logo" accept="image/*" class="inp">
+              <input type="file" name="logo" accept="image/*" class="inp"
+                     data-photo-editor data-photo-aspect="1" data-photo-preview-key="seller-application-logo">
+              <div data-photo-preview-target-key="seller-application-logo" hidden class="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-gray-200 bg-gray-50" aria-label="Edited logo preview"></div>
               <p class="mt-1 text-xs text-gray-500">JPG or PNG. Maximum 5 MB.</p>
               @if(!empty($existing?->logo))
                 <p class="text-xs text-gray-500 mt-1">Current: <a href="{{ $existing->logoUrl() }}" target="_blank" class="text-teal font-semibold underline">View existing logo</a></p>
@@ -198,49 +200,21 @@ tailwind.config = { theme: { extend: {
             <h2 class="text-xs font-extrabold uppercase tracking-wider text-teal-dark">3. Business Address</h2>
           </div>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label class="lbl">Region <span class="req">*</span></label>
-              @php
-                $sellerRegions = [
-                  'National Capital Region (NCR)',
-                  'Cordillera Administrative Region (CAR)',
-                  'Region I (Ilocos Region)',
-                  'Region II (Cagayan Valley)',
-                  'Region III (Central Luzon)',
-                  'Region IV-A (CALABARZON)',
-                  'MIMAROPA Region',
-                  'Region V (Bicol Region)',
-                  'Region VI (Western Visayas)',
-                  'Region VII (Central Visayas)',
-                  'Region VIII (Eastern Visayas)',
-                  'Region IX (Zamboanga Peninsula)',
-                  'Region X (Northern Mindanao)',
-                  'Region XI (Davao Region)',
-                  'Region XII (SOCCSKSARGEN)',
-                  'Region XIII (Caraga)',
-                  'Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)',
-                ];
-                $selectedRegion = old('region', $existing->region ?? $user->region ?? '');
-              @endphp
-              <select name="region" required class="inp">
-                <option value="">Select Region</option>
-                @foreach($sellerRegions as $regionName)
-                  <option value="{{ $regionName }}" @selected($selectedRegion === $regionName)>{{ $regionName }}</option>
-                @endforeach
-              </select>
-            </div>
-            <div>
-              <label class="lbl">Province <span class="req">*</span></label>
-              <input type="text" name="province" value="{{ old('province', $existing->province ?? $user->province ?? '') }}" required maxlength="150" class="inp" placeholder="Enter your province">
-            </div>
-            <div>
-              <label class="lbl">City / Municipality <span class="req">*</span></label>
-              <input type="text" name="city" value="{{ old('city', $existing->city ?? $user->city ?? $user->municipality ?? '') }}" required maxlength="150" class="inp" placeholder="Enter your city or municipality">
-            </div>
-            <div>
-              <label class="lbl">Barangay <span class="req">*</span></label>
-              <input type="text" name="barangay" value="{{ old('barangay', $existing->barangay ?? $user->barangay ?? '') }}" required maxlength="150" class="inp" placeholder="Enter your barangay">
-            </div>
+            @include('partials.psgc-address-fields', [
+              'prefix' => '',
+              'uid' => 'seller_address',
+              'values' => [
+                'region' => old('region', $existing->region ?? $user->region ?? ''),
+                'province' => old('province', $existing->province ?? $user->province ?? ''),
+                'city' => old('city', $existing->city ?? $user->city ?? $user->municipality ?? ''),
+                'barangay' => old('barangay', $existing->barangay ?? $user->barangay ?? ''),
+              ],
+              'controlClass' => 'inp',
+              'labelClass' => 'lbl',
+              'fields' => ['region', 'province', 'city', 'barangay'],
+              'required' => ['region', 'province', 'city', 'barangay'],
+              'regionFromProvince' => true,
+            ])
             <div>
               <label class="lbl">Street Address <span class="req">*</span></label>
               <input name="address_line" value="{{ old('address_line', $existing->address_line ?? $user->address_line ?? '') }}" required maxlength="255" class="inp" placeholder="e.g. Blk 12 Lot 8, Sampaguita St.">
@@ -355,5 +329,6 @@ tailwind.config = { theme: { extend: {
 })();
 </script>
 @endif
+@include('partials.seller-photo-editor')
 </body>
 </html>

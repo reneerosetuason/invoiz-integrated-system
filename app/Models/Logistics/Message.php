@@ -74,6 +74,10 @@ class Message extends Model
             return $this->sender_type === 'rider' && (int) $this->sender_id === (int) $user->id;
         }
 
+        if ($user->isLogisticsStaff()) {
+            return $this->sender_type === 'logistics' && (int) $this->sender_id === (int) $user->id;
+        }
+
         return false;
     }
 

@@ -15,13 +15,13 @@
             <div class="card overflow-hidden">
                 <div class="p-6" style="background:linear-gradient(135deg,#16697A,#0E4A57);">
                     <div class="flex items-center gap-3">
-                        @if(auth()->user()->seller?->logo)
-                            <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="Shop logo" class="h-14 w-14 rounded-2xl bg-white object-cover ring-2 ring-white/40">
-                        @else
-                            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 text-xl font-extrabold text-white">
+                        <div data-photo-preview-target-key="shop-picture-preview" class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white/20 text-xl font-extrabold text-white ring-2 ring-white/40">
+                            @if(auth()->user()->seller?->logo)
+                                <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="Shop logo" class="h-full w-full object-cover">
+                            @else
                                 {{ strtoupper(substr(auth()->user()->seller->business_name, 0, 1)) }}
-                            </div>
-                        @endif
+                            @endif
+                        </div>
                         <div>
                             <div class="text-lg font-extrabold text-white">{{ auth()->user()->seller->business_name }}</div>
                             <div class="text-xs text-white/70">{{ auth()->user()->seller->line_of_business }}</div>
@@ -83,13 +83,13 @@
             <div class="card p-6">
                 <h3 class="mb-4 text-base font-bold">Shop Picture</h3>
                 <div class="mb-4 flex items-center gap-4">
-                    @if(auth()->user()->seller?->logo)
-                        <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="Shop logo" class="h-16 w-16 rounded-2xl object-cover ring-1 ring-gray-200">
-                    @else
-                        <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-light text-xl font-extrabold text-teal">
+                    <div data-photo-preview-target-key="shop-picture-preview" class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-teal-light text-xl font-extrabold text-teal ring-1 ring-gray-200">
+                        @if(auth()->user()->seller?->logo)
+                            <img src="{{ asset('storage/'.auth()->user()->seller->logo) }}" alt="Shop logo" class="h-full w-full object-cover">
+                        @else
                             {{ strtoupper(substr(auth()->user()->seller->business_name ?? 'S', 0, 1)) }}
-                        </div>
-                    @endif
+                        @endif
+                    </div>
                     <p class="text-xs text-ink-light">Shown on your store page and across the marketplace instead of the letter avatar.</p>
                 </div>
                 <form method="POST" action="{{ route('seller.account.profile') }}" enctype="multipart/form-data" class="grid grid-cols-1 gap-4">
@@ -101,11 +101,37 @@
                     <input type="hidden" name="sex" value="{{ auth()->user()->sex }}">
                     <div>
                         <label class="field-label">Upload shop picture (JPG/PNG, max 5MB)</label>
-                        <input type="file" name="logo" accept="image/*" class="input">
+                        <input type="file" name="logo" accept="image/*" class="input"
+                               data-photo-editor data-photo-aspect="1" data-photo-preview-key="shop-picture-preview">
                     </div>
                     <div>
                         <button type="submit" class="btn btn-primary">Save Shop Picture</button>
                     </div>
+                </form>
+            </div>
+
+            {{-- Vacation mode --}}
+            <div class="card p-6">
+                <div class="mb-4 flex items-center justify-between">
+                    <h3 class="text-base font-bold">Vacation Mode</h3>
+                    @if(auth()->user()->seller?->vacation_mode)
+                        <span class="badge bg-amber-100 !text-amber-800">On vacation</span>
+                    @else
+                        <span class="badge bg-[#E8F5EE] !text-successc">Open</span>
+                    @endif
+                </div>
+                <form method="POST" action="{{ route('seller.account.vacation') }}" class="space-y-3">
+                    @csrf
+                    <input type="hidden" name="vacation_mode" value="0">
+                    <label class="flex items-center gap-2 text-sm font-semibold">
+                        <input type="checkbox" name="vacation_mode" value="1" {{ auth()->user()->seller?->vacation_mode ? 'checked' : '' }}>
+                        Pause my store (block new orders)
+                    </label>
+                    <div>
+                        <label class="field-label">Message shown to buyers (optional)</label>
+                        <input type="text" name="vacation_message" maxlength="200" class="input" placeholder="e.g. Back on Monday — orders resume then." value="{{ old('vacation_message', auth()->user()->seller?->vacation_message) }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Vacation Mode</button>
                 </form>
             </div>
 

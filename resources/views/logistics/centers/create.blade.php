@@ -24,14 +24,23 @@
                     <textarea name="address" id="address" rows="2" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">{{ old('address') }}</textarea>
                     @error('address')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
-                <div>
-                    <label for="city" class="block text-sm font-medium text-gray-700 mb-1">City <span class="text-red-500">*</span></label>
-                    <input type="text" name="city" id="city" value="{{ old('city') }}" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                @include('partials.psgc-address-fields', [
+                    'prefix' => '',
+                    'uid' => 'center_address',
+                    'values' => [
+                        'region' => old('region'),
+                        'province' => old('province'),
+                        'city' => old('city'),
+                    ],
+                    'controlClass' => 'w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm',
+                    'labelClass' => 'block text-sm font-medium text-gray-700 mb-1',
+                    'fields' => ['region', 'province', 'city'],
+                    'required' => ['region', 'province', 'city'],
+                    'regionFromProvince' => true,
+                ])
+                <div class="md:col-span-2">
                     @error('city')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label for="province" class="block text-sm font-medium text-gray-700 mb-1">Province</label>
-                    <input type="text" name="province" id="province" value="{{ old('province') }}" class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                    @error('region')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
                     <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>

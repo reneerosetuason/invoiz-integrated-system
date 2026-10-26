@@ -1,68 +1,86 @@
-﻿@extends('admin.layout')
+@extends('admin.layout')
 
 @section('content')
 <style>
-  .chat-grid { display:grid; grid-template-columns:320px 1fr; gap:16px; height:calc(100vh - 160px); min-height:520px; }
-  .panel { background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:0 1px 4px rgba(16,24,40,.04); display:flex; flex-direction:column; overflow:hidden; }
-  .panel-head { padding:16px 18px; border-bottom:1px solid #EEEFF1; display:flex; align-items:center; gap:10px; font-size:15px; font-weight:800; letter-spacing:-.2px; }
-  .panel-head svg{ width:18px; height:18px; stroke:#16697A; fill:none; stroke-width:1.8; }
-  .search-box{ padding:12px; border-bottom:1px solid #F1F2F4; }
-  .search-box input{ width:100%; padding:9px 12px 9px 34px; border:1px solid #E5E7EB; border-radius:10px; font-size:13px; background:#F9FAFB; outline:none; }
-  .search-box input:focus{ border-color:#16697A; background:#fff; box-shadow:0 0 0 3px rgba(22,105,122,.12); }
-  .search-wrap{ position:relative; }
-  .search-wrap svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); width:14px; height:14px; stroke:#9CA3AF; fill:none; stroke-width:1.8; }
-  .conv-list{ overflow-y:auto; flex:1; }
-  .conv{ display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid #F6F7F8; cursor:pointer; text-decoration:none; color:#1B1B1E; transition:background .12s; }
-  .conv:hover{ background:#F9FAFB; }
-  .conv.active{ background:#EAF4F3; border-left:3px solid #16697A; }
-  .avatar{ width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.06); }
-  .avatar.admin{ background:linear-gradient(135deg,#16697A 0%,#1A9CB0 100%); color:#fff; }
-  .avatar.seller{ background:linear-gradient(135deg,#F0A202 0%,#F59E0B 100%); color:#fff; }
-  .avatar.buyer{ background:linear-gradient(135deg,#8B5CF6 0%,#A78BFA 100%); color:#fff; }
-  .conv-name{ font-weight:700; font-size:13.5px; line-height:1.2; }
-  .conv-sub{ font-size:11.5px; color:#6B7280; }
-  .conv-last{ font-size:12px; color:#6B7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:170px; margin-top:2px; }
-  .conv-meta{ margin-left:auto; text-align:right; flex-shrink:0; }
-  .conv-time{ font-size:11px; color:#9CA3AF; }
-  .unread{ background:#E05A33; color:#fff; font-size:10px; font-weight:700; min-width:18px; height:18px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; padding:0 5px; margin-top:4px; }
-  .online-dot{ width:10px; height:10px; border-radius:50%; background:#2E8B57; border:2px solid #fff; position:absolute; bottom:0; right:0; }
-  .thread-head{ padding:14px 18px; border-bottom:1px solid #EEEFF1; display:flex; align-items:center; gap:12px; background:linear-gradient(180deg,#FAFAF8 0%,#fff 100%); }
-  .thread-head .name{ font-weight:800; font-size:14px; }
-  .thread-head .role{ font-size:11px; color:#6B7280; background:#F3F4F6; padding:2px 7px; border-radius:999px; font-weight:600; }
-  .status-dot{ width:8px; height:8px; border-radius:50%; background:#2E8B57; display:inline-block; margin-right:4px; }
-  .thread-body{ flex:1; overflow-y:auto; padding:20px; display:flex; flex-direction:column; gap:10px; background:#F7F6F2; }
-  .date-sep{ display:flex; align-items:center; gap:12px; margin:8px 0; }
-  .date-sep::before, .date-sep::after{ content:''; flex:1; height:1px; background:#E8E6E0; }
-  .date-sep span{ font-size:11px; font-weight:700; color:#9CA3AF; background:#F0EEE9; padding:3px 10px; border-radius:999px; }
-  .bubble{ max-width:68%; padding:11px 14px; border-radius:16px; font-size:13.5px; line-height:1.5; position:relative; word-wrap:break-word; }
-  .bubble.me{ align-self:flex-end; background:#16697A; color:#fff; border-bottom-right-radius:4px; box-shadow:0 2px 8px rgba(22,105,122,.18); }
-  .bubble.them{ align-self:flex-start; background:#fff; color:#1B1B1E; border:1px solid #E8E6E0; border-bottom-left-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,.04); }
-  .bubble-time{ display:flex; align-items:center; gap:4px; font-size:10px; margin-top:6px; opacity:.7; }
-  .bubble.me .bubble-time{ color:#BFDBFE; justify-content:flex-end; }
-  .bubble.them .bubble-time{ color:#9CA3AF; }
-  .thread-empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:#9CA3AF; gap:10px; }
-  .thread-empty svg{ width:48px; height:48px; stroke:#D1D5DB; fill:none; stroke-width:1.5; }
-  .composer{ padding:12px 14px; border-top:1px solid #EEEFF1; display:flex; gap:10px; align-items:end; background:#fff; }
-  .composer-input{ flex:1; display:flex; align-items:center; gap:8px; background:#F4F5F7; border:1px solid #E5E5E5; border-radius:24px; padding:6px 6px 6px 14px; transition:border-color .15s; }
-  .composer-input:focus-within{ border-color:#16697A; background:#fff; box-shadow:0 0 0 3px rgba(22,105,122,.1); }
-  .composer-input input{ flex:1; border:none; background:transparent; outline:none; font-size:13.5px; padding:6px 0; }
-  .icon-btn{ width:32px; height:32px; border-radius:50%; border:none; background:transparent; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#6B7280; transition:background .15s; flex-shrink:0; }
-  .icon-btn:hover{ background:#F3F4F6; color:#374151; }
-  .icon-btn svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.8; }
-  .send-btn{ width:40px; height:40px; border-radius:50%; background:#16697A; color:#fff; border:none; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; transition:transform .15s, background .15s; box-shadow:0 2px 8px rgba(22,105,122,.2); }
-  .send-btn:hover{ background:#0E4A57; transform:scale(1.05); }
-  .send-btn:disabled{ opacity:.5; cursor:not-allowed; transform:none; }
-  .send-btn svg{ width:18px; height:18px; stroke:#fff; fill:none; stroke-width:2; }
-  @media(max-width:900px){ .chat-grid{ grid-template-columns:1fr; height:auto; } .conv-list{ max-height:260px; } }
+  .admin-chat-grid{--chat-deep:#0E4A57;--chat-teal:#16697A;--chat-ink:#19383E;--chat-muted:#617579;--chat-rule:rgba(15,76,92,.12);display:grid;grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:16px;height:calc(100vh - 156px);height:calc(100dvh - 156px);min-height:520px}
+  .admin-chat-grid *{box-sizing:border-box}
+  .admin-chat-grid .panel{display:flex;min-width:0;flex-direction:column;overflow:hidden;border:1px solid var(--chat-rule);border-radius:16px;background:#fff}
+  .admin-chat-grid .panel-head{display:flex;min-height:60px;align-items:center;gap:10px;padding:14px 18px;color:var(--chat-ink);font-size:16px;font-weight:650}
+  .admin-chat-grid .panel-head>svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:var(--chat-teal);stroke-width:1.7}
+  .contact-count{margin-left:auto;padding:4px 9px;border-radius:999px;background:#EAF3F2;color:var(--chat-deep);font-size:12px;font-variant-numeric:tabular-nums}
+  .admin-chat-grid .search-box{padding:0 14px 14px}
+  .admin-chat-grid .search-wrap{position:relative}
+  .admin-chat-grid .search-wrap svg{position:absolute;top:50%;left:12px;width:16px;height:16px;transform:translateY(-50%);fill:none;stroke:#74868A;stroke-width:1.7}
+  .admin-chat-grid .search-box input{width:100%;height:42px;padding:0 12px 0 36px;border:1px solid var(--chat-rule);border-radius:10px;background:#F7F9F8;color:var(--chat-ink);font:inherit;font-size:13px;outline:0}
+  .admin-chat-grid .search-box input:focus{border-color:#7AA6AA;background:#fff;box-shadow:0 0 0 3px rgba(22,105,122,.1)}
+  .admin-chat-grid .conv-list{flex:1;overflow-y:auto;padding:0 8px 8px}
+  .admin-chat-grid .conv{display:flex;align-items:center;gap:11px;min-height:70px;padding:10px;border-radius:11px;color:var(--chat-ink);text-decoration:none;transition:background-color .15s ease}
+  .admin-chat-grid .conv:hover{background:#F6F9F8}
+  .admin-chat-grid .conv.active{background:#EAF3F2}
+  .admin-chat-grid .avatar{display:flex;width:40px;height:40px;align-items:center;justify-content:center;flex:0 0 40px;border:0;border-radius:50%;background:#D9E9E8;color:var(--chat-deep);font-size:13px;font-weight:700}
+  .admin-chat-grid .avatar.seller{background:#F1E8D4;color:#775819}
+  .admin-chat-grid .avatar.buyer{background:#E7E4F0;color:#514C78}
+  .online-dot{position:absolute;right:0;bottom:0;width:11px;height:11px;border:2px solid #fff;border-radius:50%;background:#4B8B69}
+  .admin-chat-grid .conv-name{overflow:hidden;color:var(--chat-ink);font-size:13.5px;font-weight:650;line-height:1.3;text-overflow:ellipsis;white-space:nowrap}
+  .admin-chat-grid .conv-sub{margin-top:3px;color:var(--chat-muted);font-size:11px;line-height:1.4}
+  .admin-chat-grid .role-badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:650;line-height:1.25;white-space:nowrap;vertical-align:middle}
+  .admin-chat-grid .conv-last{overflow:hidden;margin-top:3px;color:#617579;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+  .admin-chat-grid .conv-time{color:var(--chat-muted);font-size:11px;white-space:nowrap}
+  .admin-chat-grid .thread-head{display:flex;min-height:72px;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--chat-rule);background:#fff}
+  .admin-chat-grid .thread-head .name{color:var(--chat-ink);font-size:14px;font-weight:650;line-height:1.3}
+  .thread-role-line{display:flex;align-items:center;gap:6px;margin-top:3px;color:var(--chat-muted);font-size:11.5px}
+  .thread-role-line .status-dot{width:7px;height:7px;border-radius:50%;background:#4B8B69}
+  .chat-tools{display:flex;gap:4px;margin-left:auto}
+  .admin-chat-grid .icon-btn{display:flex;width:36px;height:36px;align-items:center;justify-content:center;flex:0 0 36px;border:0;border-radius:9px;background:transparent;color:#566B6F;cursor:pointer;transition:background-color .15s ease,color .15s ease}
+  .admin-chat-grid .icon-btn:hover{background:#EAF3F2;color:var(--chat-deep)}
+  .admin-chat-grid .icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  .admin-chat-grid .thread-body{display:flex;flex:1;flex-direction:column;gap:10px;overflow-y:auto;padding:18px 20px;background:#F7F9F8;scroll-behavior:smooth}
+  .admin-chat-grid .date-sep{align-self:center;margin:4px 0 8px}
+  .admin-chat-grid .date-sep span{display:inline-flex;padding:5px 11px;border-radius:999px;background:#E7EFED;color:#536A6D;font-size:11px;font-weight:600}
+  .admin-chat-grid .bubble{position:relative;max-width:min(72%,560px);padding:10px 13px;border-radius:14px;background:#fff;color:var(--chat-ink);font-size:13.5px;line-height:1.5;overflow-wrap:anywhere}
+  .admin-chat-grid .bubble.me{align-self:flex-end;border-bottom-right-radius:4px;background:var(--chat-deep);color:#fff}
+  .admin-chat-grid .bubble.them{align-self:flex-start;border-bottom-left-radius:4px}
+  .admin-chat-grid .bubble-time{display:flex;align-items:center;justify-content:flex-end;gap:4px;margin-top:5px;color:#D0E2E3;font-size:10px;line-height:1}
+  .admin-chat-grid .bubble.them .bubble-time{color:#758588}
+  .admin-chat-grid .thread-empty{display:flex;min-height:180px;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:24px;color:var(--chat-muted);text-align:center}
+  .admin-chat-grid .thread-empty svg{width:42px;height:42px;fill:none;stroke:#8AA3A5;stroke-width:1.5}
+  .thread-empty-title{color:var(--chat-ink);font-weight:650}
+  .thread-empty-copy{max-width:330px;font-size:13px;line-height:1.5}
+  .admin-chat-grid .composer{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid var(--chat-rule);background:#fff}
+  .admin-chat-grid .composer-input{display:flex;min-width:0;min-height:46px;flex:1;align-items:center;gap:6px;padding:4px 8px;border:1px solid var(--chat-rule);border-radius:12px;background:#F7F9F8;transition:border-color .15s ease,background-color .15s ease}
+  .admin-chat-grid .composer-input:focus-within{border-color:#7AA6AA;background:#fff}
+  .admin-chat-grid .composer-input input{min-width:0;flex:1;padding:8px 4px;border:0;outline:0;background:transparent;color:var(--chat-ink);font:inherit;font-size:13.5px}
+  .admin-chat-grid .send-btn{display:flex;width:42px;height:42px;align-items:center;justify-content:center;flex:0 0 42px;border:0;border-radius:11px;background:var(--chat-deep);color:#fff;cursor:pointer;transition:background-color .15s ease,transform .15s ease}
+  .admin-chat-grid .send-btn:hover{background:var(--chat-teal);transform:translateY(-1px)}
+  .admin-chat-grid .send-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .admin-chat-grid .send-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .admin-chat-grid :focus-visible{outline:2px solid var(--chat-teal);outline-offset:2px}
+  .admin-chat-grid .chat-back{display:none}
+  @media(max-width:760px){
+    .admin-chat-grid{display:block;height:auto;min-height:0}
+    .admin-chat-grid .panel{min-height:calc(100dvh - 150px)}
+    .admin-chat-grid.has-selection .contacts-panel{display:none}
+    .admin-chat-grid:not(.has-selection) .thread-panel{display:none}
+    .admin-chat-grid .conv-list{max-height:calc(100dvh - 265px)}
+    .admin-chat-grid .thread-panel{height:calc(100dvh - 150px);min-height:460px}
+    .admin-chat-grid .thread-head{gap:9px;padding:10px 12px}
+    .admin-chat-grid .chat-back{display:inline-flex;align-items:center;min-height:36px;padding:0 8px;color:var(--chat-deep);font-size:12px;font-weight:600;text-decoration:none}
+    .admin-chat-grid .chat-tools{gap:0}
+    .admin-chat-grid .icon-btn{width:32px;height:32px;flex-basis:32px}
+    .admin-chat-grid .thread-body{padding:14px 12px}
+    .admin-chat-grid .bubble{max-width:86%}
+    .admin-chat-grid .composer{padding:10px}
+  }
+  @media(prefers-reduced-motion:reduce){.admin-chat-grid *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
 </style>
 
-<div class="chat-grid">
+<div class="admin-chat-grid {{ $selectedUser ? 'has-selection' : '' }}">
   <!-- Contacts -->
-  <div class="panel">
+  <div class="panel contacts-panel">
     <div class="panel-head">
       <svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z"/></svg>
       Messages
-      <span style="margin-left:auto; font-size:11px; font-weight:700; background:#EAF4F3; color:#16697A; padding:3px 8px; border-radius:999px;">{{ count($users) }}</span>
+      <span class="contact-count">{{ count($users) }}</span>
     </div>
     <div class="search-box">
       <div class="search-wrap">
@@ -82,7 +100,7 @@
             <div class="conv-name">{{ $user->name }}</div>
             <div class="conv-sub conv-role-text" style="font-size:11px; color:#6B7280;">
               @foreach($user->roleBadges() as $badge)
-                <span style="display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;background:{{ $badge[2] }};color:{{ $badge[1] }};margin-right:4px">{{ $badge[0] }}</span>
+                <span class="role-badge" style="background:{{ $badge[2] }};color:{{ $badge[1] }};margin-right:4px">{{ $badge[0] }}</span>
               @endforeach
               · <span style="color:#2E8B57;">● Online</span>
             </div>
@@ -103,29 +121,30 @@
         <div style="text-align:center; padding:40px 16px; color:#9CA3AF;">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="1.5" style="margin:0 auto 10px; display:block;"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z"/></svg>
           <div style="font-weight:600;">No contacts yet</div>
-          <div style="font-size:12px; margin-top:4px;">Buyers and sellers will appear here<br>when they message you.</div>
+          <div style="font-size:12px; margin-top:4px;">Users will appear here when they message you.</div>
         </div>
       @endforelse
     </div>
   </div>
 
   <!-- Thread -->
-  <div class="panel">
+  <div class="panel thread-panel">
     @if($selectedUser)
       <div class="thread-head">
+        <a class="chat-back" href="{{ url('/admin/chat') }}">Back</a>
         <div style="position:relative;">
           <div class="avatar {{ $selectedUser->role === 'seller' ? 'seller' : ($selectedUser->role === 'buyer' ? 'buyer' : 'admin') }}" style="width:38px; height:38px;">{{ strtoupper(mb_substr($selectedUser->name,0,1)) }}</div>
           <span class="online-dot"></span>
         </div>
         <div>
           <div class="name">{{ $selectedUser->name }}</div>
-          <div style="font-size:11px; color:#6B7280; display:flex; align-items:center; gap:4px;"><span class="status-dot"></span> Active now ·
+          <div class="thread-role-line"><span class="status-dot"></span> Active now ·
             @foreach($selectedUser->roleBadges() as $badge)
-              <span style="display:inline-block;font-size:9px;font-weight:800;padding:1px 7px;border-radius:999px;background:{{ $badge[2] }};color:{{ $badge[1] }}">{{ $badge[0] }}</span>
+              <span class="role-badge" style="background:{{ $badge[2] }};color:{{ $badge[1] }}">{{ $badge[0] }}</span>
             @endforeach
           </div>
         </div>
-        <div style="margin-left:auto; display:flex; gap:6px;">
+        <div class="chat-tools">
           <button class="icon-btn" title="Voice call"><svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .8 2.9a2 2 0 0 1-.6 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.6c.9.4 1.9.7 2.9.8a2 2 0 0 1 1.7 2z"/></svg></button>
           <button class="icon-btn" title="Video call"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7Z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></button>
           <button class="icon-btn" title="Info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg></button>
@@ -147,8 +166,8 @@
         @empty
           <div id="no-messages" class="thread-empty">
             <svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
-            <div style="font-weight:700; color:#374151;">No messages yet</div>
-            <div style="font-size:13px;">Say hello to {{ $selectedUser->name }} — start the conversation!</div>
+            <div class="thread-empty-title">No messages yet</div>
+            <div class="thread-empty-copy">Say hello to {{ $selectedUser->name }} — start the conversation!</div>
           </div>
         @endforelse
       </div>
@@ -165,10 +184,10 @@
         </button>
       </form>
     @else
-      <div class="thread-empty" style="background:#F7F6F2; flex:1;">
+      <div class="thread-empty">
         <svg viewBox="0 0 24 24"><path d="M21 11.5a8.5 8.5 0 0 1-12.4 7.5L3 21l2-5.6A8.5 8.5 0 1 1 21 11.5Z"/><path d="M8 12h8"/><path d="M12 8v4"/></svg>
-        <div style="font-weight:700; color:#374151; margin-top:8px;">Select a conversation</div>
-        <div style="font-size:13px; max-width:260px; text-align:center; margin-top:4px;">Choose a buyer or seller from the left to start messaging. Your chats are end-to-end and auto-saved.</div>
+        <div class="thread-empty-title">Select a conversation</div>
+        <div class="thread-empty-copy">Choose a user from the left to start messaging. Your chats are end-to-end and auto-saved.</div>
       </div>
     @endif
   </div>

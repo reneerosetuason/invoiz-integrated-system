@@ -23,6 +23,24 @@ class Delivery extends Model
 
     public const RETURN_TO_SELLER_STATUSES = ['delivery_failed', 'damaged'];
 
+    /**
+     * Dashboard KPI buckets. Each key maps to the exact set of delivery
+     * statuses counted for that bucket, so a dashboard count always equals
+     * the number of rows the deliveries list shows for the same filter.
+     */
+    public const STATUS_GROUPS = [
+        'pending'    => ['waiting_for_rider'],
+        'in_transit' => self::ACTIVE_STATUSES,
+        'delivered'  => ['delivered'],
+        'failed'     => ['delivery_failed', ...self::EXCEPTION_STATUSES],
+    ];
+
+    /** Resolve a status-group key to its status list (null when not a group). */
+    public static function statusGroup(string $key): ?array
+    {
+        return self::STATUS_GROUPS[$key] ?? null;
+    }
+
     protected $fillable = [
         'tracking_number',
         'order_id',

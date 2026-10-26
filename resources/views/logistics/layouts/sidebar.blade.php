@@ -32,7 +32,7 @@
     $activeArchived  = request()->routeIs('deliveries.archived');
     $activeMessages  = request()->routeIs('messages.*');
     $msgUnreadCount = 0;
-    try { $msgUnreadCount = (int) \App\Models\Logistics\Conversation::sum('unread_count'); } catch (\Throwable $e) {}
+    try { $msgUnreadCount = \App\Models\Logistics\Conversation::unreadForLogisticsUser((int) auth()->id()); } catch (\Throwable $e) {}
     $activeSettings  = request()->routeIs('settings.*');
 @endphp
 

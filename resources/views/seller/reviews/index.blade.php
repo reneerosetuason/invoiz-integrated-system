@@ -86,18 +86,19 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span class="badge badge-{{ $review->status }}">{{ ucfirst($review->status) }}</span>
-                    <form method="POST" action="{{ route('seller.feedback.toggle', $review->id) }}">
-                        @csrf
-                        <button type="submit" class="btn {{ $review->status === 'visible' ? 'btn-outline' : 'btn-soft' }} btn-sm">
-                            @if($review->status === 'visible')
-                                <x-icon name="eye-off" class="h-4 w-4" /> Hide
-                            @else
-                                <x-icon name="eye" class="h-4 w-4" /> Show
-                            @endif
-                        </button>
-                    </form>
+                <div class="w-full max-w-md">
+                    @if($review->seller_reply)
+                        <div class="rounded-lg bg-[#F0EEE9] px-3 py-2 text-sm">
+                            <div class="text-xs font-bold text-ink-light">Your reply · {{ $review->seller_replied_at?->format('M j, Y') }}</div>
+                            <p class="mt-1">{{ $review->seller_reply }}</p>
+                        </div>
+                    @else
+                        <form method="POST" action="{{ route('seller.feedback.reply', $review->id) }}" class="space-y-2">
+                            @csrf
+                            <textarea name="seller_reply" rows="2" maxlength="1000" required class="input w-full !text-sm" placeholder="Reply publicly to this review…"></textarea>
+                            <button type="submit" class="btn btn-primary btn-sm">Post reply</button>
+                        </form>
+                    @endif
                 </div>
             </div>
         </div>

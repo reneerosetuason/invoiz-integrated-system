@@ -91,6 +91,9 @@
             <a href="{{ route('seller.remittances.index') }}" title="Cash Remittances" class="{{ request()->routeIs('seller.remittances.*') ? 'active' : '' }}">
                 <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Remittances</span>
             </a>
+            <a href="{{ route('seller.payouts.index') }}" title="Payouts" class="{{ request()->routeIs('seller.payouts.*') ? 'active' : '' }}">
+                <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Payouts</span>
+            </a>
 
             <div class="nav-section sb-hide-collapsed">Store</div>
             <a href="{{ route('seller.products.index') }}" title="Inventory" class="{{ request()->routeIs('seller.products.*') ? 'active' : '' }}">
@@ -99,8 +102,14 @@
             <a href="{{ route('seller.vouchers.index') }}" title="Vouchers" class="{{ request()->routeIs('seller.vouchers.*') ? 'active' : '' }}">
                 <x-icon name="ticket" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Vouchers</span>
             </a>
+            <a href="{{ route('seller.sales.index') }}" title="Store Sales" class="{{ request()->routeIs('seller.sales.*') ? 'active' : '' }}">
+                <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Store Sales</span>
+            </a>
             <a href="{{ route('seller.feedback.index') }}" title="Customer Feedback" class="{{ request()->routeIs('seller.feedback.*') ? 'active' : '' }}">
                 <x-icon name="star" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Customer Feedback</span>
+            </a>
+            <a href="{{ route('seller.returns.index') }}" title="Returns & Refunds" class="{{ request()->routeIs('seller.returns.*') ? 'active' : '' }}">
+                <x-icon name="refresh" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Returns</span>
             </a>
             <a href="{{ route('seller.reports') }}" title="Reports" class="{{ request()->routeIs('seller.reports') ? 'active' : '' }}">
                 <x-icon name="chart" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Reports</span>
@@ -287,5 +296,6 @@
 </style>
 <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}"></script>
 @stack('scripts')
+@include('partials.seller-photo-editor')
 </body>
 </html>

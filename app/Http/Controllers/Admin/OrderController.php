@@ -20,7 +20,16 @@ class OrderController extends Controller
                       $b->where('name', 'like', "%{$search}%");
                   })
                   ->orWhereHas('seller', function ($s) use ($search) {
-                      $s->where('store_name', 'like', "%{$search}%");
+                      $s->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('items.seller.seller', function ($s) use ($search) {
+                      $s->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('items.product.seller', function ($s) use ($search) {
+                      $s->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%");
                   });
             });
         }
@@ -42,6 +51,7 @@ class OrderController extends Controller
         if ($request->wantsJson()) {
             return $orders;
         }
+        $orders->loadMissing(['seller.user', 'items.seller.seller.user', 'items.product.seller.user']);
         return view('admin.orders', compact('orders', 'stats'));
     }
 
@@ -78,6 +88,8 @@ class OrderController extends Controller
         // shipped/delivered orders keep their stock deducted.
         if (($request->status ?? null) === 'cancelled' && $from !== 'cancelled') {
             \App\Support\Stock::restoreOrder($order->load('items'));
+            \App\Support\Payments::voidForCancel($order);
+            \App\Support\Vouchers::restoreForOrder($order);
         }
 
         // Keep the buyer timeline corresponding: every status change writes history.

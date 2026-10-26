@@ -39,8 +39,8 @@ class SellerCenterController extends Controller
     protected const ORDER_TRANSITIONS = [
         'pending'             => ['confirmed', 'cancelled'],
         'confirmed'           => ['processing', 'cancelled'],
-        'processing'          => ['ready_for_delivery'],
-        'ready_for_delivery'  => ['out_for_delivery'],
+        'processing'          => ['ready_for_delivery', 'cancelled'],
+        'ready_for_delivery'  => ['out_for_delivery', 'cancelled'],
         'out_for_delivery'    => ['delivered'],
         'delivered'           => [],
         'cancelled'           => [],
@@ -358,19 +358,29 @@ class SellerCenterController extends Controller
         return view('seller.products.create', compact('categories'))->with('active', 'products')->with('title', 'Add Product');
     }
 
+    private function allowedProductStatuses(): array
+    {
+        $seller = $this->seller();
+        $approved = $seller && $seller->approval_status === 'approved';
+
+        return $approved ? ['active', 'inactive', 'out_of_stock'] : ['draft'];
+    }
+
     public function productStore(Request $request)
     {
         $validated = $request->validate([
-            'name'         => ['required', 'string', 'max:150'],
+            'name'         => ['required', 'string', 'min:5', 'max:120'],
             'category_id'  => ['required', 'exists:categories,id'],
-            'description'  => ['nullable', 'string', 'max:5000'],
-            'price'        => ['required', 'numeric', 'min:0'],
+            'description'  => ['nullable', 'string', 'min:20', 'max:3000'],
+            'price'        => ['required', 'numeric', 'min:1', 'max:1000000', 'decimal:0,2'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
-            'stock'        => ['required', 'integer', 'min:0'],
+            'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'weight'       => ['nullable', 'string', 'max:50'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
             'image'        => ['nullable', 'image', 'max:5120'],
-            'status'       => ['required', 'in:active,inactive,out_of_stock'],
+            'images'       => ['nullable', 'array', 'max:9'],
+            'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'status'       => ['required', 'in:' . implode(',', $this->allowedProductStatuses())],
         ]);
 
         $validated['seller_id'] = Auth::id();
@@ -381,6 +391,7 @@ class SellerCenterController extends Controller
         $product = \Illuminate\Support\Facades\DB::transaction(function () use ($validated, $request) {
             $product = Product::create($validated);
             $this->saveProductVariants($product, $request);
+            \App\Support\ProductImages::save($product, $request);
             return $product;
         });
 
@@ -401,16 +412,18 @@ class SellerCenterController extends Controller
         abort_if(! in_array($product->seller_id, $this->catalogIds()), 403);
 
         $validated = $request->validate([
-            'name'         => ['required', 'string', 'max:150'],
+            'name'         => ['required', 'string', 'min:5', 'max:120'],
             'category_id'  => ['required', 'exists:categories,id'],
-            'description'  => ['nullable', 'string', 'max:5000'],
-            'price'        => ['required', 'numeric', 'min:0'],
+            'description'  => ['nullable', 'string', 'min:20', 'max:3000'],
+            'price'        => ['required', 'numeric', 'min:1', 'max:1000000', 'decimal:0,2'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
-            'stock'        => ['required', 'integer', 'min:0'],
+            'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'weight'       => ['nullable', 'string', 'max:50'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
             'image'        => ['nullable', 'image', 'max:5120'],
-            'status'       => ['required', 'in:active,inactive,out_of_stock'],
+            'images'       => ['nullable', 'array', 'max:9'],
+            'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'status'       => ['required', 'in:' . implode(',', $this->allowedProductStatuses())],
         ]);
 
         if ($request->hasFile('image')) {
@@ -423,6 +436,7 @@ class SellerCenterController extends Controller
         \Illuminate\Support\Facades\DB::transaction(function () use ($product, $validated, $request) {
             $product->update($validated);
             $this->saveProductVariants($product, $request);
+            \App\Support\ProductImages::save($product, $request);
         });
 
         return back()->with('status', 'Product updated successfully.');
@@ -487,8 +501,10 @@ class SellerCenterController extends Controller
 
     public function voucherStore(Request $request)
     {
+        $request->merge(['code' => strtoupper(trim((string) $request->input('code')))]);
+
         $data = $request->validate([
-            'code'           => 'required|string|max:50|unique:vouchers,code',
+            'code'           => 'required|string|regex:/^[A-Z0-9]{4,12}$/|unique:vouchers,code',
             'name'           => 'nullable|string|max:150',
             'description'    => 'nullable|string|max:1000',
             'type'           => 'nullable|in:fixed,percent',
@@ -534,7 +550,18 @@ class SellerCenterController extends Controller
     public function voucherUpdate(Request $request, Voucher $voucher)
     {
         $ids = $this->catalogIds();
-        abort_if($voucher->seller_id !== null && ! in_array($voucher->seller_id, $ids), 403);
+        abort_if(! in_array($voucher->seller_id, $ids), 403);
+
+        // Platform vouchers (seller_id null) are admin-only.
+        abort_if($voucher->seller_id === null, 403);
+
+        // Locked once claimed: only the active/inactive toggle may change.
+        if (\App\Models\VoucherClaim::where('voucher_id', $voucher->id)->exists()) {
+            $request->validate(['status' => 'required|in:active,inactive']);
+            $voucher->update(['status' => $request->input('status')]);
+
+            return back()->with('status', 'This voucher has claims, so only its active status was updated.');
+        }
 
         $data = $request->validate([
             'name'           => 'required|string|max:150',

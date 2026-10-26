@@ -68,4 +68,21 @@ class ReviewController extends Controller
             ? 'Feedback shown on the product.'
             : 'Feedback hidden from the product.');
     }
+
+    public function reply(Request $request, $id)
+    {
+        $review = Review::whereHas('product', fn ($q) => $q->where('seller_id', auth()->id()))
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'seller_reply' => ['required', 'string', 'min:2', 'max:1000'],
+        ]);
+
+        $review->update([
+            'seller_reply'      => $validated['seller_reply'],
+            'seller_replied_at' => now(),
+        ]);
+
+        return back()->with('success', 'Your reply is now visible on the product page.');
+    }
 }

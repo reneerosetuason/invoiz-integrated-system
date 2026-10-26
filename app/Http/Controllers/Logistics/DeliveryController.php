@@ -89,6 +89,8 @@ class DeliveryController extends Controller
 
         if ($status === 'exceptions') {
             $query->whereIn('status', ['delivery_failed', 'lost', 'damaged']);
+        } elseif (($group = Delivery::statusGroup($status)) !== null) {
+            $query->whereIn('status', $group);
         } elseif ($status !== '' && in_array($status, ['waiting_for_rider', 'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop', 'picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'cancelled'])) {
             $query->where('status', $status);
         }

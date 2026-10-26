@@ -12,6 +12,8 @@ class Review extends Model
         'order_id',
         'rating',
         'comment',
+        'seller_reply',
+        'seller_replied_at',
         'status',
     ];
 
@@ -20,6 +22,7 @@ class Review extends Model
         return [
             'rating' => 'integer',
             'status' => 'string',
+            'seller_replied_at' => 'datetime',
         ];
     }
 

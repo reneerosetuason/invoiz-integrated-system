@@ -42,7 +42,7 @@ class CategoryController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:50',
             'description' => 'nullable|string',
             'parent_id' => 'nullable|exists:categories,id',
         ]);
@@ -63,7 +63,7 @@ class CategoryController extends Controller
     public function update(Request $request, Category $category)
     {
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:50',
             'description' => 'nullable|string',
             'active' => 'boolean',
         ]);

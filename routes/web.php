@@ -370,6 +370,8 @@ Route::post('/checkout', function(Request $request){
     'address_id' => ['required', 'integer'],
     'payment_method' => ['required', 'in:cod'],
     'voucher_claim_id' => ['nullable', 'integer', 'exists:voucher_claims,id'],
+    'voucher_claim_ids' => ['nullable', 'array', 'max:3'],
+    'voucher_claim_ids.*' => ['integer', 'exists:voucher_claims,id'],
   ]);
   $addr = \App\Models\Address::where('buyer_id', $buyer['id'])->find($request->integer('address_id'));
   if (! $addr) {
@@ -382,17 +384,26 @@ Route::post('/checkout', function(Request $request){
   $ordersCreated = 0;
   try {
     \Illuminate\Support\Facades\DB::transaction(function () use ($buyer, $addr, $request, $checkoutMode, &$ordersCreated) {
-    $voucherClaim = null;
-    $voucher = null;
-    if ($request->filled('voucher_claim_id')) {
-      $voucherClaim = \App\Models\VoucherClaim::where('id', $request->integer('voucher_claim_id'))
-        ->where('buyer_id', $buyer['id'])->whereNull('used_at')->lockForUpdate()->first();
-      $voucher = $voucherClaim
-        ? \App\Models\Voucher::whereKey($voucherClaim->voucher_id)->lockForUpdate()->first()
-        : null;
-      if (! $voucherClaim || ! $voucher || ! $voucher->is_active || ($voucher->usage_limit !== null && $voucher->used_count >= $voucher->usage_limit)) {
-        throw new \Exception('That claimed voucher is unavailable. Choose another voucher.');
+    $claimIds = array_values(array_unique(array_filter(array_merge(
+      array_map('intval', (array) $request->input('voucher_claim_ids', [])),
+      $request->filled('voucher_claim_id') ? [(int) $request->integer('voucher_claim_id')] : []
+    ))));
+    $claims = collect();
+    $claimsByVoucher = collect();
+    $allVouchers = collect();
+    if ($claimIds) {
+      $claims = \App\Models\VoucherClaim::whereIn('id', $claimIds)->where('buyer_id', $buyer['id'])
+        ->whereNull('used_at')->lockForUpdate()->get()->keyBy('id');
+      if ($claims->count() !== count($claimIds)) {
+        throw new \Exception('One of the claimed vouchers is unavailable. Choose another voucher.');
       }
+      $allVouchers = $claims->map(fn($c) => \App\Models\Voucher::whereKey($c->voucher_id)->lockForUpdate()->first());
+      foreach ($allVouchers as $v) {
+        if (! $v || ! $v->is_active || ($v->usage_limit !== null && $v->used_count >= $v->usage_limit)) {
+          throw new \Exception('One of the claimed vouchers is unavailable. Choose another voucher.');
+        }
+      }
+      $claimsByVoucher = $claims->keyBy('voucher_id');
     }
     if($checkoutMode === 'single'){
       $raw = session('checkout_single');
@@ -404,16 +415,19 @@ Route::post('/checkout', function(Request $request){
       }
       $variant = Cart::resolveVariant($product, $raw['variant_id'] ?? null);
       $qty = max(1, min(200, (int)($raw['qty'] ?? 1)));
+      if (\App\Models\Seller::where(function($q) use($product){ $q->where('id',$product->seller_id)->orWhere('user_id',$product->seller_id); })->where('vacation_mode',true)->exists()) {
+        throw new \Exception('This store is on vacation and is not accepting orders right now.');
+      }
       $unit = Cart::unitFor($product, $variant);
       $subtotal = $unit * $qty;
       // Shipping: flat fee once per shop. Voucher (merchandise or free
       // shipping) validated here; the seller absorbs it, never the rider.
-      $merch = 0.0; $waived = 0.0;
-      if ($voucher) {
-        $resolved = \App\Support\Shipping::resolveVoucher($voucher, $subtotal, [(int) $product->seller_id]);
-        if ($resolved['error']) throw new \Exception($resolved['error']);
-        $merch = $resolved['merch'];
-        $waived = round(array_sum($resolved['waived']), 2);
+      $merch = 0.0; $waived = 0.0; $stack = ['perVoucher' => []];
+      if ($allVouchers->isNotEmpty()) {
+        $stack = \App\Support\Vouchers::resolveStack($allVouchers, $subtotal, [(int) $product->seller_id]);
+        if ($stack['error']) throw new \Exception($stack['error']);
+        $merch = $stack['merch'];
+        $waived = round(array_sum($stack['waived']), 2);
       }
       $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
       $total = round($subtotal - $merch + $shipping - $waived, 2);
@@ -422,10 +436,12 @@ Route::post('/checkout', function(Request $request){
       \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
       if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $product->seller_id,'status'=>'waiting_for_rider','payment_method'=>'cash_on_delivery','amount_to_collect'=>$total,'delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
       \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$product->id,'product_variant_id'=>$variant?->id,'seller_id'=>$product->seller_id,'product_name'=>$product->name,'variant_label'=>Cart::labelFor($variant),'quantity'=>$qty,'price'=>$unit,'unit_price'=>$unit,'total_price'=>$subtotal]);
-      if ($voucher) {
-        \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$voucher->id,'discount_amount'=>round($merch + $waived, 2)]);
-        $voucher->increment('used_count');
-        $voucherClaim->update(['order_id' => $order->id, 'used_at' => now()]);
+      foreach ($stack['perVoucher'] ?? [] as $vid => $amt) {
+        \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$vid,'discount_amount'=>round(($amt['merch'] ?? 0) + ($amt['waived'] ?? 0), 2)]);
+      }
+      foreach ($claims as $c) {
+        \App\Models\Voucher::whereKey($c->voucher_id)->increment('used_count');
+        $c->update(['order_id' => $order->id, 'used_at' => now()]);
       }
       if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
       \App\Support\Payments::recordCheckout($order);
@@ -440,10 +456,12 @@ Route::post('/checkout', function(Request $request){
         $lines = $lines->filter(fn($l) => in_array($l['item']->id, $idArr) || in_array($l['product']->id, $idArr))->values();
       }
       if($lines->isEmpty()) throw new \Exception('Cart is empty');
-      // Optional voucher: validated up front, then applied to the first
-      // eligible seller group only (single use per checkout).
-      $voucherConsumed = false;
-      $voucherError = null;
+      $vacationIds = $lines->map(fn($l) => (int) $l['product']->seller_id)->unique()->values()->all();
+      $vacationSeller = \App\Models\Seller::where(function($q) use($vacationIds){ $q->whereIn('id',$vacationIds)->orWhereIn('user_id',$vacationIds); })->where('vacation_mode',true)->first();
+      if ($vacationSeller) throw new \Exception(($vacationSeller->store_name ?: 'A store').' is on vacation and is not accepting orders right now.');
+      // Vouchers stack per checkout: one store + one platform + one shipping.
+      $consumedClaimIds = [];
+      $groupIndex = 0;
       $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [(int) $lines->first()['product']->seller_id => $lines];
       foreach($bySeller as $groupSid => $sLines){
         if ($pickupProblem = \App\Support\DeliveryServiceability::pickupAddressProblem((int) $groupSid)) {
@@ -454,19 +472,20 @@ Route::post('/checkout', function(Request $request){
         }
         $subtotal = $sLines->sum('line');
         $sellerIds = $sLines->map(fn($l) => (int) $l['product']->seller_id)->unique()->values()->all();
-        $merch = 0.0; $waived = 0.0; $usedVoucher = null;
-        if ($voucher && ! $voucherConsumed) {
-          $resolved = \App\Support\Shipping::resolveVoucher($voucher, $subtotal, $sellerIds);
-          if ($resolved['error']) {
-            $voucherError = $resolved['error'];
-          } elseif ($resolved['merch'] > 0 || array_sum($resolved['waived']) > 0) {
-            $merch = $resolved['merch'];
-            $waived = round(array_sum($resolved['waived']), 2);
-            $usedVoucher = $voucher;
-            $voucherConsumed = true;
-          } else {
-            $voucherError = 'This voucher does not apply to the items in your order.';
-          }
+        $isFirstGroup = ($groupIndex === 0);
+        $groupVouchers = $allVouchers->filter(function($v) use ($groupSid, $isFirstGroup, $consumedClaimIds){
+          if (isset($consumedClaimIds[$v->id])) return false;
+          $type = $v->discount_type ?? $v->type;
+          if ($type === 'free_shipping') return $isFirstGroup;
+          if ($v->seller_id) return \App\Models\Seller::userIdFor((int)$v->seller_id) === \App\Models\Seller::userIdFor((int)$groupSid);
+          return $isFirstGroup;
+        })->values();
+        $merch = 0.0; $waived = 0.0; $stack = ['perVoucher' => []];
+        if ($groupVouchers->isNotEmpty()) {
+          $stack = \App\Support\Vouchers::resolveStack($groupVouchers, $subtotal, $sellerIds);
+          if ($stack['error']) throw new \Exception($stack['error']);
+          $merch = $stack['merch'];
+          $waived = round(array_sum($stack['waived']), 2);
         }
         $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
         $total = round($subtotal - $merch + $shipping - $waived, 2);
@@ -477,17 +496,23 @@ Route::post('/checkout', function(Request $request){
           \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$l['product']->id,'product_variant_id'=>$l['variant']?->id,'seller_id'=>$l['product']->seller_id,'product_name'=>$l['product']->name,'variant_label'=>$l['label'],'quantity'=>$l['qty'],'price'=>$l['unit'],'unit_price'=>$l['unit'],'total_price'=>$l['line']]);
           $l['item']->delete();
         }
-        if ($usedVoucher) {
-          \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$usedVoucher->id,'discount_amount'=>round($merch + $waived, 2)]);
-          $usedVoucher->increment('used_count');
-          $voucherClaim->update(['order_id' => $order->id, 'used_at' => now()]);
+        foreach ($stack['perVoucher'] ?? [] as $vid => $amt) {
+          \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$vid,'discount_amount'=>round(($amt['merch'] ?? 0) + ($amt['waived'] ?? 0), 2)]);
+          \App\Models\Voucher::whereKey($vid)->increment('used_count');
+          $consumedClaimIds[$vid] = true;
+          if (isset($claimsByVoucher[$vid])) $claimsByVoucher[$vid]->update(['order_id' => $order->id, 'used_at' => now()]);
         }
+        $groupIndex++;
         if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
         \App\Support\Payments::recordCheckout($order);
         $ordersCreated++;
       }
-      if ($voucher && ! $voucherConsumed) {
-        throw new \Exception($voucherError ?? 'This voucher does not apply to the items in your order.');
+      if ($allVouchers->isNotEmpty()) {
+        foreach ($allVouchers as $v) {
+          if (! isset($consumedClaimIds[$v->id])) {
+            throw new \Exception('A selected voucher does not apply to the items in your order.');
+          }
+        }
       }
     }
     });
@@ -552,7 +577,12 @@ Route::get('/store/{id}', function($id, Request $request){
     }
   } catch (\Throwable $e) {}
   $favoriteIds = !empty($buyer['id']) ? \App\Models\Favorite::where('buyer_id',$buyer['id'])->pluck('product_id')->map(fn($id)=>(int)$id)->all() : [];
-  return view('store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer','storeLogo','favoriteIds') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
+  $vacation = null;
+  try {
+    $vs = \App\Models\Seller::where('user_id',$sellerId)->first();
+    if ($vs && $vs->vacation_mode) $vacation = $vs->vacation_message ?: 'This store is currently on vacation — orders are paused.';
+  } catch (\Throwable $e) {}
+  return view('store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer','storeLogo','favoriteIds','vacation') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
 });
 
 Route::post('/store/{id}/follow', function($id, Request $request){
@@ -777,6 +807,14 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     Route::get('/remittances', [\App\Http\Controllers\Seller\RemittanceController::class, 'index'])->name('seller.remittances.index');
     Route::post('/remittances/{remittance}/confirm', [\App\Http\Controllers\Seller\RemittanceController::class, 'confirm'])->name('seller.remittances.confirm');
 
+    // Payouts: withdraw settled, available earnings.
+    Route::get('/payouts', [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('seller.payouts.index');
+    Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'request'])->name('seller.payouts.request');
+
+    // Returns / refunds
+    Route::get('/returns', [\App\Http\Controllers\Seller\ReturnController::class, 'index'])->name('seller.returns.index');
+    Route::post('/returns/{returnRequest}', [\App\Http\Controllers\Seller\ReturnController::class, 'update'])->name('seller.returns.update');
+
     // Products
     Route::get('/products', [SellerAppProducts::class, 'index'])->name('seller.products.index');
     Route::get('/products/create', [SellerAppProducts::class, 'create'])->name('seller.products.create');
@@ -792,6 +830,12 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     Route::post('/vouchers/{voucher}', [SellerAppVouchers::class, 'update'])->name('seller.vouchers.update');
     Route::delete('/vouchers/{voucher}', [SellerAppVouchers::class, 'destroy'])->name('seller.vouchers.destroy');
 
+// Store sales (one running sale per store).
+Route::get('/sales', [\App\Http\Controllers\Seller\SaleController::class, 'index'])->name('seller.sales.index');
+Route::post('/sales', [\App\Http\Controllers\Seller\SaleController::class, 'store'])->name('seller.sales.store');
+Route::post('/sales/{sale}', [\App\Http\Controllers\Seller\SaleController::class, 'update'])->name('seller.sales.update');
+Route::delete('/sales/{sale}', [\App\Http\Controllers\Seller\SaleController::class, 'destroy'])->name('seller.sales.destroy');
+
     // Reports
     Route::get('/reports', SellerAppReports::class)->name('seller.reports');
 
@@ -803,6 +847,7 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     // Feedback
     Route::get('/feedback', [SellerAppReviews::class, 'index'])->name('seller.feedback.index');
     Route::post('/feedback/{review}/toggle', [SellerAppReviews::class, 'toggle'])->name('seller.feedback.toggle');
+    Route::post('/feedback/{review}/reply', [SellerAppReviews::class, 'reply'])->name('seller.feedback.reply');
 
     // Notifications
     Route::get('/notifications', [SellerAppNotifications::class, 'index'])->name('seller.notifications.index');
@@ -812,6 +857,7 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     // Account
     Route::get('/account', [SellerAppProfile::class, 'index'])->name('seller.account');
     Route::post('/account/profile', [SellerAppProfile::class, 'updateProfile'])->name('seller.account.profile');
+    Route::post('/account/vacation', [SellerAppProfile::class, 'updateVacation'])->name('seller.account.vacation');
     Route::post('/account/password', [SellerAppProfile::class, 'updatePassword'])->name('seller.account.password');
 });
 
@@ -912,7 +958,11 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::get('orders', [OrderController::class, 'index'])->name('admin.orders');
     Route::get('orders/{order}', [OrderController::class, 'show'])->name('admin.order.show');
     Route::post('orders/{order}/update', [OrderController::class, 'update'])->name('admin.order.update');
-    Route::get('payments', [PaymentController::class, 'index'])->name('admin.payments');
+        Route::get('payments', [PaymentController::class, 'index'])->name('admin.payments');
+        Route::post('payments/payouts/{id}/mark-paid', [\App\Http\Controllers\Admin\PaymentActionController::class, 'markPayoutPaid'])->name('admin.payouts.mark-paid');
+        Route::post('payments/withdrawals/{id}/approve', [\App\Http\Controllers\Admin\PaymentActionController::class, 'approveWithdrawal'])->name('admin.withdrawals.approve');
+        Route::post('payments/withdrawals/{id}/reject', [\App\Http\Controllers\Admin\PaymentActionController::class, 'rejectWithdrawal'])->name('admin.withdrawals.reject');
+        Route::post('payments/disputes/{id}/resolve', [\App\Http\Controllers\Admin\PaymentActionController::class, 'resolveDispute'])->name('admin.disputes.resolve');
     Route::get('manage-accounts', [UserManagementController::class, 'index'])->name('admin.manage-accounts');
     Route::post('manage-accounts/{user}/action', [UserManagementController::class, 'toggleStatus'])->name('admin.manage-accounts.action');
     Route::get('complaints', [ComplaintController::class, 'index'])->name('admin.complaints');
@@ -932,6 +982,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::put('settings/policy/{policy}', [SettingsController::class, 'updatePolicy'])->name('admin.settings.policy.update');
     Route::get('chat', [ChatController::class, 'index'])->name('admin.chat');
     Route::post('chat/send', [ChatController::class, 'send'])->name('admin.chat.send');
+    Route::get('chat/{user}/messages', [ChatController::class, 'messages'])->name('admin.chat.messages');
     // Route::get('/logistics', function () {
     // return redirect('http://127.0.0.1:8000');
 // })->name('logistics');

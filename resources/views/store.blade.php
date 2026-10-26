@@ -70,6 +70,10 @@ a.st-link:hover .st-card{box-shadow:0 8px 24px rgba(0,0,0,.12);transform:transla
 
 @if(session('success'))<div style="background:#ecfdf5;color:#065f46;padding:10px;border-radius:8px;border:1px solid #a7f3d0;margin-top:12px;font-size:13px;font-weight:600">{{ session('success') }}</div>@endif
 
+@if(!empty($vacation))
+<div style="background:#FFFBEB;color:#92400e;padding:11px 14px;border-radius:10px;border:1px solid #FDE68A;margin-top:12px;font-size:13px;font-weight:600">🌴 {{ $vacation }}</div>
+@endif
+
 <div class="st-tabs">
   <a class="st-tab {{ $tab==='products' ? 'active' : '' }}" href="{{ url('/store/'.$sellerId) }}">Products ({{ $products->count() }})</a>
   <a class="st-tab {{ $tab==='reviews' ? 'active' : '' }}" href="{{ url('/store/'.$sellerId.'?tab=reviews') }}">Reviews ({{ $reviews->count() }})</a>
@@ -83,6 +87,12 @@ a.st-link:hover .st-card{box-shadow:0 8px 24px rgba(0,0,0,.12);transform:transla
       </div>
       <div style="font-size:11px;color:var(--text3);margin-top:2px">{{ $r->product->name ?? '' }} · {{ $r->created_at->diffForHumans() }}</div>
       @if($r->comment)<div style="font-size:13px;margin-top:6px">{{ $r->comment }}</div>@endif
+      @if($r->seller_reply)
+        <div style="margin-top:8px;padding:8px 10px;border-left:3px solid var(--green);background:#F7F6F2;border-radius:6px">
+          <div style="font-size:11px;font-weight:700;color:var(--text2)">Seller reply</div>
+          <div style="font-size:12.5px;margin-top:3px">{{ $r->seller_reply }}</div>
+        </div>
+      @endif
     </div>
   @empty
     <div style="text-align:center;color:var(--text3);padding:40px">No reviews yet.</div>

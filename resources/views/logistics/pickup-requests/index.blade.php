@@ -124,6 +124,6 @@
             @endif
         </div>
 
-        <div class="mt-6">{{ $pickupRequests->links() }}</div>
+        @include('admin.partials.pager', ['paginator' => $pickupRequests])
     </div>
 </x-app-layout>

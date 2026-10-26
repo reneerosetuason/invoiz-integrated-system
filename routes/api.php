@@ -23,9 +23,13 @@ Route::post('/register', [App\Http\Controllers\Api\AuthController::class, 'regis
 Route::post('/login', [App\Http\Controllers\Api\AuthController::class, 'login']);
 
 Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
-    Route::apiResource('categories', CategoryController::class)->only(['index','show']);
-    Route::apiResource('products', ProductController::class)->only(['index','show']);
-    Route::apiResource('stores', StoreController::class)->only(['index','show']);
+    // Legacy catalog resources keep their controllers, names, and auth gates
+    // without shadowing the buyer browse endpoints above.
+    Route::prefix('catalog')->group(function () {
+        Route::apiResource('categories', CategoryController::class)->only(['index','show']);
+        Route::apiResource('products', ProductController::class)->only(['index','show']);
+        Route::apiResource('stores', StoreController::class)->only(['index','show']);
+    });
 
     // Buyer authenticated API
     Route::post('/logout', [App\Http\Controllers\Api\AuthController::class, 'logout']);
@@ -41,6 +45,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         ->middleware(['role:buyer', 'throttle:20,1'])
         ->whereNumber('order')
         ->whereNumber('delivery');
+    Route::post('/orders/{id}/returns', [App\Http\Controllers\Api\OrderController::class, 'requestReturn'])->whereNumber('id');
 
     Route::get('/favorites', [App\Http\Controllers\Api\FavoriteController::class, 'index']);
     Route::post('/favorites/toggle', [App\Http\Controllers\Api\FavoriteController::class, 'toggle']);

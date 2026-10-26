@@ -179,6 +179,8 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // Messages
     Route::get('messages', [MessageController::class, 'index'])->name('messages.index');
     Route::get('messages/poll', [MessageController::class, 'poll'])->name('messages.poll');
+    Route::get('messages/recipients', [MessageController::class, 'recipients'])->name('messages.recipients');
+    Route::post('messages/start', [MessageController::class, 'start'])->name('messages.start');
     Route::get('messages/{conversation}', [MessageController::class, 'show'])->name('messages.show');
     Route::post('messages', [MessageController::class, 'store'])->name('messages.store');
     Route::patch('messages/{message}', [MessageController::class, 'update'])->name('messages.update');

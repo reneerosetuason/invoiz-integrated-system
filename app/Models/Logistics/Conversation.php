@@ -18,6 +18,8 @@ class Conversation extends Model
     protected $fillable = [
         'order_id',
         'rider_id',
+        'logistics_user_id',
+        'direct_thread_key',
         'participant_type',
         'participant_id',
         'participant_name',
@@ -54,6 +56,16 @@ class Conversation extends Model
         return $this->belongsTo(Delivery::class, 'order_id', 'order_id');
     }
 
+    public function logisticsUser(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'logistics_user_id');
+    }
+
+    public function participantUser(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'participant_id');
+    }
+
     public function latestMessage(): HasOne
     {
         return $this->hasOne(Message::class)->latestOfMany();
@@ -62,6 +74,28 @@ class Conversation extends Model
     public function scopeForParticipant($query, string $type, int $id)
     {
         return $query->where('participant_type', $type)->where('participant_id', $id);
+    }
+
+    public static function unreadForLogisticsUser(int $userId): int
+    {
+        $sharedUnread = (int) static::query()
+            ->where('participant_type', '!=', 'logistics')
+            ->sum('unread_count');
+
+        $directUnread = Message::query()
+            ->where('sender_type', 'logistics')
+            ->where('sender_id', '!=', $userId)
+            ->where('is_read', false)
+            ->whereHas('conversation', function ($conversation) use ($userId) {
+                $conversation->where('participant_type', 'logistics')
+                    ->where(function ($members) use ($userId) {
+                        $members->where('participant_id', $userId)
+                            ->orWhere('logistics_user_id', $userId);
+                    });
+            })
+            ->count();
+
+        return $sharedUnread + $directUnread;
     }
 
     public function scopeSearch($query, string $term)

@@ -12,15 +12,15 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
     Route::get('register', function () {
-        return redirect()->route('login');
-    })->name('register');
+        return redirect()->route('logistics.login');
+    })->name('logistics.register');
 
     Route::post('register', function () {
-        return redirect()->route('login');
+        return redirect()->route('logistics.login');
     });
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
-        ->name('login');
+        ->name('logistics.login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 

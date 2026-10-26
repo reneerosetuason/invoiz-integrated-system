@@ -35,10 +35,15 @@
                 </div>
                 <div>
                     <label class="field-label">Status</label>
+                    @php $sellerApproved = optional(\App\Models\Seller::where('user_id', auth()->id())->first())->approval_status === 'approved'; @endphp
                     <select name="status" class="select">
-                        <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
-                        <option value="out_of_stock" {{ old('status') === 'out_of_stock' ? 'selected' : '' }}>Out of stock</option>
-                        <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                        @if($sellerApproved)
+                            <option value="active" {{ old('status', 'active') === 'active' ? 'selected' : '' }}>Active</option>
+                            <option value="out_of_stock" {{ old('status') === 'out_of_stock' ? 'selected' : '' }}>Out of stock</option>
+                            <option value="inactive" {{ old('status') === 'inactive' ? 'selected' : '' }}>Inactive</option>
+                        @else
+                            <option value="draft" selected>Draft — published after approval</option>
+                        @endif
                     </select>
                 </div>
                 <div class="md:col-span-2">
@@ -121,20 +126,16 @@
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Product Image</h3>
-            <div x-data="{ preview: null }" class="flex items-start gap-4">
-                <div class="flex h-32 w-32 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-borderline bg-basebg">
-                    <template x-if="preview">
-                        <img :src="preview" class="h-full w-full object-cover">
-                    </template>
-                    <template x-if="!preview">
-                        <x-icon name="box" class="h-8 w-8 text-ink-light" />
-                    </template>
+            <div class="flex items-start gap-4">
+                <div data-photo-preview-target-key="product-cover-preview" class="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-borderline bg-basebg">
+                    <x-icon name="box" class="h-8 w-8 text-ink-light" />
                 </div>
                 <div class="flex-1">
-                    <label class="field-label">Upload image (optional)</label>
-                    <input type="file" name="image" accept="image/*" class="input !py-2.5"
-                           @change="preview = URL.createObjectURL($event.target.files[0])">
-                    <p class="mt-2 text-xs text-ink-light">Max 5 MB. The buyer app will show this image on the product listing.</p>
+                    <label class="field-label">Upload images (1–9, JPG/PNG)</label>
+                    <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple
+                           data-photo-editor data-photo-preview-key="product-cover-preview" data-photo-gallery-key="product-gallery-preview">
+                    <p class="mt-2 text-xs text-ink-light">Up to 9 images, JPG or PNG (max 5 MB each). The first image is the cover.</p>
+                    <div data-photo-gallery-target-key="product-gallery-preview" aria-live="polite"></div>
                 </div>
             </div>
         </div>

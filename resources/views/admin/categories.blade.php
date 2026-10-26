@@ -1,215 +1,263 @@
-﻿@extends('admin.layout')
+@extends('admin.layout')
 
 @section('content')
+@include('admin.partials.list-ui-styles')
 <style>
-  .cat-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
-  .c-stat { background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px 16px; text-align:center; transition:transform .15s, box-shadow .15s; }
-  .c-stat:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(16,24,40,.08); }
-  .c-stat span { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-secondary); }
-  .c-stat strong { display:block; font-size:22px; font-weight:800; margin-top:4px; }
-  .cat-grid { display:grid; grid-template-columns:1.55fr .85fr; gap:16px; align-items:start; }
-  .cat-table-wrap { background:#fff; border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 1px 3px rgba(16,24,40,.04); }
-  .cat-table-header { padding:16px 18px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .cat-table-header h2 { font-size:15px; font-weight:800; letter-spacing:-.3px; margin:0; display:flex; align-items:center; gap:8px; }
-  .cat-table-header h2 svg { width:18px; height:18px; stroke:#16697A; fill:none; stroke-width:1.8; }
-  .cat-icon { width:34px; height:34px; border-radius:10px; background:linear-gradient(135deg,#16697A 0%,#1A9CB0 100%); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0; }
-  .cat-name { font-weight:700; font-size:13.5px; line-height:1.2; }
-  .cat-slug { font-size:11px; color:#9CA3AF; font-family:monospace; }
-  .prod-count-badge { display:inline-flex; align-items:center; gap:4px; background:#F0FAFA; border:1px solid #E6F1F2; color:#16697A; padding:3px 8px; border-radius:999px; font-size:11px; font-weight:700; }
-  .add-card { background:#fff; border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:0 1px 3px rgba(16,24,40,.04); position:sticky; top:20px; }
-  .add-card h2 { font-size:15px; font-weight:800; letter-spacing:-.3px; margin:0 0 16px; display:flex; align-items:center; gap:8px; }
-  .add-card h2 svg { width:18px; height:18px; stroke:#16697A; fill:none; stroke-width:1.8; }
-  .field { margin-bottom:14px; }
-  .field label { display:block; font-size:11px; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:#374151; margin-bottom:6px; }
-  .field input, .field textarea, .field select { width:100%; padding:11px 14px; border:1px solid #D1D5DB; border-radius:10px; font-size:13.5px; font-family:inherit; background:#fff; outline:none; transition:border-color .15s, box-shadow .15s; box-sizing:border-box; }
-  .field input:focus, .field textarea:focus, .field select:focus { border-color:#16697A; box-shadow:0 0 0 3px rgba(22,105,122,.12); }
-  .archived-card { background:#FFFBF0; border:1px solid #FDE68A; border-radius:16px; overflow:hidden; margin-top:18px; }
-  .archived-header { padding:14px 18px; background:#FFFBEB; border-bottom:1px solid #FDE68A; display:flex; align-items:center; gap:10px; }
-  .archived-header strong { color:#92400e; font-size:13.5px; }
-  @media (max-width: 900px) { .cat-stats { grid-template-columns:repeat(2,1fr); } .cat-grid { grid-template-columns:1fr; } .add-card { position:static; } }
+  .admin-categories .admin-list-stats{margin-top:0}
+  .admin-categories .admin-list-mobile-link{display:none}
+  .admin-categories .category-layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;align-items:start;gap:16px}
+  .admin-categories .admin-list-panel{min-width:0}
+  .admin-categories .cat-table-header{display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-bottom:1px solid var(--list-hair)}
+  .admin-categories .cat-table-header h2,.admin-categories .add-card h2,.admin-categories .archived-header h2{display:flex;align-items:center;gap:8px;margin:0;color:var(--list-deep);font-family:'Fraunces',Georgia,serif;font-size:18px;font-weight:560;line-height:1.25}
+  .admin-categories .cat-table-header h2 svg,.admin-categories .add-card h2 svg,.admin-categories .archived-header h2 svg{width:18px;height:18px;flex:0 0 18px;fill:none;stroke:var(--list-teal);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .admin-categories .shown-count{display:inline-flex;min-height:28px;align-items:center;padding:5px 9px;border:1px solid var(--list-hair);border-radius:999px;background:#fff;color:var(--list-deep);font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .admin-categories .cat-table-wrap{width:100%;min-width:0;overflow:visible}
+  .admin-categories .category-table col.category-col{width:41%}
+  .admin-categories .category-table col.products-col{width:19%}
+  .admin-categories .category-table col.status-col{width:19%}
+  .admin-categories .category-table col.actions-col{width:21%}
+  .admin-categories .category-cell{display:flex;min-width:0;align-items:center;gap:10px}
+  .admin-categories .category-avatar{display:flex;width:36px;height:36px;flex:0 0 36px;align-items:center;justify-content:center;border-radius:10px;background:#EAF3F2;color:var(--list-deep);font-size:13px;font-weight:700}
+  .admin-categories .category-copy{min-width:0}
+  .admin-categories .category-name{color:#1B1B1E;font-size:14.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+  .admin-categories .category-slug{margin-top:3px;color:var(--list-muted);font-size:12.5px;line-height:1.35;overflow-wrap:anywhere}
+  .admin-categories .prod-count-badge{display:inline-flex;min-height:28px;max-width:100%;align-items:center;gap:5px;padding:5px 8px;border:1px solid var(--list-hair);border-radius:999px;background:#fff;color:var(--list-deep);font-size:12px;font-weight:600;line-height:1.2;white-space:nowrap}
+  .admin-categories .prod-count-badge svg{width:13px;height:13px;flex:0 0 13px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .admin-categories .archive-action{color:#43575A}
+  .admin-categories .archive-action:hover{background:#EDF3F1;color:var(--list-deep)}
+  .admin-categories .add-card{position:sticky;top:80px;min-width:0;padding:18px;border:1px solid var(--list-hair);border-radius:16px;background:#fff;scroll-margin-top:80px}
+  .admin-categories .add-card h2{margin:0 0 17px}
+  .admin-categories .field{margin:0 0 15px}
+  .admin-categories .field label{display:block;margin:0 0 6px;color:#43575A;font-size:13px;font-weight:550;line-height:1.4}
+  .admin-categories .field label .field-hint{color:var(--list-muted);font-size:12px;font-weight:400}
+  .admin-categories .field input,.admin-categories .field textarea,.admin-categories .field select{display:block;width:100%;min-height:40px;padding:8px 2px;border:0;border-bottom:1px solid var(--list-hair);border-radius:0;outline:0;background:transparent;color:var(--list-ink);font-family:inherit;font-size:13.5px;line-height:1.4;box-shadow:none;transition:border-color .16s ease}
+  .admin-categories .field input:focus,.admin-categories .field textarea:focus,.admin-categories .field select:focus{border-bottom-color:var(--list-teal);box-shadow:none}
+  .admin-categories .field textarea{min-height:88px;padding:10px;border:1px solid var(--list-hair);border-radius:12px;resize:vertical}
+  .admin-categories .field textarea:focus{border-color:var(--list-teal)}
+  .admin-categories .parent-picker{position:relative}
+  .admin-categories .parent-search-wrap{position:relative}
+  .admin-categories .parent-search-wrap>svg{position:absolute;top:50%;left:2px;width:15px;height:15px;transform:translateY(-50%);fill:none;stroke:var(--list-muted);stroke-width:1.6;pointer-events:none}
+  .admin-categories .parent-search-wrap input{padding-left:25px}
+  .admin-categories #parentDropdown{position:absolute;z-index:20;top:calc(100% + 6px);right:0;left:0;max-height:200px;overflow-y:auto;border:1px solid var(--list-hair);border-radius:12px;background:#fff;box-shadow:0 9px 24px rgba(14,74,87,.12)}
+  .admin-categories .parent-option{display:flex;min-height:40px;align-items:center;padding:8px 11px;border-bottom:1px solid rgba(15,76,92,.08);color:var(--list-ink);font-size:13px;line-height:1.35;overflow-wrap:anywhere;cursor:pointer}
+  .admin-categories .parent-option:last-child{border-bottom:0}
+  .admin-categories .parent-option:hover,.admin-categories .parent-option.is-active{background:#EAF3F2;color:var(--list-deep)}
+  .admin-categories .parent-empty{padding:12px;color:var(--list-muted);font-size:13px;text-align:center}
+  .admin-categories #parentSelected{display:none;min-height:36px;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:4px 7px 4px 10px;border:1px solid var(--list-hair);border-radius:999px;background:#EAF3F2;color:var(--list-deep)}
+  .admin-categories .parent-selected-value{display:flex;min-width:0;align-items:center;gap:6px;font-size:12.5px;font-weight:600}
+  .admin-categories .parent-selected-value>span:last-child{overflow-wrap:anywhere}
+  .admin-categories .parent-selected-dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:var(--list-teal)}
+  .admin-categories .parent-clear{min-width:36px;min-height:32px;padding:5px 8px;border:0;border-radius:999px;background:transparent;color:#536366;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer}
+  .admin-categories .parent-clear:hover{background:rgba(15,76,92,.08);color:var(--list-deep)}
+  .admin-categories .add-category-button{display:flex;width:100%;min-height:44px;align-items:center;justify-content:center;margin-top:3px;padding:10px 14px;border:0;border-radius:10px;background:var(--list-deep);color:#fff;font-family:inherit;font-size:13px;font-weight:650;cursor:pointer;transition:transform .16s cubic-bezier(.22,1,.36,1),background-color .16s ease}
+  .admin-categories .add-category-button:hover{background:var(--list-teal)}
+  .admin-categories .add-category-button:active{transform:scale(.98)}
+  .admin-categories .form-helper{margin:10px 0 0;color:var(--list-muted);font-size:12.5px;line-height:1.45;text-align:left}
+  .admin-categories .archived-panel{margin-top:18px}
+  .admin-categories .archived-header{display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:10px;padding:13px 16px;border-bottom:1px solid var(--list-hair)}
+  .admin-categories .archived-header h2{font-size:18px}
+  .admin-categories .archived-description{margin:0;padding:12px 16px 0;color:var(--list-muted);font-size:12.5px;line-height:1.5}
+  .admin-categories .archived-table{margin-top:10px}
+  .admin-categories .archived-table col.archived-category-col{width:25%}
+  .admin-categories .archived-table col.archived-slug-col{width:22%}
+  .admin-categories .archived-table col.archived-products-col{width:16%}
+  .admin-categories .archived-table col.archived-date-col{width:18%}
+  .admin-categories .archived-table col.archived-actions-col{width:19%}
+  .admin-categories .archived-category{display:flex;min-width:0;align-items:center;gap:9px}
+  .admin-categories .archived-avatar{display:flex;width:32px;height:32px;flex:0 0 32px;align-items:center;justify-content:center;border-radius:9px;background:#ECEDEA;color:#5F696A;font-size:12px;font-weight:700}
+  .admin-categories .archived-name{min-width:0;color:var(--list-ink);font-weight:600;overflow-wrap:anywhere}
+  .admin-categories .archived-slug,.admin-categories .archived-date{color:var(--list-muted);font-size:12.5px;overflow-wrap:anywhere}
+  .admin-categories .restore-action{border-color:var(--list-hair);color:var(--list-deep)}
+  @media(max-width:1099.98px){.admin-categories .category-layout{grid-template-columns:minmax(0,1fr)}.admin-categories .add-card{position:static;top:auto}.admin-categories .admin-list-mobile-link{display:inline-flex;min-height:36px;align-items:center;margin-top:9px;color:var(--list-deep);font-size:13px;font-weight:600;text-decoration:underline;text-decoration-color:rgba(15,76,92,.35);text-underline-offset:3px}.admin-categories .category-table col.category-col,.admin-categories .category-table col.products-col,.admin-categories .category-table col.status-col,.admin-categories .category-table col.actions-col{width:auto}.admin-categories .archived-table col.archived-category-col,.admin-categories .archived-table col.archived-slug-col,.admin-categories .archived-table col.archived-products-col,.admin-categories .archived-table col.archived-date-col,.admin-categories .archived-table col.archived-actions-col{width:auto}}
+  @media(max-width:767.98px){.admin-categories .cat-table-header,.admin-categories .archived-header{padding:12px}.admin-categories .add-card{padding:15px}.admin-categories .archived-header{align-items:flex-start;flex-direction:column}.admin-categories .category-table tr.list-record{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"category status" "products actions"}.admin-categories .archived-table tr.list-record{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"category archived" "slug products" "actions actions"}.admin-categories .category-table td.actions-column,.admin-categories .archived-table td.actions-column{justify-self:start}.admin-categories .category-table td.status-column,.admin-categories .archived-table td.archived-column{justify-self:end;text-align:right}.admin-categories .category-table td.products-column{align-self:center}.admin-categories .archived-table td.products-column{justify-self:end}.admin-categories .category-table td.actions-column,.admin-categories .archived-table td.actions-column{width:100%}.admin-categories .category-table .archive-action,.admin-categories .archived-table .restore-action{min-width:82px}}
 </style>
 
-<div class="card" style="background:transparent; border:none; padding:0; box-shadow:none;">
-  <div style="margin-bottom:4px;">
-    <h1 class="page-title" style="margin-bottom:4px;">Manage Categories</h1>
-    <p style="color:var(--text-secondary); font-size:13.5px; margin:0;">Organize your catalog — create, archive, and restore categories. Group products *sama sama* for a clean storefront.</p>
-  </div>
+<div class="admin-list admin-categories" data-ui="admin-categories">
+  <header class="admin-list-head">
+    <h1>Manage Categories</h1>
+    <p>Organize your catalog — create, archive, and restore categories. Group products *sama sama* for a clean storefront.</p>
+    <a class="admin-list-mobile-link" href="#add-category">Add a category</a>
+  </header>
 
   @if(session('status'))
-  <div style="padding:12px 16px;background:#E8F5EE;color:#166534;border-radius:12px;margin:16px 0 0;border:1px solid #BFE3D0;">{{ session('status') }}</div>
+    <div class="admin-list-flash" role="status" aria-live="polite">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+      <span>{{ session('status') }}</span>
+    </div>
   @endif
 
-  <div class="cat-stats" style="margin-top:18px;">
-    <div class="c-stat">
-      <span>Total Categories</span><strong>{{ $stats['all'] }}</strong><small style="color:var(--text-secondary); font-size:11px;">including archived</small>
-    </div>
-    <div class="c-stat" style="border-left:3px solid #2E8B57;">
-      <span>Active</span><strong style="color:#166534;">{{ $stats['active'] }}</strong><small style="color:var(--text-secondary); font-size:11px;">visible</small>
-    </div>
-    <div class="c-stat" style="border-left:3px solid #F59E0B;">
-      <span>Archived</span><strong style="color:#92400e;">{{ $stats['archived'] }}</strong><small style="color:var(--text-secondary); font-size:11px;">hidden</small>
-    </div>
-    <div class="c-stat" style="border-left:3px solid #16697A;">
-      <span>With Products</span><strong>{{ $stats['with_products'] }}</strong><small style="color:var(--text-secondary); font-size:11px;">in use</small>
-    </div>
-  </div>
+  <nav class="admin-list-stats admin-list-stats--4" aria-label="Category totals">
+    <div class="admin-list-stat"><span class="admin-list-stat-label">Total Categories</span><strong class="{{ $stats['all'] ? '' : 'is-zero' }}">{{ $stats['all'] }}</strong><small>including archived</small></div>
+    <div class="admin-list-stat"><span class="admin-list-stat-label">Active</span><strong class="{{ $stats['active'] ? '' : 'is-zero' }}">{{ $stats['active'] }}</strong><small>visible</small></div>
+    <div class="admin-list-stat"><span class="admin-list-stat-label">Archived</span><strong class="{{ $stats['archived'] ? '' : 'is-zero' }}">{{ $stats['archived'] }}</strong><small>hidden</small></div>
+    <div class="admin-list-stat"><span class="admin-list-stat-label">With Products</span><strong class="{{ $stats['with_products'] ? '' : 'is-zero' }}">{{ $stats['with_products'] }}</strong><small>in use</small></div>
+  </nav>
 
-  <form method="GET" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
-    <div style="position:relative; flex:1; min-width:220px;">
-      <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; stroke:#9CA3AF; fill:none; stroke-width:1.8;" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input type="search" name="search" value="{{ request('search') }}" placeholder="Search categories by name or slug..." style="padding:9px 14px 9px 36px;border:1px solid #d1d5db;border-radius:10px;width:100%;background:#fff;" />
-    </div>
-    <button type="submit" style="padding:9px 18px;background:#16697A;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Search</button>
-    @if(request('search'))<a href="{{ url('/admin/categories') }}" style="align-self:center;color:#6E6E73;font-size:13px;font-weight:600;">Clear</a>@endif
-  </form>
+  <section class="admin-list-toolbar admin-list-toolbar--single" aria-label="Find categories">
+    <form class="admin-list-search" method="GET" role="search">
+      <div class="admin-list-search-field">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.6"/><path d="m16 16 4.2 4.2"/></svg>
+        <input type="search" name="search" value="{{ request('search') }}" placeholder="Search categories by name or slug..." aria-label="Search categories by name or slug">
+        <button type="submit">Search</button>
+      </div>
+      @if(request('search'))<a class="admin-list-clear" href="{{ url('/admin/categories') }}">Clear</a>@endif
+    </form>
+  </section>
 
-  <div class="cat-grid">
-    <!-- Categories List -->
-    <div class="cat-table-wrap">
+  <div class="category-layout">
+    <section class="admin-list-panel" aria-labelledby="categories-list-title">
       <div class="cat-table-header">
-        <h2>
-          <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/></svg>
+        <h2 id="categories-list-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/></svg>
           Categories List
         </h2>
-        <span style="font-size:12px; font-weight:700; background:#F0FAFA; color:#16697A; padding:4px 10px; border-radius:999px; border:1px solid #E6F1F2;">{{ $categories->count() }} shown</span>
+        <span class="shown-count">{{ $categories->count() }} shown</span>
       </div>
-      <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;min-width:520px;">
-        <thead>
-          <tr style="border-bottom:2px solid #E8E6E0;text-align:left; background:#FAFAF8;">
-            <th style="padding:11px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.6px;">Category</th>
-            <th style="padding:11px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.6px;">Products</th>
-            <th style="padding:11px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.6px;">Status</th>
-            <th style="padding:11px 14px; font-size:11px; font-weight:700; color:#6B7280; text-transform:uppercase; letter-spacing:.6px;">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @forelse($categories as $category)
-          <tr style="border-bottom:1px solid #F1F2F4; transition:background .12s;" onmouseover="this.style.background='#FAFAF8'" onmouseout="this.style.background=''">
-            <td style="padding:12px 14px;">
-              <div style="display:flex; align-items:center; gap:10px;">
-                <div class="cat-icon">{{ strtoupper(mb_substr($category->name,0,1)) }}</div>
-                <div>
-                  <div class="cat-name">{{ $category->name }}</div>
-                  <div class="cat-slug">/{{ $category->slug }}@if($category->parent) · parent: {{ $category->parent->name }}@endif</div>
-                </div>
-              </div>
-            </td>
-            <td style="padding:12px 14px;">
-              <span class="prod-count-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16697A" stroke-width="2"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Z"/></svg>
-                {{ $category->products_count }} {{ $category->products_count===1?'item':'items' }}
-              </span>
-            </td>
-            <td style="padding:12px 14px;">
-              <span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11.5px; font-weight:700; background:{{ $category->active ? '#E8F5EE' : '#F3F4F6' }}; color:{{ $category->active ? '#166534' : '#6B7280' }}; border:1px solid {{ $category->active ? '#BFE3D0' : '#E5E7EB' }};">
-                <span style="width:7px; height:7px; border-radius:50%; background:{{ $category->active ? '#2E8B57' : '#9CA3AF' }}; display:inline-block;"></span>
-                {{ $category->active ? 'Active' : 'Inactive' }}
-              </span>
-            </td>
-            <td style="padding:12px 14px;">
-              <form method="POST" action="{{ url('/admin/categories/'.$category->id.'/archive') }}" style="display:inline;" data-confirm="This category will be archived and hidden from the store. You can restore it anytime. Continue?" data-confirm-title="Archive Category?" data-confirm-ok="Archive" data-confirm-class="btn-warn">
-                @csrf
-                <button type="submit" style="padding:5px 12px;background:#F0A202;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:700;">Archive</button>
-              </form>
-            </td>
-          </tr>
-          @empty
-          <tr><td colspan="4" style="padding:36px;text-align:center;">
-            <div style="width:48px;height:48px;border-radius:50%;background:#F3F4F6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z"/></svg>
-            </div>
-            <div style="font-weight:600; color:#6B7280;">No categories found</div>
-            <div style="font-size:13px; color:#9CA3AF; margin-top:4px;">Try a different search.</div>
-          </td></tr>
-          @endforelse
-        </tbody>
-      </table>
-      @include('admin.partials.pager', ['paginator' => $categories])
+      <div class="cat-table-wrap">
+        <table class="admin-list-table category-table" role="table">
+          <colgroup><col class="category-col"><col class="products-col"><col class="status-col"><col class="actions-col"></colgroup>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">Category</th>
+              <th scope="col" role="columnheader">Products</th>
+              <th scope="col" role="columnheader">Status</th>
+              <th scope="col" role="columnheader">Actions</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            @forelse($categories as $category)
+              <tr class="list-record" role="row">
+                <td class="category-column" data-label="Category" role="cell">
+                  <div class="category-cell">
+                    <span class="category-avatar" aria-hidden="true">{{ strtoupper(mb_substr($category->name,0,1)) }}</span>
+                    <span class="category-copy">
+                      <span class="category-name">{{ $category->name }}</span>
+                      <span class="category-slug">/{{ $category->slug }}@if($category->parent) · parent: {{ $category->parent->name }}@endif</span>
+                    </span>
+                  </div>
+                </td>
+                <td class="products-column" data-label="Products" role="cell">
+                  <span class="prod-count-badge">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Z"/></svg>
+                    {{ $category->products_count }} {{ $category->products_count===1?'item':'items' }}
+                  </span>
+                </td>
+                <td class="status-column" data-label="Status" role="cell">
+                  @if($category->active)
+                    <span class="admin-list-status admin-list-status--active"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>Active</span>
+                  @else
+                    <span class="admin-list-status admin-list-status--neutral"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="4"/></svg>Inactive</span>
+                  @endif
+                </td>
+                <td class="actions-column list-no-label" data-label="Actions" role="cell">
+                  <form method="POST" action="{{ url('/admin/categories/'.$category->id.'/archive') }}" data-confirm="This category will be archived and hidden from the store. You can restore it anytime. Continue?" data-confirm-title="Archive Category?" data-confirm-ok="Archive" data-confirm-class="btn-warn">
+                    @csrf
+                    <button class="admin-list-action archive-action" type="submit" aria-label="Archive {{ $category->name }}">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 5h11v8.5h-11V5ZM1.5 2.5h13v2.5h-13V2.5ZM6 8h4"/></svg>Archive
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            @empty
+              <tr role="row"><td class="list-empty" colspan="4" role="cell">No categories found<br><span style="font-weight:400;font-size:13px;">Try a different search.</span></td></tr>
+            @endforelse
+          </tbody>
+        </table>
       </div>
-    </div>
+      <div class="admin-list-pagination">
+        @include('admin.partials.pager', ['paginator' => $categories])
+      </div>
+    </section>
 
-    <!-- Add New Category -->
-    <div class="add-card">
-      <h2>
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    <section class="add-card" id="add-category" aria-labelledby="add-category-title">
+      <h2 id="add-category-title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         Add New Category
       </h2>
       <form method="POST" action="{{ url('/admin/categories') }}">
         @csrf
         <div class="field">
-          <label>Name</label>
-          <input type="text" name="name" required placeholder="e.g. Handbags" />
+          <label for="categoryName">Name</label>
+          <input type="text" id="categoryName" name="name" required placeholder="e.g. Handbags" />
         </div>
         <div class="field">
-          <label>Description <span style="font-weight:500; text-transform:none; letter-spacing:0; color:#9CA3AF;">(optional)</span></label>
-          <textarea name="description" rows="3" placeholder="Short description for this category..."></textarea>
+          <label for="categoryDescription">Description <span class="field-hint">(optional)</span></label>
+          <textarea id="categoryDescription" name="description" rows="3" placeholder="Short description for this category..."></textarea>
         </div>
         <div class="field">
-          <label>Parent Category <span style="font-weight:500; text-transform:none; letter-spacing:0; color:#9CA3AF;">(leave empty for Top Level)</span></label>
-          <div style="position:relative;">
-            <div style="position:relative;">
-              <svg style="position:absolute; left:11px; top:50%; transform:translateY(-50%); width:14px; height:14px; stroke:#9CA3AF; fill:none; stroke-width:1.8;" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-              <input type="text" id="parentSearch" placeholder="Search parent category..." autocomplete="off" style="padding-left:34px;" />
+          <label for="parentSearch">Parent Category <span class="field-hint">(leave empty for Top Level)</span></label>
+          <div class="parent-picker">
+            <div class="parent-search-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              <input type="text" id="parentSearch" placeholder="Search parent category..." autocomplete="off" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="parentDropdown" />
             </div>
             <input type="hidden" name="parent_id" id="parentId" value="">
-            <div id="parentDropdown" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:20; background:#fff; border:1px solid #D1D5DB; border-radius:10px; margin-top:6px; max-height:200px; overflow-y:auto; box-shadow:0 8px 24px rgba(0,0,0,.08);"></div>
-            <div id="parentSelected" style="display:none; margin-top:8px; font-size:12px; background:#F0FAFA; border:1px solid #E6F1F2; padding:6px 10px; border-radius:999px; align-items:center; justify-content:space-between;">
-              <span style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:50%; background:#16697A; display:inline-block;"></span> <span id="parentSelectedName" style="font-weight:600; color:#16697A;"></span></span>
-              <button type="button" onclick="clearParent()" style="background:none; border:none; color:#6B7280; cursor:pointer; font-weight:700; font-size:12px;">Clear</button>
+            <div id="parentDropdown" role="listbox" aria-label="Parent categories" style="display:none;"></div>
+            <div id="parentSelected" role="status" aria-live="polite">
+              <span class="parent-selected-value"><span class="parent-selected-dot" aria-hidden="true"></span><span id="parentSelectedName"></span></span>
+              <button class="parent-clear" type="button" onclick="clearParent()" aria-label="Clear parent category selection">Clear</button>
             </div>
           </div>
         </div>
-        <button type="submit" style="width:100%; padding:11px; background:#16697A; color:#fff; border:none; border-radius:10px; cursor:pointer; font-weight:700; font-size:14px; box-shadow:0 2px 8px rgba(22,105,122,.15);">Add Category</button>
-        <p style="font-size:11.5px; color:#9CA3AF; margin:10px 0 0; text-align:center; line-height:1.4;">New categories appear instantly in product forms and storefront filters.</p>
+        <button class="add-category-button" type="submit">Add Category</button>
+        <p class="form-helper">New categories appear instantly in product forms and storefront filters.</p>
       </form>
-    </div>
+    </section>
   </div>
 
   @if($archived->total())
-  <div class="archived-card">
-    <div class="archived-header">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
-      <strong>Archived Categories ({{ $archived->total() }})</strong>
-      <span style="font-size:12px; color:#92400e; background:#fff; padding:3px 8px; border-radius:999px; border:1px solid #FDE68A; font-weight:600;">Hidden — can be restored anytime</span>
-    </div>
-    <p style="color:#92400e; font-size:12.5px; margin:10px 18px 0;">Archived categories are hidden from the store but never permanently deleted. Restore them anytime to bring back their products.</p>
-    <div style="overflow-x:auto; margin-top:12px;">
-    <table style="width:100%;border-collapse:collapse;min-width:500px;">
-      <thead>
-        <tr style="border-bottom:2px solid #FDE68A;text-align:left; background:#FFFBEB;">
-          <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.6px;">Category</th>
-          <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.6px;">Slug</th>
-          <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.6px;">Products</th>
-          <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.6px;">Archived</th>
-          <th style="padding:10px 14px; font-size:11px; font-weight:700; color:#92400e; text-transform:uppercase; letter-spacing:.6px;">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        @foreach($archived as $category)
-        <tr style="border-bottom:1px solid #FDE68A;">
-          <td style="padding:10px 14px; font-weight:600; color:#78350F; display:flex; align-items:center; gap:8px;">
-            <span style="width:28px; height:28px; border-radius:8px; background:#FEF3C7; color:#92400e; display:inline-flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; flex-shrink:0;">{{ strtoupper(mb_substr($category->name,0,1)) }}</span>
-            {{ $category->name }}
-          </td>
-          <td style="padding:10px 14px;color:#92400e;font-family:monospace;font-size:12.5px;">/{{ $category->slug }}</td>
-          <td style="padding:10px 14px;">
-            <span style="background:#fff; border:1px solid #FDE68A; color:#92400e; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700;">{{ $category->products_count }} items</span>
-          </td>
-          <td style="padding:10px 14px;color:#92400e;font-size:12.5px;">{{ optional($category->deleted_at)->format('M d, Y') }}</td>
-          <td style="padding:10px 14px;">
-            <form method="POST" action="{{ url('/admin/categories/'.$category->id.'/restore') }}" style="display:inline;">
-              @csrf
-              <button type="submit" style="padding:5px 12px;background:#2E8B57;color:white;border:none;border-radius:8px;cursor:pointer;font-size:11.5px;font-weight:700;">Restore</button>
-            </form>
-          </td>
-        </tr>
-        @endforeach
-      </tbody>
-    </table>
-    </div>
-    @include('admin.partials.pager', ['paginator' => $archived])
-    </div>
+    <section class="admin-list-panel archived-panel" aria-labelledby="archived-categories-title">
+      <div class="archived-header">
+        <h2 id="archived-categories-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+          Archived Categories ({{ $archived->total() }})
+        </h2>
+        <span class="admin-list-status admin-list-status--neutral">Hidden — can be restored anytime</span>
+      </div>
+      <p class="archived-description">Archived categories are hidden from the store but never permanently deleted. Restore them anytime to bring back their products.</p>
+      <div class="cat-table-wrap archived-table-wrap">
+        <table class="admin-list-table archived-table" role="table">
+          <colgroup><col class="archived-category-col"><col class="archived-slug-col"><col class="archived-products-col"><col class="archived-date-col"><col class="archived-actions-col"></colgroup>
+          <thead role="rowgroup">
+            <tr role="row">
+              <th scope="col" role="columnheader">Category</th>
+              <th scope="col" role="columnheader">Slug</th>
+              <th scope="col" role="columnheader">Products</th>
+              <th scope="col" role="columnheader">Archived</th>
+              <th scope="col" role="columnheader">Actions</th>
+            </tr>
+          </thead>
+          <tbody role="rowgroup">
+            @foreach($archived as $category)
+              <tr class="list-record" role="row">
+                <td class="category-column" data-label="Category" role="cell">
+                  <span class="archived-category">
+                    <span class="archived-avatar" aria-hidden="true">{{ strtoupper(mb_substr($category->name,0,1)) }}</span>
+                    <span class="archived-name">{{ $category->name }}</span>
+                  </span>
+                </td>
+                <td class="slug-column archived-slug" data-label="Slug" role="cell">/{{ $category->slug }}</td>
+                <td class="products-column" data-label="Products" role="cell">
+                  <span class="prod-count-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v4H4V4Zm0 6h16v10H4V10Z"/></svg>{{ $category->products_count }} {{ $category->products_count===1?'item':'items' }}</span>
+                </td>
+                <td class="archived-column archived-date" data-label="Archived" role="cell">{{ optional($category->deleted_at)->format('M d, Y') }}</td>
+                <td class="actions-column list-no-label" data-label="Actions" role="cell">
+                  <form method="POST" action="{{ url('/admin/categories/'.$category->id.'/restore') }}">
+                    @csrf
+                    <button class="admin-list-action restore-action" type="submit" aria-label="Restore {{ $category->name }}">
+                      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 7V3m0 0h4M3 3l3 3a5 5 0 1 1-1 5"/></svg>Restore
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            @endforeach
+          </tbody>
+        </table>
+      </div>
+      <div class="admin-list-pagination">
+        @include('admin.partials.pager', ['paginator' => $archived])
+      </div>
+    </section>
   @endif
 </div>
 
@@ -221,23 +269,54 @@
     const dropdown = document.getElementById('parentDropdown');
     const selected = document.getElementById('parentSelected');
     const selectedName = document.getElementById('parentSelectedName');
+    let activeOption = -1;
+    let visibleCats = [];
+
+    function setExpanded(expanded){
+      input.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      if(!expanded) input.removeAttribute('aria-activedescendant');
+    }
+
+    function setActive(index){
+      const options = dropdown.querySelectorAll('[role="option"]');
+      if(!options.length){ activeOption = -1; input.removeAttribute('aria-activedescendant'); return; }
+      activeOption = Math.max(0, Math.min(index, options.length - 1));
+      options.forEach((option, i)=>{
+        const active = i === activeOption;
+        option.classList.toggle('is-active', active);
+        option.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      input.setAttribute('aria-activedescendant', options[activeOption].id);
+      options[activeOption].scrollIntoView({block:'nearest'});
+    }
 
     function render(list){
+      visibleCats = list;
+      activeOption = -1;
       dropdown.innerHTML = '';
+      input.removeAttribute('aria-activedescendant');
       if(list.length === 0){
-        dropdown.innerHTML = '<div style="padding:12px; color:#9CA3AF; font-size:13px; text-align:center;">No categories found</div>';
+        const empty = document.createElement('div');
+        empty.className = 'parent-empty';
+        empty.textContent = 'No categories found';
+        empty.setAttribute('aria-disabled','true');
+        dropdown.appendChild(empty);
       } else {
-        list.forEach(c=>{
-          const div = document.createElement('div');
-          div.textContent = c.name;
-          div.style.cssText = 'padding:9px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid #F3F4F6;';
-          div.onmouseenter = ()=> div.style.background='#F0FAFA';
-          div.onmouseleave = ()=> div.style.background='';
-          div.onclick = ()=> selectCat(c);
-          dropdown.appendChild(div);
+        list.forEach((c,index)=>{
+          const option = document.createElement('div');
+          option.id = 'parent-option-' + c.id;
+          option.className = 'parent-option';
+          option.setAttribute('role','option');
+          option.setAttribute('aria-selected','false');
+          option.textContent = c.name;
+          option.addEventListener('mouseenter', ()=> setActive(index));
+          option.addEventListener('mousedown', (event)=> event.preventDefault());
+          option.addEventListener('click', ()=> selectCat(c));
+          dropdown.appendChild(option);
         });
       }
       dropdown.style.display = 'block';
+      setExpanded(true);
     }
 
     function selectCat(c){
@@ -246,6 +325,7 @@
       selected.style.display = 'flex';
       input.value = '';
       dropdown.style.display = 'none';
+      setExpanded(false);
     }
 
     window.clearParent = function(){
@@ -261,9 +341,28 @@
       const filtered = q ? cats.filter(c=> c.name.toLowerCase().includes(q)) : cats;
       render(filtered);
     });
+    input.addEventListener('keydown', (event)=>{
+      if(event.key === 'ArrowDown' || event.key === 'ArrowUp'){
+        event.preventDefault();
+        if(dropdown.style.display === 'none'){
+          const q = input.value.toLowerCase().trim();
+          render(q ? cats.filter(c=>c.name.toLowerCase().includes(q)) : cats);
+        }
+        const direction = event.key === 'ArrowDown' ? 1 : -1;
+        setActive(activeOption < 0 ? (direction > 0 ? 0 : visibleCats.length - 1) : activeOption + direction);
+      } else if(event.key === 'Enter' && activeOption >= 0 && visibleCats[activeOption]){
+        event.preventDefault();
+        selectCat(visibleCats[activeOption]);
+      } else if(event.key === 'Escape' && dropdown.style.display !== 'none'){
+        event.preventDefault();
+        dropdown.style.display = 'none';
+        setExpanded(false);
+      }
+    });
     document.addEventListener('click', (e)=>{
       if(!e.target.closest('#parentSearch') && !e.target.closest('#parentDropdown') && !e.target.closest('#parentSelected')){
         dropdown.style.display = 'none';
+        setExpanded(false);
       }
     });
   })();
