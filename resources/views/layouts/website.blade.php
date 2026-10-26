@@ -38,13 +38,21 @@
     .buyerbar .badge{background:#0E4A57;font-variant-numeric:tabular-nums;min-width:18px;height:18px;font-size:10px;font-weight:700}
     .buyerbar .btn-login{border:1px solid rgba(15,76,92,.25);border-radius:999px;padding:9px 18px;color:#0E4A57;font-weight:700}
     .buyerbar .btn-login:hover{border-color:#0E4A57;background:rgba(22,105,122,.06);color:#0E4A57}
-    .buyerbar .btn-register{background:#0E4A57;border-radius:999px;padding:10px 20px}
+    .buyerbar .btn-register{background:#0E4A57;color:#fff;border-radius:999px;padding:10px 20px}
     .buyerbar .btn-register:hover{background:#0B3D48}
     .buyerbar .profile-btn{border:1px solid rgba(15,76,92,.16);background:#fff;padding:4px 12px 4px 4px;gap:9px}
     .buyerbar .profile-btn:hover{border-color:rgba(22,105,122,.45);background:#fff}
     .buyerbar .profile-btn:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
     .buyerbar .profile-avatar{box-shadow:0 0 0 2px #EAF4F3}
     .buyerbar #profileDrop{border:1px solid rgba(15,76,92,.12);border-radius:16px;box-shadow:0 10px 30px rgba(10,47,58,.18)}
+    @media(max-width:767.98px){
+      .buyerbar.topbar{gap:6px;padding:0 10px}
+      .buyerbar .brand{gap:6px}
+      .buyerbar .brand-text{font-size:15px}
+      .buyerbar .topbar-link{padding:8px 6px}
+      .buyerbar .btn-login,.buyerbar .btn-register{padding:9px 10px;font-size:12px;white-space:nowrap}
+    }
+    @media(max-width:359.98px){.buyerbar .brand-text{display:none}}
   </style>
 </head>
 <body>

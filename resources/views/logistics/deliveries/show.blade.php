@@ -1,4 +1,6 @@
 <x-app-layout>
+    @include('logistics.partials.delivery-theme')
+    <div class="logistics-deliveries delivery-page-show">
     @php
         $dotColors = [
             'waiting_for_rider'      => 'bg-amber-500',
@@ -32,9 +34,9 @@
         $codExpected = $isCodDelivery ? \App\Support\Cod::expected($delivery) : null;
     @endphp
 
-    <div class="flex items-center gap-4 mb-6">
+    <div class="delivery-head">
         <a href="{{ route('deliveries.index') }}"
-           class="p-2 bg-white border border-gray-200 rounded-xl text-gray-500 hover:text-teal-dark hover:border-teal transition shadow-sm">
+           class="delivery-back" aria-label="Back to deliveries">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>
@@ -70,11 +72,11 @@
         </div>
     @endif
 
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+    <div class="delivery-panel delivery-detail-summary">
         <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
                 <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Tracking Number</p>
-                <p class="text-2xl font-mono font-bold text-gray-900">{{ $delivery->tracking_number }}</p>
+                <p class="delivery-tracking">{{ $delivery->tracking_number }}</p>
                 <p class="text-sm text-gray-500 mt-2">
                     Created {{ $delivery->created_at->format('M d, Y h:i A') }}
                     @if($delivery->creator) · by {{ $delivery->creator->name }}@endif
@@ -83,15 +85,15 @@
         </div>
 
         {{-- Delivery Progress (delivery status: rider-to-customer lifecycle) --}}
-        <div class="mt-8 pt-6 border-t border-gray-100">
+        <div class="delivery-progress mt-8 pt-6 border-t border-gray-100">
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Delivery Progress</p>
-            <p class="mt-1 mb-5 text-xs text-gray-400">Delivery status — the rider-to-customer lifecycle. Parcel pipeline stages live under Parcel Processing below.</p>
+            <p class="mt-1 mb-5 text-xs text-gray-400">Follow the rider’s progress from assignment to delivery. Center processing is shown below.</p>
             <div class="relative">
                 @if(!$isTerminalBad)
                     <div class="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
                     <div class="absolute top-5 left-0 h-1 bg-emerald-500 rounded-full transition-all duration-700" style="width: {{ ($currentIndex !== false ? $currentIndex : 0) / (count($stepOrder) - 1) * 100 }}%"></div>
                 @endif
-                <div class="relative flex justify-between">
+                <div class="delivery-progress-steps relative flex justify-between">
                     <div class="flex flex-col items-center flex-1 min-w-0 text-center">
                         <div class="h-10 w-10 rounded-full flex items-center justify-center bg-green-500 text-white">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
@@ -137,16 +139,16 @@
     </div>
 
     {{-- Info grid --}}
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+    <div class="delivery-info-grid grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div class="bg-gray-50 rounded-xl p-5">
             <div class="flex items-center gap-2 mb-4">
                 <div class="h-2 w-1 rounded-full bg-teal"></div>
                 <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Sender Information</h3>
             </div>
             <dl class="space-y-3">
-                <div><dt class="text-xs text-gray-500">Name</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->sender_name }}</dd></div>
-                <div><dt class="text-xs text-gray-500">Phone</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->sender_phone }}</dd></div>
-                <div><dt class="text-xs text-gray-500">Pickup Address</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->sender_address }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Name</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->sender_name ?: 'Not recorded' }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Phone</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->sender_phone ?: 'Not recorded' }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Pickup Address</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->sender_address ?: 'Not recorded' }}</dd></div>
             </dl>
         </div>
 
@@ -156,9 +158,9 @@
                 <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Recipient Information</h3>
             </div>
             <dl class="space-y-3">
-                <div><dt class="text-xs text-gray-500">Name</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->recipient_name }}</dd></div>
-                <div><dt class="text-xs text-gray-500">Phone</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->recipient_phone }}</dd></div>
-                <div><dt class="text-xs text-gray-500">Delivery Address</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->recipient_address }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Name</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->recipient_name ?: 'Not recorded' }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Phone</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->recipient_phone ?: 'Not recorded' }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Delivery Address</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->recipient_address ?: 'Not recorded' }}</dd></div>
             </dl>
         </div>
 
@@ -257,15 +259,15 @@
     </div>
 
     {{-- Parcel Processing (parcel status: sorting-center pipeline, independent of delivery status) --}}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div class="flex items-center gap-2">
+    <div class="delivery-panel">
+        <div class="delivery-processing-head flex items-center gap-2">
             <div class="h-2 w-1 rounded-full bg-teal"></div>
             <h2 class="text-lg font-semibold text-gray-900">Parcel Processing</h2>
             <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-light text-teal-dark">
                 {{ ucwords(str_replace('_', ' ', $delivery->parcel_status ?? 'pending_arrival')) }}
             </span>
         </div>
-        <p class="mt-1 mb-5 text-xs text-gray-400">Parcel status — where the physical parcel is inside the sorting-center pipeline. Independent from the delivery status above.</p>
+        <p class="mt-1 mb-5 text-xs text-gray-400">Follow the parcel through your center: receive, scan, sort, then dispatch. Rider assignment is managed separately.</p>
 
         @php
             $parcelSteps = [
@@ -278,10 +280,10 @@
             $currentParcelIndex = $parcelSteps[$delivery->parcel_status ?? 'pending_arrival']['index'];
         @endphp
 
-        <div class="relative mb-6">
+        <div class="delivery-parcel-progress relative mb-6">
             <div class="absolute top-5 left-8 right-8 h-1 bg-gray-200 rounded-full"></div>
             <div class="absolute top-5 left-8 h-1 bg-teal rounded-full transition-all duration-700" style="width: {{ ($currentParcelIndex / (count($parcelSteps) - 1)) * 100 }}%"></div>
-            <div class="relative flex justify-between">
+            <div class="delivery-progress-steps relative flex justify-between">
                 @foreach($parcelSteps as $key => $step)
                     @php
                         $done = $currentParcelIndex > $step['index'];
@@ -422,7 +424,7 @@
             {{-- Unified INVOIZ shipping waybill: seller/order/customer data merged with
                 logistics operations. Tracking number stays the single identifier
                 for the waybill, barcode and QR. Uses only real data ("—" fallback). --}}
-            <div class="mb-6 flex justify-center">
+            <div class="delivery-waybill-preview mb-6 flex justify-center">
                 <div id="shipping-label" role="img" aria-label="Shipping label for parcel {{ $delivery->tracking_number }}"
                      class="w-full bg-[#ffffff] text-[#111111]" style="max-width: 4in;">
                     <div class="border-2 border-[#111111]">
@@ -575,6 +577,7 @@
         @endif
 
         @if(!$delivery->archived_at)
+            <p class="delivery-actions-note">Available actions follow this delivery?s current status. Review the details before updating a record.</p>
             <div class="flex flex-wrap gap-3">
                 @if(in_array($delivery->parcel_status, ['pending_arrival', null]))
                     <form action="{{ route('deliveries.receive', $delivery) }}" method="POST" class="w-full max-w-xl">
@@ -706,7 +709,7 @@
 
     {{-- Timeline --}}
     @if($delivery->statusLogs->count())
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+        <div class="delivery-panel">
             <div class="flex items-center gap-2 mb-6">
                 <div class="h-2 w-1 rounded-full bg-teal"></div>
                 <h2 class="text-lg font-semibold text-gray-900">Status Timeline</h2>
@@ -755,7 +758,7 @@
     @endif
 
     {{-- Actions --}}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
+    <div class="delivery-panel delivery-actions"
          x-data="{
              failOpen: false,
              cancelOpen: false,
@@ -769,11 +772,11 @@
 
         <div class="flex items-center gap-2 mb-5">
             <div class="h-2 w-1 rounded-full bg-teal"></div>
-            <h2 class="text-lg font-semibold text-gray-900">Actions</h2>
+            <h2 class="text-lg font-semibold text-gray-900">Delivery actions</h2>
         </div>
 
         @if(!$delivery->archived_at)
-            <div class="flex flex-wrap gap-3">
+            <div class="delivery-processing-actions flex flex-wrap gap-3">
                 @if($delivery->status === 'waiting_for_rider')
                     <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-2xl">
                         @csrf
@@ -985,7 +988,7 @@
         @endif
 
         {{-- Fail Modal --}}
-        <div x-show="failOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
+        <div x-show="failOpen" x-cloak class="delivery-modal fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
             <div class="absolute inset-0 bg-black/40" @click="failOpen = false"></div>
             <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST" class="relative bg-white rounded-2xl shadow-xl w-full max-w-md" x-transition>
                 @csrf
@@ -997,8 +1000,8 @@
                 </div>
                 <div class="px-6 py-5 space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Failure Reason <span class="text-red-500">*</span></label>
-                        <select name="reason" x-model="failReason" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                        <label for="delivery-action-field-1" class="block text-sm font-medium text-gray-700 mb-1">Failure Reason <span class="text-red-500">*</span></label>
+                        <select id="delivery-action-field-1" name="reason" x-model="failReason" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                             <option value="">— Select a reason —</option>
                             @foreach(config('logistics.failure_reasons') as $reason)
                                 <option value="{{ $reason }}">{{ $reason }}</option>
@@ -1006,8 +1009,8 @@
                         </select>
                     </div>
                     <div x-show="failReason === 'Other'" x-cloak>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Please explain <span class="text-red-500">*</span></label>
-                        <textarea name="other_reason" rows="3" class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
+                        <label for="delivery-action-field-2" class="block text-sm font-medium text-gray-700 mb-1">Please explain <span class="text-red-500">*</span></label>
+                        <textarea id="delivery-action-field-2" name="other_reason" :required="failReason === 'Other'" rows="3" class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
                     </div>
                 </div>
                 <div class="px-6 py-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
@@ -1018,7 +1021,7 @@
         </div>
 
         {{-- Cancel Modal --}}
-        <div x-show="cancelOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
+        <div x-show="cancelOpen" x-cloak class="delivery-modal fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
             <div class="absolute inset-0 bg-black/40" @click="cancelOpen = false"></div>
             <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST" class="relative bg-white rounded-2xl shadow-xl w-full max-w-md" x-transition>
                 @csrf
@@ -1030,8 +1033,8 @@
                 </div>
                 <div class="px-6 py-5 space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Cancellation Reason <span class="text-red-500">*</span></label>
-                        <select name="reason" x-model="cancelReason" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                        <label for="delivery-action-field-3" class="block text-sm font-medium text-gray-700 mb-1">Cancellation Reason <span class="text-red-500">*</span></label>
+                        <select id="delivery-action-field-3" name="reason" x-model="cancelReason" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                             <option value="">— Select a reason —</option>
                             @foreach(config('logistics.cancellation_reasons') as $reason)
                                 <option value="{{ $reason }}">{{ $reason }}</option>
@@ -1039,19 +1042,19 @@
                         </select>
                     </div>
                     <div x-show="cancelReason === 'Other'" x-cloak>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Please explain <span class="text-red-500">*</span></label>
-                        <textarea name="other_reason" rows="3" class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
+                        <label for="delivery-action-field-4" class="block text-sm font-medium text-gray-700 mb-1">Please explain <span class="text-red-500">*</span></label>
+                        <textarea id="delivery-action-field-4" name="other_reason" :required="cancelReason === 'Other'" rows="3" class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
                     </div>
                 </div>
                 <div class="px-6 py-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
                     <button type="button" @click="cancelOpen = false" class="px-5 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition">Keep Delivery</button>
-                    <button type="submit" class="px-5 py-2.5 bg-gray-800 hover:bg-black text-white text-sm font-bold rounded-xl transition">Cancel Delivery</button>
+                    <button type="submit" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-xl transition">Cancel Delivery</button>
                 </div>
             </form>
         </div>
 
         {{-- Override Modal --}}
-        <div x-show="overrideOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
+        <div x-show="overrideOpen" x-cloak class="delivery-modal fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
             <div class="absolute inset-0 bg-black/40" @click="overrideOpen = false"></div>
             <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST" class="relative bg-white rounded-2xl shadow-xl w-full max-w-md" x-transition>
                 @csrf
@@ -1066,8 +1069,8 @@
                 </div>
                 <div class="px-6 py-5 space-y-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">New Status <span class="text-red-500">*</span></label>
-                        <select name="status" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                        <label for="delivery-action-field-5" class="block text-sm font-medium text-gray-700 mb-1">New Status <span class="text-red-500">*</span></label>
+                        <select id="delivery-action-field-5" name="status" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                             <option value="">— Select target status —</option>
                             @foreach(['waiting_for_rider', 'assigned', 'picked_up', 'out_for_delivery'] as $target)
                                 @if($target !== $delivery->status)
@@ -1077,8 +1080,8 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Override Reason <span class="text-red-500">*</span></label>
-                        <textarea name="override_reason" required minlength="3" rows="3" placeholder="Explain why this override is necessary..."
+                        <label for="delivery-action-field-6" class="block text-sm font-medium text-gray-700 mb-1">Override Reason <span class="text-red-500">*</span></label>
+                        <textarea id="delivery-action-field-6" name="override_reason" required minlength="3" rows="3" placeholder="Explain why this override is necessary..."
                                   class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
                     </div>
                 </div>
@@ -1090,7 +1093,7 @@
         </div>
 
         {{-- Archive Modal --}}
-        <div x-show="archiveOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
+        <div x-show="archiveOpen" x-cloak class="delivery-modal fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
             <div class="absolute inset-0 bg-black/40" @click="archiveOpen = false"></div>
             <form action="{{ route('deliveries.archive', $delivery) }}" method="POST" class="relative bg-white rounded-2xl shadow-xl w-full max-w-md" x-transition>
                 @csrf
@@ -1099,8 +1102,8 @@
                     <p class="text-sm text-gray-500 mt-0.5">This delivery will be removed from active deliveries but preserved in the archive for records and auditing.</p>
                 </div>
                 <div class="px-6 py-5">
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Archive note (optional)</label>
-                    <input type="text" name="archive_note" maxlength="255" placeholder="e.g. Duplicate of Order #1042"
+                    <label for="delivery-action-field-7" class="block text-sm font-medium text-gray-700 mb-1">Archive note (optional)</label>
+                    <input id="delivery-action-field-7" type="text" name="archive_note" maxlength="255" placeholder="e.g. Duplicate of Order #1042"
                            class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                 </div>
                 <div class="px-6 py-4 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
@@ -1142,18 +1145,18 @@
                           class="space-y-3" x-data="{ exceptionType: 'damaged' }">
                         @csrf
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Exception</label>
-                            <select name="type" x-model="exceptionType" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                            <label for="delivery-action-field-8" class="block text-sm font-medium text-gray-700 mb-1">Exception</label>
+                            <select id="delivery-action-field-8" name="type" x-model="exceptionType" @change="$el.form.elements.reason.value = ''" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                 <option value="damaged">Damaged</option>
                                 <option value="lost">Lost</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
-                            <select name="reason" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                            <label for="delivery-action-field-9" class="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                            <select id="delivery-action-field-9" name="reason" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                 <option value="">Select a reason</option>
                                 @foreach(($exceptionReasons ?? config('logistics.exception_reasons')) as $type => $reasons)
-                                    <optgroup label="{{ ucfirst($type) }}">
+                                    <optgroup label="{{ ucfirst($type) }}" :hidden="exceptionType !== @js($type)" :disabled="exceptionType !== @js($type)">
                                         @foreach($reasons as $reason)
                                             <option value="{{ $reason }}">{{ $reason }}</option>
                                         @endforeach
@@ -1162,15 +1165,15 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Photo <span x-show="exceptionType === 'damaged'" class="text-red-500">*</span></label>
-                            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
+                            <label for="delivery-action-field-10" class="block text-sm font-medium text-gray-700 mb-1">Photo <span x-show="exceptionType === 'damaged'" class="text-red-500">*</span></label>
+                            <input id="delivery-action-field-10" type="file" name="photo" accept="image/jpeg,image/png,image/webp"
                                    :required="exceptionType === 'damaged'"
                                    class="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-teal file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white">
                             <p class="mt-1 text-xs text-gray-500">JPEG, PNG, or WebP up to 8 MB.</p>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                            <textarea name="notes" rows="2" maxlength="2000" class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
+                            <label for="delivery-action-field-11" class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                            <textarea id="delivery-action-field-11" name="notes" rows="2" maxlength="2000" class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
                         </div>
                         <button type="submit" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-xl text-sm">
                             Record Exception
@@ -1290,4 +1293,5 @@
     </style>
 @endpush
 
+    </div>
 </x-app-layout>

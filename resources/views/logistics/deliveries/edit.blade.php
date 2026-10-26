@@ -1,7 +1,9 @@
 <x-app-layout>
-    <div class="flex items-center gap-4 mb-6">
+    @include('logistics.partials.delivery-theme')
+    <div class="logistics-deliveries delivery-page-edit">
+    <div class="delivery-head">
         <a href="{{ route('deliveries.index') }}"
-           class="p-2 bg-white border border-gray-200 rounded-xl text-gray-500 hover:text-teal-dark hover:border-teal transition shadow-sm">
+           class="delivery-back" aria-label="Back to deliveries">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>
@@ -12,7 +14,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+    <div class="delivery-panel delivery-entry-form">
         <form action="{{ route('deliveries.update', $delivery) }}" method="POST">
             @csrf
             @method('PUT')
@@ -35,7 +37,7 @@
 
                         <div>
                             <label for="sender_phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                            <input type="text" name="sender_phone" id="sender_phone" value="{{ old('sender_phone', $delivery->sender_phone) }}" required
+                            <input type="tel" name="sender_phone" id="sender_phone" value="{{ old('sender_phone', $delivery->sender_phone) }}" required
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-teal focus:ring-teal text-sm">
                             @error('sender_phone')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -70,7 +72,7 @@
 
                         <div>
                             <label for="recipient_phone" class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                            <input type="text" name="recipient_phone" id="recipient_phone" value="{{ old('recipient_phone', $delivery->recipient_phone) }}" required
+                            <input type="tel" name="recipient_phone" id="recipient_phone" value="{{ old('recipient_phone', $delivery->recipient_phone) }}" required
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-teal focus:ring-teal text-sm">
                             @error('recipient_phone')
                                 <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
@@ -168,15 +170,19 @@
                 </div>
             </div>
 
-            <div class="mt-8 flex items-center justify-end gap-3">
+            <div class="delivery-form-footer mt-8 border-t border-gray-100 pt-6">
+                <p>Fields marked <span class="text-red-500">*</span> are required.</p>
+                <div>
                 <a href="{{ route('deliveries.index') }}"
                    class="inline-flex items-center justify-center bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-6 py-2.5 rounded-xl transition">
                     Cancel
                 </a>
                 <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold px-6 py-2.5 rounded-xl transition shadow-sm">
-                    Update Delivery
+                    Save changes
                 </button>
+                </div>
             </div>
         </form>
+    </div>
     </div>
 </x-app-layout>

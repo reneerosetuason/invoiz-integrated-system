@@ -1,7 +1,9 @@
 <x-app-layout>
-    <div class="flex items-center gap-4 mb-6">
+    @include('logistics.partials.delivery-theme')
+    <div class="logistics-deliveries delivery-page-create">
+    <div class="delivery-head">
         <a href="{{ route('deliveries.index') }}"
-           class="p-2 bg-white border border-gray-200 rounded-xl text-gray-500 hover:text-teal-dark hover:border-teal transition shadow-sm">
+           class="delivery-back" aria-label="Back to deliveries">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>
@@ -12,7 +14,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+    <div class="delivery-panel delivery-entry-form">
         <form action="{{ route('deliveries.store') }}" method="POST">
             @csrf
 
@@ -20,7 +22,6 @@
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div>
                     <div class="flex items-center gap-2 mb-4">
-                        <div class="w-7 h-7 rounded-lg bg-teal-light text-teal-dark flex items-center justify-center text-xs font-bold">1</div>
                         <h2 class="text-base font-semibold text-gray-900">Sender Information</h2>
                     </div>
                     <div class="space-y-4">
@@ -35,7 +36,7 @@
 
                         <div>
                             <label for="sender_phone" class="block text-sm font-medium text-gray-700 mb-1">Sender Phone <span class="text-red-500">*</span></label>
-                            <input type="text" name="sender_phone" id="sender_phone" value="{{ old('sender_phone') }}" required
+                            <input type="tel" name="sender_phone" id="sender_phone" value="{{ old('sender_phone') }}" required
                                    placeholder="09XXXXXXXXX"
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-teal focus:ring-teal text-sm">
                             @error('sender_phone')
@@ -56,7 +57,6 @@
 
                 <div>
                     <div class="flex items-center gap-2 mb-4">
-                        <div class="w-7 h-7 rounded-lg bg-teal-light text-teal-dark flex items-center justify-center text-xs font-bold">2</div>
                         <h2 class="text-base font-semibold text-gray-900">Recipient Information</h2>
                     </div>
                     <div class="space-y-4">
@@ -71,7 +71,7 @@
 
                         <div>
                             <label for="recipient_phone" class="block text-sm font-medium text-gray-700 mb-1">Recipient Phone <span class="text-red-500">*</span></label>
-                            <input type="text" name="recipient_phone" id="recipient_phone" value="{{ old('recipient_phone') }}" required
+                            <input type="tel" name="recipient_phone" id="recipient_phone" value="{{ old('recipient_phone') }}" required
                                    placeholder="09XXXXXXXXX"
                                    class="w-full rounded-xl border-gray-300 shadow-sm focus:border-teal focus:ring-teal text-sm">
                             @error('recipient_phone')
@@ -94,7 +94,6 @@
             {{-- ================= Package Information ================= --}}
             <div class="mt-8 pt-6 border-t border-gray-100">
                 <div class="flex items-center gap-2 mb-4">
-                    <div class="w-7 h-7 rounded-lg bg-teal-light text-teal-dark flex items-center justify-center text-xs font-bold">3</div>
                     <h2 class="text-base font-semibold text-gray-900">Package Information</h2>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -146,7 +145,6 @@
             {{-- ================= Delivery Information ================= --}}
             <div class="mt-8 pt-6 border-t border-gray-100">
                 <div class="flex items-center gap-2 mb-4">
-                    <div class="w-7 h-7 rounded-lg bg-teal-light text-teal-dark flex items-center justify-center text-xs font-bold">4</div>
                     <h2 class="text-base font-semibold text-gray-900">Delivery Information</h2>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -173,8 +171,8 @@
                     </div>
 
                     <div class="md:col-span-2 bg-teal-light/50 border border-teal/20 rounded-xl px-4 py-3">
-                        <p class="text-xs text-gray-600 flex items-center gap-2">
-                            <svg class="w-4 h-4 text-teal flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <p class="text-xs text-gray-600">
+                            <svg class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
                             The delivery will be created as <span class="font-semibold text-teal-dark">Waiting for Rider</span> with a unique tracking number. A rider can be assigned from the delivery page.
@@ -183,7 +181,9 @@
                 </div>
             </div>
 
-            <div class="mt-8 flex items-center justify-end gap-3">
+            <div class="delivery-form-footer mt-8 border-t border-gray-100 pt-6">
+                <p>Fields marked <span class="text-red-500">*</span> are required.</p>
+                <div>
                 <a href="{{ route('deliveries.index') }}"
                    class="inline-flex items-center justify-center bg-white border border-gray-200 hover:border-gray-300 text-gray-700 font-semibold px-6 py-2.5 rounded-xl transition">
                     Cancel
@@ -191,7 +191,9 @@
                 <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold px-6 py-2.5 rounded-xl transition shadow-sm">
                     Create Delivery
                 </button>
+                </div>
             </div>
         </form>
+    </div>
     </div>
 </x-app-layout>

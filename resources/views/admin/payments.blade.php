@@ -103,10 +103,10 @@
     .admin-payments .payments-status-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:12px}
     .admin-payments .payments-status-strip .admin-list-stat{min-height:92px;padding:11px}
     .admin-payments .payments-status-strip .admin-list-stat strong{font-size:26px}
-    .admin-payments .payments-status-strip .admin-list-stat small{font-size:clamp(11px,3.1vw,12.5px)}
+    .admin-payments .payments-status-strip .admin-list-stat small{font-size:clamp(11px,3.1vw,12.5px);white-space:normal;overflow-wrap:anywhere}
     .admin-payments .payments-earnings-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:14px}
     .admin-payments .payments-earnings-strip .admin-list-stat{min-height:96px;padding:11px}
-    .admin-payments .payments-earnings-strip .payments-earning-value{font-size:24px}
+    .admin-payments .payments-earnings-strip .payments-earning-value{font-size:24px;white-space:normal;overflow-wrap:anywhere}
     .admin-payments .money-flow{margin-bottom:19px;font-size:13.5px}
     .admin-payments .transactions-header{margin-bottom:9px}
     .admin-payments .transactions-header h2{font-size:19px}

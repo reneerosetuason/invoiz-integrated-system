@@ -1,0 +1,733 @@
+{
+  "regressions": {
+    "command": "php artisan test --filter='CommerceRegressionTest|ExampleTest'",
+    "tests": 22,
+    "assertions": 105,
+    "database": "isolated SQLite :memory:"
+  },
+  "browser": {
+    "measurements": 66,
+    "rendered": 60,
+    "document_overflows": 0,
+    "js_exceptions": 0,
+    "failed_network_requests": 0,
+    "expected_readonly_error_measurements": 6
+  },
+  "http": [
+    {
+      "role": "guest",
+      "path": "/",
+      "status": 200,
+      "bytes": 59213,
+      "final_path": "/?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "guest",
+      "path": "/login",
+      "status": 200,
+      "bytes": 16318,
+      "final_path": "/login?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "guest",
+      "path": "/register",
+      "status": 200,
+      "bytes": 21950,
+      "final_path": "/register?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "guest",
+      "path": "/shop",
+      "status": 200,
+      "bytes": 132867,
+      "final_path": "/shop?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "guest",
+      "path": "/product/1",
+      "status": 200,
+      "bytes": 40716,
+      "final_path": "/product/1?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "guest",
+      "path": "/help",
+      "status": 200,
+      "bytes": 40571,
+      "final_path": "/help?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "guest",
+      "path": "/logistics/login",
+      "status": 200,
+      "bytes": 17740,
+      "final_path": "/logistics/login?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "guest",
+      "path": "/logistics/logistics-center/apply",
+      "status": 200,
+      "bytes": 94484,
+      "final_path": "/logistics/logistics-center/apply?audit_role=guest",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "buyer",
+      "path": "/cart",
+      "status": 200,
+      "bytes": 30729,
+      "final_path": "/cart?audit_role=buyer",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "buyer",
+      "path": "/orders",
+      "status": 200,
+      "bytes": 39081,
+      "final_path": "/orders?audit_role=buyer",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "buyer",
+      "path": "/profile",
+      "status": 500,
+      "bytes": 6609,
+      "readonly": "1"
+    },
+    {
+      "role": "buyer",
+      "path": "/messages",
+      "status": 200,
+      "bytes": 32570,
+      "final_path": "/messages?audit_role=buyer",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "buyer",
+      "path": "/vouchers",
+      "status": 200,
+      "bytes": 34247,
+      "final_path": "/vouchers?audit_role=buyer",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "buyer",
+      "path": "/notifications",
+      "status": 200,
+      "bytes": 35801,
+      "final_path": "/notifications?audit_role=buyer",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "buyer",
+      "path": "/wishlist",
+      "status": 200,
+      "bytes": 32547,
+      "final_path": "/wishlist?audit_role=buyer",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "buyer",
+      "path": "/checkout?single=1",
+      "status": 500,
+      "bytes": 6609,
+      "readonly": "1"
+    },
+    {
+      "role": "buyer",
+      "path": "/orders/3",
+      "status": 200,
+      "bytes": 46208,
+      "final_path": "/orders/3?audit_role=buyer",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/dashboard",
+      "status": 200,
+      "bytes": 72561,
+      "final_path": "/seller/dashboard?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/products",
+      "status": 200,
+      "bytes": 79129,
+      "final_path": "/seller/products?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/products/create",
+      "status": 200,
+      "bytes": 46343,
+      "final_path": "/seller/products/create?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/orders",
+      "status": 200,
+      "bytes": 49159,
+      "final_path": "/seller/orders?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/vouchers",
+      "status": 200,
+      "bytes": 56996,
+      "final_path": "/seller/vouchers?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/feedback",
+      "status": 200,
+      "bytes": 43681,
+      "final_path": "/seller/feedback?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/reports",
+      "status": 200,
+      "bytes": 49158,
+      "final_path": "/seller/reports?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/chat",
+      "status": 200,
+      "bytes": 40659,
+      "final_path": "/seller/chat?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/account",
+      "status": 200,
+      "bytes": 45079,
+      "final_path": "/seller/account?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/notifications",
+      "status": 200,
+      "bytes": 53762,
+      "final_path": "/seller/notifications?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/payouts",
+      "status": 200,
+      "bytes": 39833,
+      "final_path": "/seller/payouts?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/returns",
+      "status": 200,
+      "bytes": 38489,
+      "final_path": "/seller/returns?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/sales",
+      "status": 200,
+      "bytes": 53663,
+      "final_path": "/seller/sales?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "seller",
+      "path": "/seller/remittances",
+      "status": 200,
+      "bytes": 42032,
+      "final_path": "/seller/remittances?audit_role=seller",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/dashboard",
+      "status": 200,
+      "bytes": 85009,
+      "final_path": "/admin/dashboard?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/buyers",
+      "status": 200,
+      "bytes": 82239,
+      "final_path": "/admin/buyers?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/sellers",
+      "status": 200,
+      "bytes": 90745,
+      "final_path": "/admin/sellers?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/products",
+      "status": 200,
+      "bytes": 85366,
+      "final_path": "/admin/products?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/categories",
+      "status": 200,
+      "bytes": 87061,
+      "final_path": "/admin/categories?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/orders",
+      "status": 200,
+      "bytes": 116061,
+      "final_path": "/admin/orders?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/payments",
+      "status": 200,
+      "bytes": 124358,
+      "final_path": "/admin/payments?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/manage-accounts",
+      "status": 200,
+      "bytes": 58937,
+      "final_path": "/admin/manage-accounts?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/complaints",
+      "status": 200,
+      "bytes": 65250,
+      "final_path": "/admin/complaints?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/commission",
+      "status": 200,
+      "bytes": 68047,
+      "final_path": "/admin/commission?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/reports",
+      "status": 200,
+      "bytes": 80082,
+      "final_path": "/admin/reports?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/settings",
+      "status": 200,
+      "bytes": 80450,
+      "final_path": "/admin/settings?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "admin",
+      "path": "/admin/chat",
+      "status": 200,
+      "bytes": 78895,
+      "final_path": "/admin/chat?audit_role=admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/dashboard",
+      "status": 200,
+      "bytes": 177706,
+      "final_path": "/logistics/dashboard?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/deliveries",
+      "status": 200,
+      "bytes": 121854,
+      "final_path": "/logistics/deliveries?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/deliveries/scan",
+      "status": 200,
+      "bytes": 76923,
+      "final_path": "/logistics/deliveries/scan?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/deliveries-archived",
+      "status": 200,
+      "bytes": 67301,
+      "final_path": "/logistics/deliveries-archived?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/riders",
+      "status": 200,
+      "bytes": 82841,
+      "final_path": "/logistics/riders?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/pickup-requests",
+      "status": 200,
+      "bytes": 57813,
+      "final_path": "/logistics/pickup-requests?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/staff",
+      "status": 200,
+      "bytes": 65257,
+      "final_path": "/logistics/staff?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/rider-applications",
+      "status": 200,
+      "bytes": 61617,
+      "final_path": "/logistics/rider-applications?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/center-applications",
+      "status": 200,
+      "bytes": 64889,
+      "final_path": "/logistics/center-applications?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/centers",
+      "status": 200,
+      "bytes": 65800,
+      "final_path": "/logistics/centers?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/service-areas",
+      "status": 200,
+      "bytes": 61438,
+      "final_path": "/logistics/service-areas?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/transactions",
+      "status": 200,
+      "bytes": 56954,
+      "final_path": "/logistics/transactions?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/remittances",
+      "status": 200,
+      "bytes": 70441,
+      "final_path": "/logistics/remittances?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/reports",
+      "status": 200,
+      "bytes": 56417,
+      "final_path": "/logistics/reports?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/messages",
+      "status": 500,
+      "bytes": 6609,
+      "readonly": "1"
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/notifications",
+      "status": 200,
+      "bytes": 87064,
+      "final_path": "/logistics/notifications?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/settings",
+      "status": 200,
+      "bytes": 113015,
+      "final_path": "/logistics/settings?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/profile",
+      "status": 200,
+      "bytes": 55975,
+      "final_path": "/logistics/profile?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_admin",
+      "path": "/logistics/sorting-center",
+      "status": 200,
+      "bytes": 118278,
+      "final_path": "/logistics/sorting-center?audit_role=logistics_admin",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_staff",
+      "path": "/logistics/dashboard",
+      "status": 200,
+      "bytes": 114175,
+      "final_path": "/logistics/dashboard?audit_role=logistics_staff",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_staff",
+      "path": "/logistics/deliveries",
+      "status": 200,
+      "bytes": 58615,
+      "final_path": "/logistics/deliveries?audit_role=logistics_staff",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_staff",
+      "path": "/logistics/pickup-requests",
+      "status": 200,
+      "bytes": 42748,
+      "final_path": "/logistics/pickup-requests?audit_role=logistics_staff",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_staff",
+      "path": "/logistics/riders",
+      "status": 200,
+      "bytes": 48316,
+      "final_path": "/logistics/riders?audit_role=logistics_staff",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_staff",
+      "path": "/logistics/reports",
+      "status": 200,
+      "bytes": 42680,
+      "final_path": "/logistics/reports?audit_role=logistics_staff",
+      "readonly": "1",
+      "server_error": false
+    },
+    {
+      "role": "logistics_staff",
+      "path": "/logistics/messages",
+      "status": 500,
+      "bytes": 6609,
+      "readonly": "1"
+    }
+  ],
+  "sidebars": [
+    {
+      "role": "buyer",
+      "route": "/cart",
+      "buttonFound": true,
+      "before": {
+        "left": -318,
+        "right": -18,
+        "width": 300
+      },
+      "after": {
+        "left": 0,
+        "right": 300,
+        "width": 300
+      },
+      "jsErrors": []
+    },
+    {
+      "role": "seller",
+      "route": "/seller/dashboard",
+      "buttonFound": true,
+      "before": {
+        "left": 0,
+        "right": 0,
+        "width": 0
+      },
+      "after": {
+        "left": 0,
+        "right": 256,
+        "width": 256
+      },
+      "jsErrors": []
+    },
+    {
+      "role": "admin",
+      "route": "/admin/dashboard",
+      "buttonFound": true,
+      "before": {
+        "left": 0,
+        "right": 72,
+        "width": 72
+      },
+      "after": {
+        "left": 0,
+        "right": 256,
+        "width": 256
+      },
+      "jsErrors": []
+    },
+    {
+      "role": "logistics_admin",
+      "route": "/logistics/deliveries",
+      "buttonFound": true,
+      "before": {
+        "left": 0,
+        "right": 70,
+        "width": 70
+      },
+      "after": {
+        "left": 0,
+        "right": 248,
+        "width": 248
+      },
+      "jsErrors": []
+    }
+  ],
+  "narrow_and_cart_form_checks": [
+    {
+      "role": "guest",
+      "page": "/shop",
+      "width": 320,
+      "scroll": 314,
+      "error": "Invoiz \u2014 Online Shopping"
+    },
+    {
+      "role": "logistics_admin",
+      "page": "/logistics/deliveries",
+      "width": 320,
+      "scroll": 320,
+      "error": "Invoiz"
+    },
+    {
+      "role": "guest",
+      "page": "/product/1",
+      "width": 320,
+      "scroll": 314,
+      "error": "Invoiz \u2014 Online Shopping"
+    },
+    {
+      "cartForm": {
+        "method": "post",
+        "path": "/cart/add/1",
+        "qty": "1",
+        "hasCsrf": true
+      }
+    }
+  ],
+  "routes": {
+    "registrations": 415,
+    "duplicate_names": 0,
+    "duplicate_method_paths": 0
+  }
+}

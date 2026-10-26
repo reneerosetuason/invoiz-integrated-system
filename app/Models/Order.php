@@ -42,8 +42,8 @@ class Order extends Model
         // before and after the correspondence migration runs).
         static::saving(function (Order $order) {
             try {
-                if (empty($order->order_number) && \Illuminate\Support\Facades\Schema::hasColumn('orders', 'order_number')) {
-                    $order->order_number = 'INV-' . date('ymd-His');
+                if (empty($order->order_number) && $order->getConnection()->getSchemaBuilder()->hasColumn('orders', 'order_number')) {
+                    $order->order_number = 'INV-' . \Illuminate\Support\Str::ulid();
                 }
             } catch (\Throwable $e) {}
             if (empty($order->total) && ! empty($order->total_amount)) {

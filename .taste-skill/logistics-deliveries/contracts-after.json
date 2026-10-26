@@ -1,0 +1,37 @@
+{
+  "archived.blade.php": {
+    "field_names_preserved": true,
+    "route_targets_preserved": true,
+    "method_and_csrf_preserved": true
+  },
+  "create.blade.php": {
+    "field_names_preserved": true,
+    "route_targets_preserved": true,
+    "method_and_csrf_preserved": true,
+    "conditional_logic_unchanged": true
+  },
+  "edit.blade.php": {
+    "field_names_preserved": true,
+    "route_targets_preserved": true,
+    "method_and_csrf_preserved": true,
+    "conditional_logic_unchanged": true
+  },
+  "index.blade.php": {
+    "field_names_preserved": true,
+    "route_targets_preserved": true,
+    "method_and_csrf_preserved": true
+  },
+  "scan.blade.php": {
+    "field_names_preserved": true,
+    "route_targets_preserved": true,
+    "method_and_csrf_preserved": true,
+    "conditional_logic_unchanged": true
+  },
+  "show.blade.php": {
+    "field_names_preserved": true,
+    "route_targets_preserved": true,
+    "method_and_csrf_preserved": true,
+    "conditional_logic_unchanged": true
+  },
+  "waybill_markup_unchanged": true
+}

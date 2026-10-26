@@ -246,9 +246,20 @@
     document.getElementById('optTotal').textContent = peso((base + variantAdj) * qty);
   }
   window.confirmOpt = function(mode){
-    var url = (mode === 'buy' ? "{{ url('/buy/'.$p->id) }}" : "{{ url('/cart/add/'.$p->id) }}")
-      + '?qty=' + qty + (variantId ? '&variant_id=' + variantId : '');
-    window.location.href = url;
+    if(mode === 'buy'){
+      window.location.href = "{{ url('/buy/'.$p->id) }}" + '?qty=' + qty + (variantId ? '&variant_id=' + variantId : '');
+      return;
+    }
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = @json(url('/cart/add/'.$p->id));
+    var fields = {_token: @json(csrf_token()), qty: qty, variant_id: variantId || ''};
+    Object.keys(fields).forEach(function(name){
+      var input = document.createElement('input');
+      input.type = 'hidden'; input.name = name; input.value = fields[name]; form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
   };
   var modal = document.getElementById('optModal');
   if(modal) modal.addEventListener('click', function(e){ if(e.target === modal) closeOpt(); });

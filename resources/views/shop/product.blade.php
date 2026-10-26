@@ -47,7 +47,7 @@
       @if($inCart)
         <a href="{{ url('/cart') }}" style="flex:1;text-align:center;background:#f0fdf4;color:var(--green);border:1.5px solid var(--green);padding:11px 16px;border-radius:999px;text-decoration:none;font-weight:700">✓ In Cart — View Cart</a>
       @else
-        <a href="{{ url('/cart/add/'.$p->id) }}" style="flex:1;text-align:center;background:#fff;color:var(--green);border:1.5px solid var(--green);padding:11px 16px;border-radius:999px;text-decoration:none;font-weight:700">🛒 Add to Cart</a>
+        <form method="POST" action="{{ url('/cart/add/'.$p->id) }}" style="flex:1;display:flex">@csrf<button type="submit" style="flex:1;text-align:center;background:#fff;color:var(--green);border:1.5px solid var(--green);padding:11px 16px;border-radius:999px;text-decoration:none;font-weight:700;cursor:pointer;font-family:inherit">🛒 Add to Cart</button></form>
       @endif
       <a href="{{ url('/buy/'.$p->id) }}" style="flex:1;text-align:center;background:var(--green);color:#fff;padding:11px 16px;border-radius:999px;text-decoration:none;font-weight:700">⚡ Buy Now</a>
     </div>

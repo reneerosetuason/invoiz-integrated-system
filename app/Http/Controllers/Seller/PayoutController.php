@@ -8,6 +8,8 @@ use App\Models\Setting;
 use App\Models\WithdrawalRequest;
 use App\Support\Payments;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class PayoutController extends Controller
 {
@@ -39,28 +41,26 @@ class PayoutController extends Controller
         $minimum = max(100, (float) Setting::get('payout_minimum', 100));
 
         $data = $request->validate([
-            'amount' => ['required', 'numeric', 'min:' . $minimum, 'max:1000000'],
+            'amount' => ['required', 'numeric', 'min:' . $minimum, 'max:1000000', 'decimal:0,2'],
             'method' => ['required', 'in:Bank Transfer,GCash,PayMaya'],
         ]);
 
-        if (WithdrawalRequest::where('seller_id', $seller->id)->where('status', 'pending')->exists()) {
-            return back()->withErrors(['amount' => 'You already have a pending payout request. Wait for it to be processed.']);
-        }
-
-        $available = Payments::availableBalanceForUser($userId);
-
-        if ((float) $data['amount'] > $available) {
-            return back()->withErrors([
-                'amount' => 'You can only request up to your available balance of ₱' . number_format($available, 2) . '.',
+        DB::transaction(function () use ($seller, $userId, $data): void {
+            Seller::query()->whereKey($seller->id)->lockForUpdate()->firstOrFail();
+            if (WithdrawalRequest::where('seller_id', $seller->id)->where('status', 'pending')->exists()) {
+                throw ValidationException::withMessages(['amount' => 'You already have a pending payout request.']);
+            }
+            $available = Payments::availableBalanceForUser($userId);
+            if (round((float) $data['amount'], 2) > $available) {
+                throw ValidationException::withMessages(['amount' => 'The amount exceeds your available balance.']);
+            }
+            WithdrawalRequest::create([
+                'seller_id' => $seller->id,
+                'amount' => round((float) $data['amount'], 2),
+                'status' => 'pending',
+                'method' => $data['method'],
             ]);
-        }
-
-        WithdrawalRequest::create([
-            'seller_id' => $seller->id,
-            'amount'    => round((float) $data['amount'], 2),
-            'status'    => 'pending',
-            'method'    => $data['method'],
-        ]);
+        });
 
         return back()->with('success', 'Payout request submitted. Our team reviews requests on the configured schedule.');
     }

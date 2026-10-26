@@ -82,6 +82,7 @@
         <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
         <link rel="stylesheet" href="{{ asset('css/app-sidebar.css') }}?v={{ filemtime(public_path('css/app-sidebar.css')) }}">
         <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}" defer></script>
+        @stack('styles')
     </head>
     <body class="font-sans bg-[#F7F6F2] text-[#1B1B1E] antialiased">
         <div class="min-h-screen" x-data="{
@@ -92,6 +93,7 @@
             notifOpen: false,
             accountOpen: false,
             notifications: [],
+            notificationsError: false,
             unreadCount: 0,
             get sidebarVisible() { return this.sidebarHover; },
             toggleSidebar() {
@@ -101,8 +103,9 @@
             fetch('{{ route('notifications.index', [], false) }}', {
                     headers: { 'Accept': 'application/json' },
                 })
-                .then(r => r.json())
-                .then(d => { notifications = d.notifications; unreadCount = d.unread_count; });
+                .then(r => { if (!r.ok) throw new Error('Notifications unavailable'); return r.json(); })
+                .then(d => { notifications = Array.isArray(d.notifications) ? d.notifications : []; unreadCount = Number(d.unread_count) || 0; })
+                .catch(() => { notificationsError = true; notifications = []; unreadCount = 0; });
             @if($sidebarRemember)
             $watch('sidebarHover', (expanded) => {
                 clearTimeout(this.navPersistTimeout);
@@ -133,6 +136,11 @@
                 <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
                     <div class="flex items-center justify-between px-4 sm:px-6 h-16">
                         <div class="flex items-center gap-3">
+                            @if(request()->routeIs('dashboard', 'deliveries.*'))
+                                <button type="button" class="ld-mobile-menu" @click="toggleSidebar()" :aria-expanded="sidebarVisible.toString()" aria-label="Toggle logistics menu" aria-controls="app-sidebar">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                                </button>
+                            @endif
                             <span class="text-lg font-bold text-gray-900">Logistics</span>
                         </div>
 
@@ -159,7 +167,13 @@
                                     </div>
 
                                     <div class="overflow-y-auto flex-1 divide-y divide-gray-50">
-                                        <template x-if="notifications.length === 0">
+                                        <template x-if="notificationsError">
+                                            <div class="px-4 py-6 text-sm text-gray-700">
+                                                <p>Notifications could not load.</p>
+                                                <a href="{{ route('notifications.index') }}" class="mt-2 inline-block font-semibold text-teal underline">Open notifications</a>
+                                            </div>
+                                        </template>
+                                        <template x-if="!notificationsError && notifications.length === 0">
                                             <div class="px-4 py-8 text-center">
                                                 <p class="text-sm text-gray-400">No notifications yet.</p>
                                             </div>

@@ -82,7 +82,7 @@ class Vouchers
         return ['merch' => $merch, 'waived' => $waived, 'perVoucher' => $perVoucher, 'error' => null];
     }
 
-    public static function restoreForOrder(Order $order): void
+    public static function restoreForOrder(Order $order, bool $strict = false): void
     {
         try {
             $order->loadMissing('orderVouchers');
@@ -106,6 +106,9 @@ class Vouchers
                 }
             }
         } catch (\Throwable $e) {
+            if ($strict) {
+                throw $e;
+            }
             \Log::warning('Voucher restore failed: ' . $e->getMessage());
         }
     }

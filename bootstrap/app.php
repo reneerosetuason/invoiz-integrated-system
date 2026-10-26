@@ -24,7 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo('/login');
         $middleware->redirectUsersTo('/home');
-        $middleware->appendToGroup('web', ApplyUserTimezone::class);
+        $middleware->appendToGroup('web', [\App\Http\Middleware\EnsureActiveWebAccount::class, ApplyUserTimezone::class]);
         $middleware->alias([
             'seller' => \App\Http\Middleware\EnsureSeller::class,
             'buyer' => \App\Http\Middleware\EnsureBuyer::class,

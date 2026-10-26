@@ -188,7 +188,7 @@ Route::get('/vouchers', [BuyerFeaturesController::class, 'vouchers'])->name('buy
 Route::post('/vouchers/{voucher}/claim', [BuyerFeaturesController::class, 'claimVoucher'])->whereNumber('voucher')->name('buyer.vouchers.claim');
 Route::post('/orders/{order}/rate/{product}', [BuyerFeaturesController::class, 'rate'])->whereNumber('order')->whereNumber('product')->name('buyer.orders.rate');
 
-Route::get('/cart/add/{id}', function($id, Request $request){
+Route::post('/cart/add/{id}', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id(),'first_name'=>Auth::user()->first_name ?? '','last_name'=>Auth::user()->last_name ?? ''] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to add items to cart');
   $product = Product::find($id);
@@ -229,7 +229,7 @@ Route::get('/buy/{id}', function($id, Request $request){
   return redirect('/checkout?single='.$id);
 })->whereNumber('id');
 
-Route::get('/cart/inc/{item}', function($item){
+Route::post('/cart/inc/{item}', function($item){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login');
   $line = Cart::itemsFor($buyer['id'])->where('id',$item)->first();
@@ -246,7 +246,7 @@ Route::get('/cart/inc/{item}', function($item){
   return redirect('/cart')->with('success','Added to cart');
 });
 
-Route::get('/cart/dec/{item}', function($item){
+Route::post('/cart/dec/{item}', function($item){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login');
   // Accept cart-item id (normal) OR product id (cart view buttons).
@@ -256,7 +256,7 @@ Route::get('/cart/dec/{item}', function($item){
   return redirect('/cart');
 });
 
-Route::get('/cart/remove/{item}', function($item){
+Route::post('/cart/remove/{item}', function($item){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login');
   $q = Cart::itemsFor($buyer['id']);
@@ -637,15 +637,9 @@ Route::post('/orders/{id}/cancel', function($id, Request $request){
   ]);
   $order = \App\Models\Order::with('items')->where('buyer_id',$buyer['id'])->findOrFail($id);
   if(! $order->isCancellableByBuyer()) return back()->with('error','This order can no longer be cancelled â€” it is already being prepared or on its way to you.');
-  $from = $order->status;
   $labels = ['changed_mind'=>'Changed my mind','ordered_by_mistake'=>'Ordered by mistake','found_better_price'=>'Found a better price','delivery_too_long'=>'Delivery is taking too long','wrong_item'=>'I ordered the wrong item','other'=>'Other'];
   $reason = $labels[$data['reason']] . ($data['reason'] === 'other' ? ': ' . trim($data['reason_details']) : '');
-  $order->update(['status'=>'cancelled', 'cancellation_reason' => $reason]);
-  \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>$from,'to_status'=>'cancelled','note'=>'Cancelled by buyer: '.$reason]);
-  // Never shipped (pending/confirmed only reach here) â†’ give the stock back.
-  \App\Support\Stock::restoreOrder($order->fresh('items'));
-  // COD money never moved: void the pending ledger row.
-  \App\Support\Payments::voidForCancel($order);
+  \App\Support\OrderCancellation::byBuyer($order, $reason, (int) $buyer['id']);
   return redirect('/orders/'.$order->id)->with('success','Order cancelled â€” stock restored and seller/admin see the same status.');
 })->whereNumber('id');
 

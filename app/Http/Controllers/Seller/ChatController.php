@@ -10,19 +10,25 @@ use Illuminate\Http\Request;
 
 class ChatController extends Controller
 {
+    private function conversationsForSeller(int $sellerId)
+    {
+        return Conversation::query()->where(function ($scope) use ($sellerId) {
+            $scope->where('seller_id', $sellerId)
+                ->orWhere(function ($legacy) use ($sellerId) {
+                    $legacy->whereNull('seller_id')->whereHas('messages', function ($messages) use ($sellerId) {
+                        $messages->where(function ($participant) use ($sellerId) {
+                            $participant->where('sender_id', $sellerId)->orWhere('receiver_id', $sellerId);
+                        });
+                    });
+                });
+        });
+    }
+
     public function index()
     {
         $sellerId = auth()->id();
 
-        $conversations = Conversation::with(['buyer', 'lastMessage.sender'])
-            ->where(function ($q) use ($sellerId) {
-                $q->where('seller_id', $sellerId)
-                    ->orWhereHas('buyer', function ($buyer) use ($sellerId) {
-                        $buyer->whereHas('orders.items', function ($items) use ($sellerId) {
-                            $items->where('seller_id', $sellerId);
-                        });
-                    });
-            })
+        $conversations = $this->conversationsForSeller($sellerId)->with(['buyer', 'lastMessage.sender'])
             ->withCount(['messages as unread_count' => function ($q) use ($sellerId) {
                 $q->where('is_read', false)->where('sender_id', '!=', $sellerId);
             }])
@@ -36,15 +42,8 @@ class ChatController extends Controller
     {
         $sellerId = auth()->id();
 
-        $conversation = Conversation::with(['buyer', 'messages.sender'])
-            ->where(function ($q) use ($sellerId) {
-                $q->where('seller_id', $sellerId)
-                    ->orWhereHas('buyer', function ($buyer) use ($sellerId) {
-                        $buyer->whereHas('orders.items', function ($items) use ($sellerId) {
-                            $items->where('seller_id', $sellerId);
-                        });
-                    });
-            })
+        $conversation = $this->conversationsForSeller($sellerId)
+            ->with(['buyer', 'messages.sender'])
             ->findOrFail($id);
 
         // Mark the buyer's messages as read by the seller.
@@ -70,14 +69,7 @@ class ChatController extends Controller
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
-        $conversation = Conversation::where(function ($q) use ($sellerId) {
-            $q->where('seller_id', $sellerId)
-                ->orWhereHas('buyer', function ($buyer) use ($sellerId) {
-                    $buyer->whereHas('orders.items', function ($items) use ($sellerId) {
-                        $items->where('seller_id', $sellerId);
-                    });
-                });
-        })->findOrFail($id);
+        $conversation = $this->conversationsForSeller($sellerId)->findOrFail($id);
 
         if (! $conversation->seller_id) {
             $conversation->update(['seller_id' => $sellerId]);

@@ -1,7 +1,9 @@
 <x-app-layout>
-    <div class="flex items-center gap-4 mb-6">
+    @include('logistics.partials.delivery-theme')
+    <div class="logistics-deliveries delivery-page-scan">
+    <div class="delivery-head">
         <a href="{{ route('deliveries.index') }}"
-           class="p-2 bg-white border border-gray-200 rounded-xl text-gray-500 hover:text-teal-dark hover:border-teal transition shadow-sm" aria-label="Back to deliveries">
+           class="delivery-back" aria-label="Back to deliveries">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>
@@ -24,13 +26,12 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6"
+    <div class="delivery-scan-grid grid gap-6"
          x-data="scanParcel()"
-         x-init="init()"
          x-cloak>
 
         {{-- Camera / Scanner --}}
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+        <div class="delivery-panel lg:col-span-2 p-4 sm:p-6">
             <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
                 <div class="flex items-center gap-2">
                     <div class="h-2 w-1 rounded-full bg-teal"></div>
@@ -43,7 +44,7 @@
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                         <span x-text="state === 'done' ? 'Scan Another Parcel' : 'Start Camera'"></span>
                     </button>
-                    <button type="button" x-show="state === 'running'" x-cloak
+                    <button type="button" x-show="state === 'running' || state === 'starting'" x-cloak
                             @click="stop()"
                             class="inline-flex items-center gap-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
@@ -52,11 +53,11 @@
                 </div>
             </div>
 
-            <div class="relative overflow-hidden rounded-xl bg-gray-900 aspect-video">
-                <video ref="video" autoplay playsinline muted
+            <div class="delivery-camera relative overflow-hidden aspect-video">
+                <video x-ref="video" autoplay playsinline muted
                        x-show="state === 'running' || state === 'starting'" x-cloak
                        class="absolute inset-0 w-full h-full object-cover"></video>
-                <canvas ref="canvas" class="hidden"></canvas>
+                <canvas x-ref="canvas" class="hidden"></canvas>
 
                 {{-- Scan guide overlay --}}
                 <div x-show="state === 'running'" x-cloak
@@ -99,10 +100,10 @@
         </div>
 
         {{-- Result / Manual entry --}}
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6 flex flex-col gap-5">
+        <div class="delivery-panel delivery-scan-sidebar flex flex-col">
 
             {{-- Verification result --}}
-            <div x-show="result" x-cloak tabindex="-1" ref="resultPanel" class="rounded-2xl outline-none">
+            <div x-show="result" x-cloak tabindex="-1" x-ref="resultPanel" class="delivery-scan-result rounded-2xl outline-none">
                 <template x-if="result">
                     <div :class="alreadyScanned ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'"
                          class="rounded-2xl border p-4">
@@ -140,7 +141,7 @@
             {{-- Registered parcels awaiting scan: gives the operator a valid
                  tracking number to test manual entry with, and a clear empty
                  state when nothing is ready at this center. --}}
-            <div x-show="!result" x-cloak class="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
+            <div x-show="!result" x-cloak class="delivery-scan-queue rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
                 <div class="flex items-center justify-between gap-3 mb-2">
                     <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Parcels Awaiting Scan</h3>
                     <span class="text-[11px] text-gray-400">{{ $awaitingScan->count() }} shown</span>
@@ -164,7 +165,7 @@
             </div>
 
             {{-- Manual entry fallback --}}
-            <div class="mt-auto">
+            <div class="delivery-manual">
                 <div class="flex items-center gap-2 mb-3">
                     <div class="h-2 w-1 rounded-full bg-teal"></div>
                     <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Manual Entry</h3>
@@ -182,7 +183,7 @@
                         <button type="submit"
                                 :disabled="busy"
                                 class="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                            Verify Manually
+                            Verify parcel
                         </button>
                     </div>
                     <p class="mt-1 text-xs text-gray-400">Format: <span class="font-mono">TRK-</span> followed by the date and 4-character code.</p>
@@ -245,6 +246,7 @@
                     _lastHandledAt: 0,
                     _canvas: null,
                     _ctx: null,
+                    _cameraRequest: 0,
 
                     init() {
                         window.addEventListener('beforeunload', () => this.stopCamera());
@@ -281,12 +283,17 @@
                             this.alertText = 'Camera scanning is not available in this browser. Use the manual entry field below instead.';
                             return;
                         }
+                        const cameraRequest = ++this._cameraRequest;
                         this.state = 'starting';
                         this.message = 'Requesting camera access…';
                         navigator.mediaDevices.getUserMedia({
                             video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
                             audio: false,
                         }).then(stream => {
+                            if (cameraRequest !== this._cameraRequest || document.hidden) {
+                                stream.getTracks().forEach(track => track.stop());
+                                return;
+                            }
                             this._stream = stream;
                             const video = this.$refs.video;
                             video.srcObject = stream;
@@ -294,6 +301,7 @@
                             this.message = 'Point the camera at the parcel QR code and hold steady.';
                             this._raf = requestAnimationFrame(() => this.tick());
                         }).catch(err => {
+                            if (cameraRequest !== this._cameraRequest) return;
                             const name = err && err.name;
                             if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
                                 this.state = 'denied';
@@ -315,6 +323,7 @@
                     },
 
                     stopCamera() {
+                        this._cameraRequest++;
                         if (this._raf) { cancelAnimationFrame(this._raf); this._raf = 0; }
                         if (this._stream) {
                             this._stream.getTracks().forEach(t => t.stop());
@@ -427,8 +436,11 @@
                             this.message = '';
                             this.alertText = '';
                             this.$nextTick(() => {
-                                const el = this.$refs.resultPanel;
-                                if (el) el.focus({ preventScroll: true });
+                                // x-show reveals the panel on the next frame.
+                                requestAnimationFrame(() => {
+                                    const el = this.$refs.resultPanel;
+                                    if (el && this.result) el.focus({ preventScroll: true });
+                                });
                             });
                         } else {
                             this.state = 'error';
@@ -467,4 +479,5 @@
             };
         </script>
     @endpush
+    </div>
 </x-app-layout>

@@ -1,5 +1,11 @@
 @extends('layouts.website')
 @section('content')
+<style>
+  .checkout-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:16px;margin-top:12px}
+  .checkout-grid>div{min-width:0;overflow-wrap:anywhere}
+  .checkout-grid select{min-width:0;max-width:100%}
+  @media(max-width:767.98px){.checkout-grid{grid-template-columns:minmax(0,1fr)}}
+</style>
 @php
   $buyer = session('buyer');
   $single = $single ?? null;
@@ -12,7 +18,7 @@
 @endphp
 @if(session('error'))<div style="background:#fef2f2;color:#991b1b;padding:10px;border-radius:8px;border:1px solid #fecaca;margin-bottom:10px;font-size:13px;font-weight:600">{{ session('error') }}</div>@endif
 <h2 style="font-weight:800">Checkout</h2>
-<div style="display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin-top:12px">
+<div class="checkout-grid">
   <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px">
     <h3 style="margin:0 0 10px;font-size:14px">Payment method</h3>
     <form method="POST" action="{{ url('/checkout') }}">
@@ -102,7 +108,7 @@
   </div>
   <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px">
     <h3 style="margin:0 0 10px;font-size:14px">Order summary</h3>
-    @if($checkoutMode === 'all')
+    @if(in_array($checkoutMode, ['all', 'selected']))
       @php $orderNum = 1; @endphp
       @foreach($sellerGroups as $sid => $group)
         <div style="margin-bottom:12px;{{ !$loop->last ? 'padding-bottom:12px;border-bottom:1px solid var(--border-light)' : '' }}">

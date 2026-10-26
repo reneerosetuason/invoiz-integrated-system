@@ -54,10 +54,12 @@
                 <div class="pprice wish-price">₱{{ number_format($p->price, 2) }}</div>
                 <div class="wish-actions">
                   @if($p->status === 'active')
-                    <a href="{{ url('/cart/add/'.$p->id) }}" class="btn-p bfp-action wish-add">
+                    <form method="POST" action="{{ url('/cart/add/'.$p->id) }}">@csrf
+                    <button type="submit" class="btn-p bfp-action wish-add">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                       Add to cart
-                    </a>
+                    </button>
+                    </form>
                   @else
                     <span class="wish-unavailable">Unavailable</span>
                   @endif

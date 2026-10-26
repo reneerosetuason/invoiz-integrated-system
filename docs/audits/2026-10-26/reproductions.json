@@ -1,0 +1,58 @@
+{
+    "partial_return_stock": {
+        "ordered": 5,
+        "returned": 1,
+        "initial_stock": 10,
+        "expected_stock": 11,
+        "actual_stock": 15
+    },
+    "repeated_return_after_refund": {
+        "second_request_status": 201,
+        "requests_for_same_line": 2
+    },
+    "replayed_refund": {
+        "order_total": 500,
+        "actual_ledger_refunded": "1100",
+        "dispute_status": "resolved"
+    },
+    "sale_seller_identity": {
+        "seller_row_id": 5,
+        "seller_user_id": 101,
+        "product_seller_id": 101,
+        "expected_price": 80,
+        "actual_price": 100
+    },
+    "api_cart_sale_price": {
+        "checkout_unit": 80,
+        "cart_unit": 100
+    },
+    "cross_seller_chat_visibility": {
+        "viewer_seller": 101,
+        "thread_owner_seller": 102,
+        "visible_thread_ids": [
+            1
+        ]
+    },
+    "buyer_cancellation_shipment": {
+        "order_status": "cancelled",
+        "delivery_status": "waiting_for_rider",
+        "pickup_request_status": "pending"
+    },
+    "order_history_note": {
+        "expected_note": "Cancelled by buyer: Changed my mind",
+        "saved_note": null,
+        "saved_notes": null
+    },
+    "same_second_order_numbers": {
+        "first_order_created": true,
+        "second_order_unique_constraint_failure": true
+    },
+    "withdrawal_approval_atomicity": {
+        "payout_creation_failed": true,
+        "withdrawal_status_after_failure": "approved"
+    },
+    "refund_failure_reported_success": {
+        "ledger_table_unavailable": true,
+        "return_status_after_failure": "refunded"
+    }
+}

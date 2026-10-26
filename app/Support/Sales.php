@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Product;
 use App\Models\ProductSale;
 use App\Models\Sale;
+use App\Models\Seller;
 
 /**
  * Seller store sales. At most one sale runs per seller; the buyer sees the
@@ -21,7 +22,10 @@ class Sales
         }
 
         try {
-            return Sale::where('seller_id', $sellerId)
+            $seller = Seller::where('user_id', $sellerId)->first() ?? Seller::find($sellerId);
+            $sellerIds = $seller ? $seller->catalogIds() : [$sellerId];
+
+            return Sale::whereIn('seller_id', $sellerIds)
                 ->where('status', 'active')
                 ->where(function ($q) {
                     $q->whereNull('starts_at')->orWhere('starts_at', '<=', now());

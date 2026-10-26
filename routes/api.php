@@ -36,8 +36,12 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::get('/me', [App\Http\Controllers\Api\AuthController::class, 'me']);
     Route::get('/cart', [App\Http\Controllers\Api\CartController::class, 'index']);
     Route::post('/cart/add', [App\Http\Controllers\Api\CartController::class, 'add']);
+    Route::patch('/cart/{id}', [App\Http\Controllers\Api\CartController::class, 'update'])->whereNumber('id');
+    Route::delete('/cart/{id}', [App\Http\Controllers\Api\CartController::class, 'destroy'])->whereNumber('id');
+    Route::delete('/cart', [App\Http\Controllers\Api\CartController::class, 'clear']);
     Route::apiResource('addresses', App\Http\Controllers\Api\AddressController::class)->only(['index', 'store', 'update', 'destroy']);
     Route::get('/orders', [App\Http\Controllers\Api\OrderController::class, 'index']);
+    Route::get('/orders/{id}', [App\Http\Controllers\Api\OrderController::class, 'show'])->whereNumber('id');
     Route::post('/orders/checkout', [App\Http\Controllers\Api\OrderController::class, 'checkout']);
     Route::post('/orders/{id}/cancel', [App\Http\Controllers\Api\OrderController::class, 'cancel'])->whereNumber('id');
     Route::post('/orders/{id}/rate', [App\Http\Controllers\Api\OrderController::class, 'rate'])->whereNumber('id');

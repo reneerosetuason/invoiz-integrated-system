@@ -51,9 +51,10 @@ body{background:#F7F6F2}
 .shopx .shead h2{font-family:'Fraunces',Georgia,serif;font-weight:560;font-size:clamp(24px,2.4vw,32px);color:#0E4A57;margin:8px 0 0;letter-spacing:-.01em}
 .shopx .shead .count{font-size:13px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums}
 /* ---------- PRODUCT GRID ---------- */
-.shopx .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:18px}
-@media(max-width:1024px){.shopx .pgrid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:640px){.shopx .pgrid{grid-template-columns:repeat(2,1fr);gap:16px}}
+.shopx .pgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;margin-top:18px}
+.shopx .pcard-wrap{min-width:0}
+@media(max-width:1024px){.shopx .pgrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.shopx .pgrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}}
 .shopx .pcard,.wishlistx .pcard{display:flex;flex-direction:column;background:#fff;border:1px solid var(--hair);border-radius:14px;overflow:hidden;text-decoration:none;color:inherit;transition:transform .25s var(--ease),box-shadow .25s ease,border-color .25s ease}
 .shopx .pcard:hover,.wishlistx .pcard:hover{transform:translateY(-4px);border-color:rgba(15,76,92,.35);box-shadow:0 14px 34px -18px rgba(10,47,58,.35) /* taste-skill-ignore: hover-only press feedback, none at rest */}
 .shopx .pimg,.wishlistx .pimg{aspect-ratio:4/5;background:#F3F0E9;overflow:hidden}
@@ -178,8 +179,9 @@ body{background:#F7F6F2}
 }
 /* Stepper: quiet 36px pill; hit area stretched toward 44px via padding. */
 .cartx .step{display:inline-flex;align-items:center;gap:2px;height:36px;border:1px solid var(--hair);border-radius:999px;padding:0 5px;background:#fff}
-.cartx .step a,.cartx .step .stepdis{width:26px;height:26px;padding:9px;margin:-9px;border-radius:50%;display:grid;place-items:center;text-decoration:none;color:var(--ink);font-weight:800;font-size:13px;line-height:1;background:transparent;border:none;cursor:pointer;font-family:inherit;box-sizing:content-box}
-.cartx .step a:hover{background:rgba(22,105,122,.08);color:#0E4A57}
+.cartx .step form{margin:0;display:flex}
+.cartx .step button,.cartx .step .stepdis{width:26px;height:26px;padding:9px;margin:-9px;border-radius:50%;display:grid;place-items:center;text-decoration:none;color:var(--ink);font-weight:800;font-size:13px;line-height:1;background:transparent;border:none;cursor:pointer;font-family:inherit;box-sizing:content-box}
+.cartx .step button:hover{background:rgba(22,105,122,.08);color:#0E4A57}
 .cartx .step .stepdis{color:#B9B3A5;cursor:not-allowed}
 .cartx .step .qv{min-width:26px;text-align:center;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
 /* Remove: quiet text button, brick on hover/focus. */
@@ -336,6 +338,7 @@ body{background:#F7F6F2}
 .wishlistx .pname{min-height:44px;font-size:16px;line-height:1.35;text-decoration:none}
 .wishlistx .pprice{margin-top:auto;padding-top:6px;font-size:16px;white-space:nowrap}
 .wish-actions{display:flex;min-width:0;margin-top:8px}
+.wish-actions>form{width:100%;margin:0}
 .wish-actions .bfp-action,.wish-unavailable{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-width:0;min-height:44px;padding:8px 10px;border:0;border-radius:12px;background:#EAF3F2;color:var(--tealdeep);font-size:13px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;white-space:nowrap;transition:transform .2s var(--ease),background-color .2s ease}
 .wish-actions .bfp-action:hover{background:#DDEBE9}
 .wish-actions .bfp-action:active{transform:scale(.98)}

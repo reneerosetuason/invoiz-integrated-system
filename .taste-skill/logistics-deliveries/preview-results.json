@@ -1,0 +1,164 @@
+[
+  {
+    "name": "list",
+    "width": 1440,
+    "title": "Deliveries",
+    "scroll": 1440,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "create",
+    "width": 1440,
+    "title": "Create New Delivery",
+    "scroll": 1440,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "details",
+    "width": 1440,
+    "title": "Delivery Details",
+    "scroll": 1440,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "edit",
+    "width": 1440,
+    "title": "Edit Delivery",
+    "scroll": 1440,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "archived",
+    "width": 1440,
+    "title": "Archived Deliveries",
+    "scroll": 1440,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "scanner",
+    "width": 1440,
+    "title": "Parcel Scanner",
+    "scroll": 1440,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "list",
+    "width": 390,
+    "title": "Deliveries",
+    "scroll": 390,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "create",
+    "width": 390,
+    "title": "Create New Delivery",
+    "scroll": 390,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "details",
+    "width": 390,
+    "title": "Delivery Details",
+    "scroll": 390,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "edit",
+    "width": 390,
+    "title": "Edit Delivery",
+    "scroll": 390,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "archived",
+    "width": 390,
+    "title": "Archived Deliveries",
+    "scroll": 390,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "scanner",
+    "width": 390,
+    "title": "Parcel Scanner",
+    "scroll": 390,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "list",
+    "width": 320,
+    "title": "Deliveries",
+    "scroll": 320,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "create",
+    "width": 320,
+    "title": "Create New Delivery",
+    "scroll": 320,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "details",
+    "width": 320,
+    "title": "Delivery Details",
+    "scroll": 320,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "edit",
+    "width": 320,
+    "title": "Edit Delivery",
+    "scroll": 320,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "archived",
+    "width": 320,
+    "title": "Archived Deliveries",
+    "scroll": 320,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "name": "scanner",
+    "width": 320,
+    "title": "Parcel Scanner",
+    "scroll": 320,
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  }
+]

@@ -24,7 +24,7 @@ class CartController extends Controller
             ->with(['product.category', 'variant'])
             ->get()
             ->map(function ($item) {
-                $item->unit_price = $item->product->price + ($item->variant?->price_adjustment ?? 0);
+                $item->unit_price = Cart::unitFor($item->product, $item->variant);
                 $item->line_total = round($item->unit_price * $item->quantity, 2);
                 return $item;
             });

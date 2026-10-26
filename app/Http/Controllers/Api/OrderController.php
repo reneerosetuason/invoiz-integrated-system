@@ -275,21 +275,7 @@ class OrderController extends Controller
 
         $labels = ['changed_mind'=>'Changed my mind','ordered_by_mistake'=>'Ordered by mistake','found_better_price'=>'Found a better price','delivery_too_long'=>'Delivery is taking too long','wrong_item'=>'I ordered the wrong item','other'=>'Other'];
         $reason = $labels[$validated['reason']] . ($validated['reason'] === 'other' ? ': '.trim($validated['reason_details']) : '');
-        $fromStatus = $order->status;
-        $order->update(['status' => 'cancelled', 'cancellation_reason' => $reason]);
-
-        OrderStatusHistory::create([
-            'order_id'   => $order->id,
-            'from_status' => $fromStatus,
-            'to_status'  => 'cancelled',
-            'note'       => 'Cancelled by buyer: '.$reason,
-            'created_at' => now(),
-        ]);
-
-        // Only pre-shipment cancels give stock back (pending/confirmed reach here).
-        \App\Support\Stock::restoreOrder($order->fresh('items'));
-        \App\Support\Payments::voidForCancel($order);
-        \App\Support\Vouchers::restoreForOrder($order);
+        \App\Support\OrderCancellation::byBuyer($order, $reason, (int) $request->user()->id);
 
         return response()->json(['message' => 'Order cancelled.']);
     }
@@ -345,51 +331,65 @@ class OrderController extends Controller
             'quantity'       => ['nullable', 'integer', 'min:1', 'max:9999'],
         ]);
 
-        $order = Order::with('items')->where('buyer_id', $request->user()->id)->findOrFail($id);
+        return DB::transaction(function () use ($request, $validated, $id) {
+            $order = Order::with('items')->where('buyer_id', $request->user()->id)->lockForUpdate()->findOrFail($id);
 
-        if ($order->status !== 'delivered') {
-            return response()->json(['message' => 'You can only request a return after the order is delivered.'], 422);
-        }
+            if ($order->status !== 'delivered') {
+                return response()->json(['message' => 'You can only request a return after the order is delivered.'], 422);
+            }
 
-        $windowDays = max(1, (int) \App\Models\Setting::get('return_window_days', 7));
-        if ($order->updated_at && $order->updated_at->lt(now()->subDays($windowDays))) {
-            return response()->json(['message' => "The return window ({$windowDays} days after delivery) has closed."], 422);
-        }
+            $windowDays = max(1, (int) \App\Models\Setting::get('return_window_days', 7));
+            if ($order->updated_at && $order->updated_at->lt(now()->subDays($windowDays))) {
+                return response()->json(['message' => "The return window ({$windowDays} days after delivery) has closed."], 422);
+            }
 
-        $item = $order->items->firstWhere('product_id', (int) $validated['product_id']);
-        if (! $item) {
-            return response()->json(['message' => 'That product is not part of this order.'], 422);
-        }
+            $item = $order->items->firstWhere('product_id', (int) $validated['product_id']);
+            if (! $item) {
+                return response()->json(['message' => 'That product is not part of this order.'], 422);
+            }
 
-        $open = ReturnRequest::where('order_id', $order->id)
-            ->where('order_item_id', $item->id)
-            ->whereIn('status', ['requested', 'approved', 'item_received'])
-            ->exists();
-        if ($open) {
-            return response()->json(['message' => 'You already have an open return for this item.'], 409);
-        }
+            $open = ReturnRequest::where('order_id', $order->id)
+                ->where('order_item_id', $item->id)
+                ->whereIn('status', ['requested', 'approved', 'item_received'])
+                ->exists();
+            if ($open) {
+                return response()->json(['message' => 'You already have an open return for this item.'], 409);
+            }
 
-        $qty = min((int) ($validated['quantity'] ?? $item->quantity), (int) $item->quantity);
-        $unit = (float) ($item->unit_price ?? $item->price ?? 0);
-        $refund = round($unit * $qty, 2);
+            $completed = ReturnRequest::where('order_item_id', $item->id)->where('status', 'refunded');
+            $remaining = max(0, (int) $item->quantity - (int) (clone $completed)->sum('quantity'));
+            $qty = (int) ($validated['quantity'] ?? $remaining);
+            if ($qty < 1 || $qty > $remaining) {
+                return response()->json(['message' => 'The quantity exceeds the remaining returnable items.'], 422);
+            }
+            $sellerSubtotal = $order->sellerSubtotal((int) $item->seller_id);
+            $discount = $sellerSubtotal > 0
+                ? $order->voucherDiscountForSeller((int) $item->seller_id) * $item->lineTotal / $sellerSubtotal
+                : 0;
+            $lineNet = round(max(0, $item->lineTotal - $discount), 2);
+            $remainingRefund = round(max(0, $lineNet - (float) (clone $completed)->sum('refund_amount')), 2);
+            $refund = $qty === $remaining
+                ? $remainingRefund
+                : min(round($lineNet * $qty / $item->quantity, 2), $remainingRefund);
 
-        $return = ReturnRequest::create([
-            'order_id'      => $order->id,
-            'order_item_id' => $item->id,
-            'buyer_id'      => $request->user()->id,
-            'seller_id'     => $item->seller_id,
-            'product_id'    => $item->product_id,
-            'quantity'      => $qty,
-            'reason'        => $validated['reason'],
-            'reason_details' => $validated['reason_details'] ?? null,
-            'refund_amount' => $refund,
-            'status'        => 'requested',
-        ]);
+            $return = ReturnRequest::create([
+                'order_id'      => $order->id,
+                'order_item_id' => $item->id,
+                'buyer_id'      => $request->user()->id,
+                'seller_id'     => $item->seller_id,
+                'product_id'    => $item->product_id,
+                'quantity'      => $qty,
+                'reason'        => $validated['reason'],
+                'reason_details' => $validated['reason_details'] ?? null,
+                'refund_amount' => $refund,
+                'status'        => 'requested',
+            ]);
 
-        return response()->json([
-            'message' => 'Return requested. The seller will review it shortly.',
-            'return'  => $return,
-        ], 201);
+            return response()->json([
+                'message' => 'Return requested. The seller will review it shortly.',
+                'return'  => $return,
+            ], 201);
+        }, 3);
     }
 
     private function hideBuyerVoucherCodes($orders): void

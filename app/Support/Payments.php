@@ -165,7 +165,7 @@ class Payments
     }
 
     /** Void a pending ledger row when an unpaid order is cancelled. */
-    public static function voidForCancel(Order $order): void
+    public static function voidForCancel(Order $order, bool $strict = false): void
     {
         try {
             $tx = self::transactionFor($order);
@@ -181,55 +181,49 @@ class Payments
                 ]);
             }
         } catch (\Throwable $e) {
+            if ($strict) {
+                throw $e;
+            }
             \Log::warning('Payment void failed: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Refund (part of) an order to the buyer through the ledger. Marks the
-     * order fully refunded when the whole total is returned, otherwise
-     * partially refunded. Never throws.
-     */
-    public static function refund(Order $order, ?float $amount = null, ?string $note = null): void
+    /** Refund only the remaining balance; failures roll back the caller's transaction. */
+    public static function refund(Order $order, ?float $amount = null, ?string $note = null): float
     {
-        try {
-            $order->loadMissing('items');
-            $tx = self::transactionFor($order);
-            $total = (float) ($order->total_amount ?? $order->total ?? 0);
-
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($order, $amount, $note): float {
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->id);
+            $total = round((float) ($locked->total_amount ?? $locked->total ?? 0), 2);
+            $tx = PaymentTransaction::where('order_id', $locked->id)->lockForUpdate()->first();
+            $remaining = round(max(0, $total - (float) ($tx?->refunded_amount ?? 0)), 2);
+            if ($remaining <= 0) {
+                return 0.0;
+            }
+            if ($amount !== null && (! is_finite($amount) || $amount <= 0)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'The refund amount must be positive.']);
+            }
+            $refund = round(min($amount ?? $remaining, $remaining), 2);
             if (! $tx) {
                 $tx = PaymentTransaction::create([
-                    'order_id'        => $order->id,
-                    'transaction_ref' => 'TXN-ORDER-' . $order->id,
-                    'gateway'         => 'cash_on_delivery',
-                    'amount'          => round($total, 2),
-                    'status'          => 'pending',
+                    'order_id' => $locked->id,
+                    'transaction_ref' => 'TXN-ORDER-' . $locked->id,
+                    'gateway' => 'cash_on_delivery',
+                    'amount' => $total,
+                    'status' => 'pending',
                 ]);
             }
-
-            $refund = $amount === null ? $total : (float) $amount;
             $refundedTotal = round((float) $tx->refunded_amount + $refund, 2);
-            $full = $refundedTotal >= round($total, 2) - 0.001;
-
-            $tx->update([
-                'status'          => $full ? 'refunded' : 'partially_refunded',
-                'refunded_amount' => $refundedTotal,
-            ]);
-
-            $order->update([
-                'payment_status' => $full ? 'refunded' : 'partially_refunded',
-            ]);
-
-            if ($order->payment) {
-                $order->payment->update(['status' => $full ? 'refunded' : 'partially_refunded']);
+            $status = $refundedTotal >= $total ? 'refunded' : 'partially_refunded';
+            $tx->update(['status' => $status, 'refunded_amount' => $refundedTotal]);
+            $locked->update(['payment_status' => $status]);
+            if ($payment = $locked->payment()->lockForUpdate()->first()) {
+                $payment->update(['status' => $status]);
             }
-
             if ($note) {
-                \Log::info('Refund for order ' . $order->id . ': ' . $note);
+                \Log::info('Refund for order ' . $locked->id . ': ' . $note);
             }
-        } catch (\Throwable $e) {
-            \Log::warning('Payment refund failed: ' . $e->getMessage());
-        }
+            return $refund;
+        });
     }
 
     /**

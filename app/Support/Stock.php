@@ -119,10 +119,13 @@ class Stock
     }
 
     /** Return stock for one order line (same side it was taken from). */
-    public static function restore(OrderItem $item): void
+    public static function restore(OrderItem $item, ?int $quantity = null): void
     {
         $variantId = $item->product_variant_id ?? null;
-        $qty = max(1, (int) $item->quantity);
+        $qty = $quantity ?? max(1, (int) $item->quantity);
+        if ($qty < 1 || $qty > (int) $item->quantity) {
+            throw new \InvalidArgumentException('The restored quantity must be within the purchased quantity.');
+        }
         if ($variantId) {
             ProductVariant::where('id', $variantId)->increment('stock', $qty);
         } else {
