@@ -27,22 +27,8 @@ class HomeController extends Controller {
       'categories' => $categories->count(),
     ];
 
-    // Current buyer's cart snapshot for the hero "Current cart" card
-    $cartLines = collect();
-    $cartTotal = 0;
-    $buyer = $request->session()->get('buyer') ?? (Auth::check() ? ['id' => Auth::id()] : null);
-    if($buyer){
-      $items = \App\Models\Cart::itemsFor($buyer['id'])->get();
-      $prods = Product::whereIn('id', $items->pluck('product_id'))->get()->keyBy('id');
-      foreach($items as $it){
-        $p = $prods->get($it->product_id);
-        if(!$p) continue;
-        $line = (float)$p->price * (int)$it->quantity;
-        $cartTotal += $line;
-        $cartLines->push(['name'=>$p->name,'qty'=>(int)$it->quantity,'line'=>$line]);
-      }
-      $cartLines = $cartLines->take(3);
-    }
+    $buyer = \App\Support\BuyerSession::current();
+    [$cartLines, $cartTotal] = $this->cartPreview($buyer);
 
     $favoriteIds = $buyer ? Favorite::where('buyer_id', $buyer['id'])->pluck('product_id')->map(fn ($id) => (int) $id)->all() : [];
     return view('home', compact('products','categories','stats','cartLines','cartTotal','buyer','favoriteIds','sort') + ['saleMode' => false]);
@@ -81,21 +67,8 @@ class HomeController extends Controller {
       'categories' => $categories->count(),
     ];
 
-    $cartLines = collect();
-    $cartTotal = 0;
-    $buyer = $request->session()->get('buyer') ?? (Auth::check() ? ['id' => Auth::id()] : null);
-    if($buyer){
-      $items = \App\Models\Cart::itemsFor($buyer['id'])->get();
-      $prods = Product::whereIn('id', $items->pluck('product_id'))->get()->keyBy('id');
-      foreach($items as $it){
-        $p = $prods->get($it->product_id);
-        if(!$p) continue;
-        $line = \App\Support\Sales::priceFor($p) * (int)$it->quantity;
-        $cartTotal += $line;
-        $cartLines->push(['name'=>$p->name,'qty'=>(int)$it->quantity,'line'=>$line]);
-      }
-      $cartLines = $cartLines->take(3);
-    }
+    $buyer = \App\Support\BuyerSession::current();
+    [$cartLines, $cartTotal] = $this->cartPreview($buyer);
 
     $favoriteIds = $buyer ? Favorite::where('buyer_id', $buyer['id'])->pluck('product_id')->map(fn ($id) => (int) $id)->all() : [];
     return view('home', [
@@ -103,6 +76,14 @@ class HomeController extends Controller {
       'cartLines'=>$cartLines,'cartTotal'=>$cartTotal,'buyer'=>$buyer,'favoriteIds'=>$favoriteIds,
       'saleMode'=>true,'sort'=>$sort,
     ]);
+  }
+
+  private function cartPreview(?array $buyer): array
+  {
+    $lines = $buyer ? \App\Models\Cart::linesFor($buyer['id']) : collect();
+    return [$lines->take(3)->map(fn ($line) => [
+      'name' => $line['product']->name, 'qty' => $line['qty'], 'line' => $line['line'],
+    ])->values(), (float) $lines->sum('line')];
   }
 
   private function catalogQuery(Request $request)

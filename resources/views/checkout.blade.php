@@ -7,7 +7,7 @@
   @media(max-width:767.98px){.checkout-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 @php
-  $buyer = session('buyer');
+  $buyer = \App\Support\BuyerSession::current();
   $single = $single ?? null;
   $cartItems = $cartItems ?? collect();
   $checkoutMode = $checkoutMode ?? 'single';
@@ -33,6 +33,11 @@
         <input type="hidden" name="seller_id" value="{{ $sellerId ?? '' }}">
       @elseif($checkoutMode === 'selected')
         <input type="hidden" name="checkout_mode" value="selected">
+        @foreach($sellerGroups as $group)
+          @foreach($group['lines'] as $line)
+            <input type="hidden" name="selected_item_ids[]" value="{{ $line['item']->id }}">
+          @endforeach
+        @endforeach
       @else
         <input type="hidden" name="checkout_mode" value="all">
       @endif

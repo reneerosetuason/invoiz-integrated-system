@@ -1,9 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="lw-head flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">Riders</h1>
-                <p class="mt-1 text-sm text-gray-500">Operational rider directory (read-only)</p>
+                <p class="mt-1 text-sm text-gray-500">Find a rider, check their workload, and review availability before assigning a delivery.</p>
             </div>
         </div>
     </x-slot>
@@ -21,14 +21,14 @@
     @endphp
 
     {{-- Status Filter Tabs --}}
-    <div class="mb-4 flex flex-wrap gap-2">
+    <nav class="lw-tabs mb-4 flex flex-wrap gap-2" aria-label="Rider status">
         @foreach($tabs as $tab)
             <a href="{{ $tabUrl($tab['status']) }}"
                class="px-4 py-2 rounded-xl text-sm font-semibold transition {{ ($currentStatus === $tab['status']) || (!$currentStatus && !$tab['status']) ? 'bg-teal text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:text-teal hover:border-teal' }}">
                 {{ $tab['label'] }}
             </a>
         @endforeach
-    </div>
+    </nav>
 
     {{-- Search toolbar --}}
     <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-6">
@@ -95,8 +95,8 @@
                         <x-th-sort field="plate" label="License Plate"/>
                         <x-th-sort field="status" label="Status"/>
                         <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Availability</th>
-                        <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Active Jobs</th>
-                        <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Today Completed</th>
+                        <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Active deliveries</th>
+                        <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Completed today</th>
                         <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -156,7 +156,7 @@
                                                 <button type="submit" class="text-sm font-semibold text-emerald-600 hover:text-emerald-700">Activate</button>
                                             </form>
                                         @else
-                                            <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data x-on:submit.prevent="var reason = prompt('Reason for suspension (minimum 10 characters):'); if (reason !== null) { $el.querySelector('[name=reason]').value = reason; $el.submit(); }">
+                                            <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data data-confirm-message="Suspend this rider? They will lose access to rider tasks." data-confirm-reason="Reason for suspension" data-confirm-min-length="10">
                                                 @csrf
                                                 <input type="hidden" name="reason" value="{{ old('reason') }}">
                                                 <button type="submit" class="text-sm font-semibold text-red-500 hover:text-red-600">Suspend</button>

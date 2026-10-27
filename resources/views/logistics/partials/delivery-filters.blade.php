@@ -8,7 +8,7 @@
         <input type="hidden" name="per_page" value="{{ request('per_page', 10) }}">
         <div class="delivery-field delivery-field--search">
             <label for="delivery-search">Search deliveries</label>
-            <input id="delivery-search" type="search" name="search" value="{{ request('search') }}" placeholder="Tracking, order, name, phone or address">
+            <div class="delivery-search-control"><x-icon name="search" class="delivery-control-icon" /><input id="delivery-search" type="search" name="search" value="{{ request('search') }}" placeholder="Tracking, order, name, phone or address"></div>
         </div>
         <details open class="delivery-filter-details" data-active="{{ request()->hasAny(['date_from', 'date_to', 'rider_id', 'vehicle_type', 'center_id', 'service_area_id', 'priority', 'sort', 'dir']) ? 'true' : 'false' }}">
             <summary>More filters &amp; sorting</summary>

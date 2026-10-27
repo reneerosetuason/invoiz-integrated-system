@@ -1,9 +1,9 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="lw-head flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
-                <h2 class="text-2xl font-bold text-gray-900 leading-tight">Sorting Center</h2>
-                <p class="mt-1 text-sm text-gray-500">Receive, scan, sort, and dispatch parcels — assignment happens on the delivery record</p>
+                <h1 class="text-2xl font-bold text-gray-900 leading-tight">Sorting Center</h1>
+                <p class="mt-1 text-sm text-gray-500">Process parcels at your center. Open a delivery to assign its rider.</p>
             </div>
             <div class="flex shrink-0 items-center gap-2">
                 <a href="{{ route('sorting-center.export', array_filter(['tab' => $tab !== 'all' ? $tab : null, 'search' => $search ?: null, 'center_id' => $centerId ?: null, 'service_area_id' => $serviceAreaId ?: null])) }}"
@@ -19,6 +19,14 @@
     </x-slot>
 
     <div class="space-y-3">
+        <section class="lw-guide" aria-labelledby="sorting-workflow-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5Z M3 8v9l9 5 9-5V8 M12 13v9" stroke-linejoin="round"/></svg>
+            <div>
+                <strong id="sorting-workflow-title">Parcel processing order</strong>
+                <p>Use the tabs to find a parcel at its current stage. Available actions depend on its status and your center.</p>
+                <ol><li>Receive</li><li>Scan</li><li>Sort</li><li>Dispatch</li></ol>
+            </div>
+        </section>
         <div>
             {{-- Tabs + search + filters --}}
             <div class="space-y-3">
@@ -27,7 +35,7 @@
                     $tabs = array_intersect_key($allTabs, array_flip($availableTabs));
                 @endphp
                 <nav class="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" aria-label="Sorting center status filters">
-                    <div class="flex w-max min-w-full items-center gap-2 pb-1">
+                    <div class="lw-tabs flex flex-wrap items-center gap-2 pb-1">
                         @foreach($tabs as $key => $label)
                             <a href="{{ route('sorting-center.index', array_filter(['tab' => $key === 'all' ? null : $key, 'search' => $search ?: null, 'center_id' => $centerId ?: null, 'service_area_id' => $serviceAreaId ?: null])) }}"
                                class="inline-flex h-9 items-center justify-center whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors {{ $tab === $key ? 'bg-teal text-white shadow-sm' : 'border border-gray-200 bg-white text-gray-600 hover:border-teal hover:text-teal-dark' }}">
@@ -66,7 +74,7 @@
             {{-- Parcel table --}}
             <div class="mt-3 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
                 <div class="overflow-x-auto">
-                    <table class="min-w-[1230px] divide-y divide-gray-100 text-sm" style="width: 100%; table-layout: fixed;">
+                    <table class="min-w-[1040px] divide-y divide-gray-100 text-sm" style="width: 100%; table-layout: fixed;">
                         <colgroup>
                             <col style="width: 16%;">
                             <col style="width: 17%;">
@@ -125,7 +133,7 @@
                                         <div class="truncate whitespace-nowrap" title="{{ $delivery->rider?->name ?? '-' }}">{{ $delivery->rider?->name ?? '-' }}</div>
                                     </td>
                                     <td class="px-4 py-4 align-middle whitespace-nowrap">
-                                        <div class="flex items-center justify-end gap-2">
+                                        <div class="lw-sort-actions flex items-center justify-end gap-2">
                                             <a href="{{ route('deliveries.show', $delivery) }}"
                                                class="inline-flex h-8 items-center justify-center rounded-lg border border-teal/30 px-3 text-xs font-semibold text-teal transition hover:border-teal hover:text-teal-dark">Open</a>
                                             @php

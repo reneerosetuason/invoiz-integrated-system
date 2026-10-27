@@ -2,7 +2,7 @@
 @section('content')
 <style>@media(max-width:1023.98px){#supportChatBtn{bottom:120px}}</style>
 @php
-  $buyer = session('buyer');
+  $buyer = \App\Support\BuyerSession::current();
   // Line-based cart: each row is one CartItem (product + optional variant)
   // with its own price, stock cap and controls.
   $lines = ($buyer ? \App\Models\Cart::linesFor($buyer['id']) : collect())->values();
@@ -11,6 +11,7 @@
 <div class="cartx">
 <div class="cartwrap">
 @if(session('success'))<div class="rv" role="status" style="background:#ecfdf5;color:#065f46;padding:10px 14px;border-radius:12px;border:1px solid #a7f3d0;margin-bottom:12px;font-size:13px;font-weight:600">{{ session('success') }}</div>@endif
+@if($errors->any())<div role="alert" style="color:#991b1b;margin-bottom:12px">@foreach($errors->all() as $message)<p>{{ $message }}</p>@endforeach</div>@endif
 @if(session('error'))<div class="rv" role="alert" style="background:#fef2f2;color:#991b1b;padding:10px 14px;border-radius:12px;border:1px solid #fecaca;margin-bottom:12px;font-size:13px;font-weight:600">{{ session('error') }}</div>@endif
 @if($lines->isEmpty())
   <div class="empty rv">
@@ -56,7 +57,7 @@
             @php
               $p = $l['product']; $qty = $l['qty'];
               $hasImg = $p->image && file_exists(storage_path('app/public/'.$p->image));
-              $avail = $l['variant'] ? (int) $l['variant']->stock : (int) $p->stock;
+              $avail = \App\Models\Cart::availableFor($p, $l['variant'], $l['item']->variant_id);
               $atMax = $qty >= $avail;
               $metaParts = array_values(array_filter([$p->brand, ($p->category->name ?? '')], fn($v) => $v !== '' && $v !== null));
             @endphp
@@ -106,36 +107,8 @@
     </aside>
   </div>
   <script>
-  function toggleSeller(sellerId, checked) {
-    document.querySelectorAll('.item-check[data-seller="' + sellerId + '"]').forEach(function(cb) {
-      cb.checked = checked;
-    });
-    updateTotal();
-  }
-
-  function updateTotal() {
-    var total = 0;
-    var count = 0;
-    document.querySelectorAll('.item-check:checked').forEach(function(cb) {
-      var price = parseFloat(cb.getAttribute('data-price'));
-      var qty = parseInt(cb.getAttribute('data-qty'));
-      total += price * qty;
-      count += qty;
-    });
-    document.getElementById('selectedTotal').textContent = total.toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-    document.getElementById('selectedCount').textContent = count;
-  }
-
   function placeOrder() {
-    var ids = [];
-    document.querySelectorAll('.item-check:checked').forEach(function(cb) {
-      ids.push(cb.value);
-    });
-    if (ids.length === 0) {
-      alert('Select at least one item');
-      return;
-    }
-    window.location.href = '{{ url("/buy/selected") }}?ids=' + ids.join(',');
+    buySelected(@json(url('/buy/selected')));
   }
   </script>
 @endif

@@ -35,7 +35,6 @@ use App\Http\Controllers\Web\HomeController;
 use App\Http\Controllers\Web\AuthController as BuyerWebAuth;
 use App\Models\Product;
 use App\Models\Cart;
-use App\Models\CartItem;
 use Illuminate\Http\Request;
 
 /*
@@ -189,27 +188,13 @@ Route::post('/vouchers/{voucher}/claim', [BuyerFeaturesController::class, 'claim
 Route::post('/orders/{order}/rate/{product}', [BuyerFeaturesController::class, 'rate'])->whereNumber('order')->whereNumber('product')->name('buyer.orders.rate');
 
 Route::post('/cart/add/{id}', function($id, Request $request){
-  $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id(),'first_name'=>Auth::user()->first_name ?? '','last_name'=>Auth::user()->last_name ?? ''] : null);
+  $buyer = \App\Support\BuyerSession::current();
   if(!$buyer) return redirect('/login')->with('error','Please login to add items to cart');
-  $product = Product::find($id);
+  $request->validate(['qty' => ['nullable', 'integer', 'min:1', 'max:200'], 'variant_id' => ['nullable', 'integer', 'min:1']]);
+  $product = Product::where('status', 'active')->find($id);
   if(!$product) return redirect('/cart')->with('error','Product not found');
-  if($product->stock < 1) return redirect('/cart')->with('error','Product is out of stock');
-  $qty = max(1, min(200, $request->integer('qty', 1)));
-  $qty = min($qty, (int)$product->stock);
-  $variant = Cart::resolveVariant($product, $request->input('variant_id'));
-  if($variant && $variant->stock < 1) return redirect('/cart')->with('error','Selected variation is out of stock');
-  if($variant) $qty = min($qty, (int)$variant->stock);
-  $cart = Cart::headerFor($buyer['id']);
-  $currentQty = CartItem::where('cart_id',$cart->id)->sum('quantity');
-  if($currentQty + $qty > 200) return redirect('/cart')->with('error','Cart limit is 200 items');
-  $line = CartItem::where('cart_id',$cart->id)->where('product_id',$id)->where('variant_id', $variant ? $variant->id : null)->first();
-  // Never exceed available stock on lines already in the cart.
-  $available = $variant ? (int) $variant->stock : (int) $product->stock;
-  if($line){
-    if($line->quantity >= $available) return redirect('/cart')->with('error','Only '.$available.' available for this item.');
-    $line->update(['quantity' => min($line->quantity + $qty, $available)]);
-  }
-  else { CartItem::create(['cart_id'=>$cart->id,'product_id'=>$id,'variant_id'=>$variant ? $variant->id : null,'quantity'=>$qty]); }
+  $variant = Cart::purchaseVariant($product, $request->input('variant_id'));
+  if($error = Cart::addFor($buyer['id'], $product, $variant, (int)($request->input('qty') ?? 1))) return redirect('/cart')->with('error', $error);
   $product->trackCartAddition();
   return redirect('/cart')->with('success','Added to cart');
 });
@@ -217,41 +202,30 @@ Route::post('/cart/add/{id}', function($id, Request $request){
 Route::get('/buy/{id}', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to buy');
-  $product = Product::find($id);
+  $request->validate(['qty' => ['nullable', 'integer', 'min:1', 'max:200'], 'variant_id' => ['nullable', 'integer', 'min:1']]);
+  $product = Product::where('status', 'active')->find($id);
   if(!$product) return redirect('/shop')->with('error','Product not found');
-  if($product->stock < 1) return back()->with('error','Product is out of stock');
   $qty = max(1, min(200, $request->integer('qty', 1)));
-  $qty = min($qty, (int)$product->stock);
-  $variant = Cart::resolveVariant($product, $request->input('variant_id'));
-  if($variant && (int)$variant->stock > 0) $qty = min($qty, (int)$variant->stock);
+  $variant = Cart::purchaseVariant($product, $request->input('variant_id'));
+  $available = Cart::availableFor($product, $variant);
+  if($available < 1) return back()->with('error', 'This item is out of stock.');
+  $qty = min($qty, $available);
   session(['checkout_single'=>['id'=>(int)$id,'qty'=>$qty,'variant_id'=>$variant ? $variant->id : null]]);
   session()->forget(['checkout_seller_id','checkout_all','checkout_selected']);
   return redirect('/checkout?single='.$id);
 })->whereNumber('id');
 
 Route::post('/cart/inc/{item}', function($item){
-  $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
+  $buyer = \App\Support\BuyerSession::current();
   if(!$buyer) return redirect('/login');
-  $line = Cart::itemsFor($buyer['id'])->where('id',$item)->first();
-  if(!$line) return redirect('/cart')->with('error','Item not found in cart.');
-  $line->loadMissing(['product','variant']);
-  $product = $line->product;
-  if(!$product) { $line->delete(); return redirect('/cart'); }
-  $variant = $line->variant;
-  if($variant && (int)$variant->stock < 1) return redirect('/cart')->with('error','This variation is out of stock.');
-  if(!$variant && (int)$product->stock < 1) return redirect('/cart')->with('error','This product is out of stock.');
-  $available = $variant ? (int) $variant->stock : (int) $product->stock;
-  if($line->quantity >= $available) return redirect('/cart')->with('error','Only '.$available.' available for this item.');
-  $line->increment('quantity');
+  if($error = Cart::increaseFor($buyer['id'], (int)$item)) return redirect('/cart')->with('error', $error);
   return redirect('/cart')->with('success','Added to cart');
 });
 
 Route::post('/cart/dec/{item}', function($item){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login');
-  // Accept cart-item id (normal) OR product id (cart view buttons).
-  $line = Cart::itemsFor($buyer['id'])->where('id',$item)->first()
-    ?? Cart::itemsFor($buyer['id'])->where('product_id',$item)->first();
+  $line = Cart::itemsFor($buyer['id'])->where('id',$item)->first();
   if($line){ if($line->quantity <= 1) $line->delete(); else $line->decrement('quantity'); }
   return redirect('/cart');
 });
@@ -259,9 +233,7 @@ Route::post('/cart/dec/{item}', function($item){
 Route::post('/cart/remove/{item}', function($item){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login');
-  $q = Cart::itemsFor($buyer['id']);
-  $deleted = (clone $q)->where('id',$item)->delete();
-  if(! $deleted) $q->where('product_id',$item)->delete();
+  Cart::itemsFor($buyer['id'])->where('id',$item)->delete();
   return redirect('/cart');
 });
 
@@ -290,11 +262,11 @@ Route::get('/buy/selected', function(Request $request){
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $ids = $request->input('ids');
   if(!$ids) return redirect('/cart')->with('error','No items selected');
+  $request->validate(['ids' => ['required', 'string', 'max:2000', 'regex:/^\d+(,\d+)*$/']]);
   $idArr = array_map('intval', explode(',', $ids));
-  // Cart view sends product ids; also accept cart-item ids.
-  $lines = Cart::linesFor($buyer['id'])->filter(fn($l) => in_array($l['item']->id, $idArr) || in_array($l['product']->id, $idArr));
+  $lines = Cart::selectedLinesFor($buyer['id'], $idArr);
   if($lines->isEmpty()) return redirect('/cart')->with('error','Selected items not found in cart');
-  session(['checkout_selected' => $idArr]);
+  session(['checkout_selected' => $lines->pluck('item.id')->map(fn ($id) => (int) $id)->all()]);
   session()->forget(['checkout_single','checkout_seller_id','checkout_all']);
   return redirect('/checkout?selected=1');
 });
@@ -311,6 +283,7 @@ Route::get('/cart', function(){
 Route::get('/checkout', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to checkout');
+  $request->validate(['single' => ['nullable', 'integer', 'min:1'], 'qty' => ['nullable', 'integer', 'min:1', 'max:200'], 'variant_id' => ['nullable', 'integer', 'min:1'], 'ids' => ['nullable', 'string', 'max:2000', 'regex:/^\d+(,\d+)*$/']]);
   $claimedVouchers = \App\Models\VoucherClaim::with('voucher')
     ->where('buyer_id', $buyer['id'])->whereNull('used_at')
     ->whereHas('voucher', fn ($q) => $q->active()->where(fn ($x) => $x->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit')))
@@ -319,12 +292,21 @@ Route::get('/checkout', function(Request $request){
   $addresses = \App\Models\Address::where('buyer_id', $buyer['id'])->orderByDesc('is_default')->orderByDesc('updated_at')->get();
   $selectedAddressId = old('address_id', $request->input('address_id', $addresses->firstWhere('is_default', true)?->id));
   if($request->filled('single') || session()->has('checkout_single')){
-    $raw = $request->filled('single') ? ['id'=>$request->integer('single'),'qty'=>$request->integer('qty',1),'variant_id'=>$request->input('variant_id')] : session('checkout_single');
+    $saved = session('checkout_single');
+    if(!is_array($saved)) $saved = ['id'=>(int)$saved,'qty'=>1,'variant_id'=>null];
+    $sameProduct = $request->integer('single') === (int)($saved['id'] ?? 0);
+    $raw = $request->filled('single')
+      ? ['id'=>$request->integer('single'),'qty'=>$request->integer('qty', $sameProduct ? (int)($saved['qty'] ?? 1) : 1),'variant_id'=>$request->input('variant_id', $sameProduct ? ($saved['variant_id'] ?? null) : null)]
+      : $saved;
     if(!is_array($raw)) $raw = ['id'=>(int)$raw,'qty'=>1,'variant_id'=>null];
-    $p = Product::find($raw['id'] ?? 0);
+    $p = Product::where('status', 'active')->find($raw['id'] ?? 0);
     if(!$p) return redirect('/cart')->with('error','Product not found');
-    $variant = Cart::resolveVariant($p, $raw['variant_id'] ?? null);
+    $variant = Cart::purchaseVariant($p, $raw['variant_id'] ?? null);
     $qty = max(1, min(200, (int)($raw['qty'] ?? 1)));
+    $available = Cart::availableFor($p, $variant);
+    if($available < 1) return redirect('/cart')->with('error', 'This item is out of stock.');
+    $qty = min($qty, $available);
+    session(['checkout_single'=>['id'=>$p->id,'qty'=>$qty,'variant_id'=>$variant?->id]]);
     $unit = Cart::unitFor($p, $variant);
     return view('checkout',['products'=>collect([$p]),'single'=>$p->id,'singleQty'=>$qty,'singleUnit'=>$unit,'singleVariantId'=>$variant ? $variant->id : null,'singleLabel'=>Cart::labelFor($variant),'cartItems'=>collect(),'checkoutMode'=>'single','addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
@@ -349,8 +331,8 @@ Route::get('/checkout', function(Request $request){
     return view('checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'all','sellerGroups'=>$sellerGroups,'grandTotal'=>$grandTotal,'addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
   if($request->filled('selected') || session()->has('checkout_selected')){
-    $idArr = session('checkout_selected', array_map('intval', explode(',', $request->input('ids',''))));
-    $lines = Cart::linesFor($buyer['id'])->filter(fn($l) => in_array($l['item']->id, $idArr) || in_array($l['product']->id, $idArr));
+    $idArr = session()->has('checkout_selected') ? (array) session('checkout_selected') : array_map('intval', explode(',', (string)$request->input('ids','')));
+    $lines = Cart::selectedLinesFor($buyer['id'], $idArr);
     if($lines->isEmpty()) return redirect('/cart')->with('error','Selected items not found in cart');
     $bySeller = $lines->groupBy(fn($l) => $l['product']->seller_id);
     $sellerGroups = [];
@@ -369,6 +351,13 @@ Route::post('/checkout', function(Request $request){
   $request->validate([
     'address_id' => ['required', 'integer'],
     'payment_method' => ['required', 'in:cod'],
+    'checkout_mode' => ['nullable', 'in:single,seller,all,selected'],
+    'single' => ['nullable', 'integer', 'min:1'],
+    'qty' => ['nullable', 'integer', 'min:1', 'max:200'],
+    'variant_id' => ['nullable', 'integer', 'min:1'],
+    'seller_id' => ['nullable', 'integer', 'min:1'],
+    'selected_item_ids' => ['sometimes', 'array', 'min:1', 'max:200'],
+    'selected_item_ids.*' => ['integer', 'min:1', 'distinct'],
     'voucher_claim_id' => ['nullable', 'integer', 'exists:voucher_claims,id'],
     'voucher_claim_ids' => ['nullable', 'array', 'max:3'],
     'voucher_claim_ids.*' => ['integer', 'exists:voucher_claims,id'],
@@ -406,14 +395,16 @@ Route::post('/checkout', function(Request $request){
       $claimsByVoucher = $claims->keyBy('voucher_id');
     }
     if($checkoutMode === 'single'){
-      $raw = session('checkout_single');
-      if(!is_array($raw)) $raw = ['id'=>$request->input('single'),'qty'=>$request->input('qty',1),'variant_id'=>$request->input('variant_id')];
-      $product = Product::find((int)($raw['id'] ?? 0));
+      $raw = $request->filled('single')
+        ? ['id'=>$request->integer('single'),'qty'=>$request->integer('qty',1),'variant_id'=>$request->input('variant_id')]
+        : session('checkout_single');
+      if(!is_array($raw)) throw new \Exception('Choose an item before checking out.');
+      $product = Product::where('status', 'active')->find((int)($raw['id'] ?? 0));
       if(!$product) throw new \Exception('Product not found');
       if ($pickupProblem = \App\Support\DeliveryServiceability::pickupAddressProblem((int) $product->seller_id)) {
         throw new \Exception($pickupProblem);
       }
-      $variant = Cart::resolveVariant($product, $raw['variant_id'] ?? null);
+      $variant = Cart::purchaseVariant($product, $raw['variant_id'] ?? null);
       $qty = max(1, min(200, (int)($raw['qty'] ?? 1)));
       if (\App\Models\Seller::where(function($q) use($product){ $q->where('id',$product->seller_id)->orWhere('user_id',$product->seller_id); })->where('vacation_mode',true)->exists()) {
         throw new \Exception('This store is on vacation and is not accepting orders right now.');
@@ -450,10 +441,10 @@ Route::post('/checkout', function(Request $request){
     } else {
       $lines = Cart::linesFor($buyer['id']);
       if($checkoutMode === 'seller') {
-        $lines = $lines->filter(fn($l) => (int)$l['product']->seller_id === (int)(session('checkout_seller_id') ?? $request->input('seller_id')))->values();
+        $lines = $lines->filter(fn($l) => (int)$l['product']->seller_id === (int)$request->input('seller_id', session('checkout_seller_id')))->values();
       } elseif($checkoutMode === 'selected') {
-        $idArr = session('checkout_selected', []);
-        $lines = $lines->filter(fn($l) => in_array($l['item']->id, $idArr) || in_array($l['product']->id, $idArr))->values();
+        $idArr = $request->input('selected_item_ids', session('checkout_selected', []));
+        $lines = Cart::selectedLinesFor($buyer['id'], $idArr);
       }
       if($lines->isEmpty()) throw new \Exception('Cart is empty');
       $vacationIds = $lines->map(fn($l) => (int) $l['product']->seller_id)->unique()->values()->all();
@@ -468,6 +459,7 @@ Route::post('/checkout', function(Request $request){
           throw new \Exception($pickupProblem);
         }
         foreach($sLines as $l){
+          if(Cart::availableFor($l['product'], $l['variant'], $l['item']->variant_id) < $l['qty']) throw new \Exception('This item is unavailable or has insufficient stock. Please review your cart.');
           if(! \App\Support\Stock::deduct($l['product']->id, $l['variant']?->id, $l['qty'])) throw new \Exception('Not enough stock for "'.$l['product']->name.'".');
         }
         $subtotal = $sLines->sum('line');

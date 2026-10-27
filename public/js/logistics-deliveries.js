@@ -3,7 +3,7 @@
     const init = () => {
         document.querySelectorAll('.delivery-filter-details').forEach(details => {
             const mobile = matchMedia('(max-width: 639.98px)');
-            const arrange = () => { details.open = !mobile.matches || details.dataset.active === 'true'; };
+            const arrange = () => { details.open = !!details.closest('.delivery-page-index') || !mobile.matches || details.dataset.active === 'true'; };
             arrange();
             mobile.addEventListener('change', arrange);
         });

@@ -35,11 +35,11 @@
             </dl>
         </section>
         <section class="ld-panel ld-queue" aria-labelledby="ld-queue-title">
-            <div class="ld-section-head"><div><h2 id="ld-queue-title">Needs attention</h2><p>Open queues to keep parcels moving.</p></div></div>
+            <div class="ld-section-head"><div><h2 id="ld-queue-title">Your next actions</h2><p>Select a queue to review the parcels that need work.</p></div></div>
             <div class="ld-queue-list">
                 <a class="ld-queue-row" href="{{ route('deliveries.index', ['status' => 'waiting_for_rider']) }}"><span>Waiting for a rider</span><strong>{{ number_format($needsAttention['waitingForRider']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
                 <a class="ld-queue-row" href="{{ route('sorting-center.index') }}"><span>Awaiting sorting or dispatch</span><strong>{{ number_format($needsAttention['processing']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
-                <a class="ld-queue-row" href="{{ route('pickup-requests.index', ['status' => 'pending']) }}"><span>Pickup reviews</span><strong>{{ number_format($needsAttention['pickups']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
+                <a class="ld-queue-row" href="{{ route('pickup-requests.index', ['status' => 'pending']) }}"><span>Pickup requests to review</span><strong>{{ number_format($needsAttention['pickups']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
                 <a class="ld-queue-row" href="{{ route('deliveries.index', ['status' => 'exceptions']) }}"><span>Failed, lost or damaged</span><strong>{{ number_format($needsAttention['failed']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
             </div>
         </section>
@@ -47,7 +47,7 @@
 
     <section class="ld-panel ld-filter-panel" aria-labelledby="ld-shipments-title">
         <div class="ld-section-head">
-            <div><h2 id="ld-shipments-title">Shipments by status</h2><p>{{ $dateFilterActive ? 'Deliveries registered in your selected date range.' : 'All registered deliveries, across all dates.' }}</p></div>
+            <div><h2 id="ld-shipments-title">Delivery totals</h2><p>{{ $dateFilterActive ? 'Deliveries registered in your selected date range.' : 'All registered deliveries, across all dates.' }}</p></div>
             <form method="GET" action="{{ route('dashboard') }}" class="ld-date-form">
                 <input type="hidden" name="trends_range" value="{{ $trendsRange }}">
                 <label class="ld-field" for="date_from">From<input id="date_from" type="date" name="date_from" value="{{ $dateFrom }}" max="{{ $dateTo }}"></label>
@@ -68,7 +68,7 @@
                 </a>
             @endforeach
         </div>
-        <p class="ld-note">Select a total to view matching deliveries. Date filters apply to these totals and the records below; today&rsquo;s activity stays separate.</p>
+        <p class="ld-note">Select a total to view matching deliveries. Dates filter these totals and recent records. Today&rsquo;s activity always shows today.</p>
     </section>
 
     @if($alertTotal > 0)

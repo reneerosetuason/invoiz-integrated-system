@@ -1,9 +1,9 @@
 <x-app-layout>
     <div class="space-y-6">
-        <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="lw-head flex flex-wrap items-start justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">Remittances</h1>
-                <p class="text-sm text-gray-500 mt-1">COD collection and rider-to-seller handoffs. Sellers confirm receipt; this view is read-only oversight.</p>
+                <p class="text-sm text-gray-500 mt-1">Track cash collected by riders and handed to sellers. A payment is complete when the seller confirms receipt.</p>
             </div>
             <a href="{{ route('remittances.export', request()->only('status')) }}"
                class="inline-flex items-center gap-2 rounded-xl border border-teal/30 bg-white px-4 py-2.5 text-sm font-semibold text-teal transition hover:border-teal hover:text-teal-dark">
@@ -16,13 +16,13 @@
         @endphp
 
         {{-- Summary cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="lw-stat-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Pending</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Awaiting handoff</p>
                 <p class="text-3xl font-bold text-amber-600">₱{{ number_format($totalsArray['pending'], 2) }}</p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Sent (awaiting confirmation)</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Sent to seller</p>
                 <p class="text-3xl font-bold text-blue-600">₱{{ number_format($totalsArray['sent'], 2) }}</p>
             </div>
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">

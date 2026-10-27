@@ -1,6 +1,6 @@
 <x-app-layout>
     <div class="space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div class="lw-head flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">
                     {{ $activeStatus === 'routing' ? 'Pickup Requests Needing Routing' : 'Pickup Requests' }}
@@ -14,7 +14,7 @@
             @if($isAdmin)
                 <a href="{{ route('pickup-requests.index', ['status' => 'routing']) }}"
                    class="inline-flex items-center gap-2 self-start sm:self-auto rounded-xl px-4 py-2.5 text-sm font-semibold transition {{ $activeStatus === 'routing' ? 'bg-amber-500 text-white' : 'bg-white text-amber-700 border border-amber-200 hover:border-amber-400' }}">
-                    Needs Routing
+                    Needs center assignment
                     @if($needsRoutingCount > 0)
                         <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full text-[11px] font-bold {{ $activeStatus === 'routing' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800' }}">
                             {{ $needsRoutingCount }}
@@ -37,7 +37,7 @@
                 <select name="status" class="rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                     <option value="">All Statuses</option>
                     @if($isAdmin)
-                        <option value="routing" @selected(request('status') === 'routing')>Needs Routing</option>
+                        <option value="routing" @selected(request('status') === 'routing')>Needs center assignment</option>
                     @endif
                     @foreach(['pending', 'approved', 'rejected', 'completed'] as $s)
                         <option value="{{ $s }}" @selected(request('status') === $s)>{{ ucfirst($s) }}</option>

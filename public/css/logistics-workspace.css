@@ -1,0 +1,272 @@
+/* The logistics account uses the same reading face, display face and palette as its dashboard. */
+body:has(.logistics-workspace) #app-sidebar{border-right:0}
+body:has(.logistics-workspace) main{min-width:0}
+body:has(.logistics-workspace) .ld-mobile-menu{display:none}
+.logistics-workspace{--lw-paper:#FBF9F6;--lw-surface:#fff;--lw-wash:#F1F2ED;--lw-mist:#EAF3F2;--lw-ink:#253C40;--lw-muted:#52676A;--lw-teal:#0E4A57;--lw-accent:#16697A;--lw-rule:#DCE5E1;--lw-danger:#A2373A;--lw-warning:#805A12;max-width:1320px;min-width:0;color:var(--lw-ink);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums}
+.logistics-workspace *{min-width:0}
+.logistics-workspace :is(h1,h2,h3,h4){color:var(--lw-teal);text-wrap:balance;letter-spacing:-.025em}
+.logistics-workspace h1,.logistics-workspace .lw-page-title{font-family:'Fraunces',Georgia,serif;font-size:clamp(24px,2.1vw,28px);line-height:1.16;font-weight:560}
+.logistics-workspace h2{font-family:'Fraunces',Georgia,serif;font-size:20px;line-height:1.3;font-weight:560}
+.logistics-workspace h3{font-size:16px;line-height:1.35;font-weight:600}
+.logistics-workspace h4{font-size:16px;line-height:1.4;font-weight:600}
+.logistics-workspace :is(p,dd,td,a){overflow-wrap:anywhere}
+.logistics-workspace p{max-width:65ch}
+.logistics-workspace :is(.text-xs,.text-\[10px\],.text-\[11px\],.text-\[12px\]){font-size:13px;line-height:1.55}
+.logistics-workspace .text-sm{font-size:14px;line-height:1.5}
+.logistics-workspace .font-mono{font-family:inherit;font-variant-numeric:tabular-nums;letter-spacing:.01em} /* taste-skill-ignore: Remove legacy monospace from record identifiers. */
+.logistics-workspace .uppercase{text-transform:none;letter-spacing:0}
+.logistics-workspace :is(.text-gray-400,.text-gray-500,.text-gray-600){color:var(--lw-muted)}
+.logistics-workspace :is(.text-gray-700,.text-gray-800,.text-gray-900){color:var(--lw-ink)}
+.logistics-workspace :is(.text-teal,.text-teal-dark){color:var(--lw-teal)}
+.logistics-workspace :is(.text-red-500,.text-red-600){color:var(--lw-danger)}
+.logistics-workspace :is(.text-amber-500,.text-amber-600){color:var(--lw-warning)}
+.logistics-workspace :is(.shadow,.shadow-sm,.shadow-md,.shadow-lg){box-shadow:none}
+.logistics-workspace .animate-ping{display:none} /* taste-skill-ignore: Disable legacy attention animations. */
+.logistics-workspace :is(.bg-white,.bg-white\/50){background:var(--lw-surface)}
+.logistics-workspace :is(.bg-gray-50,.bg-gray-50\/50,.bg-gray-50\/60,.bg-gray-100){background:var(--lw-wash)}
+.logistics-workspace :is(.bg-teal-light,.bg-teal-light\/50,.bg-teal-light\/60){background:var(--lw-mist)}
+.logistics-workspace :is(.border-gray-100,.border-gray-200,.border-gray-300){border-color:var(--lw-rule)}
+.logistics-workspace :is(.rounded-2xl,.rounded-3xl){border-radius:12px}
+.logistics-workspace .rounded-xl{border-radius:8px}
+.logistics-workspace :is(.bg-white.rounded-2xl,.bg-gray-50.rounded-xl){border:0}
+.logistics-workspace .h-2.w-1{display:none}
+.lw-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:18px}
+.lw-head h1+p{margin-top:6px;color:var(--lw-muted)}
+.lw-back{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:44px;min-height:44px;border-radius:7px;background:var(--lw-mist);color:var(--lw-teal)}
+.lw-head.lw-head--back{flex-direction:row;justify-content:flex-start;flex-wrap:nowrap;gap:16px}
+.logistics-workspace :is(button,input,select,textarea){font:inherit}
+.logistics-workspace :is(input:not([type=hidden],[type=checkbox],[type=radio],[type=file]),select,textarea){width:100%;max-width:100%;min-height:42px;border:1px solid #BBCDC9;background:var(--lw-surface);color:var(--lw-ink);border-radius:7px;padding:9px 11px;font-size:14px;line-height:1.45;box-shadow:none} /* taste-skill-ignore: Real form controls. */
+.logistics-workspace input.pr-12{padding-right:48px}
+.logistics-workspace :is(input,textarea)::placeholder{color:var(--lw-muted);opacity:1}
+.logistics-workspace textarea{resize:vertical;min-height:96px}
+.logistics-workspace label{font-size:14px;font-weight:500;color:var(--lw-ink)}
+.logistics-workspace input[type=file]{max-width:100%;min-height:46px;white-space:normal;font-size:14px}
+.logistics-workspace input:is([type=checkbox],[type=radio]){width:20px;height:20px;accent-color:var(--lw-accent);flex:none}
+.logistics-workspace :is(a,button,input,select,textarea,summary):focus-visible{outline:3px solid #398A90;outline-offset:3px}
+.logistics-workspace :is(button,a[class*=px-],a[class*=py-]){min-height:44px;line-height:1.4;font-size:14px;font-weight:600;white-space:normal;border-radius:7px;touch-action:manipulation}
+.logistics-workspace button{cursor:pointer;min-width:44px}
+.logistics-workspace a.inline-flex{min-height:44px}
+.logistics-workspace :is(button,a):is(.bg-teal,.bg-blue-500,.bg-blue-600,.bg-indigo-500,.bg-indigo-600,.bg-purple-500,.bg-sky-500,.bg-green-500,.bg-emerald-500,.bg-gray-900,.bg-gray-800){background:var(--lw-accent);color:#fff} /* taste-skill-ignore: Replace legacy indigo and purple controls with the brand teal. */
+.logistics-workspace :is(button,a):is(.bg-teal,.bg-blue-500,.bg-blue-600,.bg-indigo-500,.bg-indigo-600,.bg-purple-500,.bg-sky-500,.bg-green-500,.bg-emerald-500,.bg-gray-900,.bg-gray-800):hover{background:#0E4A57} /* taste-skill-ignore: Override legacy palette with teal. */
+.logistics-workspace :is(button,a):is(.bg-red-500,.bg-red-600){background:#A2373A;color:#fff}
+.logistics-workspace :is(button,a):is(.bg-amber-500,.bg-orange-500){background:#805A12;color:#fff}
+.logistics-workspace :is(button,input,select,textarea):disabled,.logistics-workspace fieldset:disabled{opacity:.6;cursor:not-allowed}
+.logistics-workspace :is(.bg-blue-50,.bg-cyan-50,.bg-sky-50,.bg-indigo-50,.bg-purple-50,.bg-violet-50){background:var(--lw-mist)} /* taste-skill-ignore: Replace legacy status colors. */
+.logistics-workspace :is(.text-blue-600,.text-blue-700,.text-sky-700,.text-cyan-700,.text-indigo-700,.text-purple-700,.text-violet-700){color:var(--lw-teal)} /* taste-skill-ignore: Replace legacy status colors. */
+.logistics-workspace :is(.ring-blue-200,.ring-cyan-200,.ring-sky-200,.ring-indigo-200,.ring-purple-200,.ring-violet-200){--tw-ring-color:var(--lw-rule)} /* taste-skill-ignore: Replace legacy status colors. */
+.logistics-workspace :is(.bg-blue-500,.bg-cyan-500,.bg-sky-500,.bg-indigo-500,.bg-purple-500){background:var(--lw-accent)} /* taste-skill-ignore: Bring legacy timeline markers into the teal palette. */
+.logistics-workspace :is(.text-green-500,.text-green-600,.text-emerald-500,.text-emerald-600){color:#287660}
+.logistics-workspace :is(.bg-green-500,.bg-emerald-500){background:#287660}
+.logistics-workspace .lw-tabs{display:flex;flex-wrap:wrap;gap:8px;width:100%;min-width:0;margin-bottom:16px}
+.logistics-workspace .lw-tabs a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border-radius:7px;font-size:14px;text-align:center;line-height:1.4}
+.lw-filter-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.lw-filter-label{font-size:13px;font-weight:500;color:var(--lw-ink)}
+.logistics-workspace .lw-get-form{align-items:end;flex-wrap:wrap}
+.logistics-workspace .lw-get-form>.lw-filter-field{flex:1;min-width:145px}
+.logistics-workspace .lw-get-form:has(>input[name=per_page]){align-items:center}
+.logistics-workspace .lw-get-form:has(>select[name=per_page]){align-items:center;flex-wrap:nowrap}
+.logistics-workspace .lw-get-form:has(>select[name=per_page]) select{width:auto;min-width:76px}
+.logistics-workspace .lw-get-form:has(>select[name=per_page]) label{white-space:nowrap;flex:none}
+.logistics-workspace .lw-get-form>.relative:has(svg)>label>input{padding-left:40px}
+.lw-table-wrap{max-width:100%;overflow-x:auto;border-radius:10px}
+.logistics-workspace .lw-table{width:100%;max-width:100%;border-collapse:collapse;font-size:14px;line-height:1.6;table-layout:auto}
+.lw-table th{padding:10px 14px;text-align:left;vertical-align:middle;background:var(--lw-mist);color:var(--lw-teal);font-size:13px;font-weight:600;text-transform:none;letter-spacing:0;white-space:normal}
+.lw-table td{padding:11px 14px;vertical-align:middle;border-color:var(--lw-rule);white-space:normal;overflow-wrap:anywhere}
+.lw-table th a{display:inline-flex;align-items:center;gap:5px;min-height:32px}
+.lw-table td:last-child :is(a,button){min-height:36px}
+.lw-table td:last-child :is(a,button):is(.text-teal,.text-gray-500,.text-gray-600,.text-red-500,.text-red-600){display:inline-flex;align-items:center;padding:7px 10px;border-radius:6px;background:var(--lw-mist);text-align:center}
+.lw-table td :is(.text-right,.text-center){font-variant-numeric:tabular-nums}
+.lw-table-sort{display:none}
+.lw-stat-grid{gap:12px!important}
+.lw-stat-grid>div{padding:16px 18px;background:var(--lw-surface)}
+.lw-stat-grid>div:first-child{background:var(--lw-mist)}
+.lw-stat-grid :is(.text-2xl,.text-3xl,.text-4xl){font-family:'Fraunces',Georgia,serif;font-size:28px;font-weight:560;line-height:1.2;letter-spacing:-.02em;overflow-wrap:anywhere}
+.lw-dialog{isolation:isolate;overflow-y:auto;overscroll-behavior:contain;padding:16px}
+.lw-dialog>.lw-dialog-panel{max-height:calc(100dvh - 32px);overflow-y:auto;overscroll-behavior:contain;box-shadow:0 20px 70px #123C4030} /* taste-skill-ignore: A dialog floats over the interface. */
+.lw-dialog h2,.lw-dialog h3{font-family:'Fraunces',Georgia,serif;font-size:26px;font-weight:560}
+body.lw-dialog-open{overflow:hidden}
+.lw-action-dialog{width:min(480px,calc(100vw - 24px));max-height:calc(100dvh - 24px);padding:26px;border:0;border-radius:12px;background:#fff;color:#253C40;font-family:'Inter',system-ui,sans-serif;box-shadow:0 20px 70px #123C4030;overscroll-behavior:contain} /* taste-skill-ignore: Established font and a floating confirmation dialog. */
+.lw-action-dialog::backdrop{background:#12343B80}
+.lw-action-dialog h2{margin:0 0 10px;font:560 26px/1.25 'Fraunces',Georgia,serif;letter-spacing:-.025em;color:#0E4A57}
+.lw-action-dialog p{margin-bottom:22px;font-size:14px;line-height:1.65}
+.lw-action-dialog label{display:block;font-size:14px;font-weight:500;margin-bottom:7px}
+.lw-action-dialog textarea{display:block;min-height:100px;width:100%;padding:12px;border:1px solid #BBCDC9;border-radius:7px;font:16px/1.5 'Inter',system-ui,sans-serif;color:#253C40;background:white} /* taste-skill-ignore: A real reason field with the established reading face. */
+.lw-action-dialog small{display:block;margin-top:6px;font-size:13px;color:#52676A}
+.lw-confirm-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.lw-confirm-actions button{flex:1;min-height:46px;padding:11px 14px;border:0;border-radius:7px;background:#EAF3F2;color:#0E4A57;font:600 14px/1.4 'Inter',system-ui,sans-serif} /* taste-skill-ignore: Preserve the reading face in real action controls. */
+.lw-confirm-actions .lw-confirm-primary{background:#16697A;color:white}
+.lw-confirm-actions .lw-confirm-danger{background:#A2373A;color:white}
+.lw-action-dialog :is(button,textarea):focus-visible{outline:3px solid #398A90;outline-offset:3px}
+.dark .lw-action-dialog{background:#1C3036;color:#F0F4F1}
+.dark .lw-action-dialog h2{color:#D2EAE4}
+.dark .lw-action-dialog small{color:#B8CCCA}
+.dark .lw-action-dialog textarea{background:#233B3F;color:#F0F4F1;border-color:#3C565B;color-scheme:dark}
+.logistics-workspace .lw-messages{height:calc(100dvh - 8.5rem);min-height:460px;border:0;background:var(--lw-surface)}
+.lw-messages h1{font-size:24px}
+.lw-messages .lw-message-list{width:340px;border-color:var(--lw-rule);background:var(--lw-wash)}
+.logistics-workspace .lw-messages textarea{min-height:46px}
+.lw-messages .lw-message-search{position:relative}
+.lw-messages .lw-message-search .lw-filter-label{display:none}
+.lw-messages .lw-message-search input{padding-left:36px}
+.lw-messages .lw-message-composer{background:var(--lw-surface)}
+.lw-pagination{padding:10px 14px;background:var(--lw-surface)}
+.lw-pagination>div{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.lw-pagination :is(a,span){display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:10px 12px;border-radius:7px;background:var(--lw-wash);color:var(--lw-teal);font-size:13px;font-weight:600;line-height:1.4}
+.lw-pagination [aria-current=page]{background:var(--lw-accent);color:white}
+.lw-pagination [aria-disabled=true]{color:var(--lw-muted);cursor:default}
+.lw-pagination .lw-pagination-gap{min-width:24px;padding:0;background:transparent}
+.lw-pagination p{margin-top:9px;font-size:13px;color:var(--lw-muted)}
+.lw-messages .lw-message-list>div:first-child>div:first-child{flex-wrap:wrap;gap:12px}
+.logistics-workspace .lw-messages input[type=search]{padding-left:36px}
+.logistics-workspace .lw-messages [class*=bg-teal]{--tw-ring-color:var(--lw-rule)}
+.lw-tracking-progress{overflow-x:auto;padding-bottom:8px}
+.lw-tracking-progress>div{min-width:640px}
+.logistics-workspace .lw-tracking-search{background:var(--lw-teal);color:#fff}
+.lw-tracking-search :is(h1,h2,h3,.text-gray-500,.text-gray-600){color:#F0F6F1}
+.lw-settings-search{max-width:500px}
+.logistics-workspace .lw-settings-search input{padding-left:40px}
+.lw-settings-sections>div{scroll-margin-top:90px}
+.dark body:has(.logistics-workspace) .ld-mobile-menu{color:#DFEFEB}
+.dark .logistics-workspace{--lw-paper:#122126;--lw-surface:#1C3036;--lw-wash:#233B3F;--lw-mist:#28474C;--lw-ink:#F0F4F1;--lw-muted:#B8CCCA;--lw-teal:#D2EAE4;--lw-rule:#3C565B;--lw-danger:#F0B3B6;--lw-warning:#ECD193}
+.dark .logistics-workspace :is(input,select,textarea){color-scheme:dark}
+.dark .logistics-workspace :is(input,textarea)::placeholder{color:#B8CCCA}
+.dark .logistics-workspace :is(.bg-amber-50,.bg-amber-100){background:#453B25}
+.dark .logistics-workspace :is(.bg-red-50,.bg-red-100){background:#482F37}
+.dark .logistics-workspace :is(.bg-green-50,.bg-green-100,.bg-emerald-50,.bg-emerald-100){background:#244338}
+.dark .logistics-workspace :is(.text-amber-600,.text-amber-700,.text-amber-800){color:#ECD193}
+.dark .logistics-workspace :is(.text-red-700,.text-red-800){color:#F0B3B6}
+.dark .logistics-workspace :is(.text-green-500,.text-green-600,.text-green-700,.text-green-800,.text-emerald-500,.text-emerald-600,.text-emerald-700){color:#99D4BE}
+.dark .lw-tracking-search{background:#163E48}
+@media(max-width:1199.98px){.lw-messages .lw-message-list{width:300px}.logistics-workspace .lw-get-form>div{min-width:0}}
+@media(max-width:899.98px){
+ .lw-head{align-items:flex-start;gap:16px}.lw-head>div:last-child{flex-wrap:wrap}
+ .logistics-workspace .lw-get-form{gap:14px}
+ .logistics-workspace .lw-get-form>div.relative{min-width:0;flex-basis:100%}
+ .lw-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+@media(max-width:767.98px){
+ .logistics-workspace .lw-table{display:block;min-width:0!important;width:100%!important;table-layout:auto!important}
+ .lw-table colgroup{display:none}.lw-table thead{display:none}
+ .lw-table:has(thead input[type=checkbox]) thead{display:block}
+ .lw-table thead th{display:none}.lw-table thead th:has(input[type=checkbox]){display:flex;align-items:center;gap:12px;min-height:44px}
+ .lw-table thead th:has(input[type=checkbox])::after{content:'Select all on this page';font-size:13px}
+ .lw-table tbody{display:block}
+ .lw-table tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;padding:16px;border:0;background:var(--lw-surface)}
+ .lw-table tbody tr+tr{margin-top:12px}
+ .lw-table td{display:block;width:auto!important;max-width:none;min-width:0;padding:0;border:0;text-align:left;white-space:normal!important}
+ .lw-table td :is(.truncate,.whitespace-nowrap){white-space:normal;overflow:visible;text-overflow:clip}
+ .lw-table td[data-label]::before{content:attr(data-label);display:block;margin-bottom:5px;color:var(--lw-muted);font-size:13px;font-weight:500}
+ .lw-table td:first-child,.lw-table td:last-child,.lw-table td[colspan]{grid-column:1/-1}
+ .lw-table td:first-child:has(a){font-weight:600}
+ .lw-table td:last-child>div.flex{flex-wrap:wrap;gap:8px}
+ .lw-table td :is(a,button){justify-content:center}
+ .lw-table-sort{display:block;margin:0 0 12px;padding:14px 18px;background:var(--lw-mist);border-radius:8px}
+ .lw-table-sort summary{cursor:pointer;color:var(--lw-teal);font-weight:600;font-size:14px;min-height:44px;line-height:44px}
+ .lw-table-sort nav{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0}
+ .lw-table-sort a{padding:10px 12px;background:var(--lw-surface);color:var(--lw-teal);min-height:44px;border-radius:7px;font-size:13px}
+ .logistics-workspace .lw-messages{height:calc(100dvh - 7.5rem);min-height:420px}
+}
+@media(max-width:639.98px){
+ body:has(.logistics-workspace) #app-sidebar{transform:translateX(-100%);visibility:hidden;transition:transform .2s ease,visibility .2s ease}
+ body:has(.logistics-workspace) #app-sidebar.is-expanded{transform:none;visibility:visible;width:min(280px,88vw)}
+ body:has(.logistics-workspace) #app-sidebar~.app-content{padding-left:0}
+ body:has(.logistics-workspace) .ld-mobile-menu{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;background:transparent;color:#0E4A57;border-radius:8px}
+ .logistics-workspace h1,.logistics-workspace .lw-page-title{font-size:24px}
+ .logistics-workspace h2{font-size:20px}
+ .lw-head{flex-direction:column;margin-bottom:16px}
+ .lw-head>div{width:100%}.lw-head>div:last-child>a{flex:1;justify-content:center;text-align:center}
+ .logistics-workspace :is(.p-6,.sm\:p-8){padding:16px}
+ .logistics-workspace .p-12{padding:32px 18px}
+ .logistics-workspace :is(input:not([type=hidden],[type=checkbox],[type=radio],[type=file]),select,textarea){font-size:16px}
+ .logistics-workspace .lw-get-form :is(.min-w-\[240px\],.min-w-\[200px\]){min-width:0}
+ .logistics-workspace .lw-get-form>.lw-filter-field{min-width:0;width:100%}
+ .logistics-workspace .lw-get-form{align-items:stretch}
+ .logistics-workspace .lw-get-form>div.relative{width:100%;min-width:0}
+ .logistics-workspace .lw-get-form :is(.max-w-\[160px\],.max-w-\[200px\]){max-width:none}
+ .lw-stat-grid{gap:14px!important}.lw-stat-grid>div{padding:16px}.lw-stat-grid :is(.text-2xl,.text-3xl,.text-4xl){font-size:26px}
+ .lw-dialog{padding:12px}.lw-dialog>.lw-dialog-panel{max-height:calc(100dvh - 24px)}
+ .lw-messages .lw-message-list{width:100%}
+ .lw-messages h1{font-size:24px}
+ .logistics-workspace .lw-tabs{gap:7px}.logistics-workspace .lw-tabs a{padding:10px 12px;font-size:13px}
+ .lw-settings-sections .flex.items-center.justify-between{align-items:flex-start;flex-wrap:wrap;gap:16px}
+ .lw-settings-sections .flex.items-center.justify-between>button{flex:none}
+ .lw-settings-sections li.flex.items-center.justify-between{flex-wrap:nowrap;align-items:flex-start;gap:16px}
+ .lw-settings-sections li.flex.items-center.justify-between>div:first-child{flex:1;min-width:0}
+ .lw-settings-sections li.flex.items-center.justify-between>label{flex:none;min-width:44px;min-height:44px;display:flex;align-items:center}
+ .lw-table-wrap{overflow:visible}
+ .lw-tracking-steps{flex-direction:column;gap:18px}
+ .lw-tracking-steps>div{flex-direction:row;justify-content:flex-start;gap:16px;text-align:left}
+ .lw-tracking-steps>div>p{margin:0;font-size:14px}
+ .logistics-workspace .relative:has(>.lw-tracking-steps)>.absolute{display:none}
+ .logistics-workspace .lw-parcel-steps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 14px}
+ .lw-parcel-steps>div>p{margin-top:8px}
+ .logistics-workspace .relative:has(>.lw-parcel-steps)>.absolute{display:none}
+}
+@media(max-width:359.98px){.lw-stat-grid{grid-template-columns:minmax(0,1fr)!important}.lw-table tbody tr{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){.logistics-workspace *{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Compact operational pages: quiet sections, consistent controls, readable records. */
+.logistics-workspace>.logistics-page-header{margin-bottom:18px}
+.logistics-workspace :is(.space-y-6,.space-y-8)>:not([hidden])~:not([hidden]){margin-top:18px}
+.logistics-workspace :is(.gap-6,.gap-8){gap:18px}
+.logistics-workspace :is(.p-6,.p-8){padding:18px}
+.logistics-workspace :is(.px-6,.px-8):not(td,th){padding-left:18px;padding-right:18px}
+.logistics-workspace :is(.py-6,.py-8):not(td,th){padding-top:18px;padding-bottom:18px}
+.logistics-workspace .lw-head{margin-bottom:18px}
+.logistics-workspace .bg-white:has(>h2,>div>h2){background:var(--lw-surface)}
+.logistics-workspace .lw-table tbody tr:hover{background:var(--lw-mist)}
+.logistics-workspace .lw-table td a:not([class*=bg-]):not([class*=px-]){text-underline-offset:3px}
+.logistics-workspace .lw-table td a:not([class*=bg-]):not([class*=px-]):hover{text-decoration:underline}
+.logistics-workspace .lw-table td:not(:last-child) a.text-teal{display:inline;min-height:0;padding:0;background:transparent;border-radius:0}
+.logistics-workspace .lw-get-form .relative:has(svg) .lw-filter-field>input{padding-left:40px}
+.logistics-workspace select:not([multiple]):not([size]):not([hidden]){background:var(--form-select-chevron) var(--lw-surface)}
+.logistics-workspace .lw-get-form>.lw-filter-field:has(input[name=search]){flex:2}
+.logistics-workspace .lw-get-form>.relative:has(input[name=search]){flex:2}
+.logistics-workspace .lw-get-form>.lw-filter-field:has(select){min-width:130px}
+.logistics-workspace :is(input,select,textarea):hover:not(:disabled){border-color:var(--lw-accent)}
+.lw-guide{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:8px;background:var(--lw-mist);color:var(--lw-ink);font-size:14px;line-height:1.5}
+.lw-guide>svg{width:20px;height:20px;flex:none;color:var(--lw-teal);margin-top:1px}
+.lw-guide strong{display:block;margin-bottom:3px;color:var(--lw-teal);font-weight:600}
+.lw-guide p{max-width:80ch;color:var(--lw-muted)}
+.lw-guide ol{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;counter-reset:workflow;margin:6px 0 0;padding:0}
+.lw-guide li{display:flex;align-items:center;gap:6px;counter-increment:workflow;color:var(--lw-teal);font-size:13px}
+.lw-guide li::before{content:counter(workflow);display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--lw-surface);font-weight:600}
+.lw-tracking-entry{max-width:760px;padding-top:0!important}
+.lw-tracking-entry>div{max-width:none}
+.lw-tracking-entry .lw-tracking-intro{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+.lw-tracking-entry .lw-tracking-intro>div{width:40px;height:40px;border-radius:8px;flex:none}
+.lw-tracking-entry .lw-tracking-intro svg{width:20px;height:20px}
+.lw-tracking-entry .lw-tracking-intro p{font-size:14px;color:var(--lw-muted)}
+.lw-tracking-entry .lw-tracking-intro strong{display:block;margin-bottom:3px;color:var(--lw-teal)}
+@media(min-width:1024px){
+ .logistics-workspace .lw-get-form>.lw-filter-field:has(select){flex:0 1 190px}
+ .logistics-workspace .lw-get-form>.lw-filter-field:has(input[type=date]){flex:0 1 160px}
+ .logistics-workspace .lw-get-form>.lw-filter-field:has(select[name=per_page]){flex:none}
+}
+@media(max-width:767.98px){
+ .logistics-workspace .lw-table td:last-child :is(a,button){min-height:44px}
+ .logistics-workspace .lw-table tbody tr+tr{margin-top:8px}
+ .logistics-workspace .lw-table td:first-child{padding-bottom:9px;border-bottom:1px solid var(--lw-rule)}
+}
+@media(max-width:639.98px){
+ .logistics-workspace :is(.p-6,.p-8){padding:16px}
+ .logistics-workspace :is(input:not([type=hidden],[type=checkbox],[type=radio],[type=file]),select,textarea){min-height:44px;font-size:16px}
+ .lw-guide{padding:12px}
+ .lw-guide ol{gap:7px 12px}
+ .logistics-workspace .lw-head>div:last-child{display:flex;flex-wrap:wrap;gap:8px}
+ .logistics-workspace .lw-head>div:first-child{display:block}
+ .logistics-workspace .lw-head.lw-head--back>div{display:block}
+}
+
+/* Keep parcel action labels intact while letting controls fit the available row. */
+.logistics-workspace .lw-sort-actions{flex-wrap:wrap;gap:8px;align-items:center}
+.logistics-workspace .lw-sort-actions>form{display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:100%}
+.logistics-workspace .lw-sort-actions>form :is(input,select){flex:1 1 100px;width:auto;min-width:0;max-width:100%;font-size:13px}
+.logistics-workspace .lw-sort-actions :is(button,a){flex:none;white-space:nowrap}
+@media(max-width:767.98px){
+ .logistics-workspace .lw-sort-actions>form{width:100%}
+ .logistics-workspace .lw-sort-actions>form :is(input,select){font-size:16px}
+}
+
+@media(max-width:1023.98px){.logistics-workspace .lw-table td:last-child .lw-sort-actions :is(button,a){min-height:44px}}
+@media(min-width:640px){.lw-tracking-entry form>div{align-items:flex-end}}

@@ -65,7 +65,7 @@ class Cart extends Model
         if (!$header) {
             return collect();
         }
-        return CartItem::with(['product', 'variant'])
+        return CartItem::with(['product' => fn ($q) => $q->withTrashed(), 'variant' => fn ($q) => $q->withTrashed()])
             ->where('cart_id', $header->id)
             ->get()
             ->filter(fn($it) => $it->product)
@@ -82,6 +82,73 @@ class Cart extends Model
                     'line' => $unit * $qty,
                 ];
             })->values();
+    }
+
+    /** Reject a stale/foreign variation rather than substituting the base item. */
+    public static function purchaseVariant(Product $product, mixed $variantId): ?ProductVariant
+    {
+        if ($variantId !== null && $variantId !== '' && (! is_scalar($variantId) || ! ctype_digit((string) $variantId) || (int) $variantId < 1)) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['variant_id' => 'Please choose a valid variation.']);
+        }
+        $variant = static::resolveVariant($product, $variantId);
+        if ($variantId !== null && $variantId !== '' && ! $variant) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'variant_id' => 'This variation is no longer available. Please choose another.',
+            ]);
+        }
+        return $variant;
+    }
+
+    /** Variant stock is independent of base stock, as in Stock::deduct(). */
+    public static function availableFor(?Product $product, ?ProductVariant $variant = null, ?int $variantId = null): int
+    {
+        if (! $product || $product->trashed() || $product->status !== 'active') return 0;
+        if ($variantId && ! $variant) return 0;
+        if ($variant && ($variant->trashed() || ($variant->status ?? 'active') !== 'active' || (int) $variant->product_id !== (int) $product->id)) return 0;
+        return max(0, (int) ($variant ? $variant->stock : $product->stock));
+    }
+
+    /** Serialize changes through the cart header to enforce stock and the 200-unit cap. */
+    public static function addFor(int $buyerId, Product $product, ?ProductVariant $variant, int $quantity): ?string
+    {
+        $cart = static::headerFor($buyerId);
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($cart, $product, $variant, $quantity) {
+            static::whereKey($cart->id)->lockForUpdate()->firstOrFail();
+            $available = static::availableFor($product, $variant);
+            if ($available < 1) return $variant ? 'Selected variation is out of stock' : 'Product is out of stock';
+            $line = CartItem::where('cart_id', $cart->id)->where('product_id', $product->id)->where('variant_id', $variant?->id)->first();
+            $current = (int) ($line?->quantity ?? 0);
+            if ($current >= $available) return 'Only '.$available.' available for this item.';
+            $added = min($quantity, $available - $current);
+            if ((int) $cart->items()->sum('quantity') + $added > 200) return 'Cart limit is 200 items';
+            if ($line) $line->update(['quantity' => $current + $added]);
+            else CartItem::create(['cart_id' => $cart->id, 'product_id' => $product->id, 'variant_id' => $variant?->id, 'quantity' => $added]);
+            return null;
+        });
+    }
+
+    public static function increaseFor(int $buyerId, int $itemId): ?string
+    {
+        $cart = static::headerFor($buyerId);
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($cart, $itemId) {
+            static::whereKey($cart->id)->lockForUpdate()->firstOrFail();
+            $line = $cart->items()->with(['product', 'variant'])->find($itemId);
+            if (! $line) return 'Item not found in cart.';
+            $available = static::availableFor($line->product, $line->variant, $line->variant_id);
+            if ($available < 1) return 'This item is no longer available. Remove it or choose another variation.';
+            if ($line->quantity >= $available) return 'Only '.$available.' available for this item.';
+            if ((int) $cart->items()->sum('quantity') >= 200) return 'Cart limit is 200 items';
+            $line->increment('quantity');
+            return null;
+        });
+    }
+
+    /** Selection values in the web cart are cart-item IDs, never product IDs. */
+    public static function selectedLinesFor(int $buyerId, array $itemIds)
+    {
+        $ids = array_map('intval', $itemIds);
+        return static::linesFor($buyerId)
+            ->filter(fn ($line) => in_array((int) $line['item']->id, $ids, true))->values();
     }
 
     public function buyer()

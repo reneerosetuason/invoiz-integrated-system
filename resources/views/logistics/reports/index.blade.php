@@ -8,16 +8,16 @@
             'rider' => 'Rider Report',
             'financial' => 'Financial Report',
         ];
-        $tab = in_array(request('tab', 'delivery'), array_keys($tabs)) ? request('tab') : 'delivery';
+        $tab = in_array(request('tab', 'delivery'), array_keys($tabs)) ? request('tab', 'delivery') : 'delivery';
         $tabUrl = fn ($t) => route('reports.index', collect(request()->query())->except('tab')->merge(['tab' => $t])->all());
         $f = $filters;
     @endphp
 
     <div class="space-y-6">
-        <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="lw-head flex flex-wrap items-start justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-gray-900">Reports</h1>
-                <p class="text-sm text-gray-500 mt-1">Operational and financial analytics</p>
+                <p class="text-sm text-gray-500 mt-1">Choose a report, set your filters, then download a PDF or CSV.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('reports.export', request()->query()) }}"
@@ -35,7 +35,7 @@
         </div>
 
         {{-- Tabs --}}
-        <div class="flex flex-wrap gap-2">
+        <div class="lw-tabs flex flex-wrap gap-2">
             @foreach($tabs as $key => $label)
                 <a href="{{ $tabUrl($key) }}"
                    class="px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap {{ $tab === $key ? 'bg-teal text-white shadow-sm' : 'bg-white border border-gray-200 text-gray-600 hover:border-teal hover:text-teal-dark' }}">
@@ -101,7 +101,7 @@
 
         {{-- Delivery Report --}}
         @if($tab === 'delivery' || $tab === 'all')
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            <div class="lw-stat-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                 @php
                     $cards = [
                         ['Total', $deliveryStats['total'] ?? 0],
@@ -220,7 +220,7 @@
                 $fs = $financialStats;
                 $currency = fn ($v) => '₱' . number_format((float) ($v ?? 0), 2);
             @endphp
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="lw-stat-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                     <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Transactions</p>
                     <p class="text-3xl font-bold text-gray-900">{{ number_format((int) ($fs['total_transactions'] ?? 0)) }}</p>

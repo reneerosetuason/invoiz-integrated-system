@@ -43,13 +43,19 @@ function updateTotal() {
       count += qty;
     }
   });
+  document.querySelectorAll('.seller-check').forEach(function(seller){
+    var items = Array.from(document.querySelectorAll('.item-check[data-seller="' + seller.getAttribute('data-seller') + '"]'));
+    var selected = items.filter(function(item){ return item.checked; }).length;
+    seller.checked = items.length > 0 && selected === items.length;
+    seller.indeterminate = selected > 0 && selected < items.length;
+  });
   var totalEl = document.getElementById('selectedTotal');
   var countEl = document.getElementById('selectedCount');
   if (totalEl) totalEl.textContent = total.toLocaleString('en', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   if (countEl) countEl.textContent = count;
 }
 
-function buySelected() {
+function buySelected(checkoutUrl) {
   var ids = [];
   document.querySelectorAll('.item-check:checked').forEach(function(cb) {
     ids.push(cb.value);
@@ -58,5 +64,8 @@ function buySelected() {
     alert('Select at least one item');
     return;
   }
-  window.location.href = '/buy/selected?ids=' + ids.join(',');
+  window.location.href = (checkoutUrl || '/buy/selected') + '?ids=' + encodeURIComponent(ids.join(','));
 }
+
+// Cart content is already present when the shared footer script executes.
+updateTotal();

@@ -5,7 +5,7 @@
             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             <span class="text-gray-900 font-medium">Settings</span>
         </div>
-        <h2 class="text-2xl font-bold text-gray-900 leading-tight">Settings</h2>
+        <h1 class="text-2xl font-bold text-gray-900 leading-tight">Settings</h1>
         <p class="mt-1 text-sm text-gray-500">Manage your account preferences, security, and notifications</p>
     </x-slot>
 
@@ -18,10 +18,10 @@
     @endphp
 
     {{-- ── Search + layout wrapper ─────────────────────────────── --}}
-    <div class="max-w-4xl mx-auto" x-data="settingsSearch()">
+    <div class="lw-settings max-w-4xl mx-auto" x-data="settingsSearch()">
 
         {{-- Search settings --}}
-        <div class="mb-6 relative">
+        <div class="lw-settings-search mb-6 relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                 <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z"/>
@@ -34,7 +34,7 @@
             <p x-show="query && noResults()" class="mt-2 text-sm text-gray-500 pl-1">No settings match "<span x-text="query"></span>".</p>
         </div>
 
-        <div class="space-y-8">
+        <div class="lw-settings-sections space-y-8">
 
         {{-- ═══════════════════════════════════════════════════════
              GROUP: ACCOUNT
@@ -99,7 +99,7 @@
                         <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-md" x-transition>
                             <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                                 <h4 class="font-bold text-gray-900">Change Password</h4>
-                                <button @click="pwOpen = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
+                                <button type="button" aria-label="Close password dialog" @click="pwOpen = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100">
                                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                 </button>
                             </div>

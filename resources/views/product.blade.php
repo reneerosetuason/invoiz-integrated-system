@@ -1,7 +1,7 @@
 @extends('layouts.website')
 @section('content')
 @php
-  $buyer = session('buyer');
+  $buyer = \App\Support\BuyerSession::current();
   $inCart = false;
   if($buyer){
     $inCart = \App\Models\Cart::itemsFor($buyer['id'])->where('product_id',$p->id)->exists();
@@ -15,6 +15,9 @@
 @endphp
 <div class="shopx">
 <div class="wrap">
+@if(session('error'))<div role="alert" style="color:#991b1b;margin-bottom:12px">{{ session('error') }}</div>@endif
+@if($errors->any())<div role="alert" style="color:#991b1b;margin-bottom:12px">@foreach($errors->all() as $message)<p>{{ $message }}</p>@endforeach</div>@endif
+
 
   <div class="backrow rv">
     <a href="{{ $backHref }}" class="backlink"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>Back to store</a>
@@ -93,13 +96,13 @@
       @endif
 
       <div class="p-actions">
-        @if($inCart)
-          <a href="{{ url('/cart') }}" class="btn-p btn-line"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>In Cart — View Cart</a>
-        @else
-          <button type="button" onclick="openOpt()" class="btn-p btn-line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Add to Cart</button>
-        @endif
+        <button type="button" onclick="openOpt()" class="btn-p btn-line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Add to Cart</button>
         <button type="button" onclick="openOpt(true)" class="btn-p btn-solid"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Buy Now</button>
       </div>
+
+      @if($inCart)
+        <div style="margin-top:10px"><a href="{{ url('/cart') }}" class="btn-p btn-line"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>In Cart — View Cart</a></div>
+      @endif
 
       <form method="POST" action="{{ url('/wishlist/'.$p->id.'/toggle') }}" style="margin-top:10px">
         @csrf
@@ -168,7 +171,7 @@
 </div>
 </div>
 
-{{-- Options modal: quantity + variation (ids, classes, data attrs and JS unchanged) --}}
+{{-- Order options retain the chosen stock, price and quantity through checkout. --}}
 <div id="optModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(10,47,58,.45);align-items:center;justify-content:center;padding:16px">
   <div style="border-radius:20px;max-width:420px;width:100%;padding:20px;max-height:90vh;overflow:auto" role="dialog" aria-modal="true" aria-label="Order options">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -196,58 +199,77 @@
       <span id="optAvail" style="font-size:11px;color:var(--text3)">{{ $p->stock }} available</span>
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-weight:800">Total <span id="optTotal" style="color:var(--green);font-size:16px">₱{{ number_format($effPrice,2) }}</span></div>
+    <p id="optError" role="alert" hidden style="color:#991b1b;margin-bottom:10px">This item is out of stock.</p>
     <div style="display:flex;gap:10px">
-      <button type="button" onclick="confirmOpt('cart')" style="flex:1;padding:11px;border-radius:999px;background:#fff;color:var(--green);border:1.5px solid var(--green);font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">Add to Cart</button>
-      <button type="button" onclick="confirmOpt('buy')" style="flex:1;padding:11px;border-radius:999px;background:var(--green);color:#fff;border:none;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">Buy Now</button>
+      <button type="button" onclick="confirmOpt('cart')" class="opt-confirm" style="flex:1;padding:11px;border-radius:999px;background:#fff;color:var(--green);border:1.5px solid var(--green);font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">Add to Cart</button>
+      <button type="button" onclick="confirmOpt('buy')" class="opt-confirm" style="flex:1;padding:11px;border-radius:999px;background:var(--green);color:#fff;border:none;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px">Buy Now</button>
     </div>
   </div>
 </div>
 <script>
 (function(){
-  var base = parseFloat("{{ $effPrice }}");
-  var baseMax = Math.max(1, parseInt("{{ $p->stock }}") || 1);
-  var maxQty = baseMax;
-  var qty = 1, variantId = '', variantAdj = 0, buyNow = false;
+  var base = Number(@json($effPrice));
+  var baseMax = Math.min(200, Math.max(0, Number(@json((int) $p->stock)) || 0));
+  var hasVariants = @json($vgroups->isNotEmpty());
+  var maxQty = baseMax, qty = 1, variantId = '', variantAdj = 0;
+  var submitting = false, opener = null, previousOverflow = '';
+  var modal = document.getElementById('optModal');
   var peso = function(n){ return '₱' + n.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}); };
-  function refreshAvail(){
-    var el = document.getElementById('optAvail');
-    if(el) el.textContent = maxQty + ' available' + (variantId ? ' for this variation' : '');
+  function resetPills(){
+    document.querySelectorAll('.opt-pill').forEach(function(b){
+      b.style.borderColor = 'var(--border)'; b.style.background = '#fff'; b.style.color = 'var(--text)';
+      b.setAttribute('aria-pressed', 'false');
+    });
   }
-
-  window.openOpt = function(isBuy){
-    buyNow = !!isBuy; qty = 1; updateOpt();
-    var m = document.getElementById('optModal');
-    if(m) m.style.display = 'flex';
+  function updateOpt(){
+    document.getElementById('optQtyVal').textContent = qty;
+    document.getElementById('optBasePrice').textContent = peso(base + variantAdj);
+    document.getElementById('optTotal').textContent = peso((base + variantAdj) * qty);
+    document.getElementById('optAvail').textContent = maxQty + ' available' + (variantId ? ' for this variation' : '');
+    document.getElementById('optError').hidden = maxQty > 0;
+    document.querySelectorAll('.opt-confirm').forEach(function(button){
+      button.disabled = submitting || maxQty < 1 || (hasVariants && !variantId);
+    });
+  }
+  window.openOpt = function(){
+    opener = document.activeElement;
+    qty = baseMax > 0 ? 1 : 0; variantId = ''; variantAdj = 0; maxQty = baseMax; submitting = false;
+    resetPills();
+    var first = modal.querySelector('.opt-pill:not(:disabled)');
+    if(first) window.pickVariant(first);
+    else if(hasVariants) { maxQty = 0; qty = 0; }
+    updateOpt();
+    previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    modal.style.display = 'flex';
+    modal.querySelector('button[aria-label="Close options"]').focus();
   };
   window.closeOpt = function(){
-    var m = document.getElementById('optModal');
-    if(m) m.style.display = 'none';
+    modal.style.display = 'none';
+    document.body.style.overflow = previousOverflow;
+    if(opener && opener.isConnected) opener.focus({preventScroll:true});
   };
   window.pickVariant = function(btn){
     if(btn.disabled) return;
-    document.querySelectorAll('.opt-pill').forEach(function(b){
-      b.style.borderColor = 'var(--border)'; b.style.background = '#fff'; b.style.color = 'var(--text)';
-    });
+    resetPills();
     btn.style.borderColor = 'var(--green)'; btn.style.background = '#f0fdf4'; btn.style.color = 'var(--green)';
+    btn.setAttribute('aria-pressed', 'true');
     variantId = btn.getAttribute('data-variant');
-    variantAdj = parseFloat(btn.getAttribute('data-adj')) || 0;
-    // Cap quantity at the SELECTED variation's stock (e.g. 12 means max 12).
-    maxQty = Math.max(1, parseInt(btn.getAttribute('data-stock')) || 1);
-    if(qty > maxQty) qty = maxQty;
-    refreshAvail();
+    variantAdj = Number(btn.getAttribute('data-adj')) || 0;
+    maxQty = Math.min(200, Math.max(0, Number(btn.getAttribute('data-stock')) || 0));
+    qty = maxQty > 0 ? Math.min(Math.max(1, qty), maxQty) : 0;
     updateOpt();
   };
   window.optQty = function(d){
-    qty = Math.min(Math.max(1, qty + d), Math.max(1, maxQty));
+    qty = maxQty > 0 ? Math.min(Math.max(1, qty + d), maxQty) : 0;
     updateOpt();
   };
-  function updateOpt(){
-    document.getElementById('optQtyVal').textContent = qty;
-    document.getElementById('optTotal').textContent = peso((base + variantAdj) * qty);
-  }
   window.confirmOpt = function(mode){
+    if(submitting || maxQty < 1 || qty < 1 || (hasVariants && !variantId)) return;
+    submitting = true;
+    updateOpt();
     if(mode === 'buy'){
-      window.location.href = "{{ url('/buy/'.$p->id) }}" + '?qty=' + qty + (variantId ? '&variant_id=' + variantId : '');
+      window.location.href = @json(url('/buy/'.$p->id)) + '?qty=' + qty + (variantId ? '&variant_id=' + variantId : '');
       return;
     }
     var form = document.createElement('form');
@@ -261,8 +283,16 @@
     document.body.appendChild(form);
     form.submit();
   };
-  var modal = document.getElementById('optModal');
-  if(modal) modal.addEventListener('click', function(e){ if(e.target === modal) closeOpt(); });
+  modal.addEventListener('click', function(e){ if(e.target === modal) window.closeOpt(); });
+  modal.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') { e.preventDefault(); window.closeOpt(); return; }
+    if(e.key !== 'Tab') return;
+    var targets = Array.from(modal.querySelectorAll('button:not(:disabled)'));
+    var first = targets[0], last = targets[targets.length-1];
+    if(e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  window.addEventListener('pageshow', function(){ submitting = false; updateOpt(); });
 })();
 </script>
 @endsection

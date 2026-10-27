@@ -57,7 +57,7 @@
 </head>
 <body>
   @php
-    $hideSidebar = (request()->is('/') || request()->is('products')) && !session('buyer');
+    $hideSidebar = (request()->is('/') || request()->is('products')) && !\App\Support\BuyerSession::current();
   @endphp
   <header class="topbar buyerbar">
     @if(!$hideSidebar)<button id="buyerMenuBtn" class="hamburger" title="Toggle menu" aria-label="Toggle menu" aria-expanded="true">&#9776;</button>@endif
@@ -72,7 +72,7 @@
       <button type="submit" class="search-btn">Search</button>
     </form>
     @php
-      $buyer = session('buyer');
+      $buyer = \App\Support\BuyerSession::current();
       $buyerPicturePath = $buyer ? \App\Models\User::whereKey($buyer['id'])->value('profile_picture') : null;
       $buyerAvatar = $buyerPicturePath ? asset('storage/' . ltrim($buyerPicturePath, '/')) : null;
       $cartCount = 0;
@@ -281,7 +281,7 @@
     </div>
   </div>
   @stack('scripts')
-  <script src="{{ asset('frontend/js/app.js') }}"></script>
+  <script src="{{ asset('frontend/js/app.js') }}?v={{ filemtime(public_path('frontend/js/app.js')) }}"></script>
   @include('partials.support-chat')
 </body>
 </html>

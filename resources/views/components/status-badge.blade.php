@@ -31,7 +31,31 @@
     $text = $label ?? $defaultLabel;
 @endphp
 
+@if(request()->is('logistics', 'logistics/*'))
+    @php
+        $statusIcon = match ($status) {
+            'waiting_for_rider' => 'clock',
+            'assigned', 'accepted' => 'user',
+            'picked_up' => 'box',
+            'out_for_delivery', 'going_to_pickup', 'delivering' => 'truck',
+            'delivered', 'approved', 'available' => 'check',
+            'delivery_failed', 'exceptions', 'lost', 'damaged' => 'alert-triangle',
+            'returned_to_seller' => 'arrow-left',
+            'cancelled', 'rejected' => 'x',
+            default => 'info',
+        };
+        $statusTone = match ($status) {
+            'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop', 'picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered', 'approved', 'available', 'delivering' => 'teal',
+            'delivery_failed', 'exceptions', 'lost', 'damaged' => 'exception',
+            default => 'neutral',
+        };
+    @endphp
+    <span class="logistics-status logistics-status--{{ $statusTone }}" title="{{ $text }}">
+        <x-icon :name="$statusIcon" class="logistics-status-icon" />
+        <span class="logistics-status-label">{{ $text }}</span>
+    </span>
+@else
 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ring-1 ring-inset {{ $classes }}">
     <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
     {{ $text }}
-</span>
+</span>@endif

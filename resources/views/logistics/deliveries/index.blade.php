@@ -21,16 +21,16 @@
         $hasFilters = trim((string) request('search')) !== '' || $currentStatus || request('date_from') || request('date_to') || request('rider_id') || request('vehicle_type') || request('center_id') || request('service_area_id') || request('priority');
     @endphp
 
-    <div x-data="{ archiveOpen: false, archiveUrl: '' }" class="space-y-6">
+    <div x-data="{ archiveOpen: false, archiveUrl: '' }" class="delivery-list-layout">
         <header class="delivery-head">
             <div>
                 <h1>Deliveries</h1>
                 <p>Track each shipment, assign riders and keep deliveries moving.</p>
             </div>
             <div class="delivery-head-actions">
-                <a href="{{ route('deliveries.archived') }}" class="delivery-button">Archived <span class="text-xs">({{ $archivedCount }})</span></a>
-                <a href="{{ route('deliveries.export', collect(request()->query())->except(['page', 'per_page'])->all()) }}" class="delivery-button">Export CSV</a>
-                <a href="{{ route('deliveries.create') }}" class="delivery-button delivery-button--primary">New delivery</a>
+                <a href="{{ route('deliveries.archived') }}" class="delivery-button"><x-icon name="archive" class="delivery-control-icon" />Archived <span class="text-xs">({{ $archivedCount }})</span></a>
+                <a href="{{ route('deliveries.export', collect(request()->query())->except(['page', 'per_page'])->all()) }}" class="delivery-button"><x-icon name="download" class="delivery-control-icon" />Export CSV</a>
+                <a href="{{ route('deliveries.create') }}" class="delivery-button delivery-button--primary"><x-icon name="plus" class="delivery-control-icon" />New delivery</a>
             </div>
         </header>
         <nav class="delivery-tabs" aria-label="Delivery status">
@@ -53,7 +53,7 @@
                 <p class="text-sm font-semibold text-gray-900">Bulk assign selected deliveries</p>
                 <p class="mt-0.5 text-xs text-gray-500">Select up to 25 deliveries below, then choose a rider. Already-assigned deliveries stay with their current rider.</p>
             </div>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div class="delivery-bulk-controls">
                 <select name="rider_id" aria-label="Rider for selected deliveries" required class="h-10 min-w-48 rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:border-teal focus:outline-none">
                     <option value="">Select rider</option>
                     @foreach($filterRiders as $rider)
@@ -69,7 +69,7 @@
     @endif
 
     @if(session('bulk_assignment_results'))
-        <div class="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <div class="delivery-bulk-results">
             <p class="text-sm font-semibold text-gray-900">Bulk assignment results</p>
             <ul class="mt-3 space-y-2">
                 @foreach(session('bulk_assignment_results') as $result)
@@ -77,11 +77,11 @@
                         <span class="font-medium text-gray-700">
                             Delivery #{{ $result['delivery_id'] }}
                             @if(!empty($result['tracking_number']))
-                                <span class="font-mono text-xs text-gray-500">{{ $result['tracking_number'] }}</span>
+                                <span class="delivery-result-tracking text-xs text-gray-500">{{ $result['tracking_number'] }}</span>
                             @endif
                         </span>
                         <span class="flex flex-wrap items-center gap-2">
-                            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset {{ ($result['status'] ?? 'failed') === 'failed' ? 'bg-red-50 text-red-700 ring-red-200' : 'bg-emerald-50 text-emerald-700 ring-emerald-200' }}">
+                            <span class="logistics-status {{ ($result['status'] ?? 'failed') === 'failed' ? 'logistics-status--exception' : 'logistics-status--teal' }}">
                                 {{ ucwords(str_replace('_', ' ', $result['status'] ?? 'failed')) }}
                             </span>
                             <span class="text-xs text-gray-500">{{ $result['message'] ?? '' }}</span>
@@ -93,64 +93,92 @@
     @endif
 
     <section class="delivery-table-wrap" aria-label="Delivery records">
-        <table class="delivery-table">
-            <thead>
-                <tr>
+        <table class="delivery-table {{ $filterRiders->isEmpty() ? 'delivery-table--no-selection' : '' }}" role="table">
+            <thead role="rowgroup">
+                <tr role="row">
                     @if($filterRiders->isNotEmpty())
-                        <th scope="col" class="delivery-select"><label><input id="bulk-select-all" type="checkbox" aria-label="Select all assignable deliveries"></label></th>
+                        <th scope="col" role="columnheader" class="delivery-select"><label><input id="bulk-select-all" type="checkbox" aria-label="Select all assignable deliveries"></label></th>
                     @endif
-                    <th scope="col" class="delivery-shipment">Shipment &amp; actions</th>
-                    <th scope="col" class="delivery-parties">Sender &amp; recipient</th>
-                    <th scope="col" class="delivery-assignment">Rider &amp; routing</th>
-                    <th scope="col" class="delivery-state">Status &amp; priority</th>
-                    <th scope="col" class="delivery-amount">Amount</th>
+                    <th scope="col" role="columnheader" class="delivery-shipment">Shipment</th>
+                    <th scope="col" role="columnheader" class="delivery-created">Created</th>
+                    <th scope="col" role="columnheader" class="delivery-parties">Sender &amp; recipient</th>
+                    <th scope="col" role="columnheader" class="delivery-assignment">Rider &amp; routing</th>
+                    <th scope="col" role="columnheader" class="delivery-state">Status</th>
+                    <th scope="col" role="columnheader" class="delivery-amount">Amount</th>
+                    <th scope="col" role="columnheader" class="delivery-actions-cell"><span class="sr-only">Actions</span></th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
                 @forelse($deliveries as $delivery)
-                    <tr>
+                    @php
+                        // Presentation only; these relations are already eager-loaded by index().
+                        $sender = trim((string) $delivery->sender_name);
+                        $recipient = trim((string) $delivery->recipient_name);
+                        $destination = trim((string) $delivery->destinationCenter?->name);
+                        $riderName = trim((string) $delivery->rider?->name);
+                        $centerName = trim((string) $delivery->logisticsCenter?->name);
+                        $areaName = trim((string) $delivery->serviceArea?->name);
+                        $partyText = implode(' → ', array_filter([$sender, $recipient], fn ($v) => $v !== ''));
+                        $partyText = implode(' · ', array_filter([$partyText, $destination], fn ($v) => $v !== ''));
+                        $partyDescription = 'From: ' . ($sender ?: 'Not recorded') . ' / To: ' . ($recipient ?: 'Not recorded') . ' / Destination: ' . ($destination ?: 'Not set');
+                        $routingDescription = ($riderName ?: 'Unassigned') . ' / Center: ' . ($centerName ?: 'Not set') . ' / Area: ' . ($areaName ?: 'Not set');
+                        $priorityText = ucfirst($delivery->priority ?? 'normal') . ' priority';
+                    @endphp
+                    <tr role="row">
                         @if($filterRiders->isNotEmpty())
-                            <td class="delivery-select">
+                            <td role="cell" class="delivery-select">
                                 @if(in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
                                     <label><input form="bulk-assign-form" type="checkbox" name="delivery_ids[]" value="{{ $delivery->id }}" aria-label="Select {{ $delivery->tracking_number }}" class="bulk-delivery-checkbox"></label>
                                 @endif
                             </td>
                         @endif
-                        <td class="delivery-shipment">
-                            <a href="{{ route('deliveries.show', $delivery) }}" class="delivery-record-link">{{ $delivery->tracking_number }}</a>
-                            <small>Created {{ $delivery->created_at->format('M d, Y') }}</small>
-                            <div class="delivery-row-actions">
-                                <a href="{{ route('deliveries.show', $delivery) }}" aria-label="View {{ $delivery->tracking_number }}">View</a>
-                                <a href="{{ route('deliveries.edit', $delivery) }}" aria-label="Edit {{ $delivery->tracking_number }}">Edit</a>
-                                <button type="button" data-archive-url="{{ route('deliveries.archive', $delivery) }}"
-                                        @click="archiveUrl = $el.dataset.archiveUrl; archiveOpen = true"
-                                        aria-label="Archive {{ $delivery->tracking_number }}">Archive</button>
+                        <td role="cell" class="delivery-shipment">
+                            <a href="{{ route('deliveries.show', $delivery) }}" class="delivery-record-link" title="{{ $delivery->tracking_number }}">{{ $delivery->tracking_number }}</a>
+                        </td>
+                        <td role="cell" class="delivery-created" title="Created {{ $delivery->created_at->format('M d, Y') }}">
+                            <span class="sr-only">Created </span>{{ $delivery->created_at->format('M d, Y') }}
+                        </td>
+                        <td role="cell" class="delivery-parties {{ $partyText === '' ? 'delivery-parties--empty' : '' }}" data-label="Sender &amp; recipient" title="{{ $partyDescription }}">
+                            <span class="delivery-truncate" aria-hidden="true">{{ $partyText ?: '—' }}</span>
+                            <span class="sr-only">{{ $partyDescription }}</span>
+                        </td>
+                        <td role="cell" class="delivery-assignment" data-label="Rider &amp; routing" title="{{ $routingDescription }}">
+                            <span class="delivery-routing-line" aria-hidden="true">
+                                @if($riderName !== '')
+                                    <span class="delivery-rider-name">{{ $riderName }}</span>
+                                @else
+                                    <span class="delivery-unassigned"><x-icon name="user" class="delivery-control-icon" />Unassigned</span>
+                                @endif
+                                @if($centerName !== '')<span class="delivery-routing-detail"> · {{ $centerName }}</span>@endif
+                                @if($areaName !== '')<span class="delivery-routing-detail"> · {{ $areaName }}</span>@endif
+                            </span>
+                            <span class="sr-only">{{ $routingDescription }}</span>
+                        </td>
+                        <td role="cell" class="delivery-state" data-label="Status &amp; priority">
+                            <div class="delivery-status-line">
+                                <x-status-badge :status="$delivery->status" />
+                                <span class="{{ ($delivery->priority ?? 'normal') === 'normal' ? 'sr-only' : 'delivery-priority' }}" title="{{ $priorityText }}">{{ $priorityText }}</span>
                             </div>
                         </td>
-                        <td class="delivery-parties" data-label="Sender &amp; recipient">
-                            <p><span class="text-gray-500">From</span> {{ $delivery->sender_name ?: 'Not recorded' }}</p>
-                            <p><span class="text-gray-500">To</span> {{ $delivery->recipient_name ?: 'Not recorded' }}</p>
-                            <small>Destination: {{ $delivery->destinationCenter?->name ?? 'Not set' }}</small>
-                        </td>
-                        <td class="delivery-assignment" data-label="Rider &amp; routing">
-                            <p class="font-medium">{{ $delivery->rider?->name ?? 'Unassigned' }}</p>
-                            <small>Center: {{ $delivery->logisticsCenter?->name ?? 'Not set' }}</small>
-                            <small>Area: {{ $delivery->serviceArea?->name ?? 'Not set' }}</small>
-                        </td>
-                        <td class="delivery-state" data-label="Status &amp; priority">
-                            <x-status-badge :status="$delivery->status" />
-                            <small>{{ ucfirst($delivery->priority ?? 'normal') }} priority</small>
-                        </td>
-                        <td class="delivery-amount" data-label="Amount">
+                        <td role="cell" class="delivery-amount" data-label="Amount">
                             @if($delivery->transaction)
-                                <span class="font-semibold">&#8369;{{ number_format($delivery->transaction->amount, 2) }}</span>
+                                <span class="font-semibold" title="₱{{ number_format($delivery->transaction->amount, 2) }}">&#8369;{{ number_format($delivery->transaction->amount, 2) }}</span>
                             @else
                                 <span class="text-gray-500">&mdash;</span>
                             @endif
                         </td>
+                        <td role="cell" class="delivery-actions-cell">
+                            <div class="delivery-row-actions">
+                                <a href="{{ route('deliveries.show', $delivery) }}" aria-label="View {{ $delivery->tracking_number }}" title="View {{ $delivery->tracking_number }}"><x-icon name="eye" class="delivery-control-icon" /><span class="delivery-action-label">View</span></a>
+                                <a href="{{ route('deliveries.edit', $delivery) }}" aria-label="Edit {{ $delivery->tracking_number }}" title="Edit {{ $delivery->tracking_number }}"><x-icon name="edit" class="delivery-control-icon" /><span class="delivery-action-label">Edit</span></a>
+                                <button type="button" data-archive-url="{{ route('deliveries.archive', $delivery) }}"
+                                        @click="archiveUrl = $el.dataset.archiveUrl; archiveOpen = true"
+                                        aria-label="Archive {{ $delivery->tracking_number }}" title="Archive {{ $delivery->tracking_number }}"><x-icon name="archive" class="delivery-control-icon" /><span class="delivery-action-label">Archive</span></button>
+                            </div>
+                        </td>
                     </tr>
                 @empty
-                    <tr><td colspan="{{ $filterRiders->isNotEmpty() ? 6 : 5 }}">
+                    <tr role="row" class="delivery-empty-row"><td role="cell" colspan="{{ $filterRiders->isNotEmpty() ? 8 : 7 }}">
                         <div class="delivery-empty">
                             <h2>No deliveries found</h2>
                             <p class="text-gray-500">{{ $hasFilters ? 'Try a different search or clear your filters to see more records.' : 'New deliveries will appear here. Create one to get started.' }}</p>
@@ -164,15 +192,12 @@
                 @endforelse
             </tbody>
         </table>
-        @if($deliveries->count() > 0)
-            <div class="delivery-table-footer">
-                <p>Showing <strong>{{ $deliveries->firstItem() }}&ndash;{{ $deliveries->lastItem() }}</strong> of <strong>{{ number_format($deliveries->total()) }}</strong> deliveries</p>
-                <p>Page {{ $deliveries->currentPage() }} of {{ $deliveries->lastPage() }}</p>
-            </div>
-        @endif
     </section>
 
-    <div class="mt-4">
+    <div class="delivery-pagination">
+        @if($deliveries->count() > 0)
+            <p class="delivery-page-summary">Showing {{ $deliveries->firstItem() }}&ndash;{{ $deliveries->lastItem() }} of {{ number_format($deliveries->total()) }} · Page {{ $deliveries->currentPage() }} of {{ $deliveries->lastPage() }}</p>
+        @endif
         {{ $deliveries->onEachSide(2)->links() }}
     </div>
 

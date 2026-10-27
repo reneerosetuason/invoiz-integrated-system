@@ -16,10 +16,10 @@
             recipientsUrl: @js(route('messages.recipients', [], false)),
             startUrl: @js(route('messages.start', [], false))
         })"
-         class="h-[calc(100vh-7rem)] flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+         class="lw-messages h-[calc(100vh-7rem)] flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
 
         {{-- ================= Conversation List Panel ================= --}}
-        <div class="w-full sm:w-80 lg:w-96 border-r border-gray-200 flex-col bg-gray-50/50 flex-shrink-0"
+        <div class="lw-message-list w-full sm:w-80 lg:w-96 border-r border-gray-200 flex-col bg-gray-50/50 flex-shrink-0"
              :class="mobileList || !active ? 'flex' : 'hidden sm:flex'">
 
             {{-- Header --}}
@@ -36,7 +36,7 @@
                 </div>
 
                 {{-- Search (full page GET) --}}
-                <form method="GET" action="{{ route('messages.index') }}" class="relative mb-3">
+                <form method="GET" action="{{ route('messages.index') }}" class="lw-message-search relative mb-3">
                     <input type="hidden" name="filter" value="{{ request('filter', 'all') }}">
                     @if(request('per_page'))
                         <input type="hidden" name="per_page" value="{{ request('per_page') }}">
@@ -146,7 +146,7 @@
                     <x-per-page route="messages.index" align=""/>
                 </div>
             @endif
-            @include('admin.partials.pager', ['paginator' => $conversations])
+            @include('logistics.partials.workspace-pager', ['paginator' => $conversations])
         </div>
 
         {{-- ================= Chat Panel ================= --}}
@@ -182,7 +182,7 @@
             {{-- Messages (Alpine-driven, auto-updates). Files can be dropped here to attach. --}}
             <div x-ref="thread" @dragover.prevent="dragging = true" @dragleave="dragging = false" @drop.prevent="dropAttachment($event)"
                  class="relative flex-1 overflow-y-auto px-5 py-4 space-y-1"
-                 style="background: linear-gradient(180deg, #F7F6F2 0%, #FFFFFF 100%);">
+                 style="background: var(--lw-wash);">
                 <div x-show="dragging" x-cloak class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-teal bg-teal-light/70 m-2">
                     <p class="text-sm font-semibold text-teal-dark">Drop file here to attach</p>
                 </div>
@@ -293,7 +293,7 @@
                     </label>
 
                     <button type="submit" :disabled="sending"
-                            class="flex items-center justify-center h-[42px] w-[42px] rounded-xl bg-teal text-white hover:bg-teal-dark shadow-sm transition-all flex-shrink-0 disabled:opacity-60">
+                            aria-label="Send message" class="flex items-center justify-center h-[42px] w-[42px] rounded-xl bg-teal text-white hover:bg-teal-dark shadow-sm transition-all flex-shrink-0 disabled:opacity-60">
                         <svg x-show="!sending" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                         </svg>
@@ -644,7 +644,7 @@
                 },
 
                 async deleteMessage(msg) {
-                    if (!confirm('Delete this message?')) return;
+                    if (!await window.logisticsConfirm({title: 'Delete message?', message: 'This message will be removed from the conversation.', confirmLabel: 'Delete message', danger: true})) return;
                     this.error = '';
                     try {
                         const r = await fetch(this.base + '/' + msg.id, {

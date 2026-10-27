@@ -1,0 +1,720 @@
+{
+  "resources\\views\\logistics\\center-applications\\index.blade.php": {
+    "names": [
+      "search",
+      "status"
+    ],
+    "routes": [
+      "center-applications.index",
+      "center-applications.index",
+      "center-applications.index",
+      "center-applications.show"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('search') || request('status'))",
+      "@if($application->status === 'pending')",
+      "@elseif($application->status === 'approved')",
+      "@if(count($stepLabels) > 0)",
+      "@if(request('search') || request('status'))",
+      "@if($applications->total() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\center-applications\\show.blade.php": {
+    "names": [
+      "notes",
+      "password",
+      "password_confirmation",
+      "reason"
+    ],
+    "routes": [
+      "center-applications.approve",
+      "center-applications.documents.download",
+      "center-applications.documents.view",
+      "center-applications.index",
+      "center-applications.reject",
+      "center-applications.resend-credentials"
+    ],
+    "csrf": 3,
+    "methods": [],
+    "gates": [
+      "@if($application->status === 'pending')",
+      "@elseif($application->status === 'approved')",
+      "@if($application->submitted_via === 'mobile')",
+      "@if($application->provisioned_at)",
+      "@if($application->notes && $application->status !== 'pending')",
+      "@if($application->supportingDocuments->isEmpty())",
+      "@if($document->isImage())",
+      "@if($document->fileExists())",
+      "@if($application->status === 'pending')",
+      "@if($application->status === 'approved' && $application->provisioned_at)"
+    ]
+  },
+  "resources\\views\\logistics\\centers\\create.blade.php": {
+    "names": [
+      "address",
+      "name",
+      "phone"
+    ],
+    "routes": [
+      "centers.index",
+      "centers.index",
+      "centers.store"
+    ],
+    "csrf": 1,
+    "methods": [],
+    "gates": []
+  },
+  "resources\\views\\logistics\\centers\\edit.blade.php": {
+    "names": [
+      "address",
+      "name",
+      "phone"
+    ],
+    "routes": [
+      "centers.show",
+      "centers.show",
+      "centers.update"
+    ],
+    "csrf": 1,
+    "methods": [
+      "PUT"
+    ],
+    "gates": []
+  },
+  "resources\\views\\logistics\\centers\\index.blade.php": {
+    "names": [
+      "search",
+      "status"
+    ],
+    "routes": [
+      "centers.create",
+      "centers.index",
+      "centers.index",
+      "centers.show",
+      "centers.show"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('search') || request('status'))",
+      "@if($center->is_active)",
+      "@if($centers->total() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\centers\\show.blade.php": {
+    "names": [],
+    "routes": [
+      "centers.edit",
+      "centers.index",
+      "centers.toggle"
+    ],
+    "csrf": 1,
+    "methods": [],
+    "gates": [
+      "@if($center->is_active)"
+    ]
+  },
+  "resources\\views\\logistics\\messages\\index.blade.php": {
+    "names": [
+      "filter",
+      "per_page",
+      "search"
+    ],
+    "routes": [
+      "messages.index",
+      "messages.index",
+      "messages.index",
+      "messages.recipients",
+      "messages.start"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('per_page'))",
+      "@if(trim((string) request('search')) !== '')",
+      "@if(request('filter', 'all') === 'unread')",
+      "@elseif(request('filter', 'all') !== 'all')",
+      "@elseif(trim((string) request('search')) !== '')",
+      "@if($conversations->count() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\notifications\\index.blade.php": {
+    "names": [
+      "filter",
+      "header",
+      "type"
+    ],
+    "routes": [
+      "notifications.index",
+      "notifications.index",
+      "notifications.index",
+      "notifications.index",
+      "notifications.mark-all-read"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if($unreadCount > 0)",
+      "@if($unreadCount > 0)",
+      "@if($filter === 'unread')",
+      "@if(!$notification->is_read)",
+      "@if($notification->message)",
+      "@if($notification->link)",
+      "@if(!$notification->is_read)",
+      "@if($notifications->hasPages())"
+    ]
+  },
+  "resources\\views\\logistics\\pickup-requests\\index.blade.php": {
+    "names": [
+      "search",
+      "status"
+    ],
+    "routes": [
+      "pickup-requests.index",
+      "pickup-requests.index",
+      "pickup-requests.index",
+      "pickup-requests.index",
+      "pickup-requests.show"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if($isAdmin)",
+      "@if($needsRoutingCount > 0)",
+      "@if($isAdmin)",
+      "@if(request('search') || request('status'))",
+      "@if($pickupRequest->center)",
+      "@if($pickupRequest->status === 'pending')",
+      "@elseif($pickupRequest->status === 'approved')",
+      "@elseif($pickupRequest->status === 'rejected')",
+      "@if(request('search') || request('status'))",
+      "@if($pickupRequests->total() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\pickup-requests\\show.blade.php": {
+    "names": [
+      "center_id",
+      "rejection_reason"
+    ],
+    "routes": [
+      "deliveries.show",
+      "pickup-requests.approve",
+      "pickup-requests.index",
+      "pickup-requests.reject",
+      "pickup-requests.route"
+    ],
+    "csrf": 3,
+    "methods": [],
+    "gates": [
+      "@if($pickupRequest->status === 'pending')",
+      "@elseif($pickupRequest->status === 'approved')",
+      "@elseif($pickupRequest->status === 'rejected')",
+      "@if($pickupRequest->center)",
+      "@elseif($pickupRequest->status === 'pending')",
+      "@if($pickupRequest->status === 'rejected' && $pickupRequest->rejection_reason)",
+      "@if($pickupRequest->delivery->notes)",
+      "@if($canRoute)",
+      "@if($pickupRequest->status === 'pending' && $canReview)"
+    ]
+  },
+  "resources\\views\\logistics\\profile\\edit.blade.php": {
+    "names": [
+      "header"
+    ],
+    "routes": [],
+    "csrf": 0,
+    "methods": [],
+    "gates": []
+  },
+  "resources\\views\\logistics\\profile\\show.blade.php": {
+    "names": [
+      "email",
+      "header",
+      "name",
+      "phone",
+      "photo"
+    ],
+    "routes": [
+      "logistics.profile.update",
+      "settings.index"
+    ],
+    "csrf": 1,
+    "methods": [
+      "PATCH"
+    ],
+    "gates": [
+      "@if(session('success'))",
+      "@if($settings->photo_path && file_exists(public_path($settings->photo_path)))"
+    ]
+  },
+  "resources\\views\\logistics\\remittances\\index.blade.php": {
+    "names": [
+      "status"
+    ],
+    "routes": [
+      "deliveries.show",
+      "remittances.export",
+      "remittances.index",
+      "remittances.index"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('status'))",
+      "@if($remittance->delivery)",
+      "@if(($info['received'] ?? null) !== null)",
+      "@if(($info['variance'] ?? null) !== null)",
+      "@if($remittance->status === 'confirmed')",
+      "@elseif($remittance->status === 'sent')",
+      "@if($remittances->total() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\reports\\index.blade.php": {
+    "names": [
+      "center_id",
+      "date_from",
+      "date_to",
+      "rider_id",
+      "service_area_id",
+      "tab"
+    ],
+    "routes": [
+      "reports.export",
+      "reports.export.csv",
+      "reports.index",
+      "reports.index"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if($tab !== 'center')",
+      "@if($tab === 'delivery' || $tab === 'rider' || $tab === 'all')",
+      "@if($tab === 'delivery' || $tab === 'area' || $tab === 'all')",
+      "@if($tab === 'all')",
+      "@if($tab === 'delivery' || $tab === 'all')",
+      "@if($tab === 'center' || $tab === 'all')",
+      "@if($tab === 'area' || $tab === 'all')",
+      "@if($tab === 'rider' || $tab === 'all')",
+      "@if($tab === 'financial' || $tab === 'all')"
+    ]
+  },
+  "resources\\views\\logistics\\rider-applications\\index.blade.php": {
+    "names": [
+      "search",
+      "status"
+    ],
+    "routes": [
+      "rider-applications.index",
+      "rider-applications.index",
+      "rider-applications.index",
+      "rider-applications.show"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('search') || request('status'))",
+      "@if($application->status === 'pending')",
+      "@elseif($application->status === 'approved')",
+      "@if(request('search') || request('status'))",
+      "@if($applications->total() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\rider-applications\\show.blade.php": {
+    "names": [
+      "center_id",
+      "notes",
+      "password",
+      "password_confirmation",
+      "reason",
+      "service_area_id"
+    ],
+    "routes": [
+      "rider-applications.approve",
+      "rider-applications.documents.download",
+      "rider-applications.documents.view",
+      "rider-applications.index",
+      "rider-applications.reject",
+      "rider-applications.resend-credentials"
+    ],
+    "csrf": 3,
+    "methods": [],
+    "gates": [
+      "@if($application->status === 'pending')",
+      "@elseif($application->status === 'approved')",
+      "@if($application->submitted_via === 'mobile')",
+      "@if($application->provisioned_at)",
+      "@if($application->notes && $application->status !== 'pending')",
+      "@if($application->supportingDocuments->isEmpty())",
+      "@if($document->isImage())",
+      "@if($document->fileExists())",
+      "@if($application->status === 'pending')",
+      "@if($application->status === 'approved' && $application->provisioned_at)",
+      "@if($application->logs->isEmpty())",
+      "@if($log->reason)"
+    ]
+  },
+  "resources\\views\\logistics\\riders\\index.blade.php": {
+    "names": [
+      "center_id",
+      "header",
+      "online",
+      "reason",
+      "search",
+      "service_area_id"
+    ],
+    "routes": [
+      "riders.activate",
+      "riders.deactivate",
+      "riders.index",
+      "riders.index",
+      "riders.index",
+      "riders.index",
+      "riders.show"
+    ],
+    "csrf": 2,
+    "methods": [],
+    "gates": [
+      "@if(Auth::user()->isLogisticsAdmin())",
+      "@if($hasFilters)",
+      "@if($rider->is_online)",
+      "@if($canManage)",
+      "@if($rider->status === 'inactive')",
+      "@if(trim((string) request('search')) !== '')",
+      "@if($hasFilters)",
+      "@if($riders->count() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\riders\\show.blade.php": {
+    "names": [
+      "header",
+      "license_expiry",
+      "license_number",
+      "reason",
+      "vehicle_registration"
+    ],
+    "routes": [
+      "deliveries.show",
+      "deliveries.show",
+      "riders.activate",
+      "riders.deactivate",
+      "riders.index",
+      "riders.reset-credentials",
+      "riders.reverify"
+    ],
+    "csrf": 4,
+    "methods": [],
+    "gates": [
+      "@if(Auth::user()->isLogisticsAdmin() || (Auth::user()->center_id && (int) Auth::user()->center_id === (int) $rider->center_id))",
+      "@if($rider->status === 'inactive')",
+      "@if($rider->logisticsCenter)",
+      "@if($rider->serviceArea)",
+      "@if($rider->vehicle_verification === 'verified')",
+      "@elseif($rider->vehicle_verification === 'rejected')",
+      "@if(!$rider->license_expiry)",
+      "@elseif($rider->licenseExpired())",
+      "@elseif($rider->licenseExpiringSoon())",
+      "@if($rider->is_online)",
+      "@if($currentDelivery)",
+      "@if($canManageRider)",
+      "@if($rider->licenseExpired())"
+    ]
+  },
+  "resources\\views\\logistics\\service-areas\\create.blade.php": {
+    "names": [
+      "description",
+      "logistics_center_id",
+      "name"
+    ],
+    "routes": [
+      "service-areas.index",
+      "service-areas.index",
+      "service-areas.store"
+    ],
+    "csrf": 1,
+    "methods": [],
+    "gates": []
+  },
+  "resources\\views\\logistics\\service-areas\\edit.blade.php": {
+    "names": [
+      "description",
+      "logistics_center_id",
+      "name"
+    ],
+    "routes": [
+      "service-areas.show",
+      "service-areas.show",
+      "service-areas.update"
+    ],
+    "csrf": 1,
+    "methods": [
+      "PUT"
+    ],
+    "gates": []
+  },
+  "resources\\views\\logistics\\service-areas\\index.blade.php": {
+    "names": [
+      "center_id",
+      "search",
+      "status"
+    ],
+    "routes": [
+      "service-areas.create",
+      "service-areas.index",
+      "service-areas.index",
+      "service-areas.show",
+      "service-areas.show"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('search') || request('center_id') || request('status'))",
+      "@if($area->description)<p class=\"text-xs text-gray-400 mt-0.5 max-w-xs truncate\">{{ $area->description }}</p>@endif",
+      "@if($area->is_active)",
+      "@if($areas->total() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\service-areas\\show.blade.php": {
+    "names": [],
+    "routes": [
+      "service-areas.edit",
+      "service-areas.index",
+      "service-areas.toggle"
+    ],
+    "csrf": 1,
+    "methods": [],
+    "gates": [
+      "@if($area->is_active)",
+      "@if($area->description)<p class=\"mt-1 text-sm text-gray-500\">{{ $area->description }}</p>@endif"
+    ]
+  },
+  "resources\\views\\logistics\\settings\\index.blade.php": {
+    "names": [
+      "allow_reassignment",
+      "allow_reassignment",
+      "current_password",
+      "email_notifications",
+      "email_notifications",
+      "header",
+      "max_attempts",
+      "password",
+      "password_confirmation",
+      "remember_sidebar",
+      "remember_sidebar",
+      "require_proof",
+      "require_proof",
+      "theme",
+      "timezone",
+      "{{ $key }}",
+      "{{ $key }}"
+    ],
+    "routes": [
+      "messages.index",
+      "profile.show",
+      "settings.update-appearance",
+      "settings.update-delivery",
+      "settings.update-navigation",
+      "settings.update-notifications",
+      "settings.update-password",
+      "settings.update-region"
+    ],
+    "csrf": 6,
+    "methods": [
+      "PATCH",
+      "PUT",
+      "PUT",
+      "PUT",
+      "PUT",
+      "PUT"
+    ],
+    "gates": [
+      "@if($loginHistory->isNotEmpty())",
+      "@if($loginHistory->isEmpty())",
+      "@if($supportAdmin)"
+    ]
+  },
+  "resources\\views\\logistics\\sorting-center\\index.blade.php": {
+    "names": [
+      "center_id",
+      "center_id",
+      "destination_center_id",
+      "header",
+      "reference",
+      "search",
+      "service_area_id",
+      "service_area_id",
+      "tab"
+    ],
+    "routes": [
+      "deliveries.dispatch",
+      "deliveries.receive",
+      "deliveries.return-to-seller",
+      "deliveries.scan-page",
+      "deliveries.show",
+      "deliveries.sort",
+      "sorting-center.export",
+      "sorting-center.index",
+      "sorting-center.index"
+    ],
+    "csrf": 4,
+    "methods": [],
+    "gates": [
+      "@if($tab !== 'all')",
+      "@if(!$staffCenterId)",
+      "@if($hasReturnedAt && $delivery->returned_at)",
+      "@if($hasReattemptRequestedAt && $delivery->reattempt_requested_at)",
+      "@if(in_array($delivery->parcel_status, ['scanned', 'sorted'], true) && (!$delivery->destination_center_id || !$delivery->service_area_id))",
+      "@if($delivery->returned_at && in_array($delivery->status, ['delivery_failed', 'damaged'], true))",
+      "@if($returnReceived)",
+      "@elseif($returnDispatched)",
+      "@if($delivery->parcel_status === 'pending_arrival')",
+      "@if($centers->isNotEmpty())",
+      "@if($delivery->parcel_status === 'scanned')",
+      "@if($delivery->parcel_status === 'sorted')"
+    ]
+  },
+  "resources\\views\\logistics\\staff\\create.blade.php": {
+    "names": [
+      "birthday",
+      "center_id",
+      "email",
+      "first_name",
+      "last_name",
+      "middle_initial",
+      "password",
+      "password_confirmation",
+      "phone",
+      "sex",
+      "terms"
+    ],
+    "routes": [
+      "staff.index",
+      "staff.index",
+      "staff.store"
+    ],
+    "csrf": 1,
+    "methods": [],
+    "gates": []
+  },
+  "resources\\views\\logistics\\staff\\edit.blade.php": {
+    "names": [
+      "birthday",
+      "center_id",
+      "email",
+      "first_name",
+      "last_name",
+      "middle_initial",
+      "phone",
+      "sex",
+      "status"
+    ],
+    "routes": [
+      "staff.show",
+      "staff.show",
+      "staff.update"
+    ],
+    "csrf": 1,
+    "methods": [
+      "PUT"
+    ],
+    "gates": []
+  },
+  "resources\\views\\logistics\\staff\\index.blade.php": {
+    "names": [
+      "center_id",
+      "search"
+    ],
+    "routes": [
+      "staff.create",
+      "staff.index",
+      "staff.index",
+      "staff.index",
+      "staff.show"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('search') || request('center_id'))",
+      "@if($member->status === 'active')",
+      "@if(request('search') || request('center_id'))",
+      "@if($staff->total() > 0)"
+    ]
+  },
+  "resources\\views\\logistics\\staff\\show.blade.php": {
+    "names": [],
+    "routes": [
+      "staff.activate",
+      "staff.destroy",
+      "staff.edit",
+      "staff.index"
+    ],
+    "csrf": 2,
+    "methods": [
+      "DELETE"
+    ],
+    "gates": [
+      "@if($staff->status === 'active')",
+      "@if($staff->status === 'active')"
+    ]
+  },
+  "resources\\views\\logistics\\tracking\\index.blade.php": {
+    "names": [
+      "header",
+      "tracking_number"
+    ],
+    "routes": [
+      "tracking.search"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": []
+  },
+  "resources\\views\\logistics\\tracking\\show.blade.php": {
+    "names": [
+      "header"
+    ],
+    "routes": [
+      "tracking.index",
+      "tracking.index"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if($delivery->archived_at)",
+      "@if(in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) && $delivery->failure_reason)",
+      "@if($delivery->status === 'cancelled' && $delivery->cancellation_reason)",
+      "@if($atHub)",
+      "@if($currentParcelIndex !== null)",
+      "@if($done)",
+      "@if($proof->type === 'signature' && $proof->signature_name)",
+      "@elseif($proof->file_path && file_exists(public_path('storage/' . $proof->file_path)))",
+      "@if(in_array($log->status, $parcelEventStatuses, true))<span class=\"inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark\">Parcel</span>@endif",
+      "@if(in_array($log->status, $centerEventStatuses, true))<span class=\"inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700\">Sorting Center</span>@endif",
+      "@if(in_array($log->status, $recordEventStatuses, true))<span class=\"inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500\">Record</span>@endif",
+      "@if($log->changer)"
+    ]
+  },
+  "resources\\views\\logistics\\transactions\\index.blade.php": {
+    "names": [
+      "center_id",
+      "date_from",
+      "date_to",
+      "search",
+      "status"
+    ],
+    "routes": [
+      "deliveries.show",
+      "transactions.index",
+      "transactions.index"
+    ],
+    "csrf": 0,
+    "methods": [],
+    "gates": [
+      "@if(request('search') || request('status') || request('center_id') || request('date_from') || request('date_to'))",
+      "@if($tx->status === 'completed')",
+      "@elseif($tx->status === 'failed')",
+      "@if($transactions->total() > 0)"
+    ]
+  }
+}

@@ -2,7 +2,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div class="flex items-center gap-4">
             <a href="{{ route('pickup-requests.index') }}"
-               class="p-2 bg-white border border-gray-200 rounded-xl text-gray-500 hover:text-teal-dark hover:border-teal transition shadow-sm">
+               class="lw-back" aria-label="Back to list">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             </a>
             <div>
@@ -147,7 +147,7 @@
                 <h3 class="text-base font-bold text-gray-900 mb-1">Approve Pickup</h3>
                 <p class="text-sm text-gray-500 mb-5">Approves the pickup request. Rider assignment is a separate step on the delivery page and is not performed here.</p>
                 <form action="{{ route('pickup-requests.approve', $pickupRequest) }}" method="POST"
-                      x-data x-on:submit.prevent="if (confirm('Approve this pickup request?')) $el.submit()">
+                      x-data data-confirm-message="Approve this pickup request?">
                     @csrf
                     <div class="flex justify-end">
                         <button type="submit" class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
@@ -162,7 +162,7 @@
                 <h3 class="text-base font-bold text-gray-900 mb-1">Reject Pickup</h3>
                 <p class="text-sm text-gray-500 mb-5">The delivery itself is not modified when a pickup request is rejected.</p>
                 <form action="{{ route('pickup-requests.reject', $pickupRequest) }}" method="POST"
-                      x-data x-on:submit.prevent="if (confirm('Reject this pickup request?')) $el.submit()">
+                      x-data data-confirm-message="Reject this pickup request?">
                     @csrf
                     <div class="space-y-4">
                         <div>

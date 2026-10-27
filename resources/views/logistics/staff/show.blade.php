@@ -2,7 +2,7 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div class="flex items-center gap-4">
             <a href="{{ route('staff.index') }}"
-               class="p-2 bg-white border border-gray-200 rounded-xl text-gray-500 hover:text-teal-dark hover:border-teal transition shadow-sm">
+               class="lw-back" aria-label="Back to list">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             </a>
             <div>
@@ -17,7 +17,7 @@
             @endif
             <a href="{{ route('staff.edit', $staff) }}" class="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:text-teal hover:border-teal px-4 py-2 rounded-xl text-sm font-semibold transition">Edit</a>
             @if($staff->status === 'active')
-                <form action="{{ route('staff.destroy', $staff) }}" method="POST" x-data x-on:submit.prevent="if (confirm('Deactivate {{ $staff->name }}?')) $el.submit()">
+                <form action="{{ route('staff.destroy', $staff) }}" method="POST" x-data data-confirm-message="Deactivate {{ $staff->name }}?">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Deactivate</button>

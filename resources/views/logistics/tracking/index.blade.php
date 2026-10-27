@@ -1,18 +1,19 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-2xl font-bold text-gray-900 leading-tight">Tracking</h2>
+        <h1 class="text-2xl font-bold text-gray-900 leading-tight">Tracking</h1>
         <p class="mt-1 text-sm text-gray-500">Search for a delivery by its exact tracking number</p>
     </x-slot>
 
-    <div class="flex items-center justify-center py-8">
+    <div class="lw-tracking-entry flex items-center py-4">
         <div class="w-full max-w-2xl">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-                <div class="flex items-center justify-center mb-6">
+                <div class="lw-tracking-intro">
                     <div class="h-14 w-14 rounded-2xl bg-teal-light flex items-center justify-center">
                         <svg class="h-7 w-7 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
+                    <p><strong>Find a parcel</strong>Enter its complete tracking number to see the latest location and delivery status.</p>
                 </div>
 
                 @if (session('error'))

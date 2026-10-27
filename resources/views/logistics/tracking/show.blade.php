@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-2xl font-bold text-gray-900 leading-tight">Tracking Result</h2>
+        <h1 class="text-2xl font-bold text-gray-900 leading-tight">Tracking Result</h1>
         <p class="mt-1 text-sm text-gray-500">Shipment status, parcel processing, and delivery history</p>
     </x-slot>
 
@@ -32,7 +32,12 @@
                 'delivered'         => 'Delivered',
             ];
             $order = array_keys($steps);
-            $currentIndex = array_search($delivery->status, $order);
+            $progressStatus = match ($delivery->status) {
+                'accepted', 'going_to_pickup', 'arrived_at_shop' => 'assigned',
+                'arrived_at_customer' => 'out_for_delivery',
+                default => $delivery->status,
+            };
+            $currentIndex = array_search($progressStatus, $order);
             if ($currentIndex === false) {
                 $currentIndex = -1;
             }
@@ -41,7 +46,7 @@
 
         <div class="space-y-6">
             <div class="flex items-center justify-between">
-                <h3 class="text-xl font-bold text-gray-900">Tracking Result</h3>
+                <h3 class="text-xl font-bold text-gray-900">Shipment status</h3>
                 <a href="{{ route('tracking.index') }}" class="inline-flex items-center text-sm font-medium text-gray-500 hover:text-teal-dark transition-colors">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -51,7 +56,7 @@
             </div>
 
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="lw-head flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <p class="text-sm text-gray-500 mb-1">Tracking Number</p>
                         <h4 class="font-mono text-3xl font-bold text-gray-900">{{ $delivery->tracking_number }}</h4>
@@ -89,7 +94,7 @@
                         <div class="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
                         <div class="absolute top-5 left-0 h-1 bg-green-500 rounded-full transition-all duration-700" style="width: {{ ($currentIndex / $lastIndex) * 100 }}%"></div>
 
-                        <div class="relative flex justify-between">
+                        <div class="lw-tracking-steps relative flex justify-between">
                             @foreach ($order as $index => $statusKey)
                                 @php
                                     $isCompleted = $index < $currentIndex;
@@ -153,7 +158,7 @@
                         <div class="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
                         <div class="absolute top-5 left-0 h-1 bg-teal rounded-full transition-all duration-700" style="width: {{ ($currentParcelIndex / (count($parcelSteps) - 1)) * 100 }}%"></div>
 
-                        <div class="relative flex justify-between">
+                        <div class="lw-parcel-steps relative flex justify-between">
                             @foreach($parcelSteps as $step)
                                 @php
                                     $done = $currentParcelIndex > $step['index'];
@@ -188,15 +193,15 @@
                     <dl class="space-y-3">
                         <div>
                             <dt class="text-xs text-gray-400">Name</dt>
-                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->sender_name }}</dd>
+                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->sender_name ?: 'Not recorded' }}</dd>
                         </div>
                         <div>
                             <dt class="text-xs text-gray-400">Phone</dt>
-                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->sender_phone }}</dd>
+                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->sender_phone ?: 'Not recorded' }}</dd>
                         </div>
                         <div>
                             <dt class="text-xs text-gray-400">Address</dt>
-                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->sender_address }}</dd>
+                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->sender_address ?: 'Not recorded' }}</dd>
                         </div>
                     </dl>
                 </div>
@@ -211,15 +216,15 @@
                     <dl class="space-y-3">
                         <div>
                             <dt class="text-xs text-gray-400">Name</dt>
-                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->recipient_name }}</dd>
+                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->recipient_name ?: 'Not recorded' }}</dd>
                         </div>
                         <div>
                             <dt class="text-xs text-gray-400">Phone</dt>
-                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->recipient_phone }}</dd>
+                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->recipient_phone ?: 'Not recorded' }}</dd>
                         </div>
                         <div>
                             <dt class="text-xs text-gray-400">Address</dt>
-                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->recipient_address }}</dd>
+                            <dd class="text-sm font-medium text-gray-800">{{ $delivery->recipient_address ?: 'Not recorded' }}</dd>
                         </div>
                     </dl>
                 </div>

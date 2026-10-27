@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between gap-4">
             <div>
-                <h2 class="text-2xl font-bold text-gray-900 leading-tight">Notifications</h2>
+                <h1 class="text-2xl font-bold text-gray-900 leading-tight">Notifications</h1>
                 <p class="mt-1 text-sm text-gray-500">
                     @if($unreadCount > 0)
                         {{ $unreadCount }} unread notification{{ $unreadCount === 1 ? '' : 's' }}
@@ -20,8 +20,8 @@
         </div>
     </x-slot>
 
-    <div class="py-6">
-        <div class="max-w-4xl mx-auto px-4 sm:px-6">
+    <div>
+        <div class="max-w-4xl">
             {{-- Filters: All / Unread + existing type categories --}}
             <div class="flex flex-wrap items-center gap-2 mb-4">
                 <a href="{{ route('notifications.index', array_filter(['type' => $activeType])) }}"

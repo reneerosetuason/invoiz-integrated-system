@@ -23,7 +23,12 @@
         ];
         $stepOrder = ['assigned', 'picked_up', 'out_for_delivery', 'delivered'];
         $stepLabels = ['assigned' => 'Assigned', 'picked_up' => 'Picked Up', 'out_for_delivery' => 'Out for Delivery', 'delivered' => 'Delivered'];
-        $currentIndex = array_search($delivery->status, $stepOrder);
+        $progressStatus = match ($delivery->status) {
+            'accepted', 'going_to_pickup', 'arrived_at_shop' => 'assigned',
+            'arrived_at_customer' => 'out_for_delivery',
+            default => $delivery->status,
+        };
+        $currentIndex = array_search($progressStatus, $stepOrder);
         $isTerminalBad = in_array($delivery->status, ['delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'cancelled']);
         $weight = (float) ($delivery->weight ?? 0);
         $capacities = \App\Models\LogisticsSetting::vehicleCapacities();

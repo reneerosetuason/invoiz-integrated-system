@@ -1,0 +1,772 @@
+[
+  {
+    "role": "logistics_admin",
+    "path": "sorting-center",
+    "root": true,
+    "title": "Sorting Center",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/sorting-center/export",
+      "/logistics/deliveries/scan",
+      "/logistics/sorting-center",
+      "/logistics/deliveries/58",
+      "/logistics/deliveries/57",
+      "/logistics/deliveries/56",
+      "/logistics/deliveries/55",
+      "/logistics/deliveries/54",
+      "/logistics/deliveries/53",
+      "/logistics/deliveries/52",
+      "/logistics/deliveries/51",
+      "/logistics/deliveries/50",
+      "/logistics/deliveries/49"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "riders",
+    "root": true,
+    "title": "Riders",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/riders",
+      "/logistics/riders/2",
+      "/logistics/riders/4",
+      "/logistics/riders/5",
+      "/logistics/riders/1",
+      "/logistics/riders/3"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "pickup-requests",
+    "root": true,
+    "title": "Pickup Requests",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/pickup-requests",
+      "/logistics/pickup-requests/1"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "staff",
+    "root": true,
+    "title": "Staff",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/staff/create",
+      "/logistics/staff/29",
+      "/logistics/staff/131",
+      "/logistics/staff/147",
+      "/logistics/staff/28",
+      "/logistics/staff/31",
+      "/logistics/staff/27"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "centers",
+    "root": true,
+    "title": "Logistics Centers",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/centers/create",
+      "/logistics/centers/9",
+      "/logistics/centers/2",
+      "/logistics/centers/3",
+      "/logistics/centers/1",
+      "/logistics/centers/8",
+      "/logistics/centers/6"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "service-areas",
+    "root": true,
+    "title": "Service Areas",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/service-areas/create",
+      "/logistics/service-areas/4",
+      "/logistics/service-areas/3",
+      "/logistics/service-areas/2",
+      "/logistics/service-areas/1"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "rider-applications",
+    "root": true,
+    "title": "Rider Applications",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/rider-applications/4",
+      "/logistics/rider-applications/3",
+      "/logistics/rider-applications/2",
+      "/logistics/rider-applications/1"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "center-applications",
+    "root": true,
+    "title": "Logistics Center Applications",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/center-applications/19",
+      "/logistics/center-applications/18",
+      "/logistics/center-applications/17",
+      "/logistics/center-applications/14"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "tracking",
+    "root": true,
+    "title": "Tracking",
+    "body": "",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "transactions",
+    "root": true,
+    "title": "Transactions",
+    "body": "",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "remittances",
+    "root": true,
+    "title": "Remittances",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/remittances/export",
+      "/logistics/deliveries/49",
+      "/logistics/deliveries/48",
+      "/logistics/deliveries/2",
+      "/logistics/deliveries/1",
+      "/logistics/deliveries/7"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "reports",
+    "root": true,
+    "title": "Reports",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/reports/export",
+      "/logistics/reports/export/csv",
+      "/logistics/reports"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "settings",
+    "root": true,
+    "title": "Settings",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/profile",
+      "/logistics/messages"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "notifications",
+    "root": true,
+    "title": "Notifications",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/notifications",
+      "/logistics/deliveries/58",
+      "/logistics/center-applications/19",
+      "/logistics/center-applications/18",
+      "/logistics/messages",
+      "/logistics/center-applications/17",
+      "/logistics/rider-applications/10",
+      "/logistics/center-applications/16",
+      "/logistics/center-applications/15",
+      "/logistics/rider-applications/9",
+      "/logistics/rider-applications/8"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "messages",
+    "root": false,
+    "body": "500\nSERVER ERROR",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_admin",
+    "path": "profile",
+    "root": true,
+    "title": "Profile",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/settings"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "sorting-center",
+    "root": true,
+    "title": "Sorting Center",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/sorting-center/export",
+      "/logistics/deliveries/scan",
+      "/logistics/sorting-center",
+      "/logistics/deliveries/50",
+      "/logistics/deliveries/16",
+      "/logistics/deliveries/17",
+      "/logistics/deliveries/18",
+      "/logistics/deliveries/20",
+      "/logistics/deliveries/24",
+      "/logistics/deliveries/25",
+      "/logistics/deliveries/26",
+      "/logistics/deliveries/28"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "riders",
+    "root": true,
+    "title": "Riders",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/riders",
+      "/logistics/riders/2",
+      "/logistics/riders/4",
+      "/logistics/riders/1"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "pickup-requests",
+    "root": true,
+    "title": "Pickup Requests",
+    "body": "",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "staff",
+    "root": false,
+    "body": "403\nTHIS ACTION IS RESTRICTED TO ADMINISTRATORS.",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "centers",
+    "root": false,
+    "body": "403\nTHIS ACTION IS RESTRICTED TO ADMINISTRATORS.",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "service-areas",
+    "root": false,
+    "body": "403\nTHIS ACTION IS RESTRICTED TO ADMINISTRATORS.",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "rider-applications",
+    "root": false,
+    "body": "403\nTHIS ACTION IS RESTRICTED TO ADMINISTRATORS.",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "center-applications",
+    "root": false,
+    "body": "403\nTHIS ACTION IS RESTRICTED TO ADMINISTRATORS.",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "tracking",
+    "root": true,
+    "title": "Tracking",
+    "body": "",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "transactions",
+    "root": true,
+    "title": "Transactions",
+    "body": "",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "remittances",
+    "root": true,
+    "title": "Remittances",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/remittances/export"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "reports",
+    "root": true,
+    "title": "Reports",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/reports/export",
+      "/logistics/reports/export/csv",
+      "/logistics/reports"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "settings",
+    "root": true,
+    "title": "Settings",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/profile",
+      "/logistics/messages"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "notifications",
+    "root": true,
+    "title": "Notifications",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/notifications",
+      "/logistics/deliveries/58",
+      "/logistics/center-applications/19",
+      "/logistics/center-applications/18",
+      "/logistics/messages",
+      "/logistics/center-applications/17",
+      "/logistics/rider-applications/10",
+      "/logistics/center-applications/16",
+      "/logistics/center-applications/15",
+      "/logistics/rider-applications/9",
+      "/logistics/rider-applications/8"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "messages",
+    "root": false,
+    "body": "500\nSERVER ERROR",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "logistics_staff",
+    "path": "profile",
+    "root": true,
+    "title": "Profile",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/settings"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "sorting-center",
+    "root": true,
+    "title": "Sorting Center",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/sorting-center/export",
+      "/logistics/deliveries/scan",
+      "/logistics/sorting-center",
+      "/logistics/deliveries/58",
+      "/logistics/deliveries/57",
+      "/logistics/deliveries/56",
+      "/logistics/deliveries/55",
+      "/logistics/deliveries/54",
+      "/logistics/deliveries/53",
+      "/logistics/deliveries/52",
+      "/logistics/deliveries/51",
+      "/logistics/deliveries/50",
+      "/logistics/deliveries/49"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "riders",
+    "root": true,
+    "title": "Riders",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/riders",
+      "/logistics/riders/2",
+      "/logistics/riders/4",
+      "/logistics/riders/5",
+      "/logistics/riders/1",
+      "/logistics/riders/3"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "pickup-requests",
+    "root": true,
+    "title": "Pickup Requests",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/pickup-requests",
+      "/logistics/pickup-requests/1"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "staff",
+    "root": true,
+    "title": "Staff",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/staff/create",
+      "/logistics/staff/29",
+      "/logistics/staff/131",
+      "/logistics/staff/147",
+      "/logistics/staff/28",
+      "/logistics/staff/31",
+      "/logistics/staff/27"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "centers",
+    "root": true,
+    "title": "Logistics Centers",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/centers/create",
+      "/logistics/centers/9",
+      "/logistics/centers/2",
+      "/logistics/centers/3",
+      "/logistics/centers/1",
+      "/logistics/centers/8",
+      "/logistics/centers/6"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "service-areas",
+    "root": true,
+    "title": "Service Areas",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/service-areas/create",
+      "/logistics/service-areas/4",
+      "/logistics/service-areas/3",
+      "/logistics/service-areas/2",
+      "/logistics/service-areas/1"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "rider-applications",
+    "root": true,
+    "title": "Rider Applications",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/rider-applications/4",
+      "/logistics/rider-applications/3",
+      "/logistics/rider-applications/2",
+      "/logistics/rider-applications/1"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "center-applications",
+    "root": true,
+    "title": "Logistics Center Applications",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/center-applications/19",
+      "/logistics/center-applications/18",
+      "/logistics/center-applications/17",
+      "/logistics/center-applications/14"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "tracking",
+    "root": true,
+    "title": "Tracking",
+    "body": "",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "transactions",
+    "root": true,
+    "title": "Transactions",
+    "body": "",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "remittances",
+    "root": true,
+    "title": "Remittances",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/remittances/export",
+      "/logistics/deliveries/49",
+      "/logistics/deliveries/48",
+      "/logistics/deliveries/2",
+      "/logistics/deliveries/1",
+      "/logistics/deliveries/7"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "reports",
+    "root": true,
+    "title": "Reports",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/reports/export",
+      "/logistics/reports/export/csv",
+      "/logistics/reports"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "settings",
+    "root": false,
+    "body": "500\nSERVER ERROR",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "notifications",
+    "root": true,
+    "title": "Notifications",
+    "body": "",
+    "scroll": 390,
+    "links": [
+      "/logistics/notifications",
+      "/logistics/deliveries/58",
+      "/logistics/center-applications/19",
+      "/logistics/center-applications/18",
+      "/logistics/messages",
+      "/logistics/center-applications/17",
+      "/logistics/rider-applications/10",
+      "/logistics/center-applications/16",
+      "/logistics/center-applications/15",
+      "/logistics/rider-applications/9",
+      "/logistics/rider-applications/8"
+    ],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "messages",
+    "root": false,
+    "body": "500\nSERVER ERROR",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  },
+  {
+    "role": "admin",
+    "path": "profile",
+    "root": false,
+    "body": "500\nSERVER ERROR",
+    "scroll": 390,
+    "links": [],
+    "overflow": [],
+    "small": [],
+    "jsErrors": []
+  }
+]

@@ -1,0 +1,188 @@
+{
+  "resources\\views\\logistics\\center-applications\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\center-applications\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\centers\\create.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\centers\\edit.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\centers\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\centers\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\messages\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\notifications\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\pickup-requests\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\pickup-requests\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\profile\\edit.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\profile\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\remittances\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\reports\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\rider-applications\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\rider-applications\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\riders\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\riders\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\service-areas\\create.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\service-areas\\edit.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\service-areas\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\service-areas\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\settings\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\sorting-center\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\staff\\create.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\staff\\edit.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\staff\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\staff\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\tracking\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\tracking\\show.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  },
+  "resources\\views\\logistics\\transactions\\index.blade.php": {
+    "fields_preserved": true,
+    "routes_preserved": true,
+    "csrf_and_methods_preserved": true,
+    "permission_conditions_preserved": true
+  }
+}

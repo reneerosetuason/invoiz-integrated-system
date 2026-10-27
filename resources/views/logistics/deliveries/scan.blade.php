@@ -31,7 +31,7 @@
          x-cloak>
 
         {{-- Camera / Scanner --}}
-        <div class="delivery-panel lg:col-span-2 p-4 sm:p-6">
+        <div class="delivery-panel p-4 sm:p-6">
             <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
                 <div class="flex items-center gap-2">
                     <div class="h-2 w-1 rounded-full bg-teal"></div>

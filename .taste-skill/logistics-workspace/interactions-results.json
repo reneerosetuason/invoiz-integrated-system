@@ -1,0 +1,263 @@
+[
+  {
+    "name": "Staff denied staff",
+    "passed": true
+  },
+  {
+    "name": "Staff denied staff/create",
+    "passed": true
+  },
+  {
+    "name": "Staff denied centers",
+    "passed": true
+  },
+  {
+    "name": "Staff denied centers/create",
+    "passed": true
+  },
+  {
+    "name": "Staff denied service-areas",
+    "passed": true
+  },
+  {
+    "name": "Staff denied service-areas/create",
+    "passed": true
+  },
+  {
+    "name": "Staff denied rider-applications",
+    "passed": true
+  },
+  {
+    "name": "Staff denied center-applications",
+    "passed": true
+  },
+  {
+    "name": "Mobile navigation riders",
+    "passed": true
+  },
+  {
+    "name": "Mobile navigation settings",
+    "passed": true
+  },
+  {
+    "name": "Mobile navigation messages",
+    "passed": true
+  },
+  {
+    "name": "Mobile table records and all rider sorts",
+    "passed": true,
+    "labels": [
+      "Sort by Name",
+      "Sort by Email",
+      "Sort by Phone",
+      "Sort by Vehicle",
+      "Sort by License Plate",
+      "Sort by Status"
+    ],
+    "cells": true
+  },
+  {
+    "name": "Rider filters and field spacing",
+    "passed": true,
+    "data": {
+      "search": "Rider",
+      "center_id": "",
+      "service_area_id": "",
+      "online": "offline"
+    },
+    "padding": "40px",
+    "labels": true
+  },
+  {
+    "name": "Confirmed action captured without writing deactivate",
+    "passed": true,
+    "action": "http://127.0.0.1:8031/logistics/riders/2/deactivate",
+    "keys": [
+      "_token",
+      "reason"
+    ],
+    "reason": "Suspension reason for browser verification only",
+    "closed": true
+  },
+  {
+    "name": "Confirmed action captured without writing reset-credentials",
+    "passed": true,
+    "action": "http://127.0.0.1:8031/logistics/riders/2/reset-credentials",
+    "keys": [
+      "_token"
+    ],
+    "closed": true
+  },
+  {
+    "name": "Confirmed action captured without writing /staff/29",
+    "passed": true,
+    "action": "http://127.0.0.1:8031/logistics/staff/29",
+    "keys": [
+      "_token",
+      "_method"
+    ],
+    "method": "DELETE",
+    "closed": true
+  },
+  {
+    "name": "Settings search",
+    "passed": true
+  },
+  {
+    "name": "Password dialog and Escape",
+    "passed": true
+  },
+  {
+    "name": "All six settings form contracts",
+    "passed": true,
+    "forms": [
+      {
+        "action": "http://127.0.0.1:8031/logistics/settings/password",
+        "keys": [
+          "_token",
+          "_method",
+          "current_password",
+          "password",
+          "password_confirmation"
+        ]
+      },
+      {
+        "action": "http://127.0.0.1:8031/logistics/settings/notifications",
+        "keys": [
+          "_token",
+          "_method",
+          "rider_applications",
+          "rider_applications",
+          "application_updates",
+          "application_updates",
+          "delivery_requests",
+          "delivery_requests",
+          "failed_deliveries",
+          "failed_deliveries",
+          "failed_pickups",
+          "failed_pickups",
+          "rider_status_updates",
+          "rider_status_updates",
+          "delivery_completed",
+          "delivery_completed",
+          "new_messages",
+          "new_messages",
+          "email_notifications",
+          "email_notifications"
+        ]
+      },
+      {
+        "action": "http://127.0.0.1:8031/logistics/settings/delivery",
+        "keys": [
+          "_token",
+          "_method",
+          "require_proof",
+          "require_proof",
+          "max_attempts",
+          "allow_reassignment",
+          "allow_reassignment"
+        ]
+      },
+      {
+        "action": "http://127.0.0.1:8031/logistics/settings/appearance",
+        "keys": [
+          "_token",
+          "_method",
+          "theme"
+        ]
+      },
+      {
+        "action": "http://127.0.0.1:8031/logistics/settings/navigation",
+        "keys": [
+          "_token",
+          "_method",
+          "remember_sidebar"
+        ]
+      },
+      {
+        "action": "http://127.0.0.1:8031/logistics/settings/region",
+        "keys": [
+          "_token",
+          "_method",
+          "timezone"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "New message dialog and real recipient lookup",
+    "passed": true
+  },
+  {
+    "name": "Mobile conversation and back navigation",
+    "passed": true
+  },
+  {
+    "name": "Message deletion cancel",
+    "passed": true
+  },
+  {
+    "name": "Report delivery",
+    "passed": true
+  },
+  {
+    "name": "Report center",
+    "passed": true
+  },
+  {
+    "name": "Report area",
+    "passed": true
+  },
+  {
+    "name": "Report rider",
+    "passed": true
+  },
+  {
+    "name": "Report financial",
+    "passed": true
+  },
+  {
+    "name": "Report all",
+    "passed": true
+  },
+  {
+    "name": "Default delivery report regression",
+    "passed": true
+  },
+  {
+    "name": "Active tracking stage accepted",
+    "passed": true
+  },
+  {
+    "name": "Active tracking stage going_to_pickup",
+    "passed": true
+  },
+  {
+    "name": "Active tracking stage arrived_at_shop",
+    "passed": true
+  },
+  {
+    "name": "Active tracking stage arrived_at_customer",
+    "passed": true
+  },
+  {
+    "name": "Dark theme riders",
+    "passed": true
+  },
+  {
+    "name": "Dark theme settings",
+    "passed": true
+  },
+  {
+    "name": "Dark theme messages",
+    "passed": true
+  },
+  {
+    "name": "Dark theme reports",
+    "passed": true
+  },
+  {
+    "name": "Dark theme profile",
+    "passed": true
+  }
+]

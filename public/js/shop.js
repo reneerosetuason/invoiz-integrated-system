@@ -25,7 +25,7 @@
       entries.forEach(function (e) {
         if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
       });
-    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }, { threshold: 0, rootMargin: '0px 0px -6% 0px' });
     els.forEach(function (el) { io.observe(el); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

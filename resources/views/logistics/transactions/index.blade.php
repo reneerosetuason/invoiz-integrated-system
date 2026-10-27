@@ -1,8 +1,8 @@
 <x-app-layout>
     <div class="space-y-6">
-        <div>
+        <div class="lw-head">
             <h1 class="text-2xl font-bold text-gray-900">Transactions</h1>
-            <p class="text-sm text-gray-500 mt-1">Delivery fees, rider fees (₱15/parcel), and management commissions (10%)</p>
+            <p class="text-sm text-gray-500 mt-1">Review delivery payments, rider fees (₱15 per parcel), and management commissions (10%).</p>
         </div>
 
         @php
@@ -11,7 +11,7 @@
         @endphp
 
         {{-- Summary cards --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="lw-stat-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Transactions</p>
                 <p class="text-3xl font-bold text-gray-900">{{ number_format($totalsArray['total_count'] ?? 0) }}</p>

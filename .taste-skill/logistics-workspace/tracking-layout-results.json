@@ -1,0 +1,30 @@
+[
+  {
+    "width": 320,
+    "passed": true,
+    "scroll": 320,
+    "display": "grid",
+    "columns": "121px 121px"
+  },
+  {
+    "width": 390,
+    "passed": true,
+    "scroll": 390,
+    "display": "grid",
+    "columns": "156px 156px"
+  },
+  {
+    "width": 768,
+    "passed": true,
+    "scroll": 768,
+    "display": "flex",
+    "columns": "none"
+  },
+  {
+    "width": 1440,
+    "passed": true,
+    "scroll": 1440,
+    "display": "flex",
+    "columns": "none"
+  }
+]

@@ -81,14 +81,19 @@
         <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
         <link rel="stylesheet" href="{{ asset('css/app-sidebar.css') }}?v={{ filemtime(public_path('css/app-sidebar.css')) }}">
+        <link rel="stylesheet" href="{{ asset('css/logistics-shell.css') }}?v={{ filemtime(public_path('css/logistics-shell.css')) }}">
+        @if(!request()->routeIs('dashboard', 'deliveries.*'))
+            @include('logistics.partials.workspace-theme')
+        @endif
         <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}" defer></script>
         @stack('styles')
     </head>
-    <body class="font-sans bg-[#F7F6F2] text-[#1B1B1E] antialiased">
+    <body class="logistics-shell font-sans bg-[#F7F6F2] text-[#1B1B1E] antialiased">
         <div class="min-h-screen" x-data="{
             sidebarHover: @js($sidebarStartExpanded),
+            sidebarKey: @js('invoiz:logistics:sidebar:' . auth()->id()),
             deliveriesOpen: @js(request()->routeIs('deliveries.scan-page')),
-            applicationsOpen: @js(request()->routeIs('center-applications.*')),
+            applicationsOpen: @js(request()->routeIs('rider-applications.*', 'center-applications.*')),
             navPersistTimeout: null,
             notifOpen: false,
             accountOpen: false,
@@ -100,6 +105,13 @@
                 this.sidebarHover = !this.sidebarHover;
             }
         }" x-init="
+            (() => { try {
+                const saved = sessionStorage.getItem(sidebarKey);
+                if (saved !== null) sidebarHover = saved === 'expanded';
+            } catch (e) {} })();
+            $watch('sidebarHover', (expanded) => {
+                try { sessionStorage.setItem(sidebarKey, expanded ? 'expanded' : 'collapsed'); } catch (e) {}
+            });
             fetch('{{ route('notifications.index', [], false) }}', {
                     headers: { 'Accept': 'application/json' },
                 })
@@ -136,11 +148,9 @@
                 <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
                     <div class="flex items-center justify-between px-4 sm:px-6 h-16">
                         <div class="flex items-center gap-3">
-                            @if(request()->routeIs('dashboard', 'deliveries.*'))
                                 <button type="button" class="ld-mobile-menu" @click="toggleSidebar()" :aria-expanded="sidebarVisible.toString()" aria-label="Toggle logistics menu" aria-controls="app-sidebar">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                                 </button>
-                            @endif
                             <span class="text-lg font-bold text-gray-900">Logistics</span>
                         </div>
 
@@ -305,7 +315,7 @@
                 </header>
 
                 <!-- Page Content -->
-                <main class="flex-1 p-4 sm:p-6 lg:p-8">
+                <main class="flex-1 p-4 sm:p-6 lg:p-6">
                     @if(session('success'))
                         <div role="status" class="mb-5 flex items-start gap-3 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-xl text-sm" x-data="{ show: true }" x-show="show">
                             <svg class="h-5 w-5 flex-shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -325,9 +335,9 @@
                         </div>
                     @endif
 
-                    <div class="max-w-7xl mx-auto">
+                    <div class="max-w-7xl mx-auto {{ !request()->routeIs('dashboard', 'deliveries.*') ? 'logistics-workspace' : '' }}">
                         @isset($header)
-                            <div class="mb-6">{{ $header }}</div>
+                            <div class="logistics-page-header mb-5">{{ $header }}</div>
                         @endisset
 
                         {{ $slot }}

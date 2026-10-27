@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-center gap-4">
-                <a href="{{ route('riders.index') }}" class="p-2 rounded-xl bg-white border border-gray-100 text-gray-500 hover:text-teal hover:border-teal transition">
+                <a href="{{ route('riders.index') }}" class="lw-back" aria-label="Back to list">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
@@ -15,7 +15,7 @@
             <div class="flex flex-wrap items-center gap-3">
                 <x-status-badge :status="$rider->status" />
                 @if(Auth::user()->isLogisticsAdmin() || (Auth::user()->center_id && (int) Auth::user()->center_id === (int) $rider->center_id))
-                    <form action="{{ route('riders.reset-credentials', $rider) }}" method="POST" x-data x-on:submit.prevent="if (confirm('Generate a NEW login credential for {{ $rider->name }}? The previous password will stop working immediately.')) $el.submit()">
+                    <form action="{{ route('riders.reset-credentials', $rider) }}" method="POST" x-data data-confirm-message="Generate a NEW login credential for {{ $rider->name }}? The previous password will stop working immediately.">
                         @csrf
                         <button type="submit" class="bg-teal hover:bg-teal-dark text-white px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm whitespace-nowrap">
                             Generate New Credential
@@ -29,7 +29,7 @@
                             </button>
                         </form>
                     @else
-                        <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data x-on:submit.prevent="var reason = prompt('Reason for suspension (minimum 10 characters):'); if (reason !== null) { $el.querySelector('[name=reason]').value = reason; $el.submit(); }">
+                        <form action="{{ route('riders.deactivate', $rider) }}" method="POST" x-data data-confirm-message="Suspend this rider? They will lose access to rider tasks." data-confirm-reason="Reason for suspension" data-confirm-min-length="10">
                             @csrf
                             <input type="hidden" name="reason" value="{{ old('reason') }}">
                             <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-xl text-sm font-semibold transition shadow-sm whitespace-nowrap">

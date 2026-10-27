@@ -5,7 +5,7 @@
             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             <span class="text-gray-900 font-medium">Profile</span>
         </div>
-        <h2 class="text-2xl font-bold text-gray-900 leading-tight">Profile</h2>
+        <h1 class="text-2xl font-bold text-gray-900 leading-tight">Profile</h1>
         <p class="mt-1 text-sm text-gray-500">Your personal account information and profile photo</p>
     </x-slot>
 
