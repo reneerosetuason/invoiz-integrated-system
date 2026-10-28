@@ -3,15 +3,24 @@
 namespace App\Http\Controllers\Buyer\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Conversation;
+use App\Models\NotificationRead;
 use App\Models\OrderStatusHistory;
 use App\Models\Review;
-use App\Models\Conversation;
-use App\Models\Message;
-use App\Models\NotificationRead;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class NotificationController extends Controller
 {
+    public function markRead(Request $request, string $id)
+    {
+        $items = $this->index($request)->getData(true)['notifications'] ?? [];
+        abort_unless(collect($items)->contains('id', $id), 404);
+        $request->merge(['id' => $id]);
+
+        return $this->read($request);
+    }
+
     /**
      * Lightweight, schema-free notification inbox derived from the buyer's
      * order status activity and review responses.
@@ -32,13 +41,13 @@ class NotificationController extends Controller
 
         foreach ($histories as $h) {
             $items[] = [
-                'id'         => 'order-'.$h->id,
-                'type'       => 'order',
-                'title'      => 'Order #'.$h->order_id.' updated',
-                'body'       => $this->statusMessage($h->to_status, $h->note),
-                'order_id'   => $h->order_id,
+                'id' => 'order-'.$h->id,
+                'type' => 'order',
+                'title' => 'Order #'.$h->order_id.' updated',
+                'body' => $this->statusMessage($h->to_status, $h->note),
+                'order_id' => $h->order_id,
                 'created_at' => $h->created_at->toIso8601String(),
-                'read'       => in_array('order-'.$h->id, $readKeys, true),
+                'read' => in_array('order-'.$h->id, $readKeys, true),
             ];
         }
 
@@ -50,13 +59,13 @@ class NotificationController extends Controller
 
         foreach ($reviews as $r) {
             $items[] = [
-                'id'         => 'review-'.$r->id,
-                'type'       => 'review',
-                'title'      => 'Thanks for your feedback!',
-                'body'       => 'You rated a product '.$r->rating.'/5.',
-                'order_id'   => $r->order_id,
+                'id' => 'review-'.$r->id,
+                'type' => 'review',
+                'title' => 'Thanks for your feedback!',
+                'body' => 'You rated a product '.$r->rating.'/5.',
+                'order_id' => $r->order_id,
                 'created_at' => $r->created_at?->toIso8601String() ?? now()->toIso8601String(),
-                'read'       => in_array('review-'.$r->id, $readKeys, true),
+                'read' => in_array('review-'.$r->id, $readKeys, true),
             ];
         }
 
@@ -66,13 +75,15 @@ class NotificationController extends Controller
             ->latest('updated_at')->limit(20)->get();
         foreach ($conversations as $conversation) {
             $last = $conversation->lastMessage;
-            if (! $last || (int) $last->sender_id === (int) $user->id) continue;
+            if (! $last || (int) $last->sender_id === (int) $user->id) {
+                continue;
+            }
             $key = 'chat-'.$conversation->id.'-'.$last->id;
             $items[] = [
                 'id' => $key,
                 'type' => 'chat',
                 'title' => 'New seller message',
-                'body' => \Illuminate\Support\Str::limit($last->body, 100),
+                'body' => Str::limit($last->body, 100),
                 'order_id' => null,
                 'conversation_id' => $conversation->id,
                 'created_at' => $last->created_at->toIso8601String(),
@@ -82,13 +93,16 @@ class NotificationController extends Controller
 
         usort($items, fn ($a, $b) => strcmp($b['created_at'], $a['created_at']));
 
-        return response()->json(['notifications' => array_slice($items, 0, 40)]);
+        $items = array_slice($items, 0, 40);
+
+        return response()->json(['notifications' => $items, 'unread_count' => count(array_filter($items, fn ($item) => ! $item['read']))]);
     }
 
     public function read(Request $request)
     {
         $validated = $request->validate(['id' => ['required', 'string', 'max:191']]);
         NotificationRead::firstOrCreate(['user_id' => $request->user()->id, 'notification_key' => $validated['id']]);
+
         return response()->json(['message' => 'Notification marked as read.']);
     }
 
@@ -98,18 +112,19 @@ class NotificationController extends Controller
         foreach ($items as $item) {
             NotificationRead::firstOrCreate(['user_id' => $request->user()->id, 'notification_key' => $item['id']]);
         }
+
         return response()->json(['message' => 'Notifications marked as read.']);
     }
 
     protected function statusMessage(string $status, ?string $note): string
     {
         $map = [
-            'pending'         => 'Your order is confirmed and being prepared.',
-            'confirmed'       => 'The seller has confirmed your order.',
-            'packed'          => 'Your items are packed and ready for pickup.',
-            'out_for_delivery'=> 'Your order is out for delivery!',
-            'delivered'       => 'Your order has been delivered. Enjoy!',
-            'cancelled'       => 'Your order was cancelled.',
+            'pending' => 'Your order is confirmed and being prepared.',
+            'confirmed' => 'The seller has confirmed your order.',
+            'packed' => 'Your items are packed and ready for pickup.',
+            'out_for_delivery' => 'Your order is out for delivery!',
+            'delivered' => 'Your order has been delivered. Enjoy!',
+            'cancelled' => 'Your order was cancelled.',
         ];
 
         $msg = $map[$status] ?? 'Order status changed to '.str_replace('_', ' ', $status).'.';

@@ -2,6 +2,7 @@
 
 // Keep registration order stable; URLs, route names and middleware stay with their role.
 require __DIR__.'/buyer/landing.php';
+require __DIR__.'/buyer/mobile-web.php';
 require __DIR__.'/seller/application.php';
 require __DIR__.'/shared/auth.php';
 require __DIR__.'/buyer/web.php';

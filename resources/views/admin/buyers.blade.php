@@ -108,7 +108,11 @@
                 </div>
               </td>
               <td class="status-column" data-label="Status" role="cell">
-                @if($isActive)
+                @if($buyer->approval_status === 'pending')
+                  <span class="admin-list-status">Pending approval</span>
+                @elseif($buyer->approval_status === 'rejected')
+                  <span class="admin-list-status admin-list-status--brick">Rejected</span>
+                @elseif($isActive)
                   <span class="admin-list-status admin-list-status--active">
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>Active
                   </span>
@@ -124,6 +128,18 @@
               </td>
               <td class="actions-column list-no-label" data-label="Actions" role="cell">
                 <div class="buyer-actions">
+                  @if($buyer->approval_status === 'pending')
+                    <form method="POST" action="{{ route('admin.buyers.review', $buyer) }}">
+                      @csrf
+                      <input type="hidden" name="action" value="approve" />
+                      <button class="admin-list-action" type="submit" @disabled(!$buyer->email_verified_at) title="{{ $buyer->email_verified_at ? 'Approve buyer registration' : 'The buyer must verify their email first' }}">Approve</button>
+                    </form>
+                    <form method="POST" action="{{ route('admin.buyers.review', $buyer) }}">
+                      @csrf
+                      <input type="hidden" name="action" value="reject" />
+                      <button class="admin-list-action admin-list-action--quiet" type="submit">Reject</button>
+                    </form>
+                  @else
                   @if($isActive)
                     <form method="POST" action="{{ url('/admin/manage-accounts/'.$buyer->id.'/action') }}" data-confirm="This buyer will be suspended and will not be able to log in or place orders. Continue?" data-confirm-title="Suspend Buyer?" data-confirm-ok="Suspend" data-confirm-class="btn-danger" data-confirm-icon="suspend">
                       @csrf
@@ -140,6 +156,7 @@
                         <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>Activate
                       </button>
                     </form>
+                  @endif
                   @endif
                 </div>
               </td>

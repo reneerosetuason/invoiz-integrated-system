@@ -83,6 +83,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
         $stats = ['all' => \App\Models\User::where('role','buyer')->count(), 'active' => \App\Models\User::where('role','buyer')->where('account_status','active')->count(), 'suspended' => 0];
         return view('admin.buyers', compact('buyers','stats'));
     })->name('admin.buyers');
+    Route::post('buyers/{user}/review', [UserManagementController::class, 'reviewBuyer'])->name('admin.buyers.review');
     Route::get('riders', function (\Illuminate\Http\Request $request) { $r = \App\Models\User::where('role','rider')->orderBy('created_at','desc')->paginate(10); return view('admin.riders', ['riders' => $r]); })->name('admin.riders');
     Route::get('products', [ProductController::class, 'index'])->name('admin.products');
     Route::post('products/{product}/status', [ProductController::class, 'updateStatus'])->name('admin.product.status');

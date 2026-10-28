@@ -3,6 +3,12 @@
 Single Laravel backend for the marketplace (buyer, seller, admin) and the
 logistics/rider operations center.
 
+The Flutter buyer client is integrated under `buyer_mobile`. Its mobile
+verification endpoints use the existing `users` OTP fields; mobile registrations
+retain email verification and administrator approval, now available in the
+shared Admin Buyers page. The existing website registration policy is unchanged.
+See [buyer integration and feature coverage](docs/buyer-mobile-integration.md).
+
 Shared-connection verification was added on 28 October 2026. Run
 `php artisan invoiz:check-backend` to check all application models, API-token
 storage, authentication providers, database-backed sessions/cache/queue, and

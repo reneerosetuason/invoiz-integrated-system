@@ -5,19 +5,24 @@ namespace App\Http\Controllers\Buyer\Api;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Review;
 use App\Models\Seller;
+use App\Models\StoreFollow;
+use App\Support\Sales;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
     public function index(Request $request)
     {
+        $request->validate(['per_page' => 'sometimes|integer|min:1|max:100']);
         $query = Product::query()
-            ->with(['category', 'variants'])
+            ->with(['category', 'variants', 'images'])
             ->where('status', 'active')
             ->select('products.*')
-            ->selectSub(\App\Models\Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
-            ->selectSub(\App\Models\Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');
+            ->selectSub(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
+            ->selectSub(Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');
 
         if ($request->has('category_id')) {
             $query->where('category_id', $request->integer('category_id'));
@@ -28,6 +33,20 @@ class ProductController extends Controller
                 $q->where('name', 'like', '%'.$request->input('search').'%')
                     ->orWhere('description', 'like', '%'.$request->input('search').'%');
             });
+        }
+
+        // Preserve the mobile sale filter and include the shared seller sales.
+        if ($request->boolean('on_sale') || $request->input('sort') === 'discount') {
+            $sale = DB::table('product_sales')->join('sales', 'sales.id', '=', 'product_sales.sale_id')
+                ->whereColumn('product_sales.product_id', 'products.id')
+                ->whereNull('product_sales.deleted_at')->whereNull('sales.deleted_at')
+                ->where('sales.status', 'active')
+                ->where(fn ($q) => $q->whereNull('sales.starts_at')->orWhere('sales.starts_at', '<=', now()))
+                ->where(fn ($q) => $q->whereNull('sales.ends_at')->orWhere('sales.ends_at', '>=', now()))
+                ->orderByDesc('sales.starts_at')->limit(1);
+            $query->selectSub((clone $sale)->selectRaw("CASE WHEN sales.discount_type = 'fixed' THEN sales.discount_value ELSE products.price * sales.discount_value / 100.0 END"), 'active_sale_discount');
+            $query->where(fn ($q) => $q->where(fn ($q) => $q->whereNotNull('compare_at_price')->whereColumn('compare_at_price', '>', 'price'))
+                ->orWhereExists((clone $sale)->selectRaw('1')));
         }
 
         if ($request->has('sort')) {
@@ -44,6 +63,11 @@ class ProductController extends Controller
                 case 'most_reviewed':
                     $query->orderByDesc('visible_reviews_count')->orderByRaw('COALESCE(visible_rating, rating, 0) DESC');
                     break;
+                case 'discount':
+                    $reference = '(CASE WHEN compare_at_price > price THEN compare_at_price ELSE price END)';
+                    $effective = '(CASE WHEN COALESCE(active_sale_discount, 0) > price THEN 0 ELSE price - COALESCE(active_sale_discount, 0) END)';
+                    $query->orderByRaw("CASE WHEN {$reference} > 0 THEN ({$reference} - {$effective}) * 1.0 / {$reference} ELSE 0 END DESC");
+                    break;
                 default:
                     $query->latest();
             }
@@ -59,6 +83,7 @@ class ProductController extends Controller
         });
 
         $this->attachShop($products->getCollection());
+        $this->attachGallery($products->getCollection());
         $this->attachSale($products->getCollection());
 
         return response()->json($products);
@@ -68,10 +93,10 @@ class ProductController extends Controller
     {
         $product = Product::with([
             'category',
-            'seller',
+            'seller:id,user_id,store_name,business_name,line_of_business,logo',
             'variants',
             'images',
-            'reviews' => fn ($query) => $query->where('status', 'visible')->with('buyer'),
+            'reviews' => fn ($query) => $query->where('status', 'visible')->with('buyer:id,first_name,last_name,name'),
         ])
             ->where('status', 'active')
             ->findOrFail($id);
@@ -119,15 +144,15 @@ class ProductController extends Controller
     protected function attachSale($products): void
     {
         foreach ($products as $product) {
-            $sale = \App\Support\Sales::saleFor($product);
+            $sale = Sales::saleFor($product);
             $product->on_sale = (bool) $sale;
-            $product->effective_price = \App\Support\Sales::priceFor($product);
+            $product->effective_price = Sales::priceFor($product);
             $product->sale_price = $sale ? $product->effective_price : null;
             $product->sale = $sale ? [
-                'name'           => $sale->name,
-                'discount_type'  => $sale->discount_type,
+                'name' => $sale->name,
+                'discount_type' => $sale->discount_type,
                 'discount_value' => $sale->discount_value,
-                'ends_at'        => $sale->ends_at,
+                'ends_at' => $sale->ends_at,
             ] : null;
         }
     }
@@ -158,7 +183,7 @@ class ProductController extends Controller
             ->groupBy('seller_id')
             ->pluck('r', 'seller_id');
 
-        $followers = \App\Models\StoreFollow::whereIn('seller_id', $sellerIds)
+        $followers = StoreFollow::whereIn('seller_id', $sellerIds)
             ->selectRaw('seller_id, COUNT(*) as c')
             ->groupBy('seller_id')
             ->pluck('c', 'seller_id');
@@ -167,13 +192,13 @@ class ProductController extends Controller
             $store = $sellers[$product->seller_id] ?? null;
 
             $product->shop = [
-                'seller_id'      => $product->seller_id,
-                'business_name'  => $store->business_name ?? 'Invoiz Store',
+                'seller_id' => $product->seller_id,
+                'business_name' => $store->business_name ?? 'Invoiz Store',
                 'line_of_business' => $store->line_of_business ?? '',
-                'rating'         => round((float) ($ratings[$product->seller_id] ?? 0), 1),
-                'product_count'  => (int) ($counts[$product->seller_id] ?? 0),
-                'followers'      => (int) ($followers[$product->seller_id] ?? 0),
-                'logo'           => null,
+                'rating' => round((float) ($ratings[$product->seller_id] ?? 0), 1),
+                'product_count' => (int) ($counts[$product->seller_id] ?? 0),
+                'followers' => (int) ($followers[$product->seller_id] ?? 0),
+                'logo' => null,
             ];
         }
     }

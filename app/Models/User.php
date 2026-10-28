@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\ResetPasswordMail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -48,6 +49,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'otp',
+        'otp_expires_at',
     ];
 
     protected function casts(): array
@@ -74,22 +77,32 @@ class User extends Authenticatable
                 $user->account_status = $mapToAdmin[$user->status];
             }
             if (empty($user->name) && (! empty($user->first_name) || ! empty($user->last_name))) {
-                $user->name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                $user->name = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
             }
             if ((empty($user->first_name) || empty($user->last_name)) && ! empty($user->name)) {
                 $parts = preg_split('/\s+/', trim($user->name), 2);
-                if (empty($user->first_name)) $user->first_name = $parts[0] ?? '';
-                if (empty($user->last_name)) $user->last_name = $parts[1] ?? '';
+                if (empty($user->first_name)) {
+                    $user->first_name = $parts[0] ?? '';
+                }
+                if (empty($user->last_name)) {
+                    $user->last_name = $parts[1] ?? '';
+                }
             }
             if ($user->isDirty('first_name') || $user->isDirty('last_name')) {
-                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                $fullName = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
                 if ($fullName !== '') {
                     $user->name = $fullName;
                 }
             }
-            if (empty($user->role)) $user->role = 'buyer';
-            if (empty($user->status)) $user->status = 'active';
-            if (empty($user->account_status)) $user->account_status = 'active';
+            if (empty($user->role)) {
+                $user->role = 'buyer';
+            }
+            if (empty($user->status)) {
+                $user->status = 'active';
+            }
+            if (empty($user->account_status)) {
+                $user->account_status = 'active';
+            }
         });
     }
 
@@ -103,12 +116,12 @@ class User extends Authenticatable
     // ---------------------------------------------------------------
     public function rider()
     {
-        return $this->hasOne(\App\Models\Rider::class);
+        return $this->hasOne(Rider::class);
     }
 
     public function logisticsCenter()
     {
-        return $this->belongsTo(\App\Models\LogisticsCenter::class, 'center_id');
+        return $this->belongsTo(LogisticsCenter::class, 'center_id');
     }
 
     public function isStaff(): bool
@@ -204,13 +217,14 @@ class User extends Authenticatable
     public function profilePhotoUrl(): ?string
     {
         try {
-            $path = \App\Models\LogisticsSetting::where('user_id', $this->id)->value('photo_path');
+            $path = LogisticsSetting::where('user_id', $this->id)->value('photo_path');
         } catch (\Throwable $e) {
             return null;
         }
         if (! $path || ! file_exists(public_path($path))) {
             return null;
         }
+
         return asset($path);
     }
 
@@ -288,7 +302,7 @@ class User extends Authenticatable
         // Unified reset page for every role. (The framework default would
         // build route('password.reset'), which collides with the logistics
         // auth route names.)
-        $this->notify(new \App\Notifications\ResetPasswordMail($token));
+        $this->notify(new ResetPasswordMail($token));
     }
 
     public function isSeller()
@@ -307,18 +321,20 @@ class User extends Authenticatable
         if (! empty($this->account_status)) {
             return $this->account_status === 'active';
         }
+
         return ($this->status ?? 'active') === 'active';
     }
 
     public function displayName(): string
     {
-        $nameParts = trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+        $nameParts = trim(($this->first_name ?? '').' '.($this->last_name ?? ''));
         if ($nameParts !== '') {
             return $nameParts;
         }
         if (! empty($this->name)) {
             return $this->name;
         }
+
         return '';
     }
 
@@ -356,6 +372,7 @@ class User extends Authenticatable
         if (in_array($role, ['buyer', 'seller'], true) && ! empty($this->center_id)) {
             $badges[] = Message::roleBadge('logistics_staff');
         }
+
         return $badges;
     }
 
@@ -382,6 +399,7 @@ class User extends Authenticatable
         } catch (\Throwable $e) {
             $isSeller = false;
         }
+
         return $isSeller ? 'seller' : 'buyer';
     }
 }

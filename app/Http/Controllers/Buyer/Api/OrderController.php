@@ -16,19 +16,131 @@ use App\Models\Product;
 use App\Models\ReturnRequest;
 use App\Models\Review;
 use App\Models\Seller;
+use App\Models\Setting;
+use App\Models\User;
 use App\Models\Voucher;
 use App\Models\VoucherClaim;
+use App\Support\DeliveryServiceability;
+use App\Support\OrderCancellation;
+use App\Support\Payments;
+use App\Support\Shipping;
+use App\Support\Stock;
+use App\Support\Vouchers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Support\DeliveryServiceability;
-use App\Support\Shipping;
-use App\Support\Vouchers;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
+    public function preview(Request $request)
+    {
+        $data = $request->validate($this->selectionRules());
+        $cart = $this->checkoutCart($request->user()->id, $data['cart_item_ids'] ?? null);
+        $quote = $this->quoteCart($cart, $request->user(), $data);
+
+        return response()->json(['quote' => [
+            'subtotal' => $quote['subtotal'],
+            'shipping_fee' => round($quote['shippingTotal'] - $quote['waivedTotal'], 2),
+            'discount' => $quote['discount'],
+            'shipping_discount' => $quote['waivedTotal'],
+            'total' => $quote['total'],
+            'cart_item_ids' => $cart->items->pluck('id')->all(),
+        ]]);
+    }
+
+    private function selectionRules(): array
+    {
+        return [
+            'cart_item_ids' => ['sometimes', 'array', 'min:1', 'max:200'],
+            'cart_item_ids.*' => ['required', 'integer', 'distinct', 'min:1'],
+            'voucher_claim_id' => ['nullable', 'integer'],
+            'voucher_claim_ids' => ['nullable', 'array', 'max:3'],
+            'voucher_claim_ids.*' => ['integer', 'distinct'],
+        ];
+    }
+
+    private function checkoutCart(int $buyerId, ?array $selected): Cart
+    {
+        $cart = Cart::where('buyer_id', $buyerId)->with([
+            'items' => fn ($q) => $q->when($selected !== null, fn ($q) => $q->whereIn('id', $selected)),
+            'items.product', 'items.variant',
+        ])->first();
+        if (! $cart || $cart->items->isEmpty() || ($selected !== null && $cart->items->count() !== count($selected))) {
+            throw ValidationException::withMessages(['cart_item_ids' => 'Your selected cart items are empty or unavailable.']);
+        }
+
+        return $cart;
+    }
+
+    private function quoteCart(Cart $cart, User $user, array $data): array
+    {
+        $subtotal = 0;
+        $lineItems = [];
+        $sellerSubtotals = [];
+        foreach ($cart->items as $item) {
+            $product = $item->product;
+            $variant = $item->variant;
+            if (! $product || $product->status !== 'active' || ($item->variant_id && (! $variant || $variant->status !== 'active' || (int) $variant->product_id !== (int) $product->id))) {
+                throw ValidationException::withMessages(['cart_item_ids' => 'A selected product or variation is no longer available.']);
+            }
+            $available = $variant ? $variant->stock : $product->stock;
+            if ($item->quantity < 1 || $item->quantity > $available) {
+                throw ValidationException::withMessages(['cart_item_ids' => 'Insufficient stock for '.$product->name.'.']);
+            }
+            $unit = Cart::unitFor($product, $variant);
+            $lineTotal = round($unit * $item->quantity, 2);
+            $subtotal += $lineTotal;
+            $sellerId = (int) $product->seller_id;
+            $sellerSubtotals[$sellerId] = ($sellerSubtotals[$sellerId] ?? 0) + $lineTotal;
+            $lineItems[] = [
+                'product_id' => $product->id, 'product_variant_id' => $item->variant_id,
+                'seller_id' => $sellerId, 'product_name' => $product->name,
+                'variant_label' => Cart::labelFor($variant), 'quantity' => $item->quantity, 'price' => $unit,
+            ];
+        }
+        $sellerIds = array_keys($sellerSubtotals);
+        foreach ($sellerIds as $sellerId) {
+            if ($problem = DeliveryServiceability::pickupAddressProblem($sellerId)) {
+                throw ValidationException::withMessages(['cart_item_ids' => $problem]);
+            }
+        }
+        $onVacation = Seller::where(fn ($q) => $q->whereIn('id', $sellerIds)->orWhereIn('user_id', $sellerIds))
+            ->where('vacation_mode', true)->exists();
+        if ($onVacation) {
+            throw ValidationException::withMessages(['cart_item_ids' => 'A selected store is on vacation.']);
+        }
+
+        $groupIds = Shipping::groups($sellerIds);
+        $shippingTotal = Shipping::totalForGroups($groupIds);
+        $claimIds = array_values(array_unique(array_filter(array_merge(
+            array_map('intval', $data['voucher_claim_ids'] ?? []),
+            ! empty($data['voucher_claim_id']) ? [(int) $data['voucher_claim_id']] : []
+        ))));
+        $discount = 0;
+        $perVoucher = [];
+        $waivedTotal = 0;
+        if ($claimIds) {
+            $claims = VoucherClaim::with('voucher')->where('buyer_id', $user->id)->whereNull('used_at')->whereIn('id', $claimIds)->get();
+            $vouchers = $claims->map(fn ($claim) => $claim->voucher)->filter();
+            if ($claims->count() !== count($claimIds) || $vouchers->count() !== count($claimIds) || $vouchers->contains(fn ($v) => ! $v->is_active || ($v->usage_limit !== null && $v->used_count >= $v->usage_limit))) {
+                throw ValidationException::withMessages(['voucher_claim_ids' => 'One of the claimed vouchers is unavailable.']);
+            }
+            $stack = Vouchers::resolveStack($vouchers, $subtotal, $groupIds, $sellerSubtotals);
+            if ($stack['error']) {
+                throw ValidationException::withMessages(['voucher_claim_ids' => $stack['error']]);
+            }
+            $discount = $stack['merch'];
+            $waivedTotal = round(array_sum($stack['waived']), 2);
+            $perVoucher = $stack['perVoucher'];
+        }
+        $total = round($subtotal - $discount + $shippingTotal - $waivedTotal, 2);
+
+        return compact('subtotal', 'lineItems', 'groupIds', 'shippingTotal', 'discount', 'waivedTotal', 'perVoucher', 'claimIds', 'total');
+    }
+
     public function index(Request $request)
     {
-        $query = Order::with(['items', 'payment', 'delivery', 'orderVouchers.voucher'])
+        $query = Order::with(['items.product', 'payment', 'delivery', 'orderVouchers.voucher'])
             ->where('buyer_id', $request->user()->id)
             ->latest();
 
@@ -38,26 +150,23 @@ class OrderController extends Controller
 
         $orders = $query->get();
         $this->hideBuyerVoucherCodes($orders);
+
         return response()->json(['orders' => $orders]);
     }
 
     public function checkout(Request $request)
     {
-        $validated = $request->validate([
-            'address_id'       => ['required', 'exists:addresses,id'],
-            'payment_method'   => ['required', 'in:cash_on_delivery'],
+        $validated = $request->validate($this->selectionRules() + [
+            'address_id' => ['required', 'exists:addresses,id'],
+            'payment_method' => ['required', 'in:cash_on_delivery'],
             'voucher_claim_id' => ['nullable', 'integer', 'exists:voucher_claims,id'],
             'voucher_claim_ids' => ['nullable', 'array', 'max:3'],
             'voucher_claim_ids.*' => ['integer', 'exists:voucher_claims,id'],
-            'notes'            => ['nullable', 'string', 'max:1000'],
+            'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $user = $request->user();
-        $cart = Cart::where('buyer_id', $user->id)->with('items.product', 'items.variant')->first();
-
-        if (! $cart || $cart->items->isEmpty()) {
-            return response()->json(['message' => 'Your cart is empty.'], 422);
-        }
+        $cart = $this->checkoutCart($user->id, $validated['cart_item_ids'] ?? null);
 
         $address = Address::where('id', $validated['address_id'])
             ->where('buyer_id', $user->id)
@@ -67,87 +176,17 @@ class OrderController extends Controller
             return response()->json(['message' => $problem], 422);
         }
 
-        // Validate stock for all items up front.
-        foreach ($cart->items as $item) {
-            $available = $item->variant_id ? $item->variant->stock : $item->product->stock;
-            if ($item->quantity > $available) {
-                return response()->json([
-                    'message' => "Insufficient stock for \"{$item->product->name}\".",
-                ], 422);
-            }
-        }
-
-        $subtotal = 0;
-        $lineItems = [];
-        $sellerSubtotals = [];
-        foreach ($cart->items as $item) {
-            $unit = \App\Support\Sales::priceFor($item->product) + ($item->variant?->price_adjustment ?? 0);
-            $lineTotal = round($unit * $item->quantity, 2);
-            $subtotal += $lineTotal;
-            $sellerId = (int) $item->product->seller_id;
-            $sellerSubtotals[$sellerId] = ($sellerSubtotals[$sellerId] ?? 0) + $lineTotal;
-
-            $lineItems[] = [
-                'product_id'    => $item->product_id,
-                'product_variant_id' => $item->variant_id,
-                'seller_id'     => $item->product->seller_id,
-                'product_name'  => $item->product->name,
-                'variant_label' => $item->variant
-                    ? $item->variant->variant_type.': '.$item->variant->variant_value
-                    : null,
-                'quantity'      => $item->quantity,
-                'price'         => $unit,
-            ];
-        }
-
-        foreach (array_unique(array_column($lineItems, 'seller_id')) as $sellerId) {
-            if ($problem = DeliveryServiceability::pickupAddressProblem((int) $sellerId)) {
-                return response()->json(['message' => $problem], 422);
-            }
-        }
-
-        // Shipping: flat fee once per seller group (never per item).
-        // The rider earns it once per delivery; vouchers never touch it.
-        $sellerIds = array_keys($sellerSubtotals);
-        $onVacation = Seller::where(function ($q) use ($sellerIds) {
-            $q->whereIn('id', $sellerIds)->orWhereIn('user_id', $sellerIds);
-        })->where('vacation_mode', true)->first();
-        if ($onVacation) {
-            return response()->json([
-                'message' => ($onVacation->store_name ?: 'This store') . ' is on vacation and is not accepting orders right now. Please remove their items to continue.',
-            ], 422);
-        }
-
-        $groupIds = Shipping::groups(array_column($lineItems, 'seller_id'));
-        $shippingTotal = Shipping::totalForGroups($groupIds);
-
-        // Voucher / discount calculation (merchandise and/or free shipping).
-        // Up to three vouchers stack: one store + one platform + one shipping.
-        $discount = 0.00;
-        $waived = [];
-        $perVoucher = [];
-        $claimIds = array_values(array_unique(array_filter(array_merge(
-            array_map('intval', (array) ($validated['voucher_claim_ids'] ?? [])),
-            ! empty($validated['voucher_claim_id']) ? [(int) $validated['voucher_claim_id']] : []
-        ))));
-        if ($claimIds) {
-            $claims = VoucherClaim::with('voucher')->where('buyer_id', $user->id)
-                ->whereNull('used_at')->whereIn('id', $claimIds)->get()->keyBy('id');
-            $vouchers = $claims->map(fn ($c) => $c->voucher)->filter();
-            if ($claims->count() !== count($claimIds) || $vouchers->count() !== count($claimIds) || $vouchers->contains(fn ($v) => ! $v->is_active)) {
-                return response()->json(['message' => 'One of the claimed vouchers is unavailable.'], 422);
-            }
-            $stack = Vouchers::resolveStack($vouchers, $subtotal, $groupIds, $sellerSubtotals);
-            if ($stack['error']) {
-                return response()->json(['message' => $stack['error']], 422);
-            }
-            $discount = $stack['merch'];
-            $waived = $stack['waived'];
-            $perVoucher = $stack['perVoucher'];
-        }
-        $waivedTotal = round(array_sum($waived), 2);
-
-        $total = round($subtotal - $discount + $shippingTotal - $waivedTotal, 2);
+        [
+            'subtotal' => $subtotal,
+            'lineItems' => $lineItems,
+            'groupIds' => $groupIds,
+            'shippingTotal' => $shippingTotal,
+            'discount' => $discount,
+            'waivedTotal' => $waivedTotal,
+            'perVoucher' => $perVoucher,
+            'claimIds' => $claimIds,
+            'total' => $total,
+        ] = $this->quoteCart($cart, $user, $validated);
 
         try {
             $order = DB::transaction(function () use ($user, $address, $cart, $lineItems, $subtotal, $discount, $shippingTotal, $waivedTotal, $total, $claimIds, $perVoucher, $validated, $groupIds) {
@@ -168,16 +207,16 @@ class OrderController extends Controller
                     }
                 }
                 $order = Order::create([
-                    'seller_id'      => $groupIds[0] ?? null,
-                    'buyer_id'       => $user->id,
-                    'address_id'     => $address->id,
+                    'seller_id' => $groupIds[0] ?? null,
+                    'buyer_id' => $user->id,
+                    'address_id' => $address->id,
                     'shipping_address' => $address->toShippingSnapshot(),
-                    'total_amount'   => $total,
-                    'sub_total'      => $subtotal,
+                    'total_amount' => $total,
+                    'sub_total' => $subtotal,
                     'discount_total' => round($discount + $waivedTotal, 2),
-                    'shipping_fee'   => round($shippingTotal - $waivedTotal, 2),
-                    'status'         => 'pending',
-                    'notes'          => $validated['notes'] ?? null,
+                    'shipping_fee' => round($shippingTotal - $waivedTotal, 2),
+                    'status' => 'pending',
+                    'notes' => $validated['notes'] ?? null,
                 ]);
 
                 foreach ($lineItems as $li) {
@@ -186,26 +225,26 @@ class OrderController extends Controller
 
                 Payment::create([
                     'order_id' => $order->id,
-                    'method'   => $validated['payment_method'],
-                    'status'   => 'pending',
-                    'amount'   => $total,
+                    'method' => $validated['payment_method'],
+                    'status' => 'pending',
+                    'amount' => $total,
                 ]);
 
                 // Open the money ledger row (pending until delivery settles it).
-                \App\Support\Payments::recordCheckout($order);
+                Payments::recordCheckout($order);
 
                 OrderStatusHistory::create([
-                    'order_id'   => $order->id,
-                    'to_status'  => 'pending',
-                    'note'       => 'Order placed.',
+                    'order_id' => $order->id,
+                    'to_status' => 'pending',
+                    'note' => 'Order placed.',
                     'created_at' => now(),
                 ]);
 
                 foreach ($lockedClaims as $lc) {
                     $amount = ($perVoucher[$lc->voucher_id]['merch'] ?? 0) + ($perVoucher[$lc->voucher_id]['waived'] ?? 0);
                     OrderVoucher::create([
-                        'order_id'        => $order->id,
-                        'voucher_id'      => $lc->voucher_id,
+                        'order_id' => $order->id,
+                        'voucher_id' => $lc->voucher_id,
                         'discount_amount' => round($amount, 2),
                     ]);
                     Voucher::whereKey($lc->voucher_id)->increment('used_count');
@@ -216,12 +255,12 @@ class OrderController extends Controller
                 // fee once per delivery, independent of any voucher.
                 foreach ($groupIds as $sid) {
                     $delivery = Delivery::create([
-                        'order_id'         => $order->id,
-                        'seller_id'        => $sid,
-                        'status'           => 'waiting_for_rider',
-                        'payment_method'   => $validated['payment_method'],
+                        'order_id' => $order->id,
+                        'seller_id' => $sid,
+                        'status' => 'waiting_for_rider',
+                        'payment_method' => $validated['payment_method'],
                         'amount_to_collect' => $order->cashToCollectForSeller((int) $sid),
-                        'delivery_fee'     => Order::SHIPPING_FEE_PER_SELLER,
+                        'delivery_fee' => Order::SHIPPING_FEE_PER_SELLER,
                     ]);
 
                     PickupRequest::openForDelivery($delivery);
@@ -229,22 +268,22 @@ class OrderController extends Controller
 
                 // Deduct stock (guarded: fails the whole checkout when short).
                 foreach ($cart->items as $item) {
-                    if (! \App\Support\Stock::deduct($item->product_id, $item->variant_id, $item->quantity)) {
+                    if (! Stock::deduct($item->product_id, $item->variant_id, $item->quantity)) {
                         throw new \Exception("Insufficient stock for \"{$item->product->name}\".");
                     }
                 }
 
-                $cart->items()->delete();
+                $cart->items()->whereIn('id', $cart->items->pluck('id'))->delete();
 
                 return $order;
             });
 
-            $order->load(['items', 'payment', 'delivery', 'orderVouchers.voucher']);
+            $order->load(['items.product', 'payment', 'delivery', 'orderVouchers.voucher']);
             $this->hideBuyerVoucherCodes(collect([$order]));
 
             return response()->json([
                 'message' => 'Order placed successfully. Payment method: Cash on Delivery.',
-                'order'   => $order,
+                'order' => $order,
             ], 201);
         } catch (\Throwable $e) {
             return response()->json(['message' => 'Unable to place order. '.$e->getMessage()], 500);
@@ -253,7 +292,7 @@ class OrderController extends Controller
 
     public function show(Request $request, $id)
     {
-        $order = Order::with(['items', 'payment', 'delivery', 'orderVouchers.voucher', 'address', 'statusHistories'])
+        $order = Order::with(['items.product', 'payment', 'delivery', 'orderVouchers.voucher', 'address', 'statusHistories'])
             ->where('buyer_id', $request->user()->id)
             ->findOrFail($id);
         $this->hideBuyerVoucherCodes(collect([$order]));
@@ -273,9 +312,9 @@ class OrderController extends Controller
             return response()->json(['message' => 'This order can no longer be cancelled — it is already on its way to you.'], 422);
         }
 
-        $labels = ['changed_mind'=>'Changed my mind','ordered_by_mistake'=>'Ordered by mistake','found_better_price'=>'Found a better price','delivery_too_long'=>'Delivery is taking too long','wrong_item'=>'I ordered the wrong item','other'=>'Other'];
-        $reason = $labels[$validated['reason']] . ($validated['reason'] === 'other' ? ': '.trim($validated['reason_details']) : '');
-        \App\Support\OrderCancellation::byBuyer($order, $reason, (int) $request->user()->id);
+        $labels = ['changed_mind' => 'Changed my mind', 'ordered_by_mistake' => 'Ordered by mistake', 'found_better_price' => 'Found a better price', 'delivery_too_long' => 'Delivery is taking too long', 'wrong_item' => 'I ordered the wrong item', 'other' => 'Other'];
+        $reason = $labels[$validated['reason']].($validated['reason'] === 'other' ? ': '.trim($validated['reason_details']) : '');
+        OrderCancellation::byBuyer($order, $reason, (int) $request->user()->id);
 
         return response()->json(['message' => 'Order cancelled.']);
     }
@@ -284,8 +323,8 @@ class OrderController extends Controller
     {
         $validated = $request->validate([
             'product_id' => ['required', 'exists:products,id'],
-            'rating'     => ['required', 'integer', 'between:1,5'],
-            'comment'    => ['nullable', 'string', 'max:500'],
+            'rating' => ['required', 'integer', 'between:1,5'],
+            'comment' => ['nullable', 'string', 'max:500'],
         ]);
 
         $order = Order::where('buyer_id', $request->user()->id)->findOrFail($id);
@@ -300,14 +339,14 @@ class OrderController extends Controller
 
         $review = Review::updateOrCreate(
             [
-                'buyer_id'   => $request->user()->id,
+                'buyer_id' => $request->user()->id,
                 'product_id' => $validated['product_id'],
-                'order_id'   => $order->id,
+                'order_id' => $order->id,
             ],
             [
-                'rating'  => $validated['rating'],
+                'rating' => $validated['rating'],
                 'comment' => $validated['comment'] ?? null,
-                'status'  => 'visible',
+                'status' => 'visible',
             ]
         );
 
@@ -325,10 +364,10 @@ class OrderController extends Controller
     public function requestReturn(Request $request, $id)
     {
         $validated = $request->validate([
-            'product_id'     => ['required', 'exists:products,id'],
-            'reason'         => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
+            'product_id' => ['required', 'exists:products,id'],
+            'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
             'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'min:10', 'max:300'],
-            'quantity'       => ['nullable', 'integer', 'min:1', 'max:9999'],
+            'quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
         ]);
 
         return DB::transaction(function () use ($request, $validated, $id) {
@@ -338,7 +377,7 @@ class OrderController extends Controller
                 return response()->json(['message' => 'You can only request a return after the order is delivered.'], 422);
             }
 
-            $windowDays = max(1, (int) \App\Models\Setting::get('return_window_days', 7));
+            $windowDays = max(1, (int) Setting::get('return_window_days', 7));
             if ($order->updated_at && $order->updated_at->lt(now()->subDays($windowDays))) {
                 return response()->json(['message' => "The return window ({$windowDays} days after delivery) has closed."], 422);
             }
@@ -373,21 +412,21 @@ class OrderController extends Controller
                 : min(round($lineNet * $qty / $item->quantity, 2), $remainingRefund);
 
             $return = ReturnRequest::create([
-                'order_id'      => $order->id,
+                'order_id' => $order->id,
                 'order_item_id' => $item->id,
-                'buyer_id'      => $request->user()->id,
-                'seller_id'     => $item->seller_id,
-                'product_id'    => $item->product_id,
-                'quantity'      => $qty,
-                'reason'        => $validated['reason'],
+                'buyer_id' => $request->user()->id,
+                'seller_id' => $item->seller_id,
+                'product_id' => $item->product_id,
+                'quantity' => $qty,
+                'reason' => $validated['reason'],
                 'reason_details' => $validated['reason_details'] ?? null,
                 'refund_amount' => $refund,
-                'status'        => 'requested',
+                'status' => 'requested',
             ]);
 
             return response()->json([
                 'message' => 'Return requested. The seller will review it shortly.',
-                'return'  => $return,
+                'return' => $return,
             ], 201);
         }, 3);
     }
@@ -395,10 +434,18 @@ class OrderController extends Controller
     private function hideBuyerVoucherCodes($orders): void
     {
         foreach ($orders as $order) {
+            foreach ($order->items as $item) {
+                $item->setAttribute('subtotal', $item->lineTotal);
+                $item->setAttribute('product_image', $item->product?->image);
+            }
             foreach ($order->orderVouchers ?? [] as $orderVoucher) {
                 $voucher = $orderVoucher->voucher;
-                if (! $voucher) continue;
-                if ($voucher->name === $voucher->code) $voucher->setAttribute('name', 'Store offer');
+                if (! $voucher) {
+                    continue;
+                }
+                if ($voucher->name === $voucher->code) {
+                    $voucher->setAttribute('name', 'Store offer');
+                }
                 $voucher->makeHidden('code');
             }
         }

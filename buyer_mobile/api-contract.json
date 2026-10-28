@@ -1,0 +1,256 @@
+{
+  "source": "Original Flutter buyer app; standalone backend/database are intentionally excluded.",
+  "api_base_setting": "INVOIZ_API_BASE_URL",
+  "screens": [
+    "lib/screens/account_screen.dart",
+    "lib/screens/add_address_screen.dart",
+    "lib/screens/cart_screen.dart",
+    "lib/screens/chat_screen.dart",
+    "lib/screens/checkout_screen.dart",
+    "lib/screens/favorites_screen.dart",
+    "lib/screens/home_screen.dart",
+    "lib/screens/login_screen.dart",
+    "lib/screens/notifications_screen.dart",
+    "lib/screens/order_detail_screen.dart",
+    "lib/screens/orders_screen.dart",
+    "lib/screens/product_detail_screen.dart",
+    "lib/screens/product_list_screen.dart",
+    "lib/screens/profile_screen.dart",
+    "lib/screens/register_screen.dart",
+    "lib/screens/seller_store_screen.dart",
+    "lib/screens/splash_screen.dart",
+    "lib/screens/verify_email_screen.dart"
+  ],
+  "endpoints": [
+    {
+      "method": "GET",
+      "original_path": "/api/categories",
+      "path": "/api/categories"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/products",
+      "path": "/api/products"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/products/{id}",
+      "path": "/api/products/{id}"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/stores/{seller}",
+      "path": "/api/stores/{seller}"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/stores/{seller}/reviews",
+      "path": "/api/stores/{seller}/reviews"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/register",
+      "path": "/api/mobile/buyer/register"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/login",
+      "path": "/api/mobile/buyer/login"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/verify-email",
+      "path": "/api/mobile/buyer/verify-email"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/resend-code",
+      "path": "/api/mobile/buyer/resend-code"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/logout",
+      "path": "/api/logout"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/me",
+      "path": "/api/me"
+    },
+    {
+      "method": "PUT",
+      "original_path": "/api/profile",
+      "path": "/api/profile"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/profile",
+      "path": "/api/profile"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/addresses",
+      "path": "/api/addresses"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/addresses",
+      "path": "/api/addresses"
+    },
+    {
+      "method": "PUT",
+      "original_path": "/api/addresses/{id}",
+      "path": "/api/addresses/{id}"
+    },
+    {
+      "method": "DELETE",
+      "original_path": "/api/addresses/{id}",
+      "path": "/api/addresses/{id}"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/cart",
+      "path": "/api/cart"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/cart/add",
+      "path": "/api/cart/add"
+    },
+    {
+      "method": "PUT",
+      "original_path": "/api/cart/{id}",
+      "path": "/api/cart/{id}"
+    },
+    {
+      "method": "DELETE",
+      "original_path": "/api/cart/{id}",
+      "path": "/api/cart/{id}"
+    },
+    {
+      "method": "DELETE",
+      "original_path": "/api/cart",
+      "path": "/api/cart"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/vouchers",
+      "path": "/api/vouchers"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/vouchers/validate",
+      "path": "/api/vouchers/validate"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/orders",
+      "path": "/api/orders"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/orders/{id}",
+      "path": "/api/orders/{id}"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/orders/checkout",
+      "path": "/api/orders/checkout"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/orders/{id}/cancel",
+      "path": "/api/orders/{id}/cancel"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/orders/{id}/rate",
+      "path": "/api/orders/{id}/rate"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/conversations",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/conversations/unread-count",
+      "path": "/api/conversations/unread-count"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/conversations",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/conversations/{id}/messages",
+      "path": "/api/conversations/{id}/messages"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/conversations/{id}/reply",
+      "path": "/api/conversations/{id}/reply"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/favorites",
+      "path": "/api/favorites"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/favorites/toggle",
+      "path": "/api/favorites/toggle"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/stores/{seller}/follow",
+      "path": "/api/stores/{seller}/follow"
+    },
+    {
+      "method": "DELETE",
+      "original_path": "/api/stores/{seller}/follow",
+      "path": "/api/stores/{seller}/follow"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/notifications",
+      "path": "/api/notifications"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/notifications/{id}/read",
+      "path": "/api/notifications/{id}/read"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/notifications/read-all",
+      "path": "/api/notifications/read-all"
+    },
+    {
+      "method": "POST",
+      "original_path": "/api/seller/apply",
+      "path": "/api/seller/apply"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/seller/status",
+      "path": "/api/seller/status"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/seller/me",
+      "path": "/api/seller/me"
+    },
+    {
+      "method": "GET",
+      "original_path": "/api/user",
+      "path": "/api/user"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/preview",
+      "feature": "Shared price/shipping/voucher preview"
+    }
+  ]
+}

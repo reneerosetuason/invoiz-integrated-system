@@ -5,14 +5,27 @@ namespace App\Http\Controllers\Buyer\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Support\ChatBridge;
 use Illuminate\Http\Request;
 
 class ChatController extends Controller
 {
+    public function unreadCount(Request $request)
+    {
+        $count = Message::whereHas('conversation', fn ($q) => $q->where('buyer_id', $request->user()->id))
+            ->where('sender_id', '!=', $request->user()->id)->where('is_read', false)->count();
+
+        return response()->json(['unread_count' => $count]);
+    }
+
     public function index(Request $request)
     {
-        \App\Support\ChatBridge::linkExistingForBuyer((int) $request->user()->id);
-        $conversations = Conversation::with(['lastMessage.sender', 'seller.seller'])
+        ChatBridge::linkExistingForBuyer((int) $request->user()->id);
+        $conversations = Conversation::with([
+            'lastMessage.sender:id,first_name,last_name,name',
+            'seller:id,first_name,last_name,name',
+            'seller.seller:id,user_id,business_name,store_name',
+        ])
             ->where('buyer_id', $request->user()->id)
             ->withCount(['messages as unread_count' => function ($q) use ($request) {
                 $q->where('is_read', false)->where('sender_id', '!=', $request->user()->id);
@@ -26,8 +39,8 @@ class ChatController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'subject'   => ['required', 'string', 'max:150'],
-            'body'      => ['required', 'string', 'max:2000'],
+            'subject' => ['required', 'string', 'max:150'],
+            'body' => ['required', 'string', 'max:2000'],
             'seller_id' => ['nullable', 'integer'],
         ]);
 
@@ -41,24 +54,24 @@ class ChatController extends Controller
 
         if (! $conversation) {
             $conversation = Conversation::create([
-                'buyer_id'  => $buyerId,
+                'buyer_id' => $buyerId,
                 'seller_id' => $validated['seller_id'] ?? null,
-                'subject'   => $validated['subject'],
+                'subject' => $validated['subject'],
             ]);
         }
 
         Message::create([
             'conversation_id' => $conversation->id,
-            'sender_id'       => $buyerId,
-            'receiver_id'     => $validated['seller_id'] ?? $conversation->seller_id,
-            'body'            => $validated['body'],
+            'sender_id' => $buyerId,
+            'receiver_id' => $validated['seller_id'] ?? $conversation->seller_id,
+            'body' => $validated['body'],
         ]);
 
         $conversation->touch();
 
         return response()->json([
-            'message'      => 'Message sent.',
-            'conversation' => $conversation->load('seller.seller'),
+            'message' => 'Message sent.',
+            'conversation' => $conversation->load(['seller:id,first_name,last_name,name', 'seller.seller:id,user_id,business_name,store_name']),
         ], 201);
     }
 
@@ -71,7 +84,7 @@ class ChatController extends Controller
             ->where('sender_id', '!=', $request->user()->id)
             ->update(['is_read' => true]);
 
-        $messages = $conversation->messages()->with('sender')->orderBy('created_at')->get();
+        $messages = $conversation->messages()->with('sender:id,first_name,last_name,name')->orderBy('created_at')->get();
 
         return response()->json(['messages' => $messages]);
     }
@@ -86,13 +99,13 @@ class ChatController extends Controller
 
         $message = Message::create([
             'conversation_id' => $conversation->id,
-            'sender_id'       => $request->user()->id,
-            'receiver_id'     => $conversation->seller_id,
-            'body'            => $validated['body'],
+            'sender_id' => $request->user()->id,
+            'receiver_id' => $conversation->seller_id,
+            'body' => $validated['body'],
         ]);
 
         $conversation->touch();
 
-        return response()->json(['message' => $message->load('sender')], 201);
+        return response()->json(['message' => $message->load('sender:id,first_name,last_name,name')], 201);
     }
 }

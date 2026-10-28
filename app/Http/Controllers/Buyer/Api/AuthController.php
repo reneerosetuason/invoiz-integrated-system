@@ -7,6 +7,7 @@ use App\Models\Cart;
 use App\Models\User;
 use App\Rules\PersonName;
 use App\Support\NameNormalizer;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -16,28 +17,41 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        $user = $this->createBuyer($request);
+        $token = $user->createToken('invoiz-app')->plainTextToken;
+
+        return response()->json([
+            'message' => 'Registered successfully.',
+            'token' => $token,
+            'user' => $user->only(['id', 'first_name', 'last_name', 'email', 'approval_status']),
+        ], 201);
+    }
+
+    protected function createBuyer(Request $request): User
+    {
         $request->merge(NameNormalizer::cleanKeys(
             $request->only(['first_name', 'last_name', 'middle_initial']),
             ['first_name', 'last_name', 'middle_initial']
         ));
 
         $validated = $request->validate([
-            'last_name'      => ['required', 'string', 'max:100', new PersonName()],
-            'first_name'     => ['required', 'string', 'max:100', new PersonName()],
-            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
-            'sex'            => ['required', Rule::in(['male', 'female', 'other'])],
-            'email'          => ['required', 'email', 'max:150', 'unique:users,email'],
-            'password'       => ['required', 'string', 'min:8', 'confirmed'],
-            'phone'          => ['required', 'string', 'max:30'],
-            'birthday'       => ['required', 'date', 'before:today'],
-            'province'       => ['nullable', 'string', 'max:100'],
-            'municipality'   => ['nullable', 'string', 'max:100'],
-            'barangay'       => ['nullable', 'string', 'max:100'],
-            'address_line'   => ['nullable', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:100', new PersonName],
+            'first_name' => ['required', 'string', 'max:100', new PersonName],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName],
+            'sex' => ['required', Rule::in(['male', 'female', 'other'])],
+            'email' => ['required', 'email', 'max:150', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'phone' => ['required', 'string', 'max:30'],
+            'birthday' => ['required', 'date', 'before:today'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'municipality' => ['nullable', 'string', 'max:100'],
+            'barangay' => ['nullable', 'string', 'max:100'],
+            'address_line' => ['nullable', 'string', 'max:255'],
+            'id_image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
 
         // Age auto-generated from birthday.
-        $age = \Carbon\Carbon::parse($validated['birthday'])->age;
+        $age = Carbon::parse($validated['birthday'])->age;
 
         $idImagePath = null;
         if ($request->hasFile('id_image')) {
@@ -46,28 +60,22 @@ class AuthController extends Controller
 
         $user = User::create([
             ...$validated,
-            'age'             => $age,
-            'id_image'        => $idImagePath,
+            'age' => $age,
+            'id_image' => $idImagePath,
             'approval_status' => 'approved',
-            'role'            => 'buyer',
-            'status'          => 'active',
+            'role' => 'buyer',
+            'status' => 'active',
         ]);
 
         Cart::create(['buyer_id' => $user->id]);
 
-        $token = $user->createToken('invoiz-app')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Registered successfully.',
-            'token'   => $token,
-            'user'    => $user->only(['id', 'first_name', 'last_name', 'email', 'approval_status']),
-        ], 201);
+        return $user;
     }
 
     public function login(Request $request)
     {
         $validated = $request->validate([
-            'email'    => ['required', 'email'],
+            'email' => ['required', 'email'],
             'password' => ['required', 'string'],
         ]);
 
@@ -107,12 +115,13 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Login successful.',
-            'token'   => $token,
-            'user'    => array_merge(
+            'token' => $token,
+            'user' => array_merge(
                 $user->only([
                     'id', 'first_name', 'last_name', 'middle_initial', 'email',
                     'sex', 'phone', 'birthday', 'age', 'role', 'approval_status',
                     'province', 'municipality', 'barangay', 'address_line', 'id_image',
+                    'profile_picture', 'bio', 'created_at',
                 ]),
                 ['seller' => $user->seller],
             ),
@@ -121,7 +130,10 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        $request->user()->currentAccessToken()->delete();
+        $token = $request->user()->currentAccessToken();
+        if ($token && method_exists($token, 'delete')) {
+            $token->delete();
+        }
 
         return response()->json(['message' => 'Logged out successfully.']);
     }
@@ -136,6 +148,7 @@ class AuthController extends Controller
                     'id', 'last_name', 'first_name', 'middle_initial', 'sex',
                     'email', 'phone', 'birthday', 'age', 'role', 'approval_status',
                     'province', 'municipality', 'barangay', 'address_line', 'id_image',
+                    'profile_picture', 'bio', 'created_at',
                 ]),
                 ['seller' => $user->seller],
             ),
@@ -152,17 +165,24 @@ class AuthController extends Controller
         ));
 
         $validated = $request->validate([
-            'last_name'      => ['sometimes', 'string', 'max:100', new PersonName()],
-            'first_name'     => ['sometimes', 'string', 'max:100', new PersonName()],
-            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
-            'sex'            => ['sometimes', Rule::in(['male', 'female', 'other'])],
-            'phone'          => ['sometimes', 'string', 'max:30'],
-            'province'       => ['nullable', 'string', 'max:100'],
-            'municipality'   => ['nullable', 'string', 'max:100'],
-            'barangay'       => ['nullable', 'string', 'max:100'],
-            'address_line'   => ['nullable', 'string', 'max:255'],
-            'password'       => ['nullable', 'string', 'min:8', 'confirmed'],
+            'last_name' => ['sometimes', 'string', 'max:100', new PersonName],
+            'first_name' => ['sometimes', 'string', 'max:100', new PersonName],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName],
+            'sex' => ['sometimes', Rule::in(['male', 'female', 'other'])],
+            'phone' => ['sometimes', 'string', 'max:30'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'municipality' => ['nullable', 'string', 'max:100'],
+            'barangay' => ['nullable', 'string', 'max:100'],
+            'address_line' => ['nullable', 'string', 'max:255'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'bio' => ['nullable', 'string', 'max:1000'],
+            'profile_picture' => ['nullable', 'image', 'max:5120'],
+            'id_image' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
         ]);
+
+        if ($request->hasFile('profile_picture')) {
+            $validated['profile_picture'] = $request->file('profile_picture')->store('profile-pictures', 'public');
+        }
 
         if ($request->hasFile('id_image')) {
             if ($user->id_image) {
@@ -179,10 +199,11 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfully.',
-            'user'    => $user->fresh()->only([
+            'user' => $user->fresh()->only([
                 'id', 'last_name', 'first_name', 'middle_initial', 'sex',
                 'email', 'phone', 'birthday', 'age', 'role', 'approval_status',
                 'province', 'municipality', 'barangay', 'address_line', 'id_image',
+                'profile_picture', 'bio', 'created_at',
             ]),
         ]);
     }

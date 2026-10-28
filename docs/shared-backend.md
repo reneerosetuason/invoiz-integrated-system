@@ -30,10 +30,12 @@ account stores or databases.
 - Publish one application origin for all clients. If several Laravel workers
   or server instances are deployed, give each the same database configuration
   and compatible shared session/cache configuration. Run the check on each instance.
-- External buyer/rider mobile apps must use that same deployed origin's `/api`
-  endpoints. Their source/configuration is absent from this checkout, so their
-  installed API base URLs cannot be verified here. The rider deep link only
-  opens the installed app; it does not configure its API/database.
+- The buyer mobile source is now integrated in `buyer_mobile`; its single
+  `INVOIZ_API_BASE_URL` setting must use the deployed origin's `/api`. Its web
+  preview shares the Laravel origin at `/buyer-app/`. See
+  [buyer integration](buyer-mobile-integration.md). External rider app source
+  is still absent; its installed API address cannot be verified here. The rider
+  deep link only opens that app; it does not configure its API/database.
 - Automated tests intentionally use a separate, isolated database. They must
   never share live customer data or run schema resets against the application database.
 

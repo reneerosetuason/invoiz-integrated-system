@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
-
 use App\Models\Category;
 use App\Models\Seller;
 use App\Models\SellerProfile;
@@ -11,6 +10,8 @@ use App\Models\User;
 use App\Rules\BusinessName;
 use App\Rules\PersonName;
 use App\Support\NameNormalizer;
+use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,10 +35,11 @@ class SellerApplicationController extends Controller
             'dti_certificate' => $this->hasStoredFile($existing?->dti_certificate),
             'bir_2303' => $this->hasStoredFile($existing?->bir_2303),
         ];
+
         return view('seller.apply', compact('existing', 'user', 'categories', 'availableDocuments'));
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $request->merge([
             'email' => strtolower(trim((string) $request->input('email'))),
@@ -49,7 +51,7 @@ class SellerApplicationController extends Controller
             ['first_name', 'last_name', 'middle_initial']
         ));
 
-        $userId = session('buyer.id') ?? Auth::id();
+        $userId = $request->user()?->id ?? ($request->hasSession() ? $request->session()->get('buyer.id') : null);
         $currentUser = $userId ? User::find($userId) : null;
         $knownUser = $currentUser ?: User::where('email', $request->input('email'))->first();
         $existing = $knownUser ? Seller::where('user_id', $knownUser->id)->first() : null;
@@ -65,9 +67,9 @@ class SellerApplicationController extends Controller
         }
 
         $rules = [
-            'first_name' => ['required', 'string', 'max:100', new PersonName()],
-            'last_name' => ['required', 'string', 'max:100', new PersonName()],
-            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
+            'first_name' => ['required', 'string', 'max:100', new PersonName],
+            'last_name' => ['required', 'string', 'max:100', new PersonName],
+            'middle_initial' => ['nullable', 'string', 'max:10', new PersonName],
             'email' => [
                 'required', 'email', 'max:150',
                 ...(! $knownUser ? [Rule::unique('users', 'email')] : []),
@@ -80,7 +82,7 @@ class SellerApplicationController extends Controller
             'phone' => ['required', 'string', 'max:30'],
             'business_name' => [
                 'required', 'string', 'min:2', 'max:50',
-                new BusinessName(),
+                new BusinessName,
             ],
             'line_of_business' => ['required', 'string', 'max:100'],
             'seller_type' => ['required', Rule::in([
@@ -152,11 +154,15 @@ class SellerApplicationController extends Controller
         ]);
 
         if ($existing && $existing->approval_status !== 'rejected') {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'You already have a seller application.'], 409);
+            }
+
             return back()->withInput()->with('error', 'You already have a seller application.');
         }
 
         $age = ! empty($data['birthday'])
-            ? \Carbon\Carbon::parse($data['birthday'])->age
+            ? Carbon::parse($data['birthday'])->age
             : null;
         $uploadMap = [
             'id_image' => 'seller-ids',
@@ -183,7 +189,7 @@ class SellerApplicationController extends Controller
                 $userUpdates = [
                     'first_name' => $data['first_name'],
                     'last_name' => $data['last_name'],
-                    'name' => trim($data['first_name'] . ' ' . $data['last_name']),
+                    'name' => trim($data['first_name'].' '.$data['last_name']),
                     'phone' => $data['phone'],
                     'region' => $data['region'],
                     'province' => $data['province'],
@@ -285,6 +291,13 @@ class SellerApplicationController extends Controller
             }
         }
 
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Application submitted. Please wait for the administrator decision.',
+                'seller' => Seller::where('user_id', $user->id)->first(),
+            ], 201);
+        }
+
         Auth::login($user);
         $request->session()->put('buyer', [
             'id' => $user->id,
@@ -307,7 +320,7 @@ class SellerApplicationController extends Controller
 
         $candidates = [
             Storage::disk('public')->path($cleanPath),
-            public_path('storage/' . $cleanPath),
+            public_path('storage/'.$cleanPath),
             public_path($cleanPath),
         ];
 
@@ -326,7 +339,7 @@ class SellerApplicationController extends Controller
         $cleanPath = preg_replace('#^storage/#', '', $cleanPath);
         Storage::disk('public')->delete($cleanPath);
 
-        $publicCopy = public_path('storage/' . $cleanPath);
+        $publicCopy = public_path('storage/'.$cleanPath);
         if (is_file($publicCopy) && ! is_link($publicCopy)) {
             @unlink($publicCopy);
         }

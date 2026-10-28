@@ -36,9 +36,12 @@ Verify the current installation without changing data:
 php artisan invoiz:check-backend
 ```
 
-Web clients use the same deployed origin; external mobile clients must point
-their API base URL to that origin's `/api`. Mobile client source is not part
-of this repository. See [shared backend verification](docs/shared-backend.md).
+The Flutter buyer client is in [`buyer_mobile`](buyer_mobile/README.md). Its
+18 screens use this backend, with no separate server or database. The browser
+preview is served at `/buyer-app/` after running its web build script. Mobile
+devices must use the same reachable website origin's `/api`.
+See [buyer app integration](docs/buyer-mobile-integration.md) and
+[shared backend verification](docs/shared-backend.md).
 
 ## Project organization
 
@@ -58,7 +61,7 @@ for the logistics migration moves.
 ## Verification
 
 ```powershell
-php vendor/phpunit/phpunit/phpunit --filter "ViewStructureTest|BuyerWebShoppingTest|CommerceRegressionTest|SharedBackendTest"
+php vendor/phpunit/phpunit/phpunit --filter "ViewStructureTest|BuyerWebShoppingTest|CommerceRegressionTest|SharedBackendTest|BuyerMobileIntegrationTest"
 npm run build
 ```
 

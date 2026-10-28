@@ -9,6 +9,7 @@ use App\Models\Review;
 use App\Models\Seller;
 use App\Models\StoreFollow;
 use App\Models\User;
+use App\Support\Sales;
 use Illuminate\Http\Request;
 
 class StoreController extends Controller
@@ -78,12 +79,13 @@ class StoreController extends Controller
 
         $products->getCollection()->each(function ($product) use ($counts) {
             $product->sold = $counts[$product->id] ?? 0;
+            $product->effective_price = Sales::priceFor($product);
         });
 
         $store = $this->storeInfo($request, $sellerUserId, $products->total());
 
         return response()->json([
-            'store'    => $store,
+            'store' => $store,
             'products' => $products,
         ]);
     }
@@ -98,7 +100,7 @@ class StoreController extends Controller
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
-        $reviews = Review::with(['buyer', 'product'])
+        $reviews = Review::with(['buyer:id,first_name,last_name,name', 'product'])
             ->where('status', 'visible')
             ->whereIn('product_id', function ($q) use ($sellerUserId) {
                 $q->select('id')->from('products')->where('seller_id', $sellerUserId);
@@ -129,22 +131,30 @@ class StoreController extends Controller
             ->where('seller_id', $sellerUserId)
             ->first();
 
-        if ($existing) {
-            $existing->delete();
+        if ($request->isMethod('delete')) {
+            $existing?->delete();
+
             return response()->json([
-                'message'   => 'Unfollowed store.',
-                'is_following' => false,
+                'message' => 'Unfollowed store.', 'is_following' => false,
+                'followers' => StoreFollow::where('seller_id', $sellerUserId)->count(),
+            ]);
+        }
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'Store followed.',
+                'is_following' => true,
                 'followers' => StoreFollow::where('seller_id', $sellerUserId)->count(),
             ]);
         }
 
         StoreFollow::create([
-            'buyer_id'   => $buyerId,
-            'seller_id'  => $sellerUserId,
+            'buyer_id' => $buyerId,
+            'seller_id' => $sellerUserId,
         ]);
 
         return response()->json([
-            'message'   => 'Store followed.',
+            'message' => 'Store followed.',
             'is_following' => true,
             'followers' => StoreFollow::where('seller_id', $sellerUserId)->count(),
         ]);
@@ -197,16 +207,16 @@ class StoreController extends Controller
         $reviewsCount = (int) ($reviewAgg->total ?? 0);
 
         return [
-            'seller_id'        => $user->id,
-            'business_name'    => $seller->business_name,
+            'seller_id' => $user->id,
+            'business_name' => $seller->business_name,
             'line_of_business' => $seller->line_of_business,
-            'owner_name'       => $user->full_name,
-            'rating'           => $avgRating,
-            'product_count'    => $productCount,
-            'total_sold'       => $totalSold,
-            'followers'        => $followers,
-            'is_following'     => $isFollowing,
-            'review_count'     => $reviewsCount,
+            'owner_name' => $user->full_name,
+            'rating' => $avgRating,
+            'product_count' => $productCount,
+            'total_sold' => $totalSold,
+            'followers' => $followers,
+            'is_following' => $isFollowing,
+            'review_count' => $reviewsCount,
             'rating_breakdown' => $reviewsCount > 0 ? [
                 '5' => (int) ($reviewAgg->r5 ?? 0),
                 '4' => (int) ($reviewAgg->r4 ?? 0),
@@ -214,8 +224,8 @@ class StoreController extends Controller
                 '2' => (int) ($reviewAgg->r2 ?? 0),
                 '1' => (int) ($reviewAgg->r1 ?? 0),
             ] : [],
-            'member_since'     => $seller->created_at?->toDateString(),
-            'logo'             => null,
+            'member_since' => $seller->created_at?->toDateString(),
+            'logo' => null,
         ];
     }
 }
