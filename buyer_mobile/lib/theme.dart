@@ -79,21 +79,25 @@ class AppTheme {
               color: AppColors.primaryDark,
             ),
             titleMedium: const TextStyle(
+              fontFamily: 'Inter',
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
             ),
             bodyLarge: const TextStyle(
+              fontFamily: 'Inter',
               fontSize: 15,
               height: 1.5,
               color: AppColors.textPrimary,
             ),
             bodyMedium: const TextStyle(
+              fontFamily: 'Inter',
               fontSize: 14,
               height: 1.45,
               color: AppColors.textSecondary,
             ),
             bodySmall: const TextStyle(
+              fontFamily: 'Inter',
               fontSize: 12,
               height: 1.4,
               color: AppColors.textSecondary,
@@ -141,7 +145,11 @@ class AppTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),
           ),
@@ -184,7 +192,11 @@ class AppTheme {
         backgroundColor: Colors.white,
         selectedColor: AppColors.surfaceTint,
         side: const BorderSide(color: AppColors.border),
-        labelStyle: const TextStyle(fontSize: 13, color: AppColors.primaryDark),
+        labelStyle: const TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          color: AppColors.primaryDark,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       ),

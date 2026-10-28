@@ -6,7 +6,8 @@ import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
-import 'chat_screen.dart';
+import '../widgets/buyer_page.dart';
+import '../widgets/shopping_ui.dart';
 import 'checkout_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -126,461 +127,253 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth = AuthServiceProvider.of(context);
-    if (!auth.isLoggedIn) {
-      return MainLayout(
-        currentIndex: 2,
-        showAppBar: false,
-        child: Column(
-          children: [
-            _cartHeader(context, isLoggedIn: false),
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.lock_outline,
-                      size: 60,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Please log in to view your cart.',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
+    final signedIn = AuthServiceProvider.of(context).isLoggedIn;
+    return MainLayout(
+      currentIndex: 2,
+      title: 'Cart',
+      showSettingsIcon: false,
+      api: _api,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                BuyerPageHeading(
+                  title: 'Your cart',
+                  description: _cart == null || _cart!.items.isEmpty
+                      ? 'A place for your next finds.'
+                      : '${_cart!.items.length} item${_cart!.items.length == 1 ? '' : 's'} · Choose what to check out.',
+                ),
+                if (signedIn && _cart?.items.isNotEmpty == true)
+                  ShoppingSearch(
+                    controller: _searchCtrl,
+                    hint: 'Search in your cart...',
+                    onChanged: (value) =>
+                        setState(() => _search = value.trim()),
+                  ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: !signedIn
+                ? BuyerEmptyState(
+                    icon: Icons.shopping_bag_outlined,
+                    title: 'Your cart awaits',
+                    description: 'Log in to see the items you saved.',
+                    action: FilledButton(
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
                       ),
                       child: const Text('Login'),
                     ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return MainLayout(
-      currentIndex: 2,
-      showAppBar: false,
-      child: Column(
-        children: [
-          _cartHeader(context, isLoggedIn: true),
-          Expanded(
-            child: _loading
+                  )
+                : _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _cart == null || _cart!.items.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Your cart is empty.',
-                      style: TextStyle(color: AppColors.textPrimary),
+                ? BuyerEmptyState(
+                    icon: Icons.shopping_bag_outlined,
+                    title: 'Your cart is empty',
+                    description: 'Find something you would love to bring home.',
+                    action: FilledButton(
+                      onPressed: () => Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                        (route) => false,
+                      ),
+                      child: const Text('Browse products'),
                     ),
                   )
                 : _visibleItems.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No matching items in your cart.',
-                      style: TextStyle(color: AppColors.textPrimary),
-                    ),
+                ? const BuyerEmptyState(
+                    icon: Icons.search,
+                    title: 'No matching items',
+                    description:
+                        'Try another product name or clear your search.',
                   )
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _visibleItems.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) =>
-                        _cartItemTile(_visibleItems[i]),
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: _visibleItems.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (_, i) => _cartItemTile(_visibleItems[i]),
+                    ),
                   ),
           ),
-          if (!_loading && _cart != null && _cart!.items.isNotEmpty)
+          if (signedIn && !_loading && _cart?.items.isNotEmpty == true)
             _checkoutBar(context),
         ],
       ),
     );
   }
 
-  Widget _cartHeader(BuildContext context, {required bool isLoggedIn}) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppColors.primary, const Color(0xFF1B8A8A)],
-        ),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        8,
-        MediaQuery.of(context).padding.top + 6,
-        8,
-        10,
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
-            onPressed: () {
-              if (Navigator.canPop(context)) {
-                Navigator.pop(context);
-              } else {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (route) => false,
-                );
-              }
-            },
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Container(
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 10),
-                  Icon(Icons.search, color: AppColors.textSecondary, size: 18),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Theme(
-                      data: Theme.of(context).copyWith(
-                        inputDecorationTheme: const InputDecorationTheme(
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          errorBorder: InputBorder.none,
-                          focusedErrorBorder: InputBorder.none,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchCtrl,
-                        textInputAction: TextInputAction.search,
-                        onChanged: (v) => setState(() => _search = v.trim()),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textPrimary,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'Search in your cart...',
-                          hintStyle: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 13,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.symmetric(vertical: 9),
-                          filled: false,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (_search.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        size: 16,
-                        color: AppColors.textMuted,
-                      ),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 30,
-                        minHeight: 30,
-                      ),
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        setState(() => _search = '');
-                      },
-                    ),
-                  const SizedBox(width: 4),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          const AppNotificationBell(iconColor: Colors.white),
-          IconButton(
-            icon: const Icon(
-              Icons.chat_bubble_outline_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-            onPressed: () {
-              final auth = AuthServiceProvider.of(context);
-              if (!auth.isLoggedIn) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-                return;
-              }
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChatScreen()),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _cartItemTile(CartItem item) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        children: [
-          Checkbox(
-            value: _selected.contains(item.id),
-            activeColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-            onChanged: item.availableStock < item.quantity
-                ? null
-                : (v) => setState(() {
-                    if (v == true) {
-                      _selected.add(item.id);
-                    } else {
-                      _selected.remove(item.id);
-                    }
-                  }),
-          ),
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ProductDetailScreen(productId: item.productId),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                width: 64,
-                height: 64,
-                color: AppColors.surfaceSoft,
-                child: _image(item.product.image),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.product.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                if (item.availableStock < item.quantity)
-                  const Text(
-                    'Unavailable in this quantity',
-                    style: TextStyle(color: AppColors.danger, fontSize: 11),
-                  ),
-                if (item.variantLabel.isNotEmpty)
-                  Text(
-                    item.variantLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _fmt(item.unitPrice),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    _qtyCtrl(item),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _qtyCtrl(CartItem item) {
-    return Row(
+  Widget _cartItemTile(CartItem item) => BuyerPanel(
+    padding: const EdgeInsets.all(14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        InkWell(
-          onTap: item.availableStock < 1 || item.quantity <= 1
-              ? null
-              : () => _updateQty(item, item.quantity - 1),
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: const Icon(Icons.remove, size: 16),
-          ),
-        ),
-        Container(
-          width: 36,
-          height: 28,
-          alignment: Alignment.center,
-          child: Text(
-            '${item.quantity}',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-        InkWell(
-          onTap: item.quantity >= item.availableStock || item.quantity >= 200
-              ? null
-              : () => _updateQty(item, item.quantity + 1),
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.4),
-              ),
-            ),
-            child: const Icon(Icons.add, size: 16, color: AppColors.primary),
-          ),
-        ),
-        IconButton(
-          icon: Icon(
-            Icons.delete_outline,
-            size: 20,
-            color: AppColors.textSecondary,
-          ),
-          onPressed: () => _remove(item),
-        ),
-      ],
-    );
-  }
-
-  Widget _checkoutBar(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.85),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, -6),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: SafeArea(
-        top: false,
-        child: Row(
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'TOTAL',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  _fmt(_selectedSubtotal),
-                  style: TextStyle(
-                    color: AppColors.warning,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-            const Spacer(),
-            ElevatedButton(
-              onPressed: _selected.isEmpty
-                  ? null
-                  : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            CheckoutScreen(cartItemIds: _selected.toList()),
-                      ),
-                    ),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(120, 40),
-                backgroundColor: AppColors.primary,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                elevation: 0,
-                shadowColor: AppColors.primary.withValues(alpha: 0.3),
+            Semantics(
+              key: ValueKey('cart-selection-${item.id}'),
+              label: 'Select ${item.product.name}',
+              child: Checkbox(
+                value: _selected.contains(item.id),
+                onChanged: item.availableStock < item.quantity
+                    ? null
+                    : (value) => setState(() {
+                        if (value == true) {
+                          _selected.add(item.id);
+                        } else {
+                          _selected.remove(item.id);
+                        }
+                      }),
               ),
-              child: const Text(
-                'Checkout',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  fontSize: 13,
+            ),
+            InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      ProductDetailScreen(productId: item.productId),
                 ),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 72,
+                  height: 88,
+                  child: ProductPhoto(
+                    path: item.product.image,
+                    label: item.product.name,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.product.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  if (item.variantLabel.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.variantLabel,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ],
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
+        const SizedBox(height: 12),
+        ShoppingPrice(_fmt(item.unitPrice), size: 18),
+        if (item.availableStock < item.quantity)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              'Unavailable in this quantity',
+              style: TextStyle(color: AppColors.danger, fontSize: 13),
+            ),
+          ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          alignment: WrapAlignment.spaceBetween,
+          children: [
+            ShoppingQuantity(
+              quantity: item.quantity,
+              onDecrease: item.availableStock < 1 || item.quantity <= 1
+                  ? null
+                  : () => _updateQty(item, item.quantity - 1),
+              onIncrease:
+                  item.quantity >= item.availableStock || item.quantity >= 200
+                  ? null
+                  : () => _updateQty(item, item.quantity + 1),
+            ),
+            TextButton.icon(
+              onPressed: () => _remove(item),
+              icon: const Icon(Icons.delete_outline, size: 19),
+              label: const Text('Remove'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const Divider(height: 24),
+        ShoppingValueRow('Item total', _fmt(item.lineTotal)),
+      ],
+    ),
+  );
 
-  Widget _image(String? url) => ProductPhoto(path: url);
+  Widget _checkoutBar(BuildContext context) => ShoppingDock(
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final amount = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${_selected.length} selected · Subtotal',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 3),
+            ShoppingPrice(_fmt(_selectedSubtotal)),
+            const Text(
+              'Shipping calculated at checkout',
+              style: TextStyle(fontSize: 12),
+            ),
+          ],
+        );
+        final checkout = FilledButton(
+          onPressed: _selected.isEmpty
+              ? null
+              : () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) =>
+                        CheckoutScreen(cartItemIds: _selected.toList()),
+                  ),
+                ),
+          child: const Text('Checkout'),
+        );
+        if (constraints.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.2) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [amount, const SizedBox(height: 12), checkout],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: amount),
+            const SizedBox(width: 12),
+            checkout,
+          ],
+        );
+      },
+    ),
+  );
 
-  String _fmt(double v) {
-    final n = v.toStringAsFixed(2);
-    return '₱${n.split('.')[0]}.${n.split('.')[1]}';
-  }
+  String _fmt(double value) => shoppingMoney(value);
 }

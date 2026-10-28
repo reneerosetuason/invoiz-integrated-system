@@ -94,6 +94,7 @@ class Order {
   final bool? canCancel;
   final List<StatusHistory> statusHistories;
   final double? discount;
+  final double? shippingFee;
 
   Order({
     required this.id,
@@ -109,6 +110,7 @@ class Order {
     this.canCancel,
     this.statusHistories = const [],
     this.discount,
+    this.shippingFee,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -154,8 +156,15 @@ class Order {
                 .toList()
           : const [],
       discount: disc,
+      shippingFee: double.tryParse('${json['shipping_fee']}'),
     );
   }
 
   double get subtotal => items.fold(0, (s, i) => s + i.subtotal);
+
+  // Stored shipping is already reduced by shipping vouchers. Keep those
+  // savings out of the merchandise discount so the displayed totals reconcile.
+  double get merchandiseDiscount => shippingFee == null
+      ? discount ?? 0
+      : (subtotal + shippingFee! - totalAmount).clamp(0.0, subtotal).toDouble();
 }

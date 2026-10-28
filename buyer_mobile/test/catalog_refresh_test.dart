@@ -407,14 +407,24 @@ void main() {
     );
     await tester.pumpWidget(app(CartScreen(api: api), signedIn: true));
     await tester.pumpAndSettle();
-    final second = find.byType(Checkbox).last;
-    await tester.ensureVisible(second);
+    final second = find.descendant(
+      of: find.byKey(const ValueKey('cart-selection-12')),
+      matching: find.byType(Checkbox),
+    );
+    final cartScroll = find
+        .descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(second, 150, scrollable: cartScroll);
     await tester.tap(second);
     await tester.pump();
     await tester.ensureVisible(find.byIcon(Icons.add).first);
     await tester.tap(find.byIcon(Icons.add).first);
     await tester.pumpAndSettle();
-    expect(tester.widget<Checkbox>(find.byType(Checkbox).last).value, false);
+    await tester.scrollUntilVisible(second, 150, scrollable: cartScroll);
+    expect(tester.widget<Checkbox>(second).value, false);
   });
   for (final width in [320.0, 390.0, 768.0]) {
     testWidgets('catalog fits a $width pixel viewport', (tester) async {

@@ -291,6 +291,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Reviews'));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Actual store review'),
+        200,
+        scrollable: find.descendant(
+          of: find.byType(ListView),
+          matching: find.byType(Scrollable),
+        ),
+      );
       expect(find.text('Actual store review'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());

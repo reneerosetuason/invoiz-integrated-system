@@ -1,4 +1,6 @@
 import '../widgets/buyer_page.dart';
+import '../widgets/product_photo.dart';
+import '../widgets/shopping_ui.dart';
 import '../services/buyer_updates.dart';
 import 'package:flutter/material.dart';
 import '../models/address.dart';
@@ -13,14 +15,15 @@ import 'orders_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final List<int>? cartItemIds;
-  const CheckoutScreen({super.key, this.cartItemIds});
+  final ApiService? api;
+  const CheckoutScreen({super.key, this.cartItemIds, this.api});
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
-  final _api = ApiService();
+  late final _api = widget.api ?? ApiService();
   Cart? _cart;
   List<Address> _addresses = [];
   List<Voucher> _vouchers = [];
@@ -159,7 +162,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Order placed successfully! (Cash on Delivery)'),
+          content: Text('Order placed. Pay when it arrives.'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -196,48 +199,121 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _cart == null || _cart!.items.isEmpty
           ? const Center(child: Text('Your cart is empty.'))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          : Column(
               children: [
-                const BuyerPageHeading(
-                  title: 'Review your order',
-                  description:
-                      'Confirm your delivery details. Pay when it arrives.',
-                ),
-                _section('Shipping Address', _addressSection(context)),
-                const SizedBox(height: 16),
-                _section('Payment Method', _paymentSection()),
-                const SizedBox(height: 16),
-                _section('Voucher', _voucherSection()),
-                const SizedBox(height: 16),
-                _section('Order Summary', _summarySection()),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: _placing || _quoting || _quote == null
-                      ? null
-                      : _placeOrder,
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                    children: [
+                      const BuyerPageHeading(
+                        title: 'Review your order',
+                        description:
+                            'Check your items and delivery details. Pay when it arrives.',
+                      ),
+                      _section('Your items', _itemsSection()),
+                      const SizedBox(height: 16),
+                      _section('Delivery address', _addressSection(context)),
+                      const SizedBox(height: 16),
+                      _section('Payment method', _paymentSection()),
+                      const SizedBox(height: 16),
+                      _section('Voucher', _voucherSection()),
+                      const SizedBox(height: 16),
+                      _section('Order summary', _summarySection()),
+                    ],
                   ),
-                  child: _placing
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
-                          'Place Order (Cash on Delivery)',
-                          style: TextStyle(fontSize: 15),
-                        ),
                 ),
-                const SizedBox(height: 16),
+                ShoppingDock(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ShoppingValueRow(
+                        'Total to pay',
+                        _fmt(_quote?.total ?? 0),
+                        total: true,
+                      ),
+                      const SizedBox(height: 10),
+                      FilledButton(
+                        onPressed:
+                            _placing ||
+                                _quoting ||
+                                _quote == null ||
+                                _selectedAddressId == null
+                            ? null
+                            : _placeOrder,
+                        child: _placing
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: AppColors.surface,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text(
+                                'Place order · Cash on delivery',
+                                textAlign: TextAlign.center,
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
     );
   }
+
+  Widget _itemsSection() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: _cart!.items
+        .map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox(
+                    width: 60,
+                    height: 76,
+                    child: ProductPhoto(
+                      path: item.product.image,
+                      label: item.product.name,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.product.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          height: 1.4,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      if (item.variantLabel.isNotEmpty) Text(item.variantLabel),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${item.quantity} × ${_fmt(item.unitPrice)}',
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                      const SizedBox(height: 6),
+                      ShoppingPrice(_fmt(item.lineTotal), size: 17),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+        .toList(),
+  );
 
   Widget _section(String title, Widget child) =>
       BuyerPanel(title: title, child: child);
@@ -268,6 +344,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       children: [
         ..._addresses.map((a) {
           return RadioListTile<int>(
+            contentPadding: EdgeInsets.zero,
             value: a.id,
             groupValue: _selectedAddressId,
             activeColor: AppColors.primary,
@@ -281,7 +358,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
             subtitle: Text(
               '${a.phone}\n${a.fullAddress}',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
           );
         }),
@@ -307,6 +384,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       children: [
         RadioListTile<String>(
+          contentPadding: EdgeInsets.zero,
           value: 'cash_on_delivery',
           groupValue: _paymentMethod,
           activeColor: AppColors.primary,
@@ -317,7 +395,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
           subtitle: const Text(
             'Pay when your order arrives.',
-            style: TextStyle(fontSize: 12),
+            style: TextStyle(fontSize: 14),
           ),
         ),
       ],
@@ -357,7 +435,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       Text(
                         'Discount: -${_fmt(_validatedDiscount ?? 0)}',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 14,
                           color: AppColors.primary,
                         ),
                       ),
@@ -365,6 +443,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
                 IconButton(
+                  tooltip: 'Remove voucher',
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: _quoting ? null : _removeVoucher,
                 ),
@@ -391,7 +470,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         else
           Text(
             'No active vouchers.',
-            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
       ],
     );
@@ -438,16 +517,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.auto_awesome, color: AppColors.secondary, size: 18),
+          Icon(
+            Icons.local_offer_outlined,
+            color: AppColors.secondary,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Best for you: ${best.name}',
+                  'Suggested voucher: ${best.name}',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
                   ),
@@ -455,7 +538,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Text(
                   'Saves ${_fmt(bestSave)} on this order',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -471,89 +554,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _summarySection() {
-    final subtotal = _quote?.subtotal ?? 0;
-    final discount = _quote?.discount ?? 0;
-    final total = _quote?.total ?? 0;
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Subtotal',
-              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
-            ),
-            Text(
-              _fmt(subtotal),
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Voucher Discount',
-              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
-            ),
-            Text(
-              '-${_fmt(discount)}',
-              style: TextStyle(fontSize: 13, color: AppColors.primary),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Shipping',
-              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
-            ),
-            Text(
-              _quote?.shippingFee == 0
-                  ? 'FREE'
-                  : _fmt(_quote?.shippingFee ?? 0),
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        const Divider(height: 18),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Total',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            Text(
-              _fmt(total),
-              style: TextStyle(
-                color: AppColors.primary,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  Widget _summarySection() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ShoppingValueRow('Subtotal', _fmt(_quote?.subtotal ?? 0)),
+      ShoppingValueRow('Voucher discount', '-${_fmt(_quote?.discount ?? 0)}'),
+      ShoppingValueRow(
+        'Shipping',
+        _quote?.shippingFee == 0 ? 'Free' : _fmt(_quote?.shippingFee ?? 0),
+      ),
+      const Divider(height: 24),
+      ShoppingValueRow('Total', _fmt(_quote?.total ?? 0), total: true),
+    ],
+  );
 
-  String _fmt(double v) {
-    final n = v.toStringAsFixed(2);
-    return '₱${n.split('.')[0]}.${n.split('.')[1]}';
-  }
+  String _fmt(double value) => shoppingMoney(value);
 }
