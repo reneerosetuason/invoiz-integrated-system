@@ -1,0 +1,1 @@
+tailwind.config = { theme: { extend: { colors: { primary: { DEFAULT: '#16697A', dark: '#0E4A57', soft: '#EAF4F3' }, secondary: '#F0A202' }, fontFamily: { sans: ['Segoe UI', 'system-ui', 'sans-serif'] } } } }

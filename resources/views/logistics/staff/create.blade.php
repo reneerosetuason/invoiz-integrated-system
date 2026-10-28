@@ -86,13 +86,6 @@
                 <button type="submit" id="createStaffBtn" class="bg-teal hover:bg-teal-dark text-white font-semibold px-6 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed" disabled>Create Staff Account</button>
             </div>
         </form>
-        <script>
-        (function () {
-            var box = document.getElementById('terms');
-            var btn = document.getElementById('createStaffBtn');
-            function sync() { btn.disabled = !(box && box.checked); }
-            if (box && btn) { box.addEventListener('change', sync); sync(); }
-        })();
-        </script>
+        <script src="{{ asset('assets/logistics/js/staff/create.js') }}"></script>
     </div>
 </x-app-layout>

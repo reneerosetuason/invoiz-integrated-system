@@ -8,32 +8,9 @@
     <title>Check a Logistics Center Application Status</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        teal: {
-                            DEFAULT: '#16697A',
-                            dark: '#0E4A57',
-                            light: '#EAF4F3',
-                        },
-                        secondary: '#F0A202',
-                    },
-                    fontFamily: {
-                        sans: ['Segoe UI', 'system-ui', '-apple-system', 'sans-serif'],
-                    },
-                },
-            },
-        };
-    </script>
+    <script src="{{ asset('assets/logistics/js/auth/forgot-password.js') }}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        [x-cloak] { display: none !important; }
-        @media (prefers-reduced-motion: reduce) {
-            .animate-spin { animation: none; }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('assets/logistics/css/center-application-status.css') }}">
 </head>
 <body class="font-sans antialiased bg-[#F8FAF9] text-gray-900 overflow-x-hidden">
 <div class="min-h-screen flex flex-col-reverse lg:flex-row">
@@ -46,7 +23,7 @@
         <div class="w-full max-w-md mx-auto lg:mx-0 my-auto py-8 lg:py-10 flex flex-col justify-center">
             {{-- Brand --}}
             <a href="{{ '/logistics/login' }}" class="inline-flex items-center gap-3 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
-                <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-12 w-12 rounded-xl object-cover ring-1 ring-white/25 shadow-lg">
+                <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Logo" class="h-12 w-12 rounded-xl object-cover ring-1 ring-white/25 shadow-lg">
                 <div>
                     <p class="text-xl font-extrabold tracking-tight">Logistics</p>
                     <p class="text-[11px] font-semibold tracking-[0.25em] uppercase text-white/70 mt-0.5">Logistics Center</p>

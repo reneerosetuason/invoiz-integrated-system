@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Chat & Messaging')
 
@@ -54,18 +54,7 @@
                     </div>
                 @endforelse
             </div>
-            <script>
-            (function(){
-                var box = document.getElementById('threadSearch');
-                if(!box) return;
-                box.addEventListener('input', function(){
-                    var q = box.value.toLowerCase().trim();
-                    document.querySelectorAll('#threadList > a').forEach(function(a){
-                        a.style.display = (!q || (a.getAttribute('data-search') || '').indexOf(q) !== -1) ? '' : 'none';
-                    });
-                });
-            })();
-            </script>
+            <script src="{{ asset('assets/seller/js/chat/index.js') }}"></script>
         </div>
 
         {{-- Placeholder detail --}}

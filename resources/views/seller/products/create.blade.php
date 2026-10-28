@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Add Product')
 
@@ -149,14 +149,5 @@
 @endsection
 
 @push('scripts')
-<script>
-function productForm() {
-    return {
-        variants: [],
-        addVariant() {
-            this.variants.push({ type: '', value: '', adjustment: 0, stock: 0 });
-        }
-    }
-}
-</script>
+<script src="{{ asset('assets/seller/js/products/create.js') }}"></script>
 @endpush

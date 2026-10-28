@@ -1,4 +1,4 @@
-@extends('layouts.website')
+@extends('buyer.layouts.website')
 @section('content')
 <div class="voucherx buyerfeature-page">
   <div class="bfp-wrap">

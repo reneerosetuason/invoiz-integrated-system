@@ -25,7 +25,7 @@
                     <textarea name="address" id="address" rows="2" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">{{ old('address', $center->address) }}</textarea>
                     @error('address')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
-                @include('partials.psgc-address-fields', [
+                @include('shared.partials.psgc-address-fields', [
                     'prefix' => '',
                     'uid' => 'center_address',
                     'values' => [

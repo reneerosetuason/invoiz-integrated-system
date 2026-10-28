@@ -1,0 +1,1150 @@
+{
+  "views": {
+    "resources/views/app.blade.php": "resources/views/admin/layouts/app.blade.php",
+    "resources/views/auth/choose.blade.php": "resources/views/shared/auth/choose.blade.php",
+    "resources/views/auth/forgot-password.blade.php": "resources/views/shared/auth/forgot-password.blade.php",
+    "resources/views/auth/login.blade.php": "resources/views/shared/auth/login.blade.php",
+    "resources/views/auth/register.blade.php": "resources/views/shared/auth/register.blade.php",
+    "resources/views/auth/reset-password.blade.php": "resources/views/shared/auth/reset-password.blade.php",
+    "resources/views/auth/seller-login.blade.php": "resources/views/seller/auth/login.blade.php",
+    "resources/views/auth/verify.blade.php": "resources/views/shared/auth/verify.blade.php",
+    "resources/views/cart.blade.php": "resources/views/buyer/cart.blade.php",
+    "resources/views/chat.blade.php": "resources/views/buyer/chat-thread.blade.php",
+    "resources/views/checkout.blade.php": "resources/views/buyer/checkout.blade.php",
+    "resources/views/components/application-logo.blade.php": "resources/views/shared/components/application-logo.blade.php",
+    "resources/views/components/auth-session-status.blade.php": "resources/views/shared/components/auth-session-status.blade.php",
+    "resources/views/components/danger-button.blade.php": "resources/views/shared/components/danger-button.blade.php",
+    "resources/views/components/dropdown-link.blade.php": "resources/views/shared/components/dropdown-link.blade.php",
+    "resources/views/components/dropdown.blade.php": "resources/views/shared/components/dropdown.blade.php",
+    "resources/views/components/icon.blade.php": "resources/views/shared/components/icon.blade.php",
+    "resources/views/components/input-error.blade.php": "resources/views/shared/components/input-error.blade.php",
+    "resources/views/components/input-label.blade.php": "resources/views/shared/components/input-label.blade.php",
+    "resources/views/components/modal.blade.php": "resources/views/shared/components/modal.blade.php",
+    "resources/views/components/nav-link.blade.php": "resources/views/shared/components/nav-link.blade.php",
+    "resources/views/components/password-input.blade.php": "resources/views/shared/components/password-input.blade.php",
+    "resources/views/components/per-page.blade.php": "resources/views/shared/components/per-page.blade.php",
+    "resources/views/components/primary-button.blade.php": "resources/views/shared/components/primary-button.blade.php",
+    "resources/views/components/responsive-nav-link.blade.php": "resources/views/shared/components/responsive-nav-link.blade.php",
+    "resources/views/components/secondary-button.blade.php": "resources/views/shared/components/secondary-button.blade.php",
+    "resources/views/components/status-badge.blade.php": "resources/views/shared/components/status-badge.blade.php",
+    "resources/views/components/text-input.blade.php": "resources/views/shared/components/text-input.blade.php",
+    "resources/views/components/th-sort.blade.php": "resources/views/shared/components/th-sort.blade.php",
+    "resources/views/components/ui-icon.blade.php": "resources/views/shared/components/ui-icon.blade.php",
+    "resources/views/emails/registration-decision.blade.php": "resources/views/shared/emails/registration-decision.blade.php",
+    "resources/views/help.blade.php": "resources/views/buyer/help.blade.php",
+    "resources/views/home.blade.php": "resources/views/buyer/home.blade.php",
+    "resources/views/landing.blade.php": "resources/views/buyer/landing.blade.php",
+    "resources/views/layouts/auth-split.blade.php": "resources/views/shared/layouts/auth-split.blade.php",
+    "resources/views/layouts/auth.blade.php": "resources/views/shared/layouts/auth.blade.php",
+    "resources/views/layouts/seller.blade.php": "resources/views/seller/layouts/app.blade.php",
+    "resources/views/layouts/website.blade.php": "resources/views/buyer/layouts/website.blade.php",
+    "resources/views/messages.blade.php": "resources/views/buyer/messages.blade.php",
+    "resources/views/notifications.blade.php": "resources/views/buyer/notifications.blade.php",
+    "resources/views/order.blade.php": "resources/views/buyer/order.blade.php",
+    "resources/views/orders.blade.php": "resources/views/buyer/orders.blade.php",
+    "resources/views/partials/buyer-pager.blade.php": "resources/views/buyer/partials/pager.blade.php",
+    "resources/views/partials/psgc-address-fields.blade.php": "resources/views/shared/partials/psgc-address-fields.blade.php",
+    "resources/views/partials/seller-photo-editor.blade.php": "resources/views/seller/partials/photo-editor.blade.php",
+    "resources/views/partials/support-chat.blade.php": "resources/views/buyer/partials/support-chat.blade.php",
+    "resources/views/product.blade.php": "resources/views/buyer/product.blade.php",
+    "resources/views/profile/address-fields.blade.php": "resources/views/buyer/profile/address-fields.blade.php",
+    "resources/views/profile.blade.php": "resources/views/buyer/profile.blade.php",
+    "resources/views/sell.blade.php": "resources/views/seller/apply.blade.php",
+    "resources/views/seller-full/auth/login.blade.php": "resources/views/seller/legacy/auth/login.blade.php",
+    "resources/views/seller-full/components/icon.blade.php": "resources/views/seller/legacy/components/icon.blade.php",
+    "resources/views/seller-full/layouts/seller.blade.php": "resources/views/seller/legacy/layouts/seller.blade.php",
+    "resources/views/seller-full/seller/account/index.blade.php": "resources/views/seller/legacy/pages/account/index.blade.php",
+    "resources/views/seller-full/seller/chat/index.blade.php": "resources/views/seller/legacy/pages/chat/index.blade.php",
+    "resources/views/seller-full/seller/chat/show.blade.php": "resources/views/seller/legacy/pages/chat/show.blade.php",
+    "resources/views/seller-full/seller/dashboard.blade.php": "resources/views/seller/legacy/pages/dashboard.blade.php",
+    "resources/views/seller-full/seller/notifications/index.blade.php": "resources/views/seller/legacy/pages/notifications/index.blade.php",
+    "resources/views/seller-full/seller/orders/index.blade.php": "resources/views/seller/legacy/pages/orders/index.blade.php",
+    "resources/views/seller-full/seller/orders/show.blade.php": "resources/views/seller/legacy/pages/orders/show.blade.php",
+    "resources/views/seller-full/seller/orders/waybill.blade.php": "resources/views/seller/legacy/pages/orders/waybill.blade.php",
+    "resources/views/seller-full/seller/products/create.blade.php": "resources/views/seller/legacy/pages/products/create.blade.php",
+    "resources/views/seller-full/seller/products/edit.blade.php": "resources/views/seller/legacy/pages/products/edit.blade.php",
+    "resources/views/seller-full/seller/products/index.blade.php": "resources/views/seller/legacy/pages/products/index.blade.php",
+    "resources/views/seller-full/seller/reports/index.blade.php": "resources/views/seller/legacy/pages/reports/index.blade.php",
+    "resources/views/seller-full/seller/reviews/index.blade.php": "resources/views/seller/legacy/pages/reviews/index.blade.php",
+    "resources/views/seller-full/seller/vouchers/_form.blade.php": "resources/views/seller/legacy/pages/vouchers/_form.blade.php",
+    "resources/views/seller-full/seller/vouchers/index.blade.php": "resources/views/seller/legacy/pages/vouchers/index.blade.php",
+    "resources/views/seller-full/welcome.blade.php": "resources/views/seller/legacy/welcome.blade.php",
+    "resources/views/shop/auth/login.blade.php": "resources/views/buyer/legacy/auth/login.blade.php",
+    "resources/views/shop/auth/register.blade.php": "resources/views/buyer/legacy/auth/register.blade.php",
+    "resources/views/shop/auth/verify.blade.php": "resources/views/buyer/legacy/auth/verify.blade.php",
+    "resources/views/shop/cart.blade.php": "resources/views/buyer/legacy/cart.blade.php",
+    "resources/views/shop/chat.blade.php": "resources/views/buyer/legacy/chat.blade.php",
+    "resources/views/shop/checkout.blade.php": "resources/views/buyer/legacy/checkout.blade.php",
+    "resources/views/shop/emails/otp.blade.php": "resources/views/buyer/legacy/emails/otp.blade.php",
+    "resources/views/shop/home.blade.php": "resources/views/buyer/legacy/home.blade.php",
+    "resources/views/shop/layouts/auth.blade.php": "resources/views/buyer/legacy/layouts/auth.blade.php",
+    "resources/views/shop/layouts/website.blade.php": "resources/views/buyer/legacy/layouts/website.blade.php",
+    "resources/views/shop/messages.blade.php": "resources/views/buyer/legacy/messages.blade.php",
+    "resources/views/shop/notifications.blade.php": "resources/views/buyer/legacy/notifications.blade.php",
+    "resources/views/shop/orders.blade.php": "resources/views/buyer/legacy/orders.blade.php",
+    "resources/views/shop/product.blade.php": "resources/views/buyer/legacy/product.blade.php",
+    "resources/views/shop/profile.blade.php": "resources/views/buyer/legacy/profile.blade.php",
+    "resources/views/shop/welcome.blade.php": "resources/views/buyer/legacy/welcome.blade.php",
+    "resources/views/store.blade.php": "resources/views/buyer/store.blade.php",
+    "resources/views/welcome.blade.php": "resources/views/buyer/welcome.blade.php"
+  },
+  "assets": {
+    "public/css/app-sidebar.css": "public/assets/shared/css/app-sidebar.css",
+    "public/css/app.css": "public/assets/shared/css/app.css",
+    "public/css/logistics-dashboard.css": "public/assets/logistics/css/logistics-dashboard.css",
+    "public/css/logistics-deliveries.css": "public/assets/logistics/css/logistics-deliveries.css",
+    "public/css/logistics-shell.css": "public/assets/logistics/css/logistics-shell.css",
+    "public/css/logistics-workspace.css": "public/assets/logistics/css/logistics-workspace.css",
+    "public/css/shop.css": "public/assets/shared/css/shop.css",
+    "public/js/app-sidebar.js": "public/assets/shared/js/app-sidebar.js",
+    "public/js/logistics-deliveries.js": "public/assets/logistics/js/logistics-deliveries.js",
+    "public/js/logistics-workspace.js": "public/assets/logistics/js/logistics-workspace.js",
+    "public/js/seller-photo-editor.js": "public/assets/seller/js/seller-photo-editor.js",
+    "public/js/shop.js": "public/assets/buyer/js/shop.js",
+    "public/js/table-enhancer.js": "public/assets/shared/js/table-enhancer.js",
+    "public/frontend/css/app.css": "public/assets/shared/css/frontend-app.css",
+    "public/frontend/css/theme.css": "public/assets/shared/css/theme.css",
+    "public/frontend/js/app.js": "public/assets/buyer/js/app.js",
+    "public/frontend/js/psgc-address.js": "public/assets/shared/js/psgc-address.js",
+    "public/images/invoiz-logo.png": "public/assets/shared/images/invoiz-logo.png",
+    "public/images/invoiz-mark.png": "public/assets/shared/images/invoiz-mark.png",
+    "public/images/logo.png": "public/assets/shared/images/logo.png",
+    "resources/css/app.css": "resources/css/shared/app.css"
+  },
+  "controllers": {
+    "app/Http/Controllers/BuyerChatController.php": "app/Http/Controllers/Buyer/BuyerChatController.php",
+    "app/Http/Controllers/BuyerFeaturesController.php": "app/Http/Controllers/Buyer/BuyerFeaturesController.php",
+    "app/Http/Controllers/ProfileController.php": "app/Http/Controllers/Buyer/ProfileController.php",
+    "app/Http/Controllers/SellerApplicationController.php": "app/Http/Controllers/Seller/SellerApplicationController.php",
+    "app/Http/Controllers/SellerAuthController.php": "app/Http/Controllers/Seller/SellerAuthController.php",
+    "app/Http/Controllers/SellerCenterController.php": "app/Http/Controllers/Seller/SellerCenterController.php",
+    "app/Http/Controllers/UnifiedAuthController.php": "app/Http/Controllers/Shared/UnifiedAuthController.php",
+    "app/Http/Controllers/AuthController.php": "app/Http/Controllers/Shared/AuthController.php",
+    "app/Http/Controllers/CategoryController.php": "app/Http/Controllers/Shared/CategoryController.php",
+    "app/Http/Controllers/ProductController.php": "app/Http/Controllers/Shared/ProductController.php",
+    "app/Http/Controllers/StoreController.php": "app/Http/Controllers/Shared/StoreController.php",
+    "app/Http/Controllers/Web/AuthController.php": "app/Http/Controllers/Buyer/Web/AuthController.php",
+    "app/Http/Controllers/Web/HomeController.php": "app/Http/Controllers/Buyer/Web/HomeController.php",
+    "app/Http/Controllers/Auth/PasswordResetController.php": "app/Http/Controllers/Shared/Auth/PasswordResetController.php",
+    "app/Http/Controllers/Api/AddressController.php": "app/Http/Controllers/Buyer/Api/AddressController.php",
+    "app/Http/Controllers/Api/AuthController.php": "app/Http/Controllers/Buyer/Api/AuthController.php",
+    "app/Http/Controllers/Api/CartController.php": "app/Http/Controllers/Buyer/Api/CartController.php",
+    "app/Http/Controllers/Api/CategoryController.php": "app/Http/Controllers/Buyer/Api/CategoryController.php",
+    "app/Http/Controllers/Api/ChatController.php": "app/Http/Controllers/Buyer/Api/ChatController.php",
+    "app/Http/Controllers/Api/DeliveryOtpController.php": "app/Http/Controllers/Buyer/Api/DeliveryOtpController.php",
+    "app/Http/Controllers/Api/FavoriteController.php": "app/Http/Controllers/Buyer/Api/FavoriteController.php",
+    "app/Http/Controllers/Api/NotificationController.php": "app/Http/Controllers/Buyer/Api/NotificationController.php",
+    "app/Http/Controllers/Api/OrderController.php": "app/Http/Controllers/Buyer/Api/OrderController.php",
+    "app/Http/Controllers/Api/ProductController.php": "app/Http/Controllers/Buyer/Api/ProductController.php",
+    "app/Http/Controllers/Api/SellerController.php": "app/Http/Controllers/Buyer/Api/SellerController.php",
+    "app/Http/Controllers/Api/StoreController.php": "app/Http/Controllers/Buyer/Api/StoreController.php",
+    "app/Http/Controllers/Api/VoucherController.php": "app/Http/Controllers/Buyer/Api/VoucherController.php"
+  },
+  "extracted": [
+    {
+      "view": "admin/buyers.blade.php",
+      "asset": "assets/admin/css/buyers.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/categories.blade.php",
+      "asset": "assets/admin/css/categories.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/categories.blade.php",
+      "asset": "assets/admin/js/categories.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "admin/chat.blade.php",
+      "asset": "assets/admin/css/chat.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/chat.blade.php",
+      "asset": "assets/admin/js/chat.js",
+      "type": "js",
+      "dynamicValues": 4
+    },
+    {
+      "view": "admin/commission.blade.php",
+      "asset": "assets/admin/css/commission.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/complaints.blade.php",
+      "asset": "assets/admin/css/complaints.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/dashboard.blade.php",
+      "asset": "assets/admin/css/dashboard.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/dashboard.blade.php",
+      "asset": "assets/admin/js/dashboard.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "admin/layout.blade.php",
+      "asset": "assets/admin/js/layout.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/layout.blade.php",
+      "asset": "assets/admin/css/layout.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/layout.blade.php",
+      "asset": "assets/admin/js/layout-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/layout.blade.php",
+      "asset": "assets/admin/js/layout-3.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/login.blade.php",
+      "asset": "assets/admin/css/login.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/partials/list-ui-styles.blade.php",
+      "asset": "assets/admin/css/partials/list-ui-styles.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/partials/order-ui-styles.blade.php",
+      "asset": "assets/admin/css/partials/order-ui-styles.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/payments.blade.php",
+      "asset": "assets/admin/css/payments.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/payments.blade.php",
+      "asset": "assets/admin/js/payments.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/products.blade.php",
+      "asset": "assets/admin/css/products.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/report-print.blade.php",
+      "asset": "assets/admin/css/report-print.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/report-print.blade.php",
+      "asset": "assets/admin/js/report-print.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/reports.blade.php",
+      "asset": "assets/admin/css/reports.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/seller-detail.blade.php",
+      "asset": "assets/admin/css/seller-detail.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/seller-detail.blade.php",
+      "asset": "assets/admin/js/seller-detail.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/sellers.blade.php",
+      "asset": "assets/admin/css/sellers.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "admin/settings.blade.php",
+      "asset": "assets/admin/css/settings.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/cart.blade.php",
+      "asset": "assets/buyer/css/cart.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/cart.blade.php",
+      "asset": "assets/buyer/js/cart.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "buyer/chat-thread.blade.php",
+      "asset": "assets/buyer/js/chat-thread.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "buyer/chat.blade.php",
+      "asset": "assets/buyer/css/chat.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/chat.blade.php",
+      "asset": "assets/buyer/js/chat.js",
+      "type": "js",
+      "dynamicValues": 4
+    },
+    {
+      "view": "buyer/checkout.blade.php",
+      "asset": "assets/buyer/css/checkout.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/help.blade.php",
+      "asset": "assets/buyer/js/help.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/landing.blade.php",
+      "asset": "assets/shared/js/enable-js.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/landing.blade.php",
+      "asset": "assets/buyer/js/landing-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/landing.blade.php",
+      "asset": "assets/buyer/css/landing.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/landing.blade.php",
+      "asset": "assets/buyer/js/landing-3.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/landing.blade.php",
+      "asset": "assets/buyer/js/landing-4.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/landing.blade.php",
+      "asset": "assets/buyer/js/landing-5.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/layouts/website.blade.php",
+      "asset": "assets/buyer/js/layouts/website.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/layouts/website.blade.php",
+      "asset": "assets/buyer/css/layouts/website.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/legacy/chat.blade.php",
+      "asset": "assets/buyer/js/legacy/chat.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "buyer/legacy/layouts/auth.blade.php",
+      "asset": "assets/shared/css/layouts/auth.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/legacy/layouts/website.blade.php",
+      "asset": "assets/buyer/css/legacy/layouts/website.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/legacy/welcome.blade.php",
+      "asset": "assets/shared/css/legacy-welcome.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/login.blade.php",
+      "asset": "assets/buyer/css/login.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/messages.blade.php",
+      "asset": "assets/buyer/js/messages.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "buyer/messages.blade.php",
+      "asset": "assets/buyer/js/messages-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/order.blade.php",
+      "asset": "assets/buyer/js/order.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/partials/support-chat.blade.php",
+      "asset": "assets/buyer/js/partials/support-chat.js",
+      "type": "js",
+      "dynamicValues": 7
+    },
+    {
+      "view": "buyer/product.blade.php",
+      "asset": "assets/buyer/js/product.js",
+      "type": "js",
+      "dynamicValues": 6
+    },
+    {
+      "view": "buyer/profile.blade.php",
+      "asset": "assets/buyer/css/profile.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/profile.blade.php",
+      "asset": "assets/buyer/js/profile.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/store.blade.php",
+      "asset": "assets/buyer/css/store.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/welcome.blade.php",
+      "asset": "assets/buyer/css/welcome.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/auth/forgot-password.blade.php",
+      "asset": "assets/logistics/js/auth/forgot-password.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/auth/login.blade.php",
+      "asset": "assets/logistics/js/auth/login.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/center-application-apply.blade.php",
+      "asset": "assets/logistics/js/auth/forgot-password.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/center-application-apply.blade.php",
+      "asset": "assets/logistics/js/center-application-apply-2.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "logistics/center-application-apply.blade.php",
+      "asset": "assets/logistics/css/center-application-apply.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/center-application-apply.blade.php",
+      "asset": "assets/logistics/css/center-application-apply-2.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/center-application-apply.blade.php",
+      "asset": "assets/logistics/js/center-application-apply-3.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/center-application-status.blade.php",
+      "asset": "assets/logistics/js/auth/forgot-password.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/center-application-status.blade.php",
+      "asset": "assets/logistics/css/center-application-status.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/dashboard.blade.php",
+      "asset": "assets/logistics/js/dashboard.js",
+      "type": "js",
+      "dynamicValues": 16
+    },
+    {
+      "view": "logistics/deliveries/index.blade.php",
+      "asset": "assets/logistics/js/deliveries/index.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/deliveries/scan.blade.php",
+      "asset": "assets/logistics/css/deliveries/scan.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/deliveries/scan.blade.php",
+      "asset": "assets/logistics/js/deliveries/scan.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "logistics/deliveries/show.blade.php",
+      "asset": "assets/logistics/js/deliveries/show.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "logistics/deliveries/show.blade.php",
+      "asset": "assets/logistics/css/deliveries/show.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/landing.blade.php",
+      "asset": "assets/logistics/js/landing.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/landing.blade.php",
+      "asset": "assets/logistics/css/landing.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/layouts/app.blade.php",
+      "asset": "assets/logistics/js/layouts/app.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "logistics/layouts/app.blade.php",
+      "asset": "assets/logistics/js/layouts/app-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/layouts/app.blade.php",
+      "asset": "assets/logistics/css/layouts/app.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/layouts/app.blade.php",
+      "asset": "assets/logistics/css/layouts/app-2.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/layouts/guest.blade.php",
+      "asset": "assets/logistics/js/layouts/guest.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/layouts/guest.blade.php",
+      "asset": "assets/logistics/css/layouts/guest.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/layouts/partials/form-controls.blade.php",
+      "asset": "assets/logistics/css/layouts/partials/form-controls.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/messages/index.blade.php",
+      "asset": "assets/logistics/js/messages/index.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/notifications/index.blade.php",
+      "asset": "assets/logistics/js/notifications/index.js",
+      "type": "js",
+      "dynamicValues": 4
+    },
+    {
+      "view": "logistics/reports/pdf-all.blade.php",
+      "asset": "assets/logistics/css/reports/pdf-all.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/reports/pdf.blade.php",
+      "asset": "assets/logistics/css/reports/pdf.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/rider/entry.blade.php",
+      "asset": "assets/logistics/js/rider/entry.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/rider/entry.blade.php",
+      "asset": "assets/logistics/css/rider/entry.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/rider/messages.blade.php",
+      "asset": "assets/logistics/js/rider/entry.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/rider/messages.blade.php",
+      "asset": "assets/logistics/css/layouts/app-2.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/rider/messages.blade.php",
+      "asset": "assets/logistics/js/rider/messages-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/settings/index.blade.php",
+      "asset": "assets/logistics/js/settings/index.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/sorting-center/index.blade.php",
+      "asset": "assets/logistics/js/sorting-center/index.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "logistics/staff/create.blade.php",
+      "asset": "assets/logistics/js/staff/create.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/apply.blade.php",
+      "asset": "assets/seller/js/apply.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/apply.blade.php",
+      "asset": "assets/seller/css/apply.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/apply.blade.php",
+      "asset": "assets/seller/js/apply-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/auth/login.blade.php",
+      "asset": "assets/seller/js/auth/login.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/auth/login.blade.php",
+      "asset": "assets/seller/js/auth/login-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/chat/index.blade.php",
+      "asset": "assets/seller/js/chat/index.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/chat/show.blade.php",
+      "asset": "assets/seller/js/chat/show.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/dashboard.blade.php",
+      "asset": "assets/seller/css/dashboard.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/dashboard.blade.php",
+      "asset": "assets/seller/js/dashboard.js",
+      "type": "js",
+      "dynamicValues": 5
+    },
+    {
+      "view": "seller/layout.blade.php",
+      "asset": "assets/seller/css/layout.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/layout.blade.php",
+      "asset": "assets/seller/js/layout.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/layout.blade.php",
+      "asset": "assets/seller/js/layout-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/layouts/app.blade.php",
+      "asset": "assets/seller/js/layouts/app.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/layouts/app.blade.php",
+      "asset": "assets/seller/css/layouts/app.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/auth/login.blade.php",
+      "asset": "assets/seller/js/auth/login.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/auth/login.blade.php",
+      "asset": "assets/seller/js/auth/login-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/layouts/seller.blade.php",
+      "asset": "assets/seller/js/layouts/app.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/layouts/seller.blade.php",
+      "asset": "assets/seller/css/layouts/app.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/pages/chat/show.blade.php",
+      "asset": "assets/seller/js/chat/show.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/pages/dashboard.blade.php",
+      "asset": "assets/seller/js/legacy/pages/dashboard.js",
+      "type": "js",
+      "dynamicValues": 5
+    },
+    {
+      "view": "seller/legacy/pages/orders/waybill.blade.php",
+      "asset": "assets/seller/css/legacy/pages/orders/waybill.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/pages/products/create.blade.php",
+      "asset": "assets/seller/js/legacy/pages/products/create.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/legacy/pages/products/edit.blade.php",
+      "asset": "assets/seller/js/legacy/pages/products/edit.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "seller/legacy/pages/reports/index.blade.php",
+      "asset": "assets/seller/js/legacy/pages/reports/index.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "seller/legacy/pages/vouchers/index.blade.php",
+      "asset": "assets/seller/js/legacy/pages/vouchers/index.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "seller/legacy/welcome.blade.php",
+      "asset": "assets/shared/css/legacy-welcome.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/orders/waybill.blade.php",
+      "asset": "assets/seller/css/orders/waybill.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/orders/waybill.blade.php",
+      "asset": "assets/seller/js/orders/waybill.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "seller/partials/photo-editor.blade.php",
+      "asset": "assets/seller/css/partials/photo-editor.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/products/create.blade.php",
+      "asset": "assets/seller/js/legacy/pages/products/create.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "seller/products/edit.blade.php",
+      "asset": "assets/seller/js/products/edit.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "seller/reports/index.blade.php",
+      "asset": "assets/seller/js/legacy/pages/reports/index.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "seller/sales/index.blade.php",
+      "asset": "assets/seller/js/sales/index.js",
+      "type": "js",
+      "dynamicValues": 1
+    },
+    {
+      "view": "seller/vouchers/index.blade.php",
+      "asset": "assets/seller/js/legacy/pages/vouchers/index.js",
+      "type": "js",
+      "dynamicValues": 2
+    },
+    {
+      "view": "shared/auth/register.blade.php",
+      "asset": "assets/shared/js/auth/register.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/auth/verify.blade.php",
+      "asset": "assets/shared/js/auth/verify.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/auth/verify.blade.php",
+      "asset": "assets/shared/css/auth/verify.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/auth/verify.blade.php",
+      "asset": "assets/shared/js/auth/verify-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/layouts/auth-split.blade.php",
+      "asset": "assets/shared/js/enable-js.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/layouts/auth-split.blade.php",
+      "asset": "assets/shared/js/layouts/auth-split-2.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/layouts/auth-split.blade.php",
+      "asset": "assets/shared/css/layouts/auth-split.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/layouts/auth-split.blade.php",
+      "asset": "assets/shared/js/layouts/auth-split-3.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/layouts/auth.blade.php",
+      "asset": "assets/shared/css/layouts/auth.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/navigation/navbar.blade.php",
+      "asset": "assets/buyer/js/navigation/navbar.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/navigation/sidebar.blade.php",
+      "asset": "assets/logistics/css/sidebar.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "shared/partials/psgc-address-fields.blade.php",
+      "asset": "assets/shared/js/partials/psgc-address-fields.js",
+      "type": "js",
+      "dynamicValues": 7
+    },
+    {
+      "view": "buyer/static/public-index.blade.php",
+      "asset": "assets/buyer/js/static/public-index.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/static/public-index.blade.php",
+      "asset": "assets/buyer/css/static/public-index.css",
+      "type": "css",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/static/Invoiz-index.blade.php",
+      "asset": "assets/buyer/js/static/public-index.js",
+      "type": "js",
+      "dynamicValues": 0
+    },
+    {
+      "view": "buyer/static/Invoiz-index.blade.php",
+      "asset": "assets/buyer/css/static/public-index.css",
+      "type": "css",
+      "dynamicValues": 0
+    }
+  ],
+  "navigation": [
+    {
+      "source": "buyer/layouts/website.blade.php",
+      "element": "aside",
+      "role": "buyer",
+      "variant": "website"
+    },
+    {
+      "source": "buyer/layouts/website.blade.php",
+      "element": "header",
+      "role": "buyer",
+      "variant": "website"
+    },
+    {
+      "source": "buyer/legacy/layouts/website.blade.php",
+      "element": "aside",
+      "role": "buyer",
+      "variant": "legacy"
+    },
+    {
+      "source": "buyer/legacy/layouts/website.blade.php",
+      "element": "header",
+      "role": "buyer",
+      "variant": "legacy"
+    },
+    {
+      "source": "seller/layouts/app.blade.php",
+      "element": "aside",
+      "role": "seller",
+      "variant": "center"
+    },
+    {
+      "source": "seller/layouts/app.blade.php",
+      "element": "header",
+      "role": "seller",
+      "variant": "center"
+    },
+    {
+      "source": "seller/layout.blade.php",
+      "element": "aside",
+      "role": "seller",
+      "variant": "legacy"
+    },
+    {
+      "source": "seller/layout.blade.php",
+      "element": "header",
+      "role": "seller",
+      "variant": "legacy"
+    },
+    {
+      "source": "seller/legacy/layouts/seller.blade.php",
+      "element": "aside",
+      "role": "seller",
+      "variant": "archive"
+    },
+    {
+      "source": "seller/legacy/layouts/seller.blade.php",
+      "element": "header",
+      "role": "seller",
+      "variant": "archive"
+    },
+    {
+      "source": "admin/layout.blade.php",
+      "element": "aside",
+      "role": "admin",
+      "variant": "dashboard"
+    },
+    {
+      "source": "admin/layout.blade.php",
+      "element": "header",
+      "role": "admin",
+      "variant": "dashboard"
+    },
+    {
+      "source": "logistics/layouts/app.blade.php",
+      "element": "header",
+      "role": "logistics",
+      "variant": "workspace"
+    },
+    {
+      "source": "buyer/landing.blade.php",
+      "element": "header",
+      "role": "buyer",
+      "variant": "landing"
+    },
+    {
+      "source": "shared/layouts/auth.blade.php",
+      "element": "header",
+      "role": "shared",
+      "variant": "auth"
+    },
+    {
+      "source": "buyer/legacy/layouts/auth.blade.php",
+      "element": "header",
+      "role": "buyer",
+      "variant": "auth"
+    },
+    {
+      "source": "logistics/landing.blade.php",
+      "element": "header",
+      "role": "logistics",
+      "variant": "landing"
+    },
+    {
+      "source": "logistics/layouts/sidebar.blade.php",
+      "element": "aside",
+      "role": "logistics",
+      "variant": "workspace"
+    },
+    {
+      "source": "logistics/layouts/navigation.blade.php",
+      "element": "nav",
+      "role": "logistics",
+      "variant": "legacy"
+    }
+  ],
+  "routes": {
+    "routes/web.php": [
+      "buyer/landing.php",
+      "seller/application.php",
+      "shared/auth.php",
+      "buyer/web.php",
+      "seller/web.php",
+      "admin/auth.php",
+      "buyer/chat.php",
+      "admin/web.php",
+      "shared/storage.php",
+      "logistics/web.php"
+    ],
+    "routes/api.php": [
+      "shared/api-auth.php",
+      "buyer/api.php",
+      "shared/api-user.php",
+      "logistics/api.php"
+    ],
+    "routes/buyer/api.php": [
+      "../admin/api.php"
+    ]
+  },
+  "sharedNavigation": {
+    "sidebar": "resources/views/shared/navigation/sidebar.blade.php",
+    "navbar": "resources/views/shared/navigation/navbar.blade.php",
+    "parameters": [
+      "navigationRole",
+      "navigationVariant"
+    ]
+  },
+  "verification": {
+    "unchangedRouteDefinitions": 415,
+    "renderedRequests": 117,
+    "successfulResponses": 100,
+    "existingRedirects": 17,
+    "desktopBrowserComparisons": 89,
+    "mobileBrowserComparisons": 6,
+    "unchangedLinkFormFieldComparisons": 91,
+    "isolatedTestsPassed": 45,
+    "isolatedAssertions": 1248,
+    "productionBuild": "passed"
+  }
+}

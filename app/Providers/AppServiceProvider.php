@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\View\Composers\SellerLayoutComposer;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        View::composer('layouts.seller', SellerLayoutComposer::class);
+        Blade::anonymousComponentPath(resource_path('views/shared/components'));
+        View::composer('seller.layouts.app', SellerLayoutComposer::class);
     }
 }

@@ -1,0 +1,21 @@
+/* Class-based dark theme (Settings → Appearance). Only the neutral
+               surfaces/text flip; teal/amber/functional colors are untouched. */
+            .dark { color-scheme: dark; }
+            .dark body { background-color: #111827; color: #F3F4F6; }
+            .dark .bg-white, .dark .bg-white\/90, .dark .bg-white\/95 { background-color: #1F2937; }
+            .dark .bg-gray-50, .dark .bg-gray-50\/50 { background-color: #374151; }
+            .dark .bg-gray-100, .dark .bg-surface-soft, .dark .bg-surface-soft\/50 { background-color: #374151; }
+            .dark .text-gray-900 { color: #F9FAFB; }
+            .dark .text-gray-800 { color: #F3F4F6; }
+            .dark .text-gray-700 { color: #E5E7EB; }
+            .dark .text-gray-600 { color: #D1D5DB; }
+            .dark .text-gray-500 { color: #9CA3AF; }
+            .dark .text-gray-400 { color: #6B7280; }
+            .dark .text-teal, .dark .text-teal-dark { color: #5EEAD4; }
+            .dark .hover\:text-teal:hover, .dark .hover\:text-teal-dark:hover { color: #5EEAD4; }
+            .dark .border-gray-100, .dark .border-gray-200, .dark .divide-gray-100, .dark .divide-gray-50,
+            .dark .ring-gray-200 { border-color: #374151; }
+            .dark .border-gray-300 { border-color: #4B5563; }
+            .dark .hover\:bg-gray-50:hover, .dark .hover\:bg-gray-100:hover, .dark .hover\:bg-gray-200:hover { background-color: #374151; }
+            .dark input, .dark select, .dark textarea { background-color: #111827; color: #F3F4F6; border-color: #4B5563; }
+            .dark input::placeholder, .dark textarea::placeholder { color: #6B7280; }

@@ -1,0 +1,128 @@
+.admin-payments{width:100%;max-width:1280px;min-width:0;margin:0 auto;color:var(--text-primary,#1B1B1E);font-family:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif}
+  .admin-payments *,.admin-payments *::before,.admin-payments *::after{box-sizing:border-box}
+  .admin-payments .payments-head{margin:0 0 20px}
+  .admin-payments .payments-eyebrow{display:block;margin:0 0 5px;color:#56696B;font-size:13px;font-weight:600;line-height:1.3}
+  .admin-payments .payments-head h1{margin:0;color:#0E4A57;font-family:'Fraunces',Georgia,serif;font-size:28px;font-weight:560;line-height:1.15;letter-spacing:-.02em}
+  .admin-payments .payments-flash{display:flex;align-items:flex-start;gap:9px;margin:0 0 16px;padding:11px 14px;border-radius:12px;background:#EAF3F2;color:#0E4A57;font-size:13px;font-weight:600;line-height:1.5}
+  .admin-payments .payments-flash svg{width:17px;height:17px;flex:0 0 17px;margin-top:1px;fill:none;stroke:currentColor;stroke-width:1.8}
+  .admin-payments .payments-status-strip{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:0 0 16px;border:0;border-radius:0;background:transparent;overflow:visible}
+  .admin-payments .payments-status-strip .admin-list-stat{min-width:0;min-height:98px;padding:13px 14px;border:1px solid #D8E3E2;border-top:3px solid #0E4A57;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgba(15,76,92,.045)}
+  .admin-payments .payments-status-label,.admin-payments .payments-earning-label{color:#43575A;font-size:13px;font-weight:600;line-height:1.3}
+  .admin-payments .payments-status-strip .admin-list-stat strong{margin-top:4px;color:#0E4A57;font-family:'Fraunces',Georgia,serif;font-size:28px;font-weight:560;line-height:1.1;font-variant-numeric:tabular-nums}
+  .admin-payments .payments-status-strip .admin-list-stat strong.is-zero{color:#56696B}
+  .admin-payments .payments-status-strip .admin-list-stat small{margin-top:4px;color:#56696B;font-size:12.5px;line-height:1.35;white-space:nowrap}
+  .admin-payments .payments-earnings-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 17px;border:0;border-radius:0;background:transparent;overflow:visible}
+  .admin-payments .payments-earnings-strip .admin-list-stat{min-width:0;min-height:100px;padding:13px 16px;border:1px solid #D8E3E2;border-top:3px solid #0E4A57;border-radius:14px;background:#fff;box-shadow:0 2px 8px rgba(15,76,92,.045)}
+  .admin-payments .payments-earnings-strip .payments-earning-value{display:block;margin-top:4px;color:#0E4A57;font-family:'Fraunces',Georgia,serif;font-size:28px;font-weight:560;line-height:1.1;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .admin-payments .payments-earnings-strip .payments-earning-value.is-zero{color:#56696B}
+  .admin-payments .payments-earnings-strip small{margin-top:4px;color:#56696B;font-size:12.5px;line-height:1.35}
+  .admin-payments .money-flow{display:flex;align-items:flex-start;gap:10px;margin:0 0 23px;padding:7px 0 7px 12px;border-left:2px solid #0E4A57;color:#56696B;font-size:14px;line-height:1.55}
+  .admin-payments .money-flow svg{width:17px;height:17px;flex:0 0 17px;margin-top:1px;fill:none;stroke:#0E4A57;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .admin-payments .money-flow p{margin:0;color:#43575A}
+  .admin-payments .money-flow strong{color:#0E4A57;font-weight:650}
+  .admin-payments .transactions-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 11px}
+  .admin-payments .transactions-header h2{margin:0;color:#0E4A57;font-family:'Fraunces',Georgia,serif;font-size:20px;font-weight:560;line-height:1.25;letter-spacing:-.015em}
+  .admin-payments .payments-filters{display:flex;min-width:0;align-items:center;gap:8px;margin:0 0 14px}
+  .admin-payments .payments-filters .admin-list-filter{min-height:38px;padding:7px 13px;font-size:12.5px}
+  .admin-payments .payments-filters .admin-list-filter.is-active{border-color:#0E4A57;background:#0E4A57;color:#fff}
+  .admin-payments .payments-panel{min-width:0;border:1px solid rgba(15,76,92,.12);border-radius:16px;background:#fff;overflow:hidden}
+  .admin-payments .payments-table-wrap{width:100%;min-width:0;overflow:visible}
+  .admin-payments .payments-table{width:100%;min-width:0;border-collapse:collapse;table-layout:fixed}
+  .admin-payments .payments-table th{padding:12px 7px;border-bottom:1px solid rgba(15,76,92,.12);color:#56696B;font-size:12px;font-weight:600;letter-spacing:0;text-align:left;text-transform:none;vertical-align:bottom}
+  .admin-payments .payments-table th:nth-child(n+3):nth-child(-n+7),.admin-payments .payments-table td:nth-child(n+3):nth-child(-n+7){text-align:right}
+  .admin-payments .payments-table th:first-child,.admin-payments .payments-table td:first-child{padding-left:14px}
+  .admin-payments .payments-table th:last-child,.admin-payments .payments-table td:last-child{padding-right:12px}
+  .admin-payments .payments-table td{min-width:0;padding:15px 7px;border-bottom:1px solid rgba(15,76,92,.12);font-size:12.5px;line-height:1.4;vertical-align:middle}
+  .admin-payments .payments-table tbody tr{transition:background-color .16s ease}
+  .admin-payments .payments-table tbody tr:hover td{background:#F7FAF9}
+  .admin-payments .payments-table tbody tr:last-child td{border-bottom:0}
+  .admin-payments .payments-table .tx-empty{padding:26px 14px!important;color:#56696B;text-align:center}
+  .admin-payments .tx-ref-order{display:grid;gap:4px;min-width:0}
+  .admin-payments .tx-reference{display:block;max-width:100%;overflow:hidden;color:#56696B;font-size:12.5px;font-variant-numeric:tabular-nums;text-overflow:ellipsis;white-space:nowrap}
+  .admin-payments .tx-order-link{display:inline-block;width:fit-content;max-width:100%;overflow:hidden;color:#0E4A57;font-size:13px;font-weight:650;text-decoration:none;text-overflow:ellipsis;white-space:nowrap}
+  .admin-payments .tx-order-link::after{display:block;width:100%;height:1px;background:currentColor;content:"";transform:scaleX(0);transform-origin:left;transition:transform .18s ease}
+  .admin-payments .tx-order-link:hover::after,.admin-payments .tx-order-link:focus-visible::after{transform:scaleX(1)}
+  .admin-payments .tx-store-gateway{display:grid;gap:3px;min-width:0}
+  .admin-payments .tx-store-name{display:block;max-width:100%;overflow:hidden;color:#1B1B1E;font-size:12.5px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+  .admin-payments .tx-store-name.is-missing{color:#56696B;font-weight:400}
+  .admin-payments .tx-gateway{display:block;max-width:100%;overflow:hidden;color:#56696B;font-size:12px;text-overflow:ellipsis;white-space:nowrap}
+  .admin-payments .tx-money{display:block;color:#0E4A57;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .admin-payments .tx-money.is-zero,.admin-payments .tx-money.is-empty{color:#56696B;font-weight:400}
+  .admin-payments .tx-amount{font-size:12.5px;font-weight:700}
+  .admin-payments .tx-status-cell{text-align:left}
+  .admin-payments .payment-status{min-height:27px;max-width:100%;gap:5px;padding:4px 7px;border-radius:999px;font-size:11.5px;font-weight:650;line-height:1.2;white-space:normal}
+  .admin-payments .payment-status--neutral{border-color:rgba(15,76,92,.16);background:#F3F0E9;color:#43575A}
+  .admin-payments .payment-status--teal{border-color:transparent;background:#EAF3F2;color:#0E4A57}
+  .admin-payments .payment-status--brick{border-color:transparent;background:#F3F0E9;color:#8F4038}
+  .admin-payments .payment-status svg{width:13px;height:13px;flex:0 0 13px;fill:none;stroke:currentColor;stroke-width:1.55;stroke-linecap:round;stroke-linejoin:round}
+  .admin-payments a:focus-visible{outline:2px solid #0E4A57;outline-offset:2px}
+  .admin-payments .admin-list-pagination{margin-top:12px}
+
+  @media(max-width:1199.98px){
+    .admin-payments .payments-status-strip{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .admin-payments .payments-earnings-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .admin-payments .payments-table,.admin-payments .payments-table tbody{display:block;width:100%}
+    .admin-payments .payments-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);clip-path:inset(50%);white-space:nowrap}
+    .admin-payments .payments-table tbody{display:grid;gap:0;padding:8px}
+    .admin-payments .payments-table tr.tx-record{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"reference status" "order gateway" "store store" "amount amount" "seller commission" "rider refunded";align-items:center;column-gap:12px;row-gap:0;margin:0;padding:11px 12px;border:0;border-bottom:1px solid rgba(15,76,92,.12);border-radius:0;background:#fff}
+    .admin-payments .payments-table tr.tx-record:last-of-type{border-bottom:0}
+    .admin-payments .payments-table tr.tx-record:hover{background:#F7FAF9}
+    .admin-payments .payments-table td{display:contents;padding:0;border:0;font-size:13px;vertical-align:top}
+    .admin-payments .payments-table td:first-child,.admin-payments .payments-table td:last-child{padding:0}
+    .admin-payments .tx-ref-order,.admin-payments .tx-store-gateway{display:contents}
+    .admin-payments .tx-reference{grid-area:reference;align-self:center;max-width:100%;font-size:13px}
+    .admin-payments .tx-order-link{grid-area:order;align-self:center;min-height:30px;padding-top:5px;font-size:13.5px}
+    .admin-payments .tx-gateway{grid-area:gateway;justify-self:end;max-width:100%;padding-top:5px;text-align:right}
+    .admin-payments .tx-store-name{grid-area:store;max-width:100%;padding-top:9px;overflow-wrap:anywhere;white-space:normal}
+    .admin-payments .tx-amount{grid-area:amount;padding:11px 0 3px;font-size:18px;font-weight:700}
+    .admin-payments .tx-status-cell{grid-area:status;justify-self:end}
+    .admin-payments .tx-status-cell>.payment-status{grid-area:status;justify-self:end}
+    .admin-payments .payment-status{min-height:28px;font-size:12px}
+    .admin-payments .tx-value--seller{grid-area:seller}
+    .admin-payments .tx-value--commission{grid-area:commission}
+    .admin-payments .tx-value--rider{grid-area:rider}
+    .admin-payments .tx-value--refunded{grid-area:refunded}
+    .admin-payments .tx-money:not(.tx-amount){display:flex;min-width:0;flex-direction:column;gap:4px;padding:10px 4px 2px;white-space:normal}
+    .admin-payments .tx-money:not(.tx-amount)::before{color:#56696B;font-size:11.5px;font-weight:600;line-height:1.25;content:attr(data-label)}
+    .admin-payments .tx-money:not(.tx-amount){font-size:12.5px;font-variant-numeric:tabular-nums}
+    .admin-payments .payments-table tr.empty-order-row{display:block;margin:0;padding:0;border:0}
+    .admin-payments .payments-table tr.empty-order-row td.tx-empty{display:block;padding:22px 12px!important;border:0}
+    .admin-payments .payments-table .tx-empty::before{display:none}
+  }
+  @media(max-width:767.98px){
+    .admin-payments{width:calc(100% + 32px);margin-right:-16px;margin-left:-16px;padding:0}
+    .admin-payments .payments-head{margin-bottom:17px}
+    .admin-payments .payments-head h1{font-size:24px}
+    .admin-payments .payments-status-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:12px}
+    .admin-payments .payments-status-strip .admin-list-stat{min-height:92px;padding:11px}
+    .admin-payments .payments-status-strip .admin-list-stat strong{font-size:26px}
+    .admin-payments .payments-status-strip .admin-list-stat small{font-size:clamp(11px,3.1vw,12.5px);white-space:normal;overflow-wrap:anywhere}
+    .admin-payments .payments-earnings-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-bottom:14px}
+    .admin-payments .payments-earnings-strip .admin-list-stat{min-height:96px;padding:11px}
+    .admin-payments .payments-earnings-strip .payments-earning-value{font-size:24px;white-space:normal;overflow-wrap:anywhere}
+    .admin-payments .money-flow{margin-bottom:19px;font-size:13.5px}
+    .admin-payments .transactions-header{margin-bottom:9px}
+    .admin-payments .transactions-header h2{font-size:19px}
+    .admin-payments .payments-filters{flex-wrap:nowrap;overflow-x:auto;padding:2px 2px 7px;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    .admin-payments .payments-filters::-webkit-scrollbar{display:none}
+    .admin-payments .payments-filters .admin-list-filter{min-height:44px;padding-inline:13px;scroll-snap-align:start}
+    .admin-payments .payments-panel{border-radius:14px}
+    .admin-payments .payments-table tbody{gap:0;padding:6px}
+    .admin-payments .payments-table tr.tx-record{grid-template-areas:"reference status" "order gateway" "store store" "amount amount" "seller commission" "rider refunded";column-gap:8px;padding:10px;border-radius:0}
+    .admin-payments .payments-table tr.tx-record:first-child{border-top:0}
+    .admin-payments .tx-order-link{min-height:44px;padding-top:5px}
+    .admin-payments .tx-gateway{font-size:11.5px}
+    .admin-payments .tx-store-name{font-size:13px}
+    .admin-payments .tx-money:not(.tx-amount){padding-right:2px;padding-left:2px;font-size:12px}
+    .admin-payments .tx-money:not(.tx-amount)::before{font-size:11px}
+    .admin-payments .admin-list-pagination>div{justify-content:center!important}
+    .admin-payments .admin-list-pagination>div>a{position:relative}
+    .admin-payments .admin-list-pagination>div>a::before{position:absolute;inset:-4px;content:""}
+  }
+  @media(max-width:359.98px){
+    .admin-payments .payments-status-strip .admin-list-stat{padding:10px}
+    .admin-payments .payments-status-strip .admin-list-stat strong{font-size:24px}
+    .admin-payments .payments-earnings-strip .payments-earning-value{font-size:21px}
+    .admin-payments .payments-table tr.tx-record{column-gap:6px;padding:9px}
+    .admin-payments .payment-status{padding:4px 6px;font-size:11.5px}
+  }

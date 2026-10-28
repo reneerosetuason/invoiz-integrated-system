@@ -1,0 +1,257 @@
+{
+  "date": "2026-10-28",
+  "selection": "B - default single migration directory",
+  "directory": "database/migrations/",
+  "verification": {
+    "rootMigrationsBefore": 67,
+    "movedMigrations": 46,
+    "discoveredMigrations": 113,
+    "filenamesAndHistoryIdentifiersPreserved": true,
+    "allFileHashesUnchanged": true,
+    "defaultFilenameOrderingVerified": true,
+    "nestedMigrationDirectories": [],
+    "testMigrationIncludesResolved": 1,
+    "databaseMigrationsExecuted": false
+  },
+  "phpSyntaxChecks": {
+    "migrationFiles": 113,
+    "failures": 0
+  },
+  "moves": [
+    {
+      "from": "database/migrations/logistics/2026_01_01_000000_create_deliveries_base.php",
+      "to": "database/migrations/2026_01_01_000000_create_deliveries_base.php",
+      "sha256": "cdfaca025222887575475bb212f2fd8cfcd3764478a3fc590c7982c13776e7a7"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000001_extend_users_table.php",
+      "to": "database/migrations/2026_01_01_000001_extend_users_table.php",
+      "sha256": "a6088d50f885ed219c18fa1d07ed3a04c0e1e2cafa70143ee0f89e496b0a1b85"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000002_create_riders_table.php",
+      "to": "database/migrations/2026_01_01_000002_create_riders_table.php",
+      "sha256": "d69487cef2762bff4ad206dde53ac9f48e12adc0871169fea87d098ae06808dc"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000003_create_rider_applications_table.php",
+      "to": "database/migrations/2026_01_01_000003_create_rider_applications_table.php",
+      "sha256": "7676980bd494cb65fc046b6ca3c1be27171c756b6dd6fdfd326c2506c8e455b0"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000004_extend_deliveries_table.php",
+      "to": "database/migrations/2026_01_01_000004_extend_deliveries_table.php",
+      "sha256": "706b06e54dce92371f0dc03205607cf5226a7b7ac056b962584e1dd5bc82f229"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000005_create_delivery_status_logs_table.php",
+      "to": "database/migrations/2026_01_01_000005_create_delivery_status_logs_table.php",
+      "sha256": "f41d680c8e58956dd81a2f1111f8918aff984b21ef049df84f03704ab0443263"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000006_create_notifications_table.php",
+      "to": "database/migrations/2026_01_01_000006_create_notifications_table.php",
+      "sha256": "1f2edb5dde0c73e23c0774d9f34c985594c91e150a2280e520aeb3ebb6e33caf"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000007_create_conversations_and_messages_table.php",
+      "to": "database/migrations/2026_01_01_000007_create_conversations_and_messages_table.php",
+      "sha256": "a5fcdd2656b71427b0b0161a2326f31b97eb5a3034c0270c45dfb914109009b8"
+    },
+    {
+      "from": "database/migrations/logistics/2026_01_01_000008_create_logistics_settings_table.php",
+      "to": "database/migrations/2026_01_01_000008_create_logistics_settings_table.php",
+      "sha256": "3d591b82ab5b444acea310d094b7f093b80c16538af9293279cae8465d06daaf"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000001_add_rider_rider_columns.php",
+      "to": "database/migrations/2026_08_19_000001_add_rider_rider_columns.php",
+      "sha256": "2ccae78ad00494c9d771f120e238c6518b06be8912255442c64fd3931e90518c"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000002_add_delivery_rider_columns.php",
+      "to": "database/migrations/2026_08_19_000002_add_delivery_rider_columns.php",
+      "sha256": "e5f5ccd2e2efaeb488860ea5d3954722ed2dd7c22cffd4ec59e8e2e187971fec"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000003_create_delivery_items_table.php",
+      "to": "database/migrations/2026_08_19_000003_create_delivery_items_table.php",
+      "sha256": "48e5f6a47a48d6c18abcc2982e198b81c1ee1d7154e4b6d0350589d7a0df7ed5"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000004_create_delivery_proofs_table.php",
+      "to": "database/migrations/2026_08_19_000004_create_delivery_proofs_table.php",
+      "sha256": "a3f4e2d7e6d7d27851cd09e47aa6713b7ad5f9634c64fe498f409af97929cd8d"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000005_create_delivery_failures_table.php",
+      "to": "database/migrations/2026_08_19_000005_create_delivery_failures_table.php",
+      "sha256": "c082fdff6ca0249db1868cda1e4ac8f9c3fc9bcbb4362a5f8a56831d98f114f7"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000006_create_rider_earnings_table.php",
+      "to": "database/migrations/2026_08_19_000006_create_rider_earnings_table.php",
+      "sha256": "e3710e3252869bc6bb8066857a35cab3afd27c0c166e463d35d8a981fd72e808"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000007_create_rider_locations_table.php",
+      "to": "database/migrations/2026_08_19_000007_create_rider_locations_table.php",
+      "sha256": "df265b73fae31b386afd3e6f6deec7b1008646be6adf0e3b2ac6a9ea288432aa"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_19_000008_create_rider_notifications_table.php",
+      "to": "database/migrations/2026_08_19_000008_create_rider_notifications_table.php",
+      "sha256": "1fb98092886394a68c81ba080568c48c6e984b3c4150254f778cf297471e2bc1"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_25_000001_logistics_hardening.php",
+      "to": "database/migrations/2026_08_25_000001_logistics_hardening.php",
+      "sha256": "657625edbcb6a685638c5ec0d87d8339eb26194ca82ef8feb8cecd72daf6ad48"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_25_000002_vehicle_types_and_verification.php",
+      "to": "database/migrations/2026_08_25_000002_vehicle_types_and_verification.php",
+      "sha256": "54748d4b794f0697ea0365359635ee6535bdf7c8a498f2bb82a5d02bdc0c1594"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_26_061007_add_package_fields_to_deliveries_table.php",
+      "to": "database/migrations/2026_08_26_061007_add_package_fields_to_deliveries_table.php",
+      "sha256": "b3e1e50bd0fdf24439fb1147d14dafdc9b04f428148767c43517fe445dd56363"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_26_063450_create_rider_application_documents_table.php",
+      "to": "database/migrations/2026_08_26_063450_create_rider_application_documents_table.php",
+      "sha256": "d3f4f9c02400634bf6a096c6dc35dfea062656cd872fd1c61d41d3c0ec6377d8"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_26_073337_add_message_fields_and_attachments.php",
+      "to": "database/migrations/2026_08_26_073337_add_message_fields_and_attachments.php",
+      "sha256": "c8ffa5cdb568fe62e559caaa0766bfdc37bafb740afae6d40e69ee5ec996c002"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_31_000001_create_logistics_centers_table.php",
+      "to": "database/migrations/2026_08_31_000001_create_logistics_centers_table.php",
+      "sha256": "3f6028bf877af73bb45946237324dbcc738076ffde57cc391af78c0187a4030d"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_31_000002_create_service_areas_table.php",
+      "to": "database/migrations/2026_08_31_000002_create_service_areas_table.php",
+      "sha256": "601cd205b18347159b11f3a02510094da24baa1bd71232c2c81c23d8f6037d0a"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_31_000003_add_center_to_riders_and_users.php",
+      "to": "database/migrations/2026_08_31_000003_add_center_to_riders_and_users.php",
+      "sha256": "36552ab228d8c3a3dc623e6d0c0bbe52ee7576ac07dc501db99a49274eb29279"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_31_000004_add_delivery_processing_fields.php",
+      "to": "database/migrations/2026_08_31_000004_add_delivery_processing_fields.php",
+      "sha256": "c007c85d898198e845e9e4c0790a4153bc6c952b6f3e9356fc6e1c660c8f78ef"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_31_000004_add_rider_application_provisioning_columns.php",
+      "to": "database/migrations/2026_08_31_000004_add_rider_application_provisioning_columns.php",
+      "sha256": "175b3d1a68386386ba1486b3e98f93209e9ebf309b77744b53a0578ddbe0fd2c"
+    },
+    {
+      "from": "database/migrations/logistics/2026_08_31_000005_create_transactions_table.php",
+      "to": "database/migrations/2026_08_31_000005_create_transactions_table.php",
+      "sha256": "1c175d7fc74b17563ac4ce4fa633ef3014e18c8266228f5f413dbf96b9efe7bb"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_01_000001_add_unique_delivery_to_transactions.php",
+      "to": "database/migrations/2026_09_01_000001_add_unique_delivery_to_transactions.php",
+      "sha256": "c4a46e01f6de4a006ff7dcdbdb1514aba6ad824b75dcd5f5d92da6ae1a3555b1"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_03_085552_add_application_profile_and_ownership_fields_to_rider_applications_table.php",
+      "to": "database/migrations/2026_09_03_085552_add_application_profile_and_ownership_fields_to_rider_applications_table.php",
+      "sha256": "34ee347dad3e03fcc5809ad69e53f07c7bdfd4d62eff7b9e8758ea98d07b4863"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_04_000000_add_disk_to_message_attachments.php",
+      "to": "database/migrations/2026_09_04_000000_add_disk_to_message_attachments.php",
+      "sha256": "7039f7cba887e8059d70a2b654f7f154ab5d8e6f48b43a271cd9bc81c31175ba"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_06_000001_create_rider_email_verifications_table.php",
+      "to": "database/migrations/2026_09_06_000001_create_rider_email_verifications_table.php",
+      "sha256": "b1502a7b6644bc11d54b2367a880303ee3542293511ca11c7bf509406724e23f"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_11_000001_add_rider_id_to_logistics_conversations_table.php",
+      "to": "database/migrations/2026_09_11_000001_add_rider_id_to_logistics_conversations_table.php",
+      "sha256": "47ff669c2c5e0c5bfbe33937a7b379e45a7a6b23528647505a94903a31cc4f22"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_11_000002_add_personal_fields_to_rider_applications_table.php",
+      "to": "database/migrations/2026_09_11_000002_add_personal_fields_to_rider_applications_table.php",
+      "sha256": "291b2d6fc829202878a1144de05906d1f14294169306f4e923491725aaaf8ec7"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_11_000003_create_psgc_tables.php",
+      "to": "database/migrations/2026_09_11_000003_create_psgc_tables.php",
+      "sha256": "36c6430963c00fd36e7672748627ed3c54eb0895317e5452bef53f18f7878d97"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_11_000004_create_logistics_center_applications_table.php",
+      "to": "database/migrations/2026_09_11_000004_create_logistics_center_applications_table.php",
+      "sha256": "f2e5b2c08c60d223753ab59794ae67932c26050c1d40bbd9cd53bca3bd1d6a7b"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_12_000001_create_pickup_requests_table.php",
+      "to": "database/migrations/2026_09_12_000001_create_pickup_requests_table.php",
+      "sha256": "8068c93aea702290e5d11bbaac68b32a008bdb1803d2c03b2a37e1a67fcbd80b"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_12_000002_add_dispatched_at_to_deliveries_table.php",
+      "to": "database/migrations/2026_09_12_000002_add_dispatched_at_to_deliveries_table.php",
+      "sha256": "1d55faeb3f3f7482674862d230f2d374af44da90e0005d906566a14cee504f35"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_13_000001_add_sorting_center_handoff_fields_to_deliveries_table.php",
+      "to": "database/migrations/2026_09_13_000001_add_sorting_center_handoff_fields_to_deliveries_table.php",
+      "sha256": "805c6d144e0690573b7af9126968506170115679a14c0c4eae97fdf1e02c4cec"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_15_000001_add_wizard_error_steps_to_logistics_center_applications_table.php",
+      "to": "database/migrations/2026_09_15_000001_add_wizard_error_steps_to_logistics_center_applications_table.php",
+      "sha256": "3270201ef88ff8813a0eb67795df55ddab95b4c556797a5a9bae092895093eb8"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_16_000001_add_preferences_to_logistics_settings_table.php",
+      "to": "database/migrations/2026_09_16_000001_add_preferences_to_logistics_settings_table.php",
+      "sha256": "1c699c65a65561de752ab5664a53edaef13b73c7825b43ea2694b159b39f50b9"
+    },
+    {
+      "from": "database/migrations/logistics/2026_09_16_000002_create_login_histories_table.php",
+      "to": "database/migrations/2026_09_16_000002_create_login_histories_table.php",
+      "sha256": "cfcdcbab74a93822d24e62f31bf8785a52bbdaad9bb4fcbb6fc5e4635759d2ac"
+    },
+    {
+      "from": "database/migrations/logistics/2026_10_05_000001_add_service_area_id_to_users.php",
+      "to": "database/migrations/2026_10_05_000001_add_service_area_id_to_users.php",
+      "sha256": "8653d72139caf75a3d9534047ff0b5cab2157672786565e2e1a4c3121029aeb9"
+    },
+    {
+      "from": "database/migrations/logistics/2026_10_07_000001_create_password_reset_tokens_table.php",
+      "to": "database/migrations/2026_10_07_000001_create_password_reset_tokens_table.php",
+      "sha256": "ebd7a6b16a4eb95b4737b54131fac5181bb1f688a176e27151f85191a666420b"
+    },
+    {
+      "from": "database/migrations/logistics/2026_10_07_000002_add_reattempt_requested_at_to_deliveries_table.php",
+      "to": "database/migrations/2026_10_07_000002_add_reattempt_requested_at_to_deliveries_table.php",
+      "sha256": "48c9855d98355c0531f235f8b6f87b3500868df3ec7567aa0878b5385cb9ff18"
+    },
+    {
+      "from": "database/migrations/logistics/2026_10_20_000003_add_exception_statuses_to_deliveries_table.php",
+      "to": "database/migrations/2026_10_20_000003_add_exception_statuses_to_deliveries_table.php",
+      "sha256": "7f2ff0ec3af69b115deeb636504ec873f0d9dffc10c7a76121da75fd65c0a972"
+    }
+  ],
+  "updatedReferences": [
+    "tests/Feature/LogisticsMergeTest.php",
+    "docs/audits/2026-10-26/functional-responsiveness.md",
+    "README.md"
+  ]
+}

@@ -1,0 +1,9 @@
+body{background:#F8FAF9;font-family:'Segoe UI',system-ui,-apple-system,sans-serif}
+  .mesh{background:
+    radial-gradient(38rem 20rem at 8% -60px, rgba(240,162,2,.22), transparent 60%),
+    radial-gradient(34rem 20rem at 105% 15%, rgba(22,105,122,.18), transparent 60%),
+    linear-gradient(135deg,#F8FAF9 0%,#ffffff 55%,#EAF4F3 100%)}
+  #otp{letter-spacing:.6rem;text-indent:.6rem}
+  #otp:focus{border-color:#16697A;box-shadow:0 0 0 4px rgba(22,105,122,.12);outline:none}
+  .btn-primary{background:linear-gradient(135deg,#16697A,#0E4A57);transition:transform .2s,filter .2s}
+  .btn-primary:hover{transform:translateY(-1px);filter:brightness(1.06)}

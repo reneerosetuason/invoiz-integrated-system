@@ -44,7 +44,7 @@ Application source, `.env`, application database rows, and Git history were not 
    - `cod_amount_received`, `cod_received_at`
    - `delivery_otp`, `delivery_otp_expires_at`, `delivery_otp_attempts`, `delivery_otp_consumed_at`
 
-   The missing return timestamp is a confirmed dashboard failure. Rider return, retry, OTP, and COD completion paths also reference the absent fields and need verification after schema alignment. The return/retry migration exists at `database/migrations/logistics/2026_10_07_000002_add_reattempt_requested_at_to_deliveries_table.php`; normal migration registration does not load that nested directory. Migration status also reports base migrations pending despite an existing 86-table database.
+   The missing return timestamp was a confirmed dashboard failure at the time of this audit. Rider return, retry, OTP, and COD completion paths also referenced the absent fields and needed verification after schema alignment. The return/retry migration is now at `database/migrations/2026_10_07_000002_add_reattempt_requested_at_to_deliveries_table.php`. It originally lived in an unregistered logistics migration subfolder, which was subsequently flattened into the main migration directory. At the time of this audit, migration status also reported base migrations pending despite an existing 86-table database. Moving the files does not apply those database changes.
 
    Fix direction: reconcile the migration history and existing schema, then apply the appropriate additive migrations, including the nested logistics migration. No migrations were executed during this audit.
 

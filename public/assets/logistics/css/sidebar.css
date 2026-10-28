@@ -1,0 +1,32 @@
+/* Use the shared Buyer/Seller sidebar, with a fixed header and footer. */
+    .sb2--log.sidebar-pane { width:72px; height:100vh; height:100dvh; min-height:0; overflow:hidden; transition:width .2s ease; }
+    .sb2--log.sidebar-pane.is-expanded { width:256px; }
+    .app-content { padding-left:72px; transition:padding-left .2s ease; }
+    .sidebar-pane.is-expanded ~ .app-content { padding-left:256px; }
+    .sb2--log .sb-brand-header { flex-shrink:0; padding:16px 12px; }
+    .sb2--log .sidebar-nav { gap:4px; overscroll-behavior:contain; scrollbar-gutter:stable; mask-image:none; -webkit-mask-image:none; }
+    .sb2--log .sidebar-nav > * { flex-shrink:0; }
+    .sb2--log .sidebar-nav .sb-parent { height:auto; min-height:40px; padding:0; }
+    .sb2--log .sidebar-nav .sb-parent > a { min-width:0; }
+    .sb2--log .sb-foot { flex-shrink:0; }
+    .app-content .ld-mobile-menu { display:none; }
+    .sb2--log .sb-role { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .sb2--log.sidebar-collapsed .sb-logo-row { justify-content:center; }
+    .sb2--log.sidebar-collapsed .sidebar-nav { display:flex; align-items:center; gap:8px; }
+    .sb2--log.sidebar-collapsed .sidebar-nav > a,
+    .sb2--log.sidebar-collapsed .sidebar-nav > .sb-parent { width:44px; height:44px; min-height:44px; padding:0; justify-content:center; }
+    .sb2--log.sidebar-collapsed .sb-parent > a { width:44px; height:44px; min-height:44px; padding:0; flex:none; justify-content:center; }
+    .sb2--log.sidebar-collapsed .sb-foot { display:flex; flex-direction:column; align-items:center; padding:12px 8px; }
+    .sb2--log.sidebar-collapsed .sb-pill { width:56px; height:56px; padding:0; justify-content:center; }
+    .sb2--log.sidebar-collapsed .sb-who { display:none; }
+    @media (max-width:1023px) {
+        .sb2--log.sidebar-pane { transform:translateX(-100%); visibility:hidden; transition:transform .2s ease, visibility .2s ease; }
+        .sb2--log.sidebar-pane.is-expanded { transform:none; visibility:visible; width:min(280px,88vw); }
+        .sidebar-pane ~ .app-content, .sidebar-pane.is-expanded ~ .app-content { padding-left:0; }
+        .app-content .ld-mobile-menu { display:flex; align-items:center; justify-content:center; width:44px; height:44px; color:#0E4A57; }
+        .sb2--log .sidebar-nav > a,
+        .sb2--log .sidebar-nav .sb-parent { min-height:44px; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+        #app-sidebar.sidebar-pane, .app-content { transition:none !important; }
+    }

@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Conversation')
 
@@ -55,10 +55,5 @@
 @endsection
 
 @push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const el = document.getElementById('chat-scroll');
-    el.scrollTop = el.scrollHeight;
-});
-</script>
+<script src="{{ asset('assets/seller/js/chat/show.js') }}"></script>
 @endpush

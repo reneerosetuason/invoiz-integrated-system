@@ -24,7 +24,7 @@ class AuthController extends Controller
             'sales'    => (float) \App\Models\Order::where('status', '!=', 'cancelled')->sum('total_amount'),
         ];
 
-        return view('auth.seller-login', compact('stats'));
+        return view('seller.auth.login', compact('stats'));
     }
 
     public function login(Request $request)

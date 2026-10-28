@@ -22,7 +22,7 @@ class RegistrationDecision extends Mailable
     public function build()
     {
         return $this->subject($this->approved ? 'Registration Approved' : 'Registration Declined')
-                    ->view('emails.registration-decision')
+                    ->view('shared.emails.registration-decision')
                     ->with(['approved' => $this->approved, 'reason' => $this->reason]);
     }
 }

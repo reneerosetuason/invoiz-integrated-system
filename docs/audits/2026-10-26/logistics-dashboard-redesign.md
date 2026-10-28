@@ -42,7 +42,7 @@ No new migration was needed. Its original policy is preserved: existing notices 
 
 Final browser run: 12 role/viewport contexts and 10 interaction groups passed. Final inspector: zero failures with the documented dashboard exceptions, plus four accepted warnings covering existing chrome, brand ivory and UI type sizing.
 
-Browser evidence and the repeatable local check are in `.taste-skill/logistics-dashboard/`. Final design-inspector screenshots and metrics are in `.taste-skill/logistics-dashboard-final/`.
+The original audit generated browser checks, screenshots and metrics under `.taste-skill/`. Those temporary artifacts were removed during the subsequent repository cleanup; the findings in this document remain the historical record.
 
 **Taste-skill application and review**
 

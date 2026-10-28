@@ -435,7 +435,7 @@
                     <div class="border-2 border-[#111111]">
                         {{-- Header --}}
                         <div class="px-3 pt-2.5 pb-2 border-b-2 border-[#111111] flex items-center gap-2.5">
-                            <img src="{{ asset('images/logo.png') }}" alt="INVOIZ logo" class="h-12 w-auto flex-shrink-0">
+                            <img src="{{ asset('assets/shared/images/logo.png') }}" alt="INVOIZ logo" class="h-12 w-auto flex-shrink-0">
                             <p class="text-lg font-extrabold tracking-tight leading-none whitespace-nowrap text-[#0E4A57]">SHIPPING WAYBILL</p>
                         </div>
 
@@ -1227,75 +1227,8 @@
 @push('scripts')
     <script src="{{ asset('vendor/qrcodejs/qrcode.min.js') }}"></script>
     <script src="{{ asset('vendor/jsbarcode/JsBarcode.all.min.js') }}"></script>
-    <script>
-        (function () {
-            var qrTarget = {{ \Illuminate\Support\Js::from($delivery->tracking_number) }};
-
-            var qrEl = document.getElementById('parcel-qr');
-            if (qrEl && typeof QRCode !== 'undefined') {
-                new QRCode(qrEl, {
-                    text: qrTarget,
-                    width: 128,
-                    height: 128,
-                    correctLevel: QRCode.CorrectLevel.H,
-                });
-            }
-
-            var barEl = document.getElementById('parcel-barcode');
-            if (barEl && typeof JsBarcode !== 'undefined') {
-                try {
-                    JsBarcode(barEl, qrTarget, {
-                        format: 'CODE128',
-                        displayValue: false,
-                        height: 64,
-                        width: 2,
-                        margin: 0,
-                        background: '#ffffff',
-                        lineColor: '#111111',
-                    });
-                } catch (e) {
-                    barEl.outerHTML = '<p class="font-mono text-sm font-bold">' + qrTarget + '</p>';
-                }
-            }
-
-            var centerSelect = document.getElementById('destination_center');
-            var areaSelect = document.getElementById('service_area');
-            if (centerSelect && areaSelect) {
-                var filterServiceAreas = function () {
-                    Array.from(areaSelect.options).forEach(function (option) {
-                        if (!option.value) return;
-                        option.hidden = option.dataset.centerId !== centerSelect.value;
-                        if (option.hidden && option.selected) areaSelect.value = '';
-                    });
-                };
-
-                centerSelect.addEventListener('change', filterServiceAreas);
-                filterServiceAreas();
-            }
-        })();
-    </script>
-    <style>
-        @media print {
-            body * { visibility: hidden !important; }
-            #shipping-label, #shipping-label * { visibility: visible !important; }
-            #shipping-label {
-                position: fixed !important;
-                inset: 0 !important;
-                width: 4in !important;
-                max-width: 4in !important;
-                margin: 0 !important;
-                background: #fff !important;
-                color: #000 !important;
-            }
-            #shipping-label * {
-                background: transparent !important;
-                color: #000 !important;
-                border-color: #000 !important;
-                box-shadow: none !important;
-            }
-            .no-print { display: none !important; }
-        }
-    </style>
+    <script src="{{ asset('assets/logistics/js/deliveries/show.js') }}" data-config="{{ json_encode([($delivery->tracking_number)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+    <link rel="stylesheet" href="{{ asset('assets/logistics/css/deliveries/show.css') }}">
 @endpush
 
     </div>

@@ -1,0 +1,53 @@
+[x-cloak] { display: none !important; }
+        /* Consistent, tappable file pickers (the shared form-controls partial
+           intentionally excludes file inputs, so they are styled here). Long
+           filenames are truncated instead of overflowing the control. */
+        input[type="file"].public-file {
+            min-height: 44px;
+            padding: 9px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            background-color: #ffffff;
+            color: #111827;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        input[type="file"].public-file:focus {
+            border-color: #16697a;
+            box-shadow: 0 0 0 3px rgba(22, 105, 122, 0.15);
+            outline: none;
+        }
+        input[type="file"].public-file::file-selector-button {
+            margin-right: 0.75rem;
+            padding: 0.4rem 0.9rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            background-color: #f9fafb;
+            color: #374151;
+            font-weight: 600;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        input[type="file"].public-file:hover::file-selector-button {
+            border-color: #16697a;
+            color: #0E4A57;
+        }
+        /* Indicator labels: wrap to two lines instead of truncating, so
+           long step names (notably "Supporting Documents") stay fully
+           readable on small screens without overflowing at 320px. */
+        .step-indicator-label {
+            overflow-wrap: break-word;
+            word-break: break-word;
+            hyphens: auto;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .animate-spin { animation: none; }
+            .wizard-progress { transition: none; }
+            [x-cloak] { transition: none !important; }
+        }

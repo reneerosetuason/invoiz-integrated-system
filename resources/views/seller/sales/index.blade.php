@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Store Sales')
 
@@ -107,11 +107,7 @@
 @endsection
 
 @push('scripts')
-<script>
-function salesPage() {
-    return {
-        form: { id: null, name: '', discount_type: 'percent', discount_value: '', starts_at: '', ends_at: '', status: 'active', products: [] },
-        saleMap: {{ \Illuminate\Support\Js::from($sales->getCollection()->mapWithKeys(fn($s) => [$s->id => [
+<script src="{{ asset('assets/seller/js/sales/index.js') }}" data-config="{{ json_encode([($sales->getCollection()->mapWithKeys(fn($s) => [$s->id => [
             'id' => $s->id,
             'name' => $s->name,
             'discount_type' => $s->discount_type,
@@ -120,14 +116,5 @@ function salesPage() {
             'ends_at' => $s->ends_at?->format('Y-m-d\TH:i'),
             'status' => $s->status,
             'products' => $s->items->pluck('product_id')->values(),
-        ]])) }},
-        openEdit(id) {
-            const s = this.saleMap[id];
-            if (!s) return;
-            this.form = JSON.parse(JSON.stringify(s));
-            this.$refs.editModal.showModal();
-        }
-    }
-}
-</script>
+        ]]))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endpush

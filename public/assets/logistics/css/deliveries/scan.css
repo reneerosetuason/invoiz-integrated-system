@@ -1,0 +1,31 @@
+.scan-overlay {
+                position: absolute;
+                inset: 0;
+                margin: auto;
+                width: 62%;
+                max-width: 280px;
+                height: 62%;
+                max-height: 280px;
+                border: 2px solid rgba(255, 255, 255, 0.9);
+                border-radius: 16px;
+                box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.35);
+                animation: scan-pulse 1.8s ease-in-out infinite;
+            }
+            .scan-overlay::before, .scan-overlay::after {
+                content: '';
+                position: absolute;
+                left: 50%;
+                transform: translateX(-50%);
+                height: 3px;
+                background: #F0A202;
+                border-radius: 9999px;
+            }
+            .scan-overlay::before { top: 18%; width: 30%; }
+            .scan-overlay::after { bottom: 18%; width: 30%; }
+            @keyframes scan-pulse {
+                0%, 100% { opacity: 0.9; }
+                50% { opacity: 0.55; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .scan-overlay { animation: none; }
+            }

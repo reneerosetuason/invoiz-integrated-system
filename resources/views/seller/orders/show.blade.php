@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Order #'.$order->id)
 

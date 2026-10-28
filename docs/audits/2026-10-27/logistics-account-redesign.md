@@ -72,7 +72,7 @@ Every view below keeps its existing routes, fields and role conditions.
 - CSS taste-skill lint: 0 failures and 0 warnings. Browser inspector results for Reports and the final inbox: 0 failures, 2 warnings each (the requested ivory palette and three small labels in the existing desktop/tablet shell). No contrast or overflow failure remains in those reports. Tracking also passes with 0 failures; its additional warnings concern secondary text (6:1 contrast) and the absence of a filled primary action on a read-only result page.
 - Blade compilation, JavaScript syntax checking, source form/permission contracts, and git whitespace/conflict checks passed.
 
-Browser evidence is in `.taste-skill/logistics-workspace/`: `review-results.json`, `roles-results.json` (role layout checks), `interactions-results.json` (final interaction run), `contracts-after.json`, screenshots, and the inspector reports. Source inspection and browser previews were combined with screenshot review at desktop and phone sizes.
+The original audit used generated browser reports and screenshots under `.taste-skill/logistics-workspace/`. Those temporary artifacts were removed during the subsequent repository cleanup; the findings in this document remain the historical record. Source inspection and browser previews were combined with screenshot review at desktop and phone sizes.
 
 ## Verification limits and existing issues
 

@@ -5,19 +5,10 @@
     <meta charset="UTF-8">
     <title>Waybill · Order #{{ $order->id }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/shared/css/app.css') }}">
     <script src="{{ asset('vendor/qrcodejs/qrcode.min.js') }}"></script>
     <script src="{{ asset('vendor/jsbarcode/JsBarcode.all.min.js') }}"></script>
-    <style>
-        body { background: #F7F6F2; }
-        .waybill { border: 2px dashed #16697A; border-radius: 14px; }
-        @media print {
-            body { background: #fff; }
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 100%; }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('assets/seller/css/orders/waybill.css') }}">
 </head>
 <body class="p-6">
     <div class="mx-auto max-w-2xl">
@@ -30,7 +21,7 @@
             <div class="flex items-start justify-between border-b-2 border-dashed border-borderline pb-5">
                 <div>
                     <div class="flex items-center gap-2">
-                        <img src="{{ asset('images/logo.png') }}" alt="Invoiz" class="h-9 w-auto object-contain">
+                        <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Invoiz" class="h-9 w-auto object-contain">
                         <div class="text-[10px] font-bold uppercase tracking-widest text-ink-light">Shipping Waybill</div>
                     </div>
                     <div class="mt-3">
@@ -113,23 +104,7 @@
         </div>
     </div>
     @if($order->delivery?->tracking_number)
-    <script>
-        (function () {
-            var code = {{ \Illuminate\Support\Js::from($order->delivery->tracking_number) }};
-            var qrEl = document.getElementById('seller-qr');
-            if (qrEl && typeof QRCode !== 'undefined') {
-                new QRCode(qrEl, { text: code, width: 96, height: 96, correctLevel: QRCode.CorrectLevel.H });
-            }
-            var barEl = document.getElementById('seller-barcode');
-            if (barEl && typeof JsBarcode !== 'undefined') {
-                try {
-                    JsBarcode(barEl, code, { format: 'CODE128', displayValue: false, height: 56, width: 2, margin: 0, background: '#ffffff', lineColor: '#111111' });
-                } catch (e) {
-                    barEl.outerHTML = '<p class="font-mono text-sm font-bold">' + code + '</p>';
-                }
-            }
-        })();
-    </script>
+    <script src="{{ asset('assets/seller/js/orders/waybill.js') }}" data-config="{{ json_encode([($order->delivery->tracking_number)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
     @endif
 </body>
 </html>

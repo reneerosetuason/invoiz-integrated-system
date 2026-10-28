@@ -1,0 +1,8 @@
+body { background: #F7F6F2; }
+        .waybill { border: 2px dashed #16697A; border-radius: 14px; }
+        @media print {
+            body { background: #fff; }
+            body * { visibility: hidden; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+        }

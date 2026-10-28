@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Edit Product')
 
@@ -155,14 +155,5 @@
 @endsection
 
 @push('scripts')
-<script>
-function productForm() {
-    return {
-        variants: {!! json_encode($product->variants->map(fn($v) => ['type' => $v->variant_type, 'value' => $v->variant_value, 'adjustment' => $v->price_adjustment, 'stock' => $v->stock]), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) !!},
-        addVariant() {
-            this.variants.push({ type: '', value: '', adjustment: 0, stock: 0 });
-        }
-    }
-}
-</script>
+<script src="{{ asset('assets/seller/js/products/edit.js') }}" data-config="{{ json_encode([(json_decode(json_encode($product->variants->map(fn($v) => ['type' => $v->variant_type, 'value' => $v->variant_value, 'adjustment' => $v->price_adjustment, 'stock' => $v->stock]), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP), true))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endpush

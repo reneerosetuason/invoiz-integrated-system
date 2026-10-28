@@ -18,7 +18,7 @@ Audited sources:
 - `app/Http/Middleware/*` and `app/Http/Middleware/Logistics/*`
 - `routes/web.php`, `routes/api.php`, `routes/logistics/web.php`,
   `routes/logistics/api.php`, `routes/logistics/auth.php`
-- `app/Http/Controllers/UnifiedAuthController.php` and the legacy/login
+- `app/Http/Controllers/Shared/UnifiedAuthController.php` and the legacy/login
   controllers
 - `app/Services/RiderAccountProvisioner.php`,
   `app/Services/CenterApplicationService.php`
@@ -30,8 +30,8 @@ Historical notes:
 - `docs/DATABASE_CHANGES.md` describes the older rider schema/API snapshot. Some
   endpoint names and seed-account notes there are outdated; use this file and
   the current routes/migrations for account and authorization decisions.
-- `README.md` is the default Laravel readme. `README-init.md` describes an older
-  Docker/bootstrap flow.
+- `README.md` contains current local setup instructions. The obsolete Docker/bootstrap
+  instructions were removed during the unused-file cleanup.
 
 ## Local verification
 

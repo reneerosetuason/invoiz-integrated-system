@@ -95,23 +95,5 @@
         </div>
     </div>
 
-    <script>
-        document.querySelectorAll('[data-mark-read]').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                fetch('{{ route('notifications.index', [], false) }}/' + btn.dataset.markRead + '/read', {
-                    method: 'PATCH',
-                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-                }).then(function () { window.location.reload(); });
-            });
-        });
-        var markAll = document.querySelector('[data-mark-all]');
-        if (markAll) {
-            markAll.addEventListener('click', function () {
-                fetch('{{ route('notifications.mark-all-read', [], false) }}', {
-                    method: 'PATCH',
-                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
-                }).then(function () { window.location.reload(); });
-            });
-        }
-    </script>
+    <script src="{{ asset('assets/logistics/js/notifications/index.js') }}" data-config="{{ json_encode([(route('notifications.index', [], false)), (csrf_token()), (route('notifications.mark-all-read', [], false)), (csrf_token())], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 </x-app-layout>

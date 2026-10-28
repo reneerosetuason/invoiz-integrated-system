@@ -1,0 +1,1 @@
+tailwind.config={theme:{extend:{colors:{teal:{DEFAULT:'#16697A',dark:'#0E4A57',pale:'#EAF4F3'},amber:{DEFAULT:'#F0A202',dark:'#C77F02',deep:'#B45309'},ivory:'#FBF9F6',ink:'#1B1B1E',muted:'#6E6E73'},fontFamily:{sans:['Inter','system-ui','-apple-system','Segoe UI','sans-serif'],display:['Fraunces','Georgia','serif']}}}};

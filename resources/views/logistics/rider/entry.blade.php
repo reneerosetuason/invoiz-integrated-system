@@ -8,34 +8,16 @@
 
     <title>Rider Entry — INVOIZ</title>
 
-    <link rel="icon" href="{{ asset('images/logo.png') }}">
+    <link rel="icon" href="{{ asset('assets/shared/images/logo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        teal: { DEFAULT: '#16697A', dark: '#0E4A57', light: '#EAF4F3' },
-                        secondary: '#F0A202',
-                    },
-                    fontFamily: { sans: ['Segoe UI', 'system-ui', '-apple-system', 'sans-serif'] },
-                },
-            },
-        };
-    </script>
+    <script src="{{ asset('assets/logistics/js/rider/entry.js') }}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        [x-cloak]{display:none!important}
-        :focus-visible{outline:2px solid #F0A202;outline-offset:2px;border-radius:8px}
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after { animation: none !important; transition: none !important; }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ asset('assets/logistics/css/rider/entry.css') }}">
 </head>
 <body class="font-sans antialiased bg-gradient-to-br from-[#16697A] via-[#0E4A57] to-[#0B3B46] min-h-screen flex items-center justify-center p-4 sm:p-8">
     <main class="w-full max-w-md bg-white rounded-3xl shadow-xl p-6 sm:p-8" x-data="{ tried:false, fallback:false }">
         <div class="flex items-center gap-3">
-            <img src="{{ asset('images/logo.png') }}" alt="INVOIZ logo" class="h-11 w-11 rounded-xl object-cover ring-1 ring-gray-200">
+            <img src="{{ asset('assets/shared/images/logo.png') }}" alt="INVOIZ logo" class="h-11 w-11 rounded-xl object-cover ring-1 ring-gray-200">
             <div>
                 <h1 class="text-xl font-extrabold tracking-tight text-gray-900">Rider Entry</h1>
                 <p class="text-xs text-gray-500">Signed in as {{ auth()->user()->name }}</p>

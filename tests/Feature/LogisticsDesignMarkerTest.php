@@ -36,13 +36,15 @@ class LogisticsDesignMarkerTest extends TestCase
     public function test_sidebar_renders_new_design_markers(): void
     {
         $body = $this->actingAs($this->admin())->get('/logistics/dashboard')->getContent();
+        $this->assertStringContainsString('assets/logistics/css/sidebar.css', $body);
+        $sidebarStyles = file_get_contents(public_path('assets/logistics/css/sidebar.css'));
 
         // new design: active-indicator bar + amber focus ring (from logistic-web)
-        $this->assertStringContainsString('aria-current="page"]::before', $body, 'new active-indicator CSS missing');
-        $this->assertStringContainsString('outline: 2px solid #F0A202', $body, 'new focus ring missing');
+        $this->assertStringContainsString('aria-current="page"]::before', $sidebarStyles, 'new active-indicator CSS missing');
+        $this->assertStringContainsString('outline: 2px solid #F0A202', $sidebarStyles, 'new focus ring missing');
         // new sizing (70px rail / 248px expanded); the old fork used 72/256
-        $this->assertStringContainsString('width: 70px', $body);
-        $this->assertStringContainsString('width: 248px', $body);
+        $this->assertStringContainsString('width: 70px', $sidebarStyles);
+        $this->assertStringContainsString('width: 248px', $sidebarStyles);
         // sorting center nav restored from the new design
         $this->assertStringContainsString('/logistics/sorting-center', $body);
         // messages nav preserved from the fork

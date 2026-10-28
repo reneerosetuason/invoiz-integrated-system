@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Vouchers & Discounts')
 
@@ -197,18 +197,5 @@
         'status' => $v->status,
     ])->toJson(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 @endphp
-<script>
-document.addEventListener('alpine:init', () => {
-    Alpine.data('editVoucher', () => ({
-        editing: null,
-        editAction: '',
-        openEdit(id) {
-            const v = {!! $voucherJson !!};
-            this.editing = v[id];
-            this.editAction = '{{ url('vouchers') }}/' + id;
-            this.$refs.editModal.showModal();
-        }
-    }));
-});
-</script>
+<script src="{{ asset('assets/seller/js/vouchers/index.js') }}" data-config="{{ json_encode([(json_decode($voucherJson, true)), (url('vouchers'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endpush

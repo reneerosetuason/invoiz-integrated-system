@@ -516,7 +516,7 @@ class LogisticsMergeTest extends TestCase
         $this->assertTrue(Schema::hasColumn('deliveries', 'returned_at'), 'precondition: column exists');
         $this->assertTrue(Schema::hasColumn('deliveries', 'return_reason'), 'precondition: column exists');
 
-        $migration = require __DIR__.'/../../database/migrations/logistics/2026_10_07_000002_add_reattempt_requested_at_to_deliveries_table.php';
+        $migration = require __DIR__.'/../../database/migrations/2026_10_07_000002_add_reattempt_requested_at_to_deliveries_table.php';
 
         $migration->up();
         $migration->up();

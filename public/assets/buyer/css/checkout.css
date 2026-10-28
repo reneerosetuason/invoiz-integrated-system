@@ -1,0 +1,4 @@
+.checkout-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:16px;margin-top:12px}
+  .checkout-grid>div{min-width:0;overflow-wrap:anywhere}
+  .checkout-grid select{min-width:0;max-width:100%}
+  @media(max-width:767.98px){.checkout-grid{grid-template-columns:minmax(0,1fr)}}

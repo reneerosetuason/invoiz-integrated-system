@@ -17,75 +17,18 @@
 
         <title>{{ config('app.name', 'Logistics') }}</title>
 
-        <script>
-            // Apply the saved appearance before first paint (Settings →
-            // Appearance). Runs inline so there is no light-mode flash.
-            window.__invoizTheme = @js($userTheme);
-            (function () {
-                var t = window.__invoizTheme;
-                if (t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                    document.documentElement.classList.add('dark');
-                }
-                if (t === 'system' && window.matchMedia) {
-                    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-                        document.documentElement.classList.toggle('dark', e.matches);
-                    });
-                }
-            })();
-        </script>
+        <script src="{{ asset('assets/logistics/js/layouts/app.js') }}" data-config="{{ json_encode([($userTheme)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
         <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-            tailwind.config = {
-                darkMode: 'class',
-                theme: {
-                    extend: {
-                        colors: {
-                            teal: {
-                                DEFAULT: '#16697A',
-                                dark: '#0E4A57',
-                                light: '#EAF4F3',
-                            },
-                            secondary: '#F0A202',
-                            'surface-soft': '#F0EEE9',
-                        },
-                        fontFamily: {
-                            sans: ['Segoe UI', 'system-ui', '-apple-system', 'sans-serif'],
-                        },
-                    },
-                },
-            };
-        </script>
-        <style>
-            /* Class-based dark theme (Settings → Appearance). Only the neutral
-               surfaces/text flip; teal/amber/functional colors are untouched. */
-            .dark { color-scheme: dark; }
-            .dark body { background-color: #111827; color: #F3F4F6; }
-            .dark .bg-white, .dark .bg-white\/90, .dark .bg-white\/95 { background-color: #1F2937; }
-            .dark .bg-gray-50, .dark .bg-gray-50\/50 { background-color: #374151; }
-            .dark .bg-gray-100, .dark .bg-surface-soft, .dark .bg-surface-soft\/50 { background-color: #374151; }
-            .dark .text-gray-900 { color: #F9FAFB; }
-            .dark .text-gray-800 { color: #F3F4F6; }
-            .dark .text-gray-700 { color: #E5E7EB; }
-            .dark .text-gray-600 { color: #D1D5DB; }
-            .dark .text-gray-500 { color: #9CA3AF; }
-            .dark .text-gray-400 { color: #6B7280; }
-            .dark .text-teal, .dark .text-teal-dark { color: #5EEAD4; }
-            .dark .hover\:text-teal:hover, .dark .hover\:text-teal-dark:hover { color: #5EEAD4; }
-            .dark .border-gray-100, .dark .border-gray-200, .dark .divide-gray-100, .dark .divide-gray-50,
-            .dark .ring-gray-200 { border-color: #374151; }
-            .dark .border-gray-300 { border-color: #4B5563; }
-            .dark .hover\:bg-gray-50:hover, .dark .hover\:bg-gray-100:hover, .dark .hover\:bg-gray-200:hover { background-color: #374151; }
-            .dark input, .dark select, .dark textarea { background-color: #111827; color: #F3F4F6; border-color: #4B5563; }
-            .dark input::placeholder, .dark textarea::placeholder { color: #6B7280; }
-        </style>
+        <script src="{{ asset('assets/logistics/js/layouts/app-2.js') }}"></script>
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app.css') }}">
         <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-        <link rel="stylesheet" href="{{ asset('css/app-sidebar.css') }}?v={{ filemtime(public_path('css/app-sidebar.css')) }}">
-        <link rel="stylesheet" href="{{ asset('css/logistics-shell.css') }}?v={{ filemtime(public_path('css/logistics-shell.css')) }}">
+        <link rel="stylesheet" href="{{ asset('assets/shared/css/app-sidebar.css') }}?v={{ filemtime(public_path('assets/shared/css/app-sidebar.css')) }}">
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-shell.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-shell.css')) }}">
         @if(!request()->routeIs('dashboard', 'deliveries.*'))
             @include('logistics.partials.workspace-theme')
         @endif
-        <script src="{{ asset('js/app-sidebar.js') }}?v={{ filemtime(public_path('js/app-sidebar.js')) }}" defer></script>
+        <script src="{{ asset('assets/shared/js/app-sidebar.js') }}?v={{ filemtime(public_path('assets/shared/js/app-sidebar.js')) }}" defer></script>
         @stack('styles')
     </head>
     <body class="logistics-shell font-sans bg-[#F7F6F2] text-[#1B1B1E] antialiased">
@@ -131,7 +74,7 @@
             });
             @endif
         ">
-            @include('logistics.layouts.sidebar')
+            @include('shared.navigation.sidebar', ['navigationRole' => 'logistics', 'navigationVariant' => 'workspace'])
 
             <!-- Overlay (mobile drawer: shown behind expanded sidebar on small screens) -->
             <div x-show="sidebarVisible" @click="sidebarHover = false"
@@ -145,174 +88,7 @@
 
             <div class="app-content flex flex-col min-h-screen">
                 <!-- Topbar -->
-                <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
-                    <div class="flex items-center justify-between px-4 sm:px-6 h-16">
-                        <div class="flex items-center gap-3">
-                                <button type="button" class="ld-mobile-menu" @click="toggleSidebar()" :aria-expanded="sidebarVisible.toString()" aria-label="Toggle logistics menu" aria-controls="app-sidebar">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-                                </button>
-                            <span class="text-lg font-bold text-gray-900">Logistics</span>
-                        </div>
-
-                        <div class="flex items-center gap-1 sm:gap-2">
-                            <!-- Notification Bell -->
-                            <div class="relative">
-                                <button @click="notifOpen = !notifOpen" @click.outside="notifOpen = false" class="relative text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100">
-                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                                    </svg>
-                                    <span x-show="unreadCount > 0" x-text="unreadCount" class="absolute -top-0.5 -right-0.5 h-4.5 w-4.5 bg-secondary text-white text-[10px] font-bold rounded-full flex items-center justify-center min-w-[18px] h-[18px]"></span>
-                                </button>
-
-                                <!-- Notification Dropdown -->
-                                <div x-show="notifOpen" x-transition x-cloak
-                                     class="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-xl shadow-lg ring-1 ring-gray-200 z-50 max-h-[70vh] flex flex-col">
-                                    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-                                        <h3 class="text-sm font-semibold text-gray-900">Notifications</h3>
-                                        <button @click="
-                                            fetch('{{ route('notifications.mark-all-read', [], false) }}', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' } })
-                                                .then(r => r.json())
-                                                .then(d => { unreadCount = d.unread_count; notifications.forEach(n => n.is_read = true); })
-                                        " x-show="unreadCount > 0" class="text-xs font-medium text-teal hover:text-teal-dark">Mark all read</button>
-                                    </div>
-
-                                    <div class="overflow-y-auto flex-1 divide-y divide-gray-50">
-                                        <template x-if="notificationsError">
-                                            <div class="px-4 py-6 text-sm text-gray-700">
-                                                <p>Notifications could not load.</p>
-                                                <a href="{{ route('notifications.index') }}" class="mt-2 inline-block font-semibold text-teal underline">Open notifications</a>
-                                            </div>
-                                        </template>
-                                        <template x-if="!notificationsError && notifications.length === 0">
-                                            <div class="px-4 py-8 text-center">
-                                                <p class="text-sm text-gray-400">No notifications yet.</p>
-                                            </div>
-                                        </template>
-                                        <template x-for="n in notifications" :key="n.id">
-                                            <div @click="
-                                                if (!n.is_read) {
-                                                    fetch('/logistics/notifications/' + n.id + '/read', { method: 'PATCH', headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' } })
-                                                        .then(r => r.json())
-                                                        .then(d => { unreadCount = d.unread_count; n.is_read = true; });
-                                                }
-                                                if (n.link) window.location.href = n.link;
-                                            " class="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors"
-                                               :class="n.is_read ? 'bg-white hover:bg-gray-50' : 'bg-teal-light/30 hover:bg-teal-light/50'">
-                                                <span class="text-lg flex-shrink-0 mt-0.5" x-text="n.icon"></span>
-                                                <div class="min-w-0 flex-1">
-                                                    <p class="text-sm font-medium text-gray-900" x-text="n.title"></p>
-                                                    <p class="text-xs text-gray-500 mt-0.5 line-clamp-2" x-text="n.message"></p>
-                                                    <p class="text-[11px] text-gray-400 mt-1" x-text="new Date(n.created_at).toLocaleString()"></p>
-                                                </div>
-                                                <div x-show="!n.is_read" class="h-2 w-2 rounded-full bg-teal flex-shrink-0 mt-2"></div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                    <div class="border-t border-gray-100 px-4 py-2.5 text-center">
-                                        <a href="{{ route('notifications.index', [], false) }}" class="text-xs font-semibold text-teal hover:text-teal-dark">View all notifications</a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Messages Icon -->
-                            <a href="{{ route('messages.index') }}" class="relative text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary" title="Messages" aria-label="Messages">
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
-                                @php try { $topbarUnreadMsgs = \App\Models\Logistics\Conversation::unreadForLogisticsUser((int) auth()->id()); } catch (\Throwable $e) { $topbarUnreadMsgs = 0; } @endphp
-                                @if($topbarUnreadMsgs)
-                                    <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-secondary text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">{{ $topbarUnreadMsgs }}</span>
-                                @endif
-                            </a>
-
-                            @php
-                                $topbarUser = auth()->user();
-                                $topbarPhoto = $topbarUser?->profilePhotoUrl();
-                                $topbarInitial = ($topbarUser && $topbarUser->name) ? substr($topbarUser->name, 0, 1) : '?';
-                                $topbarOnProfile = request()->routeIs('profile.*');
-                                $topbarOnSettings = request()->routeIs('settings.*');
-                                $topbarRole = $topbarUser?->roleLabel();
-                            @endphp
-
-                            <!-- Divider between messaging controls and the account menu -->
-                            <div class="w-px h-6 bg-gray-200 mx-1" aria-hidden="true"></div>
-
-                            <!-- Account menu: one profile trigger for every viewport
-                                 (Hick's Law: Profile, Settings, Log out grouped into a
-                                 single predictable menu; Jakob's Law: avatar/name plus
-                                 chevron, identity header, Profile + Settings, Log out
-                                 separated at the bottom). Notifications and Messages
-                                 stay visible as separate controls. Alpine (already in
-                                 use) drives the toggle — no new framework. -->
-                            <div class="relative" @keydown.escape.window="if (accountOpen) { accountOpen = false; $refs.accountTrigger.focus(); }">
-                                <button type="button" x-ref="accountTrigger"
-                                        @click="accountOpen = !accountOpen"
-                                        :aria-expanded="accountOpen ? 'true' : 'false'"
-                                        aria-haspopup="menu" aria-controls="profile-menu"
-                                        aria-label="Account menu" title="Account"
-                                        class="flex items-center gap-2 min-h-[44px] rounded-xl px-1.5 py-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary">
-                                    @if($topbarPhoto)
-                                        <img src="{{ $topbarPhoto }}" alt="Profile photo" class="h-8 w-8 rounded-full object-cover ring-2 {{ ($topbarOnProfile || $topbarOnSettings) ? 'ring-secondary' : 'ring-teal/20' }} transition flex-shrink-0">
-                                    @else
-                                        <span class="h-8 w-8 rounded-full bg-teal-light ring-2 {{ ($topbarOnProfile || $topbarOnSettings) ? 'ring-secondary' : 'ring-teal/20' }} flex items-center justify-center text-teal-dark text-sm font-bold transition flex-shrink-0" aria-hidden="true">{{ $topbarInitial }}</span>
-                                    @endif
-                                    <span class="hidden sm:block text-sm font-semibold text-[#1F2933] truncate max-w-[140px]">{{ $topbarUser->name }}</span>
-                                    <svg class="h-4 w-4 flex-shrink-0 transition-transform" :class="accountOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                <div id="profile-menu" x-show="accountOpen" x-transition x-cloak @click.outside="accountOpen = false"
-                                     class="absolute right-0 mt-2 w-[280px] max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-lg ring-1 ring-gray-200 z-50 py-1.5 overflow-hidden" role="menu" aria-label="Account">
-                                    {{-- Account header: same photo source/fallback as the
-                                         trigger and Profile page; the inline onerror
-                                         covers a URL that breaks after render. --}}
-                                    <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
-                                        @if($topbarPhoto)
-                                            <img src="{{ $topbarPhoto }}" alt="Profile photo" onerror="this.classList.add('hidden');this.nextElementSibling.classList.remove('hidden');this.nextElementSibling.classList.add('flex');" class="h-11 w-11 rounded-full object-cover ring-2 ring-teal/20 flex-shrink-0">
-                                            <span class="hidden h-11 w-11 rounded-full bg-teal-light ring-2 ring-teal/20 items-center justify-center text-teal-dark text-base font-bold flex-shrink-0" aria-hidden="true">{{ $topbarInitial }}</span>
-                                        @else
-                                            <span class="h-11 w-11 rounded-full bg-teal-light ring-2 ring-teal/20 flex items-center justify-center text-teal-dark text-base font-bold flex-shrink-0" aria-hidden="true">{{ $topbarInitial }}</span>
-                                        @endif
-                                        <div class="min-w-0 flex-1">
-                                            <p class="text-sm font-semibold text-[#1F2933] truncate">{{ $topbarUser->name }}</p>
-                                            @if($topbarRole)
-                                                <p class="text-xs text-gray-500 mt-0.5 truncate">{{ $topbarRole }}</p>
-                                            @endif
-                                        </div>
-                                    </div>
-                                    <a href="{{ route('profile.show') }}" title="Open profile" role="menuitem"
-                                       @if($topbarOnProfile) aria-current="page" @endif
-                                       class="flex items-center gap-3 px-4 min-h-[44px] py-2.5 text-sm font-medium {{ $topbarOnProfile ? 'text-teal-dark bg-teal-light' : 'text-[#1F2933] hover:bg-teal-light' }} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary">
-                                        <svg class="h-5 w-5 flex-none text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                        My Profile
-                                    </a>
-                                    <a href="{{ route('settings.index') }}" title="Settings" role="menuitem"
-                                       @if($topbarOnSettings) aria-current="page" @endif
-                                       class="flex items-center gap-3 px-4 min-h-[44px] py-2.5 text-sm font-medium {{ $topbarOnSettings ? 'text-teal-dark bg-teal-light' : 'text-[#1F2933] hover:bg-teal-light' }} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-secondary">
-                                        <svg class="h-5 w-5 flex-none text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        Settings
-                                    </a>
-                                    <div class="border-t border-gray-100 my-1.5" aria-hidden="true"></div>
-                                    <form method="POST" action="{{ route('logout') }}">
-                                        @csrf
-                                        <button type="submit" role="menuitem" aria-label="Log out"
-                                                class="flex items-center gap-3 w-full px-4 min-h-[44px] py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-red-500">
-                                            <svg class="h-5 w-5 flex-none text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                            </svg>
-                                            Log Out
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </header>
+                @include('shared.navigation.navbar', ['navigationRole' => 'logistics', 'navigationVariant' => 'workspace'])
 
                 <!-- Page Content -->
                 <main class="flex-1 p-4 sm:p-6 lg:p-6">
@@ -345,7 +121,7 @@
                 </main>
             </div>
         </div>
-        <style>[x-cloak] { display: none !important; }</style>
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app-2.css') }}">
         @include('logistics.layouts.partials.form-controls')
         @stack('scripts')
     </body>

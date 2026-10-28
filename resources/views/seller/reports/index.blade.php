@@ -1,4 +1,4 @@
-@extends('layouts.seller')
+@extends('seller.layouts.app')
 
 @section('title', 'Reports & Analytics')
 
@@ -145,34 +145,5 @@
 @endsection
 
 @push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    Chart.defaults.font.family = "'Segoe UI', sans-serif";
-    Chart.defaults.color = '#6E6E73';
-    new Chart(document.getElementById('reportChart'), {
-        type: 'bar',
-        data: {
-            labels: {!! json_encode($labels) !!},
-            datasets: [{
-                label: 'Sales',
-                data: {!! json_encode($sales) !!},
-                backgroundColor: 'rgba(22,105,122,0.55)',
-                borderRadius: 6,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { display: false },
-                tooltip: { callbacks: { label: (ctx) => ' ₱' + Number(ctx.parsed.y).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) } }
-            },
-            scales: {
-                y: { beginAtZero: true, ticks: { callback: (v) => '₱' + v } },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-});
-</script>
+<script src="{{ asset('assets/seller/js/reports/index.js') }}" data-config="{{ json_encode([(json_decode(json_encode($labels), true)), (json_decode(json_encode($sales), true))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endpush

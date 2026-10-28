@@ -7,25 +7,7 @@
     <title>Password Recovery — Logistics</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        teal: {
-                            DEFAULT: '#16697A',
-                            dark: '#0E4A57',
-                            light: '#EAF4F3',
-                        },
-                        secondary: '#F0A202',
-                    },
-                    fontFamily: {
-                        sans: ['Segoe UI', 'system-ui', '-apple-system', 'sans-serif'],
-                    },
-                },
-            },
-        };
-    </script>
+    <script src="{{ asset('assets/logistics/js/auth/forgot-password.js') }}"></script>
 </head>
 <body class="font-sans antialiased bg-[#F7F6F2] text-gray-900">
 <div class="min-h-screen flex items-center justify-center p-6">
@@ -33,7 +15,7 @@
         <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-10 text-center">
             {{-- Brand --}}
             <div class="flex flex-col items-center">
-                <img src="{{ asset('images/logo.png') }}" alt="Logo" class="h-14 w-14 rounded-2xl object-cover ring-1 ring-gray-100">
+                <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Logo" class="h-14 w-14 rounded-2xl object-cover ring-1 ring-gray-100">
                 <p class="mt-3 text-lg font-extrabold tracking-tight text-gray-900">Logistics</p>
                 <p class="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-400 mt-0.5">Logistics Center</p>
             </div>

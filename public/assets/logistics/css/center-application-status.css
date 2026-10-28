@@ -1,0 +1,4 @@
+[x-cloak] { display: none !important; }
+        @media (prefers-reduced-motion: reduce) {
+            .animate-spin { animation: none; }
+        }

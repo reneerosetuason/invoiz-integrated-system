@@ -1,0 +1,20 @@
+@media print {
+            body * { visibility: hidden !important; }
+            #shipping-label, #shipping-label * { visibility: visible !important; }
+            #shipping-label {
+                position: fixed !important;
+                inset: 0 !important;
+                width: 4in !important;
+                max-width: 4in !important;
+                margin: 0 !important;
+                background: #fff !important;
+                color: #000 !important;
+            }
+            #shipping-label * {
+                background: transparent !important;
+                color: #000 !important;
+                border-color: #000 !important;
+                box-shadow: none !important;
+            }
+            .no-print { display: none !important; }
+        }
