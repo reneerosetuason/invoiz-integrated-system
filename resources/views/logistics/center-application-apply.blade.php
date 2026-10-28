@@ -221,7 +221,7 @@
                                     </span>
                                 </span>
                                 <span class="step-indicator-label mt-1.5 block px-0.5 text-center text-[10px] font-semibold leading-snug sm:text-[11px]"
-                                      :class="isCurrent(i) ? 'font-bold text-teal-dark' : (isError(i) ? 'text-red-600' : (isCompleted(i) ? 'text-gray-800' : (isReachable(i) ? 'text-gray-500' : 'text-gray-400'))))"
+                                      :class="isCurrent(i) ? 'font-bold text-teal-dark' : (isError(i) ? 'text-red-600' : (isCompleted(i) ? 'text-gray-800' : (isReachable(i) ? 'text-gray-500' : 'text-gray-400')))"
                                       x-text="title"></span>
                             </button>
                         </li>

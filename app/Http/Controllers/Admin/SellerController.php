@@ -259,26 +259,10 @@ class SellerController extends Controller
             abort(404, 'No document file recorded for this requirement.');
         }
 
-        $clean = ltrim(str_replace(['\\', '/storage/'], ['/', ''], $field), '/');
-
-        $candidates = [
-            storage_path('app/public/' . $clean),
-            public_path('storage/' . $clean),
-            public_path($clean),
-            storage_path('app/' . $clean),
-        ];
-
-        $found = null;
-        foreach ($candidates as $cand) {
-            if (file_exists($cand) && ! is_dir($cand)) {
-                $found = $cand;
-                break;
-            }
-        }
-
-        if (! $found) {
-            abort(404, 'File not found on server disk for: ' . basename($field));
-        }
+        $found = $type === 'logo'
+            ? \App\Support\AssetFiles::publicFile($field)
+            : \App\Support\AssetFiles::document($field);
+        abort_unless($found, 404, 'Document file not found.');
 
         $mime = mime_content_type($found) ?: 'application/octet-stream';
         $filename = basename($found);
@@ -286,8 +270,9 @@ class SellerController extends Controller
         return response()->file($found, [
             'Content-Type' => $mime,
             'Content-Disposition' => 'inline; filename="' . $filename . '"',
-            'Cache-Control' => 'no-cache, private',
-        ]);
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
+        ])->setPrivate();
     }
 }
 

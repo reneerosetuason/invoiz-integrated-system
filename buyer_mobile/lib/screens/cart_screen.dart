@@ -1,5 +1,6 @@
+import '../widgets/product_photo.dart';
+import '../services/buyer_updates.dart';
 import 'package:flutter/material.dart';
-import '../config.dart';
 import '../models/cart.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
@@ -12,14 +13,15 @@ import 'login_screen.dart';
 import 'product_detail_screen.dart';
 
 class CartScreen extends StatefulWidget {
-  const CartScreen({super.key});
+  final ApiService? api;
+  const CartScreen({super.key, this.api});
 
   @override
   State<CartScreen> createState() => _CartScreenState();
 }
 
 class _CartScreenState extends State<CartScreen> {
-  final _api = ApiService();
+  late final ApiService _api;
   final _searchCtrl = TextEditingController();
   Cart? _cart;
   bool _loading = true;
@@ -38,6 +40,7 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? ApiService();
     _load();
   }
 
@@ -46,13 +49,27 @@ class _CartScreenState extends State<CartScreen> {
     try {
       final data = await _api.get('cart');
       final cart = Cart.fromJson(data);
+      if (!mounted) return;
+      final initial = _cart == null;
       setState(() {
         _cart = cart;
-        _selected.clear();
-        _selected.addAll(cart.items.map((i) => i.id));
+        if (initial) {
+          _selected.addAll(
+            cart.items
+                .where((i) => i.availableStock >= i.quantity && i.quantity > 0)
+                .map((i) => i.id),
+          );
+        } else {
+          final ids = cart.items
+              .where((i) => i.availableStock >= i.quantity && i.quantity > 0)
+              .map((i) => i.id)
+              .toSet();
+          _selected.removeWhere((id) => !ids.contains(id));
+        }
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(
         context,
@@ -69,10 +86,19 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _updateQty(CartItem item, int qty) async {
     if (qty < 1) return;
+    final stock = item.availableStock;
+    if (qty > 200 || qty > stock) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Only $stock available.')));
+      return;
+    }
     try {
       await _api.put('cart/${item.id}', {'quantity': qty});
+      BuyerUpdates.cartChanged();
       _load();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -82,8 +108,10 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _remove(CartItem item) async {
     try {
       await _api.delete('cart/${item.id}');
+      BuyerUpdates.cartChanged();
       _load();
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -119,7 +147,7 @@ class _CartScreenState extends State<CartScreen> {
                     const SizedBox(height: 12),
                     const Text(
                       'Please log in to view your cart.',
-                      style: TextStyle(color: Color(0xFF212121)),
+                      style: TextStyle(color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 16),
                     ElevatedButton(
@@ -151,14 +179,14 @@ class _CartScreenState extends State<CartScreen> {
                 ? const Center(
                     child: Text(
                       'Your cart is empty.',
-                      style: TextStyle(color: Color(0xFF212121)),
+                      style: TextStyle(color: AppColors.textPrimary),
                     ),
                   )
                 : _visibleItems.isEmpty
                 ? const Center(
                     child: Text(
                       'No matching items in your cart.',
-                      style: TextStyle(color: Color(0xFF212121)),
+                      style: TextStyle(color: AppColors.textPrimary),
                     ),
                   )
                 : ListView.separated(
@@ -240,12 +268,12 @@ class _CartScreenState extends State<CartScreen> {
                         onChanged: (v) => setState(() => _search = v.trim()),
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF212121),
+                          color: AppColors.textPrimary,
                         ),
                         decoration: const InputDecoration(
                           hintText: 'Search in your cart...',
                           hintStyle: TextStyle(
-                            color: Color(0xFF9E9E9E),
+                            color: AppColors.textMuted,
                             fontSize: 13,
                           ),
                           border: InputBorder.none,
@@ -261,7 +289,7 @@ class _CartScreenState extends State<CartScreen> {
                       icon: const Icon(
                         Icons.close,
                         size: 16,
-                        color: Color(0xFF9E9E9E),
+                        color: AppColors.textMuted,
                       ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
@@ -331,13 +359,15 @@ class _CartScreenState extends State<CartScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(4),
             ),
-            onChanged: (v) => setState(() {
-              if (v == true) {
-                _selected.add(item.id);
-              } else {
-                _selected.remove(item.id);
-              }
-            }),
+            onChanged: item.availableStock < item.quantity
+                ? null
+                : (v) => setState(() {
+                    if (v == true) {
+                      _selected.add(item.id);
+                    } else {
+                      _selected.remove(item.id);
+                    }
+                  }),
           ),
           GestureDetector(
             onTap: () => Navigator.push(
@@ -368,9 +398,14 @@ class _CartScreenState extends State<CartScreen> {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF212121),
+                    color: AppColors.textPrimary,
                   ),
                 ),
+                if (item.availableStock < item.quantity)
+                  const Text(
+                    'Unavailable in this quantity',
+                    style: TextStyle(color: AppColors.danger, fontSize: 11),
+                  ),
                 if (item.variantLabel.isNotEmpty)
                   Text(
                     item.variantLabel,
@@ -409,7 +444,9 @@ class _CartScreenState extends State<CartScreen> {
     return Row(
       children: [
         InkWell(
-          onTap: () => _updateQty(item, item.quantity - 1),
+          onTap: item.availableStock < 1 || item.quantity <= 1
+              ? null
+              : () => _updateQty(item, item.quantity - 1),
           child: Container(
             width: 28,
             height: 28,
@@ -430,12 +467,14 @@ class _CartScreenState extends State<CartScreen> {
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF212121),
+              color: AppColors.textPrimary,
             ),
           ),
         ),
         InkWell(
-          onTap: () => _updateQty(item, item.quantity + 1),
+          onTap: item.quantity >= item.availableStock || item.quantity >= 200
+              ? null
+              : () => _updateQty(item, item.quantity + 1),
           child: Container(
             width: 28,
             height: 28,
@@ -538,24 +577,7 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  Widget _image(String? url) {
-    if (url == null || url.isEmpty)
-      return const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 24,
-      );
-    final src = AppConfig.storageUrl(url);
-    return Image.network(
-      src,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 24,
-      ),
-    );
-  }
+  Widget _image(String? url) => ProductPhoto(path: url);
 
   String _fmt(double v) {
     final n = v.toStringAsFixed(2);

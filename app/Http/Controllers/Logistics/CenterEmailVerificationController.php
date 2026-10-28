@@ -136,6 +136,8 @@ class CenterEmailVerificationController extends Controller
 
         return response()->json([
             'message' => 'Email verified successfully.',
+            'application_access_token' => \App\Support\ApplicationStatusAccess::grant($request, $email),
+            'application_access_expires_in' => 900,
             'email' => $email,
         ]);
     }

@@ -61,6 +61,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(
         context,
@@ -120,7 +121,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       case 'delivered':
         return AppColors.success;
       case 'cancelled':
-        return Colors.red;
+        return AppColors.danger;
       case 'out_for_delivery':
         return AppColors.primary;
       default:
@@ -178,7 +179,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       _search.isNotEmpty
                           ? 'No matching orders.'
                           : 'No orders found.',
-                      style: const TextStyle(color: Color(0xFF212121)),
+                      style: const TextStyle(color: AppColors.textPrimary),
                     ),
                   )
                 : ListView.separated(
@@ -260,12 +261,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         },
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF212121),
+                          color: AppColors.textPrimary,
                         ),
                         decoration: const InputDecoration(
                           hintText: 'Search orders...',
                           hintStyle: TextStyle(
-                            color: Color(0xFF9E9E9E),
+                            color: AppColors.textMuted,
                             fontSize: 13,
                           ),
                           border: InputBorder.none,
@@ -343,7 +344,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: Color(0xFF212121),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const Spacer(),
@@ -393,7 +394,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF212121),
+                            color: AppColors.textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

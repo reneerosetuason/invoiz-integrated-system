@@ -1,5 +1,5 @@
+import '../widgets/product_photo.dart';
 import 'package:flutter/material.dart';
-import '../config.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
@@ -12,7 +12,8 @@ import 'product_detail_screen.dart';
 /// tabs for Products / Reviews, with in-store search + sort.
 class SellerStoreScreen extends StatefulWidget {
   final int sellerId;
-  const SellerStoreScreen({super.key, required this.sellerId});
+  final ApiService? api;
+  const SellerStoreScreen({super.key, required this.sellerId, this.api});
 
   @override
   State<SellerStoreScreen> createState() => _SellerStoreScreenState();
@@ -20,13 +21,21 @@ class SellerStoreScreen extends StatefulWidget {
 
 class _SellerStoreScreenState extends State<SellerStoreScreen>
     with SingleTickerProviderStateMixin {
-  final _api = ApiService();
+  late final _api = widget.api ?? ApiService();
   final _searchCtrl = TextEditingController();
 
   Map<String, dynamic>? _store;
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _reviews = [];
   bool _loading = true;
+  bool _reviewsLoading = false;
+  String? _reviewsError;
+  int _productsPage = 1;
+  int _productsLastPage = 1;
+  int _reviewsPage = 0;
+  int _reviewsLastPage = 1;
+  bool _loadingMore = false;
+  int _loadVersion = 0;
   bool _following = false;
   bool _followBusy = false;
   int _followers = 0;
@@ -56,28 +65,48 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
     super.dispose();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> _load({bool more = false}) async {
+    if (more && (_loadingMore || _loading)) return;
+    final version = ++_loadVersion;
+    setState(() {
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _loadingMore = false;
+      }
+    });
     try {
       final query = <String, String>{
         'per_page': '24',
+        'page': '${more ? _productsPage + 1 : 1}',
         if (_sort == 'price_asc' || _sort == 'price_desc' || _sort == 'rating')
           'sort': _sort,
         if (_searchCtrl.text.trim().isNotEmpty)
           'search': _searchCtrl.text.trim(),
       };
       final data = await _api.get('stores/${widget.sellerId}', query: query);
+      if (!mounted || version != _loadVersion) return;
       final store = data['store'] as Map<String, dynamic>;
       final products = data['products'];
       setState(() {
         _store = store;
-        _products = (products['data'] as List).cast<Map<String, dynamic>>();
+        final items = (products['data'] as List).cast<Map<String, dynamic>>();
+        _products = more ? [..._products, ...items] : items;
+        _productsPage = products['current_page'] as int? ?? 1;
+        _productsLastPage = products['last_page'] as int? ?? 1;
+        _loadingMore = false;
         _following = store['is_following'] as bool? ?? false;
         _followers = (store['followers'] as int?) ?? 0;
         _loading = false;
       });
     } catch (e) {
-      setState(() => _loading = false);
+      if (!mounted) return;
+      if (version != _loadVersion) return;
+      setState(() {
+        _loading = false;
+        _loadingMore = false;
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -85,6 +114,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
   }
 
   Future<void> _toggleFollow() async {
+    if (_followBusy) return;
     final auth = AuthServiceProvider.of(context);
     if (!auth.isLoggedIn) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -103,6 +133,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         'stores/${widget.sellerId}/follow',
         method: method,
       );
+      if (!mounted) return;
       setState(() {
         _following = r['is_following'] as bool;
         _followers = (r['followers'] as int?) ?? _followers;
@@ -113,6 +144,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -121,14 +153,30 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
     }
   }
 
-  Future<void> _loadReviews() async {
+  Future<void> _loadReviews({bool more = false}) async {
+    if (_reviewsLoading) return;
+    setState(() {
+      _reviewsLoading = true;
+      _reviewsError = null;
+    });
     try {
-      final data = await _api.get('stores/${widget.sellerId}/reviews');
+      final data = await _api.get(
+        'stores/${widget.sellerId}/reviews',
+        query: {'page': '${more ? _reviewsPage + 1 : 1}'},
+      );
+      final result = data['reviews'];
+      final rows = result is Map ? result['data'] : result;
+      if (!mounted) return;
       setState(() {
-        _reviews = (data['reviews'] as List).cast<Map<String, dynamic>>();
+        final items = (rows as List).cast<Map<String, dynamic>>();
+        _reviews = more ? [..._reviews, ...items] : items;
+        _reviewsPage = result is Map ? result['current_page'] as int? ?? 1 : 1;
+        _reviewsLastPage = result is Map ? result['last_page'] as int? ?? 1 : 1;
       });
-    } catch (_) {
-      // Reviews are best-effort; keep empty on failure.
+    } catch (e) {
+      if (mounted) setState(() => _reviewsError = e.toString());
+    } finally {
+      if (mounted) setState(() => _reviewsLoading = false);
     }
   }
 
@@ -232,15 +280,9 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 72,
+            height: 100,
             width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [AppColors.primary, AppColors.primaryDark],
-              ),
-            ),
+            decoration: BoxDecoration(color: AppColors.surfaceTint),
             child: Stack(
               children: [
                 Positioned(
@@ -249,7 +291,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                   child: Icon(
                     Icons.storefront,
                     size: 110,
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: AppColors.primary.withValues(alpha: 0.08),
                   ),
                 ),
                 Positioned(
@@ -292,8 +334,9 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
+                                      fontFamily: 'Fraunces',
+                                      color: AppColors.primaryDark,
+                                      fontSize: 22,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -312,7 +355,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white70,
+                                color: AppColors.textSecondary,
                                 fontSize: 12,
                               ),
                             ),
@@ -417,7 +460,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
             style: const TextStyle(
               fontSize: 17,
               fontWeight: FontWeight.w800,
-              color: Color(0xFF212121),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 2),
@@ -485,8 +528,21 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                     crossAxisSpacing: 14,
                     childAspectRatio: 0.64,
                   ),
-                  itemCount: _products.length,
-                  itemBuilder: (context, i) => _productCard(_products[i]),
+                  itemCount:
+                      _products.length +
+                      (_productsPage < _productsLastPage ? 1 : 0),
+                  itemBuilder: (context, i) => i < _products.length
+                      ? _productCard(_products[i])
+                      : Center(
+                          child: OutlinedButton(
+                            onPressed: _loadingMore
+                                ? null
+                                : () => _load(more: true),
+                            child: Text(
+                              _loadingMore ? 'Loading…' : 'More products',
+                            ),
+                          ),
+                        ),
                 ),
         ),
       ],
@@ -498,11 +554,12 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
   // ---------------------------------------------------------------------
   Widget _reviewsTab(BuildContext context) {
     final s = _store!;
-    final breakdown =
-        (s['rating_breakdown'] as Map?)?.map(
-          (k, v) => MapEntry(int.parse('$k'), v as int),
-        ) ??
-        <int, int>{};
+    final rawBreakdown = s['rating_breakdown'];
+    final breakdown = rawBreakdown is Map
+        ? rawBreakdown.map(
+            (k, v) => MapEntry(int.parse('$k'), int.tryParse('$v') ?? 0),
+          )
+        : <int, int>{};
     final reviewCount = (s['review_count'] as int?) ?? 0;
     final rating = double.tryParse('${s['rating']}') ?? 0;
 
@@ -524,7 +581,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 12),
@@ -573,7 +630,15 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
           ),
         ),
         const SizedBox(height: 16),
-        if (_reviews.isEmpty)
+        if (_reviewsLoading) const Center(child: CircularProgressIndicator()),
+        if (_reviewsError != null) ...[
+          Text(_reviewsError!),
+          TextButton(
+            onPressed: _loadReviews,
+            child: const Text('Retry reviews'),
+          ),
+        ],
+        if (_reviews.isEmpty && !_reviewsLoading && _reviewsError == null)
           Padding(
             padding: const EdgeInsets.only(top: 20),
             child: Center(
@@ -585,6 +650,11 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
           )
         else
           ..._reviews.map((r) => _reviewTile(r)),
+        if (_reviewsPage < _reviewsLastPage && _reviews.isNotEmpty)
+          TextButton(
+            onPressed: _reviewsLoading ? null : () => _loadReviews(more: true),
+            child: const Text('More reviews'),
+          ),
       ],
     );
   }
@@ -624,7 +694,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
   }
 
   Widget _reviewTile(Map<String, dynamic> r) {
-    final rating = (r['rating'] as int?) ?? 0;
+    final rating = int.tryParse('${r['rating']}') ?? 0;
     final buyer = r['buyer'];
     final name = buyer is Map<String, dynamic>
         ? '${buyer['first_name'] ?? ''} ${buyer['last_name'] ?? ''}'
@@ -647,7 +717,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(width: 8),
@@ -671,7 +741,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.4,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ),
@@ -733,7 +803,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                         fontSize: 13,
                         height: 1.25,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF212121),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -756,7 +826,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF212121),
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -781,24 +851,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
     );
   }
 
-  Widget _productImage(String? url) {
-    if (url == null || url.isEmpty) {
-      return const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 40,
-      );
-    }
-    return Image.network(
-      AppConfig.storageUrl(url),
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 40,
-      ),
-    );
-  }
+  Widget _productImage(String? url) => ProductPhoto(path: url);
 
   String _formatPrice(double value) {
     final n = value.toStringAsFixed(2);

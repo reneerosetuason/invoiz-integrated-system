@@ -119,15 +119,20 @@ class Seller extends Model
         return (int) ($sellerById?->user_id ?? $id);
     }
 
-    /**
-     * Both keys that can appear as `seller_id` across the shared DB:
-     * - real invoizdb rows use the seller's USER id (products, order_items, follows)
-     * - admin rows use the SELLERS row id (orders, vouchers, payouts)
-     * Querying both keeps every function showing the same items.
-     */
+    /** Catalog/order/delivery seller_id references users.id; never mix this with sellers.id. */
     public function catalogIds(): array
     {
-        return array_values(array_unique([(int) $this->id, (int) $this->user_id]));
+        return [(int) $this->user_id];
+    }
+
+    /** Sales/vouchers reference sellers.id; recognize legacy user keys only if no seller row can own that key. */
+    public function recordIds(): array
+    {
+        $ids = [(int) $this->id];
+        if ((int) $this->user_id !== (int) $this->id && ! static::withTrashed()->whereKey($this->user_id)->exists()) {
+            $ids[] = (int) $this->user_id;
+        }
+        return $ids;
     }
 
     public function scopeCatalog($query, Seller $seller)
@@ -142,22 +147,22 @@ class Seller extends Model
 
     public function idImageUrl(): ?string
     {
-        return $this->id_image ? url('storage/' . ltrim($this->id_image, '/')) : null;
+        return $this->id_image ? url('documents/' . ltrim($this->id_image, '/')) : null;
     }
 
     public function businessPermitUrl(): ?string
     {
-        return $this->business_permit ? url('storage/' . ltrim($this->business_permit, '/')) : null;
+        return $this->business_permit ? url('documents/' . ltrim($this->business_permit, '/')) : null;
     }
 
     public function dtiCertificateUrl(): ?string
     {
-        return $this->dti_certificate ? url('storage/' . ltrim($this->dti_certificate, '/')) : null;
+        return $this->dti_certificate ? url('documents/' . ltrim($this->dti_certificate, '/')) : null;
     }
 
     public function bir2303Url(): ?string
     {
-        return $this->bir_2303 ? url('storage/' . ltrim($this->bir_2303, '/')) : null;
+        return $this->bir_2303 ? url('documents/' . ltrim($this->bir_2303, '/')) : null;
     }
 
     public function fullAddress(): string
@@ -197,6 +202,6 @@ class Seller extends Model
 
     public function products()
     {
-        return $this->hasMany(Product::class);
+        return $this->hasMany(Product::class, 'seller_id', 'user_id');
     }
 }

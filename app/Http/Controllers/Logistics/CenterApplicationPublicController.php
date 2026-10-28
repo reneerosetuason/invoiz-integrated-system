@@ -122,6 +122,7 @@ class CenterApplicationPublicController extends Controller
         $validated = $request->validate([
             'email' => 'required|email|max:255',
         ]);
+        \App\Support\ApplicationStatusAccess::requireOwner($request, $validated['email']);
 
         return view('logistics.center-application-status', [
             'searched' => true,

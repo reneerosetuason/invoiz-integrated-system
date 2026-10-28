@@ -22,8 +22,7 @@ class DeliveryServiceability
 
     public static function pickupAddressProblem(int $sellerId): ?string
     {
-        $seller = Seller::query()->whereKey($sellerId)->first()
-            ?? Seller::query()->where('user_id', $sellerId)->first();
+        $seller = Seller::query()->where('user_id', $sellerId)->first();
 
         if (! $seller) {
             return "Delivery is unavailable because seller #{$sellerId} has no pickup profile.";

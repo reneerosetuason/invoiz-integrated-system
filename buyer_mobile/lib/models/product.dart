@@ -6,6 +6,7 @@ class ProductVariant {
   final String variantValue;
   final double priceAdjustment;
   final int stock;
+  final String status;
 
   ProductVariant({
     required this.id,
@@ -13,6 +14,7 @@ class ProductVariant {
     required this.variantValue,
     this.priceAdjustment = 0,
     this.stock = 0,
+    this.status = 'active',
   });
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) => ProductVariant(
@@ -21,7 +23,11 @@ class ProductVariant {
     variantValue: json['variant_value'] as String,
     priceAdjustment: double.tryParse('${json['price_adjustment']}') ?? 0,
     stock: (json['stock'] as int?) ?? 0,
+    status: json['status'] as String? ?? 'active',
   );
+
+  bool get isAvailable =>
+      stock > 0 && !['inactive', 'unavailable', 'deleted'].contains(status);
 
   String get label => '$variantType: $variantValue';
 }
@@ -201,11 +207,15 @@ class Product {
     );
   }
 
-  List<String> get displayImages {
-    if (gallery.isNotEmpty) return gallery;
-    if (image != null && image!.isNotEmpty) return [image!];
-    return const [];
-  }
+  int get availableStock => variants.isEmpty
+      ? stock
+      : variants.where((v) => v.isAvailable).fold(0, (sum, v) => sum + v.stock);
+
+  List<String> get displayImages => [if (image != null) image!, ...gallery]
+      .map((path) => path.trim())
+      .where((path) => path.isNotEmpty)
+      .toSet()
+      .toList();
 
   String get formattedPrice {
     final n = price.toStringAsFixed(2);

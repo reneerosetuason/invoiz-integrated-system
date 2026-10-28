@@ -22,8 +22,8 @@ class Sales
         }
 
         try {
-            $seller = Seller::where('user_id', $sellerId)->first() ?? Seller::find($sellerId);
-            $sellerIds = $seller ? $seller->catalogIds() : [$sellerId];
+            $seller = Seller::where('user_id', $sellerId)->first();
+            $sellerIds = $seller ? $seller->recordIds() : [];
 
             return Sale::whereIn('seller_id', $sellerIds)
                 ->where('status', 'active')

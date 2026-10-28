@@ -40,15 +40,7 @@ class Payments
     /** All seller identity flavours one user id can own (sellers.id + user id). */
     public static function catalogIdsForUser(int $userId): array
     {
-        $ids = [$userId];
-        try {
-            $seller = Seller::where('user_id', $userId)->first();
-            if ($seller) {
-                $ids = array_merge($ids, $seller->catalogIds());
-            }
-        } catch (\Throwable $e) {
-        }
-        return array_values(array_unique(array_map('intval', $ids)));
+        return [$userId];
     }
 
     /** Ledger row for an order (buyer total split once known). */
@@ -72,7 +64,7 @@ class Payments
                 'status'          => 'pending',
             ]);
         } catch (\Throwable $e) {
-            \Log::warning('Payment ledger checkout failed: ' . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -123,7 +115,8 @@ class Payments
      */
     public static function settleForDelivery(Order $order, bool $force = false): void
     {
-        try {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($order, $force) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $order->loadMissing(['items', 'orderVouchers.voucher']);
             $split = self::splitForSellers($order);
             $sellerEarning = round(array_sum(array_column($split, 'earning')), 2);
@@ -159,9 +152,7 @@ class Payments
             if ($order->payment) {
                 $order->payment->update(['status' => 'paid', 'paid_at' => now()]);
             }
-        } catch (\Throwable $e) {
-            \Log::warning('Payment settle failed: ' . $e->getMessage());
-        }
+        });
     }
 
     /** Void a pending ledger row when an unpaid order is cancelled. */

@@ -1,3 +1,4 @@
+import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../models/order.dart';
 import '../services/api_service.dart';
@@ -6,14 +7,15 @@ import '../widgets/main_layout.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
-  const OrderDetailScreen({super.key, required this.orderId});
+  final ApiService? api;
+  const OrderDetailScreen({super.key, required this.orderId, this.api});
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
 }
 
 class _OrderDetailScreenState extends State<OrderDetailScreen> {
-  final _api = ApiService();
+  late final _api = widget.api ?? ApiService();
   Order? _order;
   bool _loading = true;
 
@@ -26,11 +28,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _load() async {
     try {
       final data = await _api.get('orders/${widget.orderId}');
+      if (!mounted) return;
       setState(() {
         _order = Order.fromJson(data['order'] as Map<String, dynamic>);
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(
         context,
@@ -56,23 +60,272 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ],
       ),
     );
-    if (confirm != true) return;
+    if (confirm != true || !mounted || _actionBusy) return;
     try {
+      setState(() => _actionBusy = true);
       await _api.post('orders/${widget.orderId}/cancel', {
         'reason': 'changed_mind',
       });
+      if (!mounted) return;
       _load();
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Order cancelled.')));
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.danger,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
     }
+  }
+
+  bool _actionBusy = false;
+
+  Future<void> _requestReturn(OrderItem item) async {
+    if (_actionBusy) return;
+    var reason = 'damaged';
+    var quantity = 1;
+    var reasonDetails = '';
+    final form = GlobalKey<FormState>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, update) => AlertDialog(
+          title: const Text('Request a return'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: form,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(item.productName),
+                  if (item.variantLabel?.isNotEmpty == true)
+                    Text(item.variantLabel!),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: reason,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Reason'),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'damaged',
+                        child: Text('Damaged item'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'wrong_item',
+                        child: Text('Wrong item'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'not_as_described',
+                        child: Text('Not as described'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'changed_mind',
+                        child: Text('Changed my mind'),
+                      ),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (value) => update(() => reason = value!),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: '1',
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Quantity (up to ${item.quantity})',
+                    ),
+                    validator: (value) {
+                      final parsed = int.tryParse(value ?? '');
+                      if (parsed == null ||
+                          parsed < 1 ||
+                          parsed > item.quantity)
+                        return 'Enter a valid purchased quantity.';
+                      return null;
+                    },
+                    onSaved: (value) => quantity = int.parse(value!),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    onChanged: (value) => reasonDetails = value.trim(),
+                    maxLength: 300,
+                    maxLines: 3,
+                    decoration: const InputDecoration(labelText: 'Details'),
+                    validator: (value) =>
+                        reason == 'other' && (value?.trim().length ?? 0) < 10
+                        ? 'Please provide at least 10 characters.'
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Keep item'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (form.currentState!.validate()) {
+                  form.currentState!.save();
+                  Navigator.pop(ctx, true);
+                }
+              },
+              child: const Text('Send request'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _actionBusy = true);
+    try {
+      await _api.post('orders/${widget.orderId}/returns', {
+        'order_item_id': item.id,
+        'reason': reason,
+        'quantity': quantity,
+        if (reasonDetails.isNotEmpty) 'reason_details': reasonDetails,
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Return requested. The store will review your request.',
+          ),
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
+  }
+
+  Future<void> _showDeliveryCode(Delivery delivery) async {
+    if (_actionBusy || delivery.id == null) return;
+    setState(() => _actionBusy = true);
+    try {
+      final data = await _api.get(
+        'orders/${widget.orderId}/deliveries/${delivery.id}/otp',
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Delivery verification code'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${data['otp']}',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 6,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Share this code with your rider only when you receive your parcel.',
+              ),
+              if (data['expires_at'] != null)
+                Text('Expires: ${_date('${data['expires_at']}')}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
+  }
+
+  Widget _deliveriesCard(Order order) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Your deliveries',
+            style: TextStyle(
+              fontFamily: 'Fraunces',
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          for (final delivery in order.deliveries)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    delivery.trackingNumber ?? 'Delivery #${delivery.id ?? ''}',
+                  ),
+                  Text(delivery.status.replaceAll('_', ' ').toUpperCase()),
+                  if (delivery.canShowOtp && delivery.id != null)
+                    OutlinedButton.icon(
+                      onPressed: _actionBusy
+                          ? null
+                          : () => _showDeliveryCode(delivery),
+                      icon: const Icon(Icons.pin_outlined),
+                      label: const Text('Show delivery code'),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    ),
+  );
+
+  Widget _returnAction(Order order, OrderItem item) {
+    final previous = order.returns
+        .where((r) => r['order_item_id'] == item.id)
+        .toList();
+    final open = previous
+        .where(
+          (r) =>
+              ['requested', 'approved', 'item_received'].contains(r['status']),
+        )
+        .firstOrNull;
+    if (open != null)
+      return Text(
+        'Return: ${open['status'].toString().replaceAll('_', ' ')}',
+        style: const TextStyle(color: AppColors.primary),
+      );
+    final refundedQuantity = previous
+        .where((r) => r['status'] == 'refunded')
+        .fold<int>(
+          0,
+          (sum, r) => sum + (int.tryParse('${r['quantity']}') ?? 0),
+        );
+    if (refundedQuantity >= item.quantity)
+      return const Text('Returned and refunded');
+    return TextButton.icon(
+      onPressed: _actionBusy ? null : () => _requestReturn(item),
+      icon: const Icon(Icons.assignment_return_outlined, size: 18),
+      label: const Text('Request return'),
+    );
   }
 
   Future<void> _rateProduct(OrderItem item) async {
@@ -90,10 +343,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(5, (i) {
                   return IconButton(
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 40,
+                    ),
+                    padding: const EdgeInsets.all(4),
                     icon: Icon(
                       Icons.star,
                       color: i < rating ? AppColors.gold : AppColors.border,
-                      size: 32,
+                      size: 28,
                     ),
                     onPressed: () => setLocal(() => rating = i + 1),
                   );
@@ -128,14 +386,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         'rating': rating,
         'comment': commentCtrl.text.trim(),
       });
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Thank you for your feedback!')),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.danger,
         ),
       );
     }
@@ -144,31 +404,42 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return MainLayout(
+      showBottomNav: false,
       title: 'Order #${widget.orderId}',
       child: _loading
           ? const Center(child: CircularProgressIndicator())
           : _order == null
           ? const Center(child: Text('Order not found.'))
           : ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
+                const BuyerPageHeading(
+                  title: 'Your order at a glance',
+                  description:
+                      'Track progress, delivery details and purchased items.',
+                ),
                 _header(_order!),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 _progressCard(_order!),
                 const SizedBox(height: 8),
+                if (_order!.deliveries.isNotEmpty) _deliveriesCard(_order!),
                 _itemsCard(_order!),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 _summaryCard(_order!),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 _timelineCard(_order!),
                 const SizedBox(height: 8),
-                if (_order!.status == 'pending' ||
-                    _order!.status == 'confirmed')
+                if (_order!.canCancel ??
+                    [
+                      'pending',
+                      'confirmed',
+                      'processing',
+                    ].contains(_order!.status))
                   OutlinedButton(
-                    onPressed: _cancelOrder,
+                    onPressed: _actionBusy ? null : _cancelOrder,
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.red,
-                      side: const BorderSide(color: Colors.red),
+                      foregroundColor: AppColors.danger,
+                      side: const BorderSide(color: AppColors.danger),
                     ),
                     child: const Text('Cancel Order'),
                   ),
@@ -183,43 +454,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text(
-                'Status: ',
-                style: TextStyle(fontSize: 14, color: Color(0xFF212121)),
+                'Order status',
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
-              Text(
-                order.status.replaceAll('_', ' ').toUpperCase(),
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: _color(order.status),
-                ),
-              ),
+              BuyerStatusChip(status: order.status),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             'Placed on: ${_date(order.createdAt)}',
-            style: const TextStyle(fontSize: 12, color: Color(0xFF616161)),
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
           ),
           if (pay != null)
             Text(
               'Payment: ${pay.method.replaceAll('_', ' ').toUpperCase()} · ${pay.status.toUpperCase()}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF616161)),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
           if (order.delivery != null)
             Text(
               'Delivery: ${order.delivery!.status.replaceAll('_', ' ').toUpperCase()}',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF616161)),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
         ],
       ),
@@ -237,13 +513,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       return Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(6),
+          color: AppColors.danger.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
         ),
         padding: const EdgeInsets.all(14),
         child: Row(
           children: [
-            const Icon(Icons.cancel_outlined, color: Colors.red),
+            const Icon(Icons.cancel_outlined, color: AppColors.danger),
             const SizedBox(width: 10),
             const Expanded(
               child: Text(
@@ -264,7 +540,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       child: Column(
@@ -273,9 +549,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const Text(
             'Order Progress',
             style: TextStyle(
+              fontFamily: 'Fraunces',
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF212121),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 16),
@@ -368,7 +645,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -377,9 +654,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const Text(
             'Items',
             style: TextStyle(
+              fontFamily: 'Fraunces',
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF212121),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -397,7 +675,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF212121),
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -405,7 +683,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         '${item.quantity} × ${_fmt(item.price)}',
                         style: const TextStyle(
                           fontSize: 13,
-                          color: Color(0xFF212121),
+                          color: AppColors.textPrimary,
                         ),
                       ),
                     ],
@@ -419,6 +697,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                  if (order.status == 'delivered') _returnAction(order, item),
                   const SizedBox(height: 4),
                   Row(
                     children: [
@@ -459,7 +738,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -469,7 +748,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             children: [
               const Text(
                 'Subtotal',
-                style: TextStyle(fontSize: 13, color: Color(0xFF212121)),
+                style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
               ),
               Text(_fmt(subtotal), style: const TextStyle(fontSize: 13)),
             ],
@@ -481,7 +760,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               children: [
                 const Text(
                   'Voucher Discount',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF212121)),
+                  style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
                 ),
                 Text(
                   '-${_fmt(discount)}',
@@ -499,7 +778,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
               Text(
@@ -521,7 +800,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
       ),
       padding: const EdgeInsets.all(14),
       child: Column(
@@ -530,9 +809,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           const Text(
             'Order Timeline',
             style: TextStyle(
+              fontFamily: 'Fraunces',
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF212121),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -559,7 +839,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                             style: const TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF212121),
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           if (h.note != null)
@@ -567,14 +847,14 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               h.note!,
                               style: const TextStyle(
                                 fontSize: 12,
-                                color: Color(0xFF212121),
+                                color: AppColors.textPrimary,
                               ),
                             ),
                           Text(
                             _date(h.createdAt),
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF616161),
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
@@ -594,7 +874,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       case 'delivered':
         return AppColors.success;
       case 'cancelled':
-        return Colors.red;
+        return AppColors.danger;
       case 'out_for_delivery':
         return AppColors.primary;
       default:

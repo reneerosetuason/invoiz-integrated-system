@@ -84,6 +84,6 @@ class ReturnController extends Controller
     {
         $seller = Seller::where('user_id', auth()->id())->first();
 
-        return $seller ? $seller->catalogIds() : [(int) auth()->id()];
+        return [(int) auth()->id()];
     }
 }

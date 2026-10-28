@@ -17,14 +17,7 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $user = $this->createBuyer($request);
-        $token = $user->createToken('invoiz-app')->plainTextToken;
-
-        return response()->json([
-            'message' => 'Registered successfully.',
-            'token' => $token,
-            'user' => $user->only(['id', 'first_name', 'last_name', 'email', 'approval_status']),
-        ], 201);
+        return app(MobileAuthController::class)->register($request);
     }
 
     protected function createBuyer(Request $request): User
@@ -40,9 +33,9 @@ class AuthController extends Controller
             'middle_initial' => ['nullable', 'string', 'max:10', new PersonName],
             'sex' => ['required', Rule::in(['male', 'female', 'other'])],
             'email' => ['required', 'email', 'max:150', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'phone' => ['required', 'string', 'max:30'],
-            'birthday' => ['required', 'date', 'before:today'],
+            'birthday' => ['required', 'date', 'before_or_equal:'.now()->subYears(18)->toDateString()],
             'province' => ['nullable', 'string', 'max:100'],
             'municipality' => ['nullable', 'string', 'max:100'],
             'barangay' => ['nullable', 'string', 'max:100'],
@@ -55,14 +48,14 @@ class AuthController extends Controller
 
         $idImagePath = null;
         if ($request->hasFile('id_image')) {
-            $idImagePath = $request->file('id_image')->store('ids', 'public');
+            $idImagePath = $request->file('id_image')->store('ids', 'private');
         }
 
         $user = User::create([
             ...$validated,
             'age' => $age,
             'id_image' => $idImagePath,
-            'approval_status' => 'approved',
+            'approval_status' => 'pending',
             'role' => 'buyer',
             'status' => 'active',
         ]);
@@ -85,15 +78,19 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid email or password.'], 401);
         }
 
+        if (! $user->email_verified_at) {
+            return response()->json(['message' => 'Please verify your email before signing in.', 'verification_required' => true], 403);
+        }
+
         // Logistics accounts have their own dedicated login page / API.
-        if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
+        if (in_array($user->role, ['admin', 'rider', 'staff', 'logistics_admin', 'logistics_staff'], true)) {
             return response()->json(['message' => 'Logistics accounts must use the Logistics login page.'], 403);
         }
 
         // A pending or rejected seller application must not revoke an
         // otherwise valid buyer account. Legacy seller accounts may still
         // carry the application state on the user row.
-        $hasSellerApplication = $user->seller !== null;
+        $hasSellerApplication = ! $user->hasBlockedMarketplaceApproval();
 
         if ($user->approval_status === 'pending' && ! $hasSellerApplication) {
             return response()->json([
@@ -174,6 +171,7 @@ class AuthController extends Controller
             'municipality' => ['nullable', 'string', 'max:100'],
             'barangay' => ['nullable', 'string', 'max:100'],
             'address_line' => ['nullable', 'string', 'max:255'],
+            'current_password' => ['required_with:password', 'current_password:sanctum'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'bio' => ['nullable', 'string', 'max:1000'],
             'profile_picture' => ['nullable', 'image', 'max:5120'],
@@ -186,16 +184,27 @@ class AuthController extends Controller
 
         if ($request->hasFile('id_image')) {
             if ($user->id_image) {
-                Storage::disk('public')->delete($user->id_image);
+                Storage::disk('private')->delete($user->id_image);
             }
-            $validated['id_image'] = $request->file('id_image')->store('ids', 'public');
+            $validated['id_image'] = $request->file('id_image')->store('ids', 'private');
         }
 
-        if (isset($validated['password'])) {
+        if (! empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
+        } else {
+            unset($validated['password']);
         }
 
+        unset($validated['current_password']);
         $user->update($validated);
+        if (! empty($validated['password'])) {
+            $currentId = $user->currentAccessToken()?->id;
+            $tokens = $user->tokens();
+            if ($currentId) {
+                $tokens->where('id', '!=', $currentId);
+            }
+            $tokens->delete();
+        }
 
         return response()->json([
             'message' => 'Profile updated successfully.',

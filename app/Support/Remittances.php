@@ -34,16 +34,7 @@ class Remittances
     /** Seller identity flavours that may own a remittance row. */
     public static function sellerKeys(int $sellerId): array
     {
-        $ids = [(int) $sellerId];
-        try {
-            $seller = \App\Models\Seller::where('user_id', $sellerId)->first()
-                ?? \App\Models\Seller::find($sellerId);
-            if ($seller) {
-                $ids = array_merge($ids, $seller->catalogIds());
-            }
-        } catch (\Throwable $e) {
-        }
-        return array_values(array_unique(array_map('intval', $ids)));
+        return [(int) $sellerId];
     }
 
     /**
@@ -148,24 +139,21 @@ class Remittances
      */
     public static function confirm(Remittance $remittance, array $sellerKeys, ?string $reference = null): bool
     {
-        if (! in_array((int) $remittance->seller_id, array_map('intval', $sellerKeys), true)) {
-            abort(403, 'This handoff belongs to another store.');
-        }
-        if ($remittance->status === 'confirmed') {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($remittance, $sellerKeys, $reference) {
+            // Always lock the order first to serialize confirmations across parcels.
+            $order = Order::whereKey($remittance->order_id)->lockForUpdate()->firstOrFail();
+            $locked = Remittance::whereKey($remittance->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array((int) $locked->seller_id, array_map('intval', $sellerKeys), true), 403, 'This handoff belongs to another store.');
+            if ($locked->status === 'confirmed') {
+                return false;
+            }
+            $locked->update(['status' => 'confirmed', 'reference' => $reference ?? $locked->reference, 'confirmed_at' => now()]);
+            if (self::allDeliveredConfirmed((int) $order->id)) {
+                Payments::settleForDelivery($order);
+                return true;
+            }
             return false;
-        }
-        $remittance->update([
-            'status'       => 'confirmed',
-            'reference'    => $reference ?? $remittance->reference,
-            'confirmed_at' => now(),
-        ]);
-
-        $order = $remittance->order;
-        if ($order && self::allDeliveredConfirmed((int) $order->id)) {
-            Payments::settleForDelivery($order->fresh(['items', 'orderVouchers.voucher', 'payment']));
-            return true;
-        }
-        return false;
+        });
     }
 
     /** True when every DELIVERED parcel of the order is seller-confirmed. */
@@ -174,7 +162,7 @@ class Remittances
         try {
             $delivered = Delivery::where('order_id', $orderId)
                 ->where('status', 'delivered')->get();
-            if ($delivered->isEmpty()) {
+            if ($delivered->isEmpty() || Delivery::where('order_id', $orderId)->where('status', '!=', 'delivered')->exists()) {
                 return false;
             }
             foreach ($delivered as $delivery) {

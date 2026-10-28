@@ -73,7 +73,7 @@ class BuyerMobileIntegrationTest extends TestCase
     public function test_every_imported_mobile_endpoint_is_registered_and_implemented(): void
     {
         $contract = json_decode(file_get_contents(base_path('buyer_mobile/api-contract.json')), true, flags: JSON_THROW_ON_ERROR);
-        $this->assertCount(18, $contract['screens']);
+        $this->assertCount(19, $contract['screens']);
         foreach ($contract['endpoints'] as $endpoint) {
             $path = preg_replace('/\{[^}]+\}/', '1', $endpoint['path']);
             $route = app('router')->getRoutes()->match(Request::create($path, $endpoint['method']));
@@ -294,6 +294,48 @@ class BuyerMobileIntegrationTest extends TestCase
         $this->postJson('/api/notifications/read-all')->assertOk();
     }
 
+    public function test_chat_notification_keeps_latest_received_message_after_reply_and_read(): void
+    {
+        $buyer = $this->buyer();
+        $product = $this->product();
+        $other = $this->buyer('other-inbox@example.test');
+        $thread = Conversation::create(['buyer_id' => $buyer->id, 'seller_id' => $product->seller_id, 'subject' => 'Fixture thread']);
+        $foreign = Conversation::create(['buyer_id' => $other->id, 'seller_id' => $product->seller_id, 'subject' => 'Foreign thread']);
+        Message::create(['conversation_id' => $foreign->id, 'sender_id' => $product->seller_id, 'receiver_id' => $other->id, 'body' => 'Private foreign reply', 'is_read' => false]);
+        Message::create(['conversation_id' => $thread->id, 'sender_id' => $product->seller_id, 'receiver_id' => $buyer->id, 'body' => 'Older reply', 'is_read' => false]);
+        $received = Message::create(['conversation_id' => $thread->id, 'sender_id' => $product->seller_id, 'receiver_id' => $buyer->id, 'body' => 'Latest received reply', 'is_read' => false]);
+        Message::create(['conversation_id' => $thread->id, 'sender_id' => $buyer->id, 'receiver_id' => $product->seller_id, 'body' => 'Buyer response', 'is_read' => false]);
+        Sanctum::actingAs($buyer);
+        $key = 'chat-'.$thread->id.'-'.$received->id;
+        $this->getJson('/api/notifications')->assertOk()->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.id', $key)->assertJsonPath('notifications.0.body', 'Latest received reply')
+            ->assertJsonPath('unread_count', 1)->assertDontSee('Private foreign reply');
+        $this->getJson('/api/conversations/'.$thread->id.'/messages')->assertOk();
+        $this->getJson('/api/notifications')->assertOk()->assertJsonCount(1, 'notifications')
+            ->assertJsonPath('notifications.0.id', $key)->assertJsonPath('notifications.0.read', true)->assertJsonPath('unread_count', 0);
+        $this->postJson('/api/notifications/'.$key.'/read')->assertOk();
+    }
+
+    public function test_archived_products_stay_out_of_catalog_favorites_and_id_filtered_recent_items(): void
+    {
+        $buyer = $this->buyer();
+        $product = $this->product();
+        $archived = Product::create(['seller_id' => $product->seller_id, 'name' => 'Archived fixture', 'stock' => 10, 'price' => 50, 'status' => 'active']);
+        Sanctum::actingAs($buyer);
+        $this->postJson('/api/favorites/toggle', ['product_id' => $archived->id])->assertOk();
+        $archived->delete();
+        $this->getJson('/api/products?ids='.$product->id.','.$archived->id)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $product->id);
+        $this->getJson('/api/products/'.$archived->id)->assertNotFound();
+        $this->getJson('/api/favorites')->assertOk()->assertJsonCount(0, 'favorites');
+        // Existing favorites can still be removed, but cannot be re-added.
+        $this->postJson('/api/favorites/toggle', ['product_id' => $archived->id])->assertOk()->assertJsonPath('is_favorited', false);
+        $this->postJson('/api/favorites/toggle', ['product_id' => $archived->id])->assertNotFound();
+        $this->postJson('/api/cart/add', ['product_id' => $archived->id, 'quantity' => 1])->assertNotFound();
+        $this->getJson('/api/products?ids=0,1')->assertUnprocessable();
+        $this->getJson('/api/products?ids='.implode(',', range(1, 13)))->assertUnprocessable();
+        $this->assertDatabaseHas('products', ['id' => $archived->id, 'name' => 'Archived fixture']);
+    }
+
     public function test_seller_status_uses_the_existing_store_and_application_rules(): void
     {
         $user = $this->buyer();
@@ -346,7 +388,7 @@ class BuyerMobileIntegrationTest extends TestCase
         $discounted->update(['compare_at_price' => 200]);
         $normal = $this->product('normal@example.test');
         $saleProduct = $this->product('sale@example.test');
-        $sale = Sale::create(['seller_id' => $saleProduct->seller_id, 'name' => 'Shared sale', 'discount_type' => 'percent', 'discount_value' => 20, 'status' => 'active', 'starts_at' => now()->subDay(), 'ends_at' => now()->addDay()]);
+        $sale = Sale::create(['seller_id' => Seller::where('user_id', $saleProduct->seller_id)->value('id'), 'name' => 'Shared sale', 'discount_type' => 'percent', 'discount_value' => 20, 'status' => 'active', 'starts_at' => now()->subDay(), 'ends_at' => now()->addDay()]);
         ProductSale::create(['sale_id' => $sale->id, 'product_id' => $saleProduct->id]);
         $response = $this->getJson('/api/products?on_sale=1&sort=discount')->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.id', $discounted->id);
         $this->assertEquals(80, collect($response->json('data'))->firstWhere('id', $saleProduct->id)['effective_price']);
@@ -404,4 +446,33 @@ class BuyerMobileIntegrationTest extends TestCase
         $this->getJson('/api/orders/'.$id)->assertJsonPath('order.items.0.subtotal', 200)->assertJsonPath('order.items.0.product_image', 'products/test.png');
         $this->assertDatabaseHas('reviews', ['buyer_id' => $user->id, 'product_id' => $product->id, 'rating' => 5]);
     }
+
+    public function test_gallery_preserves_cover_and_resolves_legacy_path_columns(): void
+    {
+        $product = $this->product();
+        foreach ([
+            ['path' => null, 'image_path' => null, 'is_main' => 0, 'sort_order' => 0],
+            ['path' => 'products/side.jpg', 'image_path' => null, 'is_main' => 0, 'sort_order' => 2],
+            ['path' => null, 'image_path' => 'products/angle.jpg', 'is_main' => 0, 'sort_order' => 1],
+            ['path' => 'products/test.png', 'image_path' => null, 'is_main' => 1, 'sort_order' => 0],
+        ] as $photo) {
+            DB::table('product_images')->insert(['product_id' => $product->id, ...$photo, 'created_at' => now(), 'updated_at' => now()]);
+        }
+        $this->getJson('/api/products/'.$product->id)->assertOk()->assertJsonPath('product.gallery', [
+            'products/test.png', 'products/angle.jpg', 'products/side.jpg',
+        ]);
+    }
+
+    public function test_catalog_wishlist_state_is_scoped_to_the_current_buyer(): void
+    {
+        $buyer = $this->buyer();
+        $product = $this->product();
+        DB::table('favorites')->insert(['buyer_id' => $buyer->id, 'product_id' => $product->id, 'created_at' => now(), 'updated_at' => now()]);
+        $this->getJson('/api/products')->assertOk()->assertJsonPath('data.0.is_favorited', false);
+        Sanctum::actingAs($buyer);
+        $this->getJson('/api/products')->assertOk()->assertJsonPath('data.0.is_favorited', true);
+        Sanctum::actingAs($this->buyer('other-buyer@example.test'));
+        $this->getJson('/api/products')->assertOk()->assertJsonPath('data.0.is_favorited', false);
+    }
+
 }

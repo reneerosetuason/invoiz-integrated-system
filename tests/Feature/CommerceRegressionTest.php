@@ -35,7 +35,7 @@ class CommerceRegressionTest extends TestCase
             'orders' => 'seller_id buyer_id address_id total total_amount status payment_status order_number deleted_at discount_total shipping_fee cancellation_reason commission_amount',
             'order_items' => 'order_id product_id product_variant_id seller_id product_name quantity price unit_price total_price',
             'order_status_histories' => 'order_id from_status to_status note notes',
-            'deliveries' => 'order_id seller_id status tracking_number archived_at center_id picked_up_at cancelled_at cancellation_reason',
+            'deliveries' => 'order_id seller_id status tracking_number archived_at center_id picked_up_at cancelled_at cancellation_reason delivered_at',
             'delivery_status_logs' => 'delivery_id status notes changed_by',
             'pickup_requests' => 'delivery_id center_id status requested_at reviewed_at',
             'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity reason reason_details refund_amount status decision_note resolved_at',
@@ -77,7 +77,7 @@ class CommerceRegressionTest extends TestCase
 
     private function buyer(): User
     {
-        return User::create(['name' => 'Test Buyer', 'email' => 'buyer@example.test', 'password' => 'Password123!', 'role' => 'buyer']);
+        return User::create(['name' => 'Test Buyer', 'email' => 'buyer@example.test', 'password' => 'Password123!', 'role' => 'buyer', 'approval_status' => 'approved', 'email_verified_at' => now()]);
     }
 
     private function purchase(int $buyerId = 201, string $status = 'delivered'): array

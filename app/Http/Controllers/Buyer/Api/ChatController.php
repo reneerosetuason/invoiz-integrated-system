@@ -44,6 +44,12 @@ class ChatController extends Controller
             'seller_id' => ['nullable', 'integer'],
         ]);
 
+        if (! empty($validated['seller_id'])) {
+            $seller = \App\Models\User::find($validated['seller_id']);
+            if (! $seller || (int) $seller->id === (int) $request->user()->id || ! $seller->isActive() || (! $seller->canSell() && ! $seller->isAdmin())) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['seller_id' => 'Choose an active store or support contact.']);
+            }
+        }
         $buyerId = $request->user()->id;
 
         // Chats initiated from a product/store link to that seller. Reuse an
@@ -84,7 +90,7 @@ class ChatController extends Controller
             ->where('sender_id', '!=', $request->user()->id)
             ->update(['is_read' => true]);
 
-        $messages = $conversation->messages()->with('sender:id,first_name,last_name,name')->orderBy('created_at')->get();
+        $messages = $conversation->messages()->with('sender:id,first_name,last_name,name')->orderBy('created_at')->orderBy('id')->get();
 
         return response()->json(['messages' => $messages]);
     }

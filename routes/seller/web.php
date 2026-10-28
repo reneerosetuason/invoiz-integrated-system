@@ -14,7 +14,7 @@ use App\Http\Controllers\Seller\VoucherController as SellerAppVouchers;
 
 // ---- Seller Center: exact original seller app (same pages + functions) ----
 Route::get('/seller/login', [SellerAppAuth::class, 'showLogin'])->name('seller.login');
-Route::post('/seller/login', [SellerAppAuth::class, 'login'])->name('seller.login.post');
+Route::post('/seller/login', [SellerAppAuth::class, 'login'])->name('seller.login.post')->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 Route::post('/seller/logout', [SellerAppAuth::class, 'logout'])->name('seller.logout');
 
 Route::prefix('seller')->middleware('seller')->group(function () {

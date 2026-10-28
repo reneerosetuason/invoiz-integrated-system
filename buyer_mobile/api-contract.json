@@ -19,7 +19,8 @@
     "lib/screens/register_screen.dart",
     "lib/screens/seller_store_screen.dart",
     "lib/screens/splash_screen.dart",
-    "lib/screens/verify_email_screen.dart"
+    "lib/screens/verify_email_screen.dart",
+    "lib/screens/addresses_screen.dart"
   ],
   "endpoints": [
     {

@@ -67,6 +67,14 @@ flutter:
   assets:
     - assets/logo.png
 
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+    - family: Fraunces
+      fonts:
+        - asset: assets/fonts/Fraunces.ttf
+
 flutter_launcher_icons:
   android: true
   ios: false

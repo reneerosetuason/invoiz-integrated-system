@@ -250,7 +250,7 @@ class User extends Authenticatable
 
     public function hasBlockedMarketplaceApproval(): bool
     {
-        if ($this->seller !== null) {
+        if ($this->role === 'seller' && $this->seller !== null) {
             return false;
         }
 

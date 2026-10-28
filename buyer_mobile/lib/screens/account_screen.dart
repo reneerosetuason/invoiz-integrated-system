@@ -1,10 +1,12 @@
+import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../config.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
-import 'add_address_screen.dart';
+import 'addresses_screen.dart';
+import 'favorites_screen.dart';
 import 'login_screen.dart';
 import 'orders_screen.dart';
 import 'profile_screen.dart';
@@ -26,6 +28,7 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Future<void> _loadAddressCount() async {
+    if (!mounted) return;
     try {
       final data = await ApiService().get('addresses');
       if (mounted) {
@@ -44,12 +47,16 @@ class _AccountScreenState extends State<AccountScreen> {
       showSettingsIcon: false,
       title: 'Account',
       child: ListView(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
         children: [
+          const BuyerPageHeading(
+            title: 'Your account',
+            description: 'Your details, deliveries and saved finds.',
+          ),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border, width: 0.5),
             ),
             padding: const EdgeInsets.all(16),
@@ -84,9 +91,9 @@ class _AccountScreenState extends State<AccountScreen> {
                       Text(
                         user?.fullName ?? 'User',
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          fontFamily: 'Georgia',
+                          fontSize: 23,
+                          fontWeight: FontWeight.w600,
+                          fontFamily: 'Fraunces',
                           color: AppColors.textPrimary,
                         ),
                       ),
@@ -101,7 +108,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       Text(
                         'Member since ${_shortDate(user?.createdAt)}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: AppColors.textMuted,
                         ),
                       ),
@@ -111,7 +118,8 @@ class _AccountScreenState extends State<AccountScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 24),
+          const BuyerPageHeading(title: 'Shopping & deliveries'),
           _menuTile(Icons.receipt_long_outlined, 'My Orders', () {
             Navigator.push(
               context,
@@ -124,11 +132,19 @@ class _AccountScreenState extends State<AccountScreen> {
             () async {
               await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AddAddressScreen()),
+                MaterialPageRoute(builder: (_) => const AddressesScreen()),
               );
               _loadAddressCount();
             },
           ),
+          _menuTile(Icons.favorite_border, 'My Favorites', () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+            );
+          }),
+          const SizedBox(height: 12),
+          const BuyerPageHeading(title: 'Personal details'),
           _menuTile(Icons.person_outline, 'Edit Profile', () {
             Navigator.push(
               context,
@@ -139,15 +155,15 @@ class _AccountScreenState extends State<AccountScreen> {
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border, width: 0.5),
             ),
             child: ListTile(
-              leading: const Icon(Icons.logout, color: Colors.red),
+              leading: const Icon(Icons.logout, color: AppColors.danger),
               title: const Text(
                 'Logout',
                 style: TextStyle(
-                  color: Colors.red,
+                  color: AppColors.danger,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -171,7 +187,7 @@ class _AccountScreenState extends State<AccountScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border, width: 0.5),
       ),
       child: ListTile(
@@ -190,7 +206,7 @@ class _AccountScreenState extends State<AccountScreen> {
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: AppColors.textPrimary,
-            fontFamily: 'Segoe UI',
+            fontFamily: 'Inter',
           ),
         ),
         trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
@@ -206,7 +222,10 @@ class _AccountScreenState extends State<AccountScreen> {
       color: Colors.transparent,
       child: Center(
         child: Text(
-          (user?.firstName ?? '?').substring(0, 1).toUpperCase(),
+          ((user?.firstName ?? '').isEmpty
+                  ? '?'
+                  : user.firstName.substring(0, 1))
+              .toUpperCase(),
           style: TextStyle(
             color: AppColors.primary,
             fontSize: 24,

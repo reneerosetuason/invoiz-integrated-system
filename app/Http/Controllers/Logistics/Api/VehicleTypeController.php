@@ -17,9 +17,9 @@ class VehicleTypeController extends Controller
         return response()->json([
             'vehicle_types' => $types->map(fn ($t) => [
                 'id' => $t->id,
-                'name' => $t.name,
-                'label' => $t.label,
-                'capacity_kg' => (float) $t.capacity_kg,
+                'name' => $t->name,
+                'label' => $t->label,
+                'capacity_kg' => (float) $t->capacity_kg,
             ])->values(),
         ]);
     }

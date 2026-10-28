@@ -1,9 +1,13 @@
+import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../models/address.dart';
 import '../widgets/main_layout.dart';
 
 class AddAddressScreen extends StatefulWidget {
-  const AddAddressScreen({super.key});
+  final Address? address;
+  final ApiService? api;
+  const AddAddressScreen({super.key, this.address, this.api});
 
   @override
   State<AddAddressScreen> createState() => _AddAddressScreenState();
@@ -22,6 +26,22 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    final a = widget.address;
+    if (a != null) {
+      _recipient.text = a.recipientName;
+      _phone.text = a.phone;
+      _street.text = a.addressLine;
+      _barangay.text = a.barangay;
+      _city.text = a.city;
+      _province.text = a.province;
+      _postal.text = a.postalCode ?? '';
+      _isDefault = a.isDefault;
+    }
+  }
+
+  @override
   void dispose() {
     _recipient.dispose();
     _phone.dispose();
@@ -34,10 +54,11 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_busy || !_formKey.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      await ApiService().post('addresses', {
+      final api = widget.api ?? ApiService();
+      final body = <String, dynamic>{
         'recipient_name': _recipient.text.trim(),
         'phone': _phone.text.trim(),
         'address_line': _street.text.trim(),
@@ -46,17 +67,21 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
         'province': _province.text.trim(),
         'postal_code': _postal.text.trim(),
         'is_default': _isDefault,
-      });
+      };
+      if (widget.address == null) {
+        await api.post('addresses', body);
+      } else {
+        await api.put('addresses/${widget.address!.id}', body);
+      }
       if (!mounted) return;
       Navigator.pop(context);
     } on ApiException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Colors.red.shade700,
-        ),
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.danger),
       );
     } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Unable to save address.')));
@@ -68,68 +93,93 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
   @override
   Widget build(BuildContext context) {
     return MainLayout(
-      title: 'Add Address',
+      showBottomNav: false,
+      title: widget.address == null ? 'Add address' : 'Edit address',
       child: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
-            TextFormField(
-              controller: _recipient,
-              decoration: const InputDecoration(labelText: 'Recipient Name'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+            BuyerPageHeading(
+              title: widget.address == null
+                  ? 'A new delivery address'
+                  : 'Edit delivery address',
+              description: 'Add the details your rider needs to reach you.',
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phone,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Phone'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _street,
-              decoration: const InputDecoration(
-                labelText: 'Street / House No.',
+            BuyerPanel(
+              title: 'Recipient & delivery details',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _recipient,
+                    decoration: const InputDecoration(
+                      labelText: 'Recipient Name',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(labelText: 'Phone'),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _street,
+                    decoration: const InputDecoration(
+                      labelText: 'Street / House No.',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _barangay,
+                    decoration: const InputDecoration(labelText: 'Barangay'),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _city,
+                    decoration: const InputDecoration(
+                      labelText: 'City / Municipality',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _province,
+                    decoration: const InputDecoration(labelText: 'Province'),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _postal,
+                    decoration: const InputDecoration(
+                      labelText: 'Postal Code (optional)',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CheckboxListTile(
+                    value: _isDefault,
+                    onChanged: widget.address?.isDefault == true
+                        ? null
+                        : (v) => setState(() => _isDefault = v ?? false),
+                    title: const Text(
+                      'Set as default address',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                ],
               ),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _barangay,
-              decoration: const InputDecoration(labelText: 'Barangay'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _city,
-              decoration: const InputDecoration(
-                labelText: 'City / Municipality',
-              ),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _province,
-              decoration: const InputDecoration(labelText: 'Province'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _postal,
-              decoration: const InputDecoration(
-                labelText: 'Postal Code (optional)',
-              ),
-            ),
-            const SizedBox(height: 8),
-            CheckboxListTile(
-              value: _isDefault,
-              onChanged: (v) => setState(() => _isDefault = v ?? false),
-              title: const Text(
-                'Set as default address',
-                style: TextStyle(fontSize: 14),
-              ),
-              controlAffinity: ListTileControlAffinity.leading,
             ),
             const SizedBox(height: 20),
             ElevatedButton(

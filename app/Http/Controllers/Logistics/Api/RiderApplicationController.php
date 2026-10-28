@@ -181,6 +181,7 @@ class RiderApplicationController extends Controller
         $validated = $request->validate([
             'email' => 'required|email|max:255',
         ]);
+        \App\Support\ApplicationStatusAccess::requireOwner($request, $validated['email']);
 
         $app = RiderApplication::where('email', $validated['email'])->latest('id')->first();
 

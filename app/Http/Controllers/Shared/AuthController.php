@@ -31,10 +31,12 @@ class AuthController extends Controller
             'password' => Hash::make($data['password']),
             'role' => $data['role'] ?? 'buyer',
             'account_status' => 'active',
+            'approval_status' => 'pending',
             'phone' => $data['phone'] ?? null,
         ]);
 
-        return response()->json(['user' => $user], 201);
+        app(\App\Http\Controllers\Buyer\Api\MobileAuthController::class)->sendCode($user);
+        return response()->json(['user' => $user->only(['id', 'name', 'email', 'approval_status']), 'verification_required' => true], 201);
     }
 
     public function login(Request $request)
@@ -55,6 +57,10 @@ class AuthController extends Controller
 
         if ($user->hasBlockedMarketplaceApproval()) {
             return response()->json(['message' => 'Your account is not approved.'], 403);
+        }
+
+        if (! $user->email_verified_at) {
+            return response()->json(['message' => 'Please verify your email before signing in.', 'verification_required' => true], 403);
         }
 
         $token = $user->createToken('api-token')->plainTextToken;

@@ -1,6 +1,10 @@
+import '../widgets/buyer_page.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/chat.dart';
 import '../services/api_service.dart';
+import '../services/buyer_updates.dart';
+import '../widgets/inbox_status.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
@@ -53,27 +57,35 @@ Future<void> openSellerChat(
 }
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final ApiService? api;
+  const ChatScreen({super.key, this.api});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final _api = ApiService();
+  late final ApiService _api;
   List<Conversation> _conversations = [];
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? ApiService();
     _load();
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final data = await _api.get('conversations');
+      if (!mounted) return;
       setState(() {
         _conversations = (data['conversations'] as List)
             .whereType<Map<String, dynamic>>()
@@ -82,7 +94,11 @@ class _ChatScreenState extends State<ChatScreen> {
         _loading = false;
       });
     } catch (e) {
-      setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(e.toString())));
@@ -90,58 +106,24 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _newConversation() async {
-    final subjectCtrl = TextEditingController();
-    final bodyCtrl = TextEditingController();
-    final ok = await showDialog<bool>(
+    final conversation = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text(
-          'New Message',
-          style: TextStyle(color: Color(0xFF212121)),
+      barrierDismissible: false,
+      builder: (_) => _NewMessageDialog(api: _api),
+    );
+    if (!mounted || conversation == null) return;
+    BuyerUpdates.inboxChanged();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatThreadScreen(
+          api: _api,
+          conversationId: conversation['id'] as int,
+          subject: conversation['subject'] as String? ?? 'Support inquiry',
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: subjectCtrl,
-              style: const TextStyle(color: Color(0xFF212121)),
-              decoration: const InputDecoration(labelText: 'Subject'),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: bodyCtrl,
-              maxLines: 3,
-              style: const TextStyle(color: Color(0xFF212121)),
-              decoration: const InputDecoration(labelText: 'Message'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Send'),
-          ),
-        ],
       ),
     );
-    if (ok != true) return;
-    try {
-      await _api.post('conversations', {
-        'subject': subjectCtrl.text.trim().isEmpty
-            ? 'Inquiry'
-            : subjectCtrl.text.trim(),
-        'body': bodyCtrl.text.trim(),
-      });
-      _load();
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-    }
+    if (mounted) await _load();
   }
 
   @override
@@ -149,25 +131,35 @@ class _ChatScreenState extends State<ChatScreen> {
     return MainLayout(
       title: 'Messages',
       currentIndex: -1,
+      showBottomNav: false,
       showTopActions: false,
+      showNotificationIcon: false,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh messages',
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       child: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? InboxStatus(message: _error!, onRetry: _load)
           : _conversations.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          ? BuyerEmptyState(
+              icon: Icons.chat_bubble_outline,
+              title: 'No conversations yet.',
+              description:
+                  'Ask a seller about a product, or get help from support.',
+              action: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.chat_bubble_outline,
-                    size: 60,
-                    color: AppColors.textSecondary,
+                  TextButton.icon(
+                    onPressed: _load,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh'),
                   ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'No conversations yet.',
-                    style: TextStyle(color: Color(0xFF212121)),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 6),
                   ElevatedButton(
                     onPressed: _newConversation,
                     child: const Text('Start a Conversation'),
@@ -178,12 +170,16 @@ class _ChatScreenState extends State<ChatScreen> {
           : Column(
               children: [
                 Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _conversations.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) =>
-                        _conversationTile(_conversations[i]),
+                  child: RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _conversations.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, i) =>
+                          _conversationTile(_conversations[i]),
+                    ),
                   ),
                 ),
                 Padding(
@@ -204,17 +200,23 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _conversationTile(Conversation c) {
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) =>
-              ChatThreadScreen(conversationId: c.id, subject: c.displayName),
-        ),
-      ).then((_) => _load()),
+      onTap: () =>
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatThreadScreen(
+                api: _api,
+                conversationId: c.id,
+                subject: c.displayName,
+              ),
+            ),
+          ).then((_) {
+            if (mounted) _load();
+          }),
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(16),
         ),
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -257,7 +259,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF212121),
+                            color: AppColors.textPrimary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -305,47 +307,97 @@ class _ChatScreenState extends State<ChatScreen> {
 class ChatThreadScreen extends StatefulWidget {
   final int conversationId;
   final String subject;
+  final ApiService? api;
   const ChatThreadScreen({
     super.key,
     required this.conversationId,
     required this.subject,
+    this.api,
   });
 
   @override
   State<ChatThreadScreen> createState() => _ChatThreadScreenState();
 }
 
-class _ChatThreadScreenState extends State<ChatThreadScreen> {
-  final _api = ApiService();
+class _ChatThreadScreenState extends State<ChatThreadScreen>
+    with WidgetsBindingObserver {
+  late final ApiService _api;
   final _inputCtrl = TextEditingController();
   List<ChatMessage> _messages = [];
   bool _loading = true;
+  String? _error, _sendError;
   final _scroll = ScrollController();
+  bool _sending = false, _fetching = false;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? ApiService();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted &&
+          ModalRoute.of(context)?.isCurrent == true &&
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        _load(silent: true);
+      }
+    });
     _load();
   }
 
-  Future<void> _load() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        mounted &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      _load(silent: true);
+    }
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (!mounted || _fetching || _sending) return;
+    _fetching = true;
+    if (!silent)
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    final nearBottom = !_scroll.hasClients || _scroll.position.extentAfter < 80;
     try {
       final data = await _api.get(
         'conversations/${widget.conversationId}/messages',
       );
+      if (!mounted) return;
+      final incoming = (data['messages'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(ChatMessage.fromJson)
+          .toList();
+      final changed =
+          incoming.length != _messages.length ||
+          (incoming.isNotEmpty &&
+              incoming.last.id !=
+                  (_messages.isEmpty ? null : _messages.last.id));
+      // Merge a reply that completed after this refresh started.
+      final receivedIds = incoming.map((m) => m.id).toSet();
+      final newestId = incoming.isEmpty ? 0 : incoming.last.id;
+      final newer = _messages.where(
+        (m) => m.id > newestId && !receivedIds.contains(m.id),
+      );
       setState(() {
-        _messages = (data['messages'] as List)
-            .whereType<Map<String, dynamic>>()
-            .map(ChatMessage.fromJson)
-            .toList();
+        _messages = [...incoming, ...newer];
         _loading = false;
+        _error = null;
       });
-      _scrollToBottom();
+      if (changed) BuyerUpdates.inboxChanged();
+      if (nearBottom && changed) _scrollToBottom();
     } catch (e) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    } finally {
+      _fetching = false;
     }
   }
 
@@ -357,28 +409,44 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
 
   Future<void> _send() async {
     final text = _inputCtrl.text.trim();
-    if (text.isEmpty) return;
-    _inputCtrl.clear();
+    if (text.isEmpty || _sending || _loading) return;
+    if (text.length > 2000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Keep messages under 2,000 characters.')),
+      );
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _sendError = null;
+    });
     try {
       final r = await _api.post(
         'conversations/${widget.conversationId}/reply',
         {'body': text},
       );
+      if (!mounted) return;
+      final message = ChatMessage.fromJson(
+        r['message'] as Map<String, dynamic>,
+      );
       setState(() {
-        _messages.add(
-          ChatMessage.fromJson(r['message'] as Map<String, dynamic>),
-        );
+        if (!_messages.any((m) => m.id == message.id)) _messages.add(message);
+        _error = null;
+        _inputCtrl.clear();
       });
+      BuyerUpdates.inboxChanged();
       _scrollToBottom();
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) setState(() => _sendError = e.toString());
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _inputCtrl.dispose();
     _scroll.dispose();
     super.dispose();
@@ -389,14 +457,30 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     return MainLayout(
       title: widget.subject,
       currentIndex: -1,
+      showBottomNav: false,
       showTopActions: false,
+      showNotificationIcon: false,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh messages',
+          onPressed: _loading || _sending ? null : () => _load(),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       child: Column(
         children: [
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
+                : _error != null && _messages.isEmpty
+                ? InboxStatus(message: _error!, onRetry: () => _load())
                 : _messages.isEmpty
-                ? const Center(child: Text('No messages yet. Say hello!'))
+                ? const BuyerEmptyState(
+                    icon: Icons.forum_outlined,
+                    title: 'No messages yet. Say hello!',
+                    description:
+                        'Start a conversation using the message box below.',
+                  )
                 : ListView.builder(
                     controller: _scroll,
                     padding: const EdgeInsets.all(12),
@@ -404,6 +488,17 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                     itemBuilder: (context, i) => _bubble(_messages[i]),
                   ),
           ),
+          if (_sendError != null)
+            Semantics(
+              liveRegion: true,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                child: Text(
+                  _sendError!,
+                  style: const TextStyle(color: AppColors.danger),
+                ),
+              ),
+            ),
           Container(
             color: AppColors.card,
             padding: const EdgeInsets.all(8),
@@ -413,10 +508,13 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                   Expanded(
                     child: TextField(
                       controller: _inputCtrl,
+                      readOnly: _sending,
+                      maxLength: 2000,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
                       decoration: const InputDecoration(
                         hintText: 'Type a message...',
+                        counterText: '',
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 10,
@@ -426,13 +524,19 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _send,
+                    onPressed: _sending || _loading ? null : _send,
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(46, 46),
                       padding: EdgeInsets.zero,
                       shape: const CircleBorder(),
                     ),
-                    child: const Icon(Icons.send),
+                    child: _sending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.send),
                   ),
                 ],
               ),
@@ -451,14 +555,16 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 280),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width.clamp(0, 760) * .78,
+        ),
         decoration: BoxDecoration(
-          color: mine ? AppColors.primary : Colors.white,
+          color: mine ? AppColors.primaryDark : Colors.white,
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: Radius.circular(mine ? 12 : 2),
-            bottomRight: Radius.circular(mine ? 2 : 12),
+            topLeft: const Radius.circular(16),
+            topRight: const Radius.circular(16),
+            bottomLeft: Radius.circular(mine ? 16 : 6),
+            bottomRight: Radius.circular(mine ? 6 : 16),
           ),
         ),
         child: Column(
@@ -484,7 +590,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
             Text(
               _time(m.createdAt),
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 11.5,
                 color: mine ? Colors.white60 : AppColors.textSecondary,
               ),
             ),
@@ -502,4 +608,99 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
       return '';
     }
   }
+}
+
+class _NewMessageDialog extends StatefulWidget {
+  final ApiService api;
+  const _NewMessageDialog({required this.api});
+  @override
+  State<_NewMessageDialog> createState() => _NewMessageDialogState();
+}
+
+class _NewMessageDialogState extends State<_NewMessageDialog> {
+  final _form = GlobalKey<FormState>();
+  final _subject = TextEditingController(), _body = TextEditingController();
+  bool _sending = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _subject.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    if (_sending || !_form.currentState!.validate()) return;
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      final result = await widget.api.post('conversations', {
+        'subject': _subject.text.trim().isEmpty
+            ? 'Support inquiry'
+            : _subject.text.trim(),
+        'body': _body.text.trim(),
+      });
+      if (mounted)
+        Navigator.pop(context, result['conversation'] as Map<String, dynamic>);
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: !_sending,
+    child: AlertDialog(
+      title: const Text('Contact support'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _form,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'For a product question, use Chat with seller on the product or store page.',
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _subject,
+                enabled: !_sending,
+                maxLength: 150,
+                decoration: const InputDecoration(
+                  labelText: 'Subject (optional)',
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _body,
+                enabled: !_sending,
+                maxLines: 3,
+                maxLength: 2000,
+                decoration: const InputDecoration(labelText: 'Message'),
+                validator: (v) =>
+                    (v ?? '').trim().isEmpty ? 'Enter a message.' : null,
+              ),
+              if (_error != null)
+                Text(_error!, style: const TextStyle(color: AppColors.danger)),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _sending ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _sending ? null : _send,
+          child: Text(_sending ? 'Sending…' : 'Send'),
+        ),
+      ],
+    ),
+  );
 }

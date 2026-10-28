@@ -33,6 +33,8 @@ class Voucher extends Model
         'value' => 'float',
         'discount_value' => 'float',
         'min_spend' => 'float',
+        'valid_from' => 'datetime',
+        'valid_until' => 'datetime',
         'starts_at' => 'datetime',
         'ends_at' => 'datetime',
     ];

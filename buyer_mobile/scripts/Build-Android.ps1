@@ -13,8 +13,16 @@ if ($ApiBaseUrl) {
 }
 Push-Location -LiteralPath $buyerRoot
 try {
-    & flutter @buildArgs
-    if ($LASTEXITCODE -ne 0) { throw 'Flutter Android build failed.' }
+    # Flutter writes informational diagnostics to stderr too. Check its exit code.
+    $previousErrorAction = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & flutter @buildArgs 2>&1 | ForEach-Object { $_.ToString() }
+        $flutterExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorAction
+    }
+    if ($flutterExitCode -ne 0) { throw 'Flutter Android build failed.' }
     Write-Output (Join-Path $buyerRoot 'build\app\outputs\flutter-apk\app-debug.apk')
 } finally {
     Pop-Location

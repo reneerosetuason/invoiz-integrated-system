@@ -24,13 +24,13 @@ Route::middleware(OptionalBuyerAuthentication::class)->group(function () {
     Route::get('/stores/{seller}', [App\Http\Controllers\Buyer\Api\StoreController::class, 'show']);
     Route::get('/stores/{seller}/reviews', [App\Http\Controllers\Buyer\Api\StoreController::class, 'reviews']);
 });
-Route::post('/register', [App\Http\Controllers\Buyer\Api\AuthController::class, 'register']);
-Route::post('/login', [App\Http\Controllers\Buyer\Api\AuthController::class, 'login']);
+Route::post('/register', [App\Http\Controllers\Buyer\Api\AuthController::class, 'register'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
+Route::post('/login', [App\Http\Controllers\Buyer\Api\AuthController::class, 'login'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 
 // Verified mobile login shares the website's account/OTP state and database.
 Route::prefix('mobile/buyer')->middleware('throttle:10,1')->group(function () {
-    Route::post('/register', [MobileAuthController::class, 'register']);
-    Route::post('/login', [MobileAuthController::class, 'login']);
+    Route::post('/register', [MobileAuthController::class, 'register'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
+    Route::post('/login', [MobileAuthController::class, 'login'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
     Route::post('/verify-email', [MobileAuthController::class, 'verifyEmail']);
     Route::post('/resend-code', [MobileAuthController::class, 'resendCode']);
 });
@@ -51,6 +51,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::post('/seller/apply', [SellerApplicationController::class, 'store']);
     Route::get('/seller/status', [SellerController::class, 'status']);
     Route::get('/seller/me', [SellerController::class, 'me']);
+    Route::middleware(\App\Http\Middleware\EnsureBuyerApiAccess::class)->group(function () {
     Route::get('/cart', [CartController::class, 'index']);
     Route::post('/cart/add', [CartController::class, 'add']);
     Route::match(['PUT', 'PATCH'], '/cart/{id}', [CartController::class, 'update'])->whereNumber('id');
@@ -64,7 +65,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::post('/orders/{id}/cancel', [App\Http\Controllers\Buyer\Api\OrderController::class, 'cancel'])->whereNumber('id');
     Route::post('/orders/{id}/rate', [App\Http\Controllers\Buyer\Api\OrderController::class, 'rate'])->whereNumber('id');
     Route::get('/orders/{order}/deliveries/{delivery}/otp', [DeliveryOtpController::class, 'show'])
-        ->middleware(['role:buyer', 'throttle:20,1'])
+        ->middleware('throttle:20,1')
         ->whereNumber('order')
         ->whereNumber('delivery');
     Route::post('/orders/{id}/returns', [App\Http\Controllers\Buyer\Api\OrderController::class, 'requestReturn'])->whereNumber('id');
@@ -90,6 +91,8 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::post('/chat', [ChatController::class, 'store']);
     Route::get('/chat/{id}/messages', [ChatController::class, 'messages'])->whereNumber('id');
     Route::post('/chat/{id}/reply', [ChatController::class, 'reply'])->whereNumber('id');
+
+    });
 
     require __DIR__.'/../admin/api.php';
 });

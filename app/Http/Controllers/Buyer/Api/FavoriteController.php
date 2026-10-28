@@ -11,6 +11,7 @@ class FavoriteController extends Controller
     public function index(Request $request)
     {
         $favorites = Favorite::with('product.category')
+            ->whereHas('product', fn ($q) => $q->storefront())
             ->where('buyer_id', $request->user()->id)
             ->latest()
             ->get();
@@ -32,6 +33,8 @@ class FavoriteController extends Controller
             $existing->delete();
             return response()->json(['message' => 'Removed from favorites.', 'is_favorited' => false]);
         }
+
+        \App\Models\Product::storefront()->findOrFail($validated['product_id']);
 
         Favorite::create([
             'buyer_id'   => $request->user()->id,

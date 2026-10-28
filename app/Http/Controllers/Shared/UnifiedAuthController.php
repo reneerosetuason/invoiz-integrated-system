@@ -226,9 +226,6 @@ class UnifiedAuthController extends Controller
         if (! $user->isActive()) {
             return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
         }
-        if ($user->hasBlockedMarketplaceApproval()) {
-            return back()->withErrors(['email' => 'Your account is not approved.'])->withInput();
-        }
         if ($user->email_verified_at) {
             return redirect('/login')->with('success', 'Already verified — you can log in.');
         }
@@ -260,6 +257,9 @@ class UnifiedAuthController extends Controller
 
         $user->update(['email_verified_at' => now(), 'otp' => null, 'otp_expires_at' => null]);
 
+        if ($user->hasBlockedMarketplaceApproval()) {
+            return redirect('/login')->with('success', 'Email verified. Please wait for administrator approval before signing in.');
+        }
         Auth::login($user);
         $request->session()->regenerate();
         $this->putBuyerSession($request, $user);

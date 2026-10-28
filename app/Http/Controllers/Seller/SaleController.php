@@ -15,14 +15,14 @@ class SaleController extends Controller
     public function index()
     {
         $seller = $this->sellerRecord();
-        $sellerIds = $seller->catalogIds();
+        $sellerIds = $seller->recordIds();
 
         $sales = Sale::whereIn('seller_id', $sellerIds)
             ->with('items')
             ->latest()
             ->paginate(10);
 
-        $products = Product::whereIn('seller_id', $sellerIds)
+        $products = Product::where('seller_id', $seller->user_id)
             ->where('status', '!=', 'draft')
             ->orderBy('name')
             ->get(['id', 'name', 'price', 'seller_id']);
@@ -39,7 +39,7 @@ class SaleController extends Controller
 
     public function store(Request $request)
     {
-        $sellerIds = $this->sellerRecord()->catalogIds();
+        $sellerIds = $this->sellerRecord()->recordIds();
 
         $validated = $this->validateSale($request);
 
@@ -59,7 +59,7 @@ class SaleController extends Controller
                 'status'         => $validated['status'],
             ]);
 
-            $this->syncProducts($sale, $request, $sellerIds);
+            $this->syncProducts($sale, $request, [(int) $this->sellerRecord()->user_id]);
         });
 
         return back()->with('success', 'Sale created successfully.');
@@ -67,7 +67,7 @@ class SaleController extends Controller
 
     public function update(Request $request, $id)
     {
-        $sellerIds = $this->sellerRecord()->catalogIds();
+        $sellerIds = $this->sellerRecord()->recordIds();
         $sale = Sale::whereIn('seller_id', $sellerIds)->findOrFail($id);
 
         $validated = $this->validateSale($request);
@@ -86,7 +86,7 @@ class SaleController extends Controller
                 'status'         => $validated['status'],
             ]);
 
-            $this->syncProducts($sale, $request, $sellerIds);
+            $this->syncProducts($sale, $request, [(int) $this->sellerRecord()->user_id]);
         });
 
         return back()->with('success', 'Sale updated successfully.');
@@ -94,7 +94,7 @@ class SaleController extends Controller
 
     public function destroy($id)
     {
-        $sale = Sale::whereIn('seller_id', $this->sellerRecord()->catalogIds())->findOrFail($id);
+        $sale = Sale::whereIn('seller_id', $this->sellerRecord()->recordIds())->findOrFail($id);
         $sale->items()->delete();
         $sale->delete();
 

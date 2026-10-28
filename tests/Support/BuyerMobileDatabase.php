@@ -49,7 +49,7 @@ trait BuyerMobileDatabase
         $tables['seller_profiles'] .= ' contact_email contact_phone address';
         $tables['products'] .= ' low_stock_threshold';
         $tables['orders'] .= ' notes cancellation_reason commission_amount';
-        $tables['deliveries'] .= ' center_id rider_id picked_up_at cancelled_at cancellation_reason';
+        $tables['deliveries'] .= ' center_id rider_id picked_up_at cancelled_at cancellation_reason delivered_at';
         $tables['vouchers'] .= ' description valid_from valid_until';
         $tables += [
             'product_images' => 'product_id path image_path sort_order is_main deleted_at',
@@ -59,7 +59,7 @@ trait BuyerMobileDatabase
             'notifications' => 'type title message icon priority center_id audience link',
             'login_histories' => 'user_id logged_in_at ip_address user_agent',
             'delivery_status_logs' => 'delivery_id status notes changed_by',
-            'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity status refund_amount',
+            'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity status refund_amount reason reason_details',
         ];
         foreach ($tables as $name => $columns) {
             Schema::create($name, function (Blueprint $table) use ($columns) {

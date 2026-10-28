@@ -6,9 +6,9 @@ use App\Http\Controllers\Shared\UnifiedAuthController;
 
 // ---- Unified auth (single login/register for everyone) ----
 Route::get('/login', [UnifiedAuthController::class, 'showLogin'])->name('login');
-Route::post('/login', [UnifiedAuthController::class, 'login'])->name('login.post');
+Route::post('/login', [UnifiedAuthController::class, 'login'])->name('login.post')->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 Route::get('/register', [UnifiedAuthController::class, 'showRegister'])->name('register');
-Route::post('/register', [UnifiedAuthController::class, 'register'])->name('register.post');
+Route::post('/register', [UnifiedAuthController::class, 'register'])->name('register.post')->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 Route::post('/logout', [UnifiedAuthController::class, 'logout'])->name('logout');
 Route::get('/logout', [UnifiedAuthController::class, 'logout']);
 Route::get('/home', function () {
@@ -39,9 +39,9 @@ Route::post('/verify/resend', [UnifiedAuthController::class, 'resendCode'])->nam
 
 // Password reset (one shared flow for buyer, seller, admin and logistics logins)
 Route::get('/forgot-password', [\App\Http\Controllers\Shared\Auth\PasswordResetController::class, 'showLinkForm'])->name('auth.password.request');
-Route::post('/forgot-password', [\App\Http\Controllers\Shared\Auth\PasswordResetController::class, 'sendLink'])->name('auth.password.email');
+Route::post('/forgot-password', [\App\Http\Controllers\Shared\Auth\PasswordResetController::class, 'sendLink'])->name('auth.password.email')->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 Route::get('/reset-password/{token}', [\App\Http\Controllers\Shared\Auth\PasswordResetController::class, 'showResetForm'])->name('auth.password.reset');
-Route::post('/reset-password', [\App\Http\Controllers\Shared\Auth\PasswordResetController::class, 'reset'])->name('auth.password.update');
+Route::post('/reset-password', [\App\Http\Controllers\Shared\Auth\PasswordResetController::class, 'reset'])->name('auth.password.update')->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 
 // Continue with Gmail (Google OAuth)
 Route::get('/auth/google', [UnifiedAuthController::class, 'googleRedirect'])->name('google.redirect');

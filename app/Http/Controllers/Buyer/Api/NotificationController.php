@@ -69,12 +69,13 @@ class NotificationController extends Controller
             ];
         }
 
-        $conversations = Conversation::with('lastMessage')
+        $conversations = Conversation::with(['messages' => fn ($q) => $q
+            ->where('sender_id', '!=', $user->id)->orderByDesc('id')->limit(1)])
             ->where('buyer_id', $user->id)
-            ->whereHas('messages', fn ($q) => $q->where('sender_id', '!=', $user->id)->where('is_read', false))
+            ->whereHas('messages', fn ($q) => $q->where('sender_id', '!=', $user->id))
             ->latest('updated_at')->limit(20)->get();
         foreach ($conversations as $conversation) {
-            $last = $conversation->lastMessage;
+            $last = $conversation->messages->first();
             if (! $last || (int) $last->sender_id === (int) $user->id) {
                 continue;
             }
@@ -82,12 +83,12 @@ class NotificationController extends Controller
             $items[] = [
                 'id' => $key,
                 'type' => 'chat',
-                'title' => 'New seller message',
+                'title' => $conversation->seller_id ? 'New seller message' : 'New support message',
                 'body' => Str::limit($last->body, 100),
                 'order_id' => null,
                 'conversation_id' => $conversation->id,
                 'created_at' => $last->created_at->toIso8601String(),
-                'read' => in_array($key, $readKeys, true),
+                'read' => $last->is_read || in_array($key, $readKeys, true),
             ];
         }
 
@@ -101,6 +102,8 @@ class NotificationController extends Controller
     public function read(Request $request)
     {
         $validated = $request->validate(['id' => ['required', 'string', 'max:191']]);
+        $items = $this->index($request)->getData(true)['notifications'] ?? [];
+        abort_unless(collect($items)->contains('id', $validated['id']), 404);
         NotificationRead::firstOrCreate(['user_id' => $request->user()->id, 'notification_key' => $validated['id']]);
 
         return response()->json(['message' => 'Notification marked as read.']);

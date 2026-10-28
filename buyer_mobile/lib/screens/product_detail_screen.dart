@@ -1,53 +1,60 @@
+import '../widgets/product_gallery.dart';
+import '../services/buyer_updates.dart';
+import 'checkout_screen.dart';
 import 'package:flutter/material.dart';
-import '../config.dart';
 import '../models/product.dart';
 import '../services/api_service.dart';
 import '../services/recently_viewed_service.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
-import 'cart_screen.dart';
 import 'chat_screen.dart';
 import 'login_screen.dart';
 import 'seller_store_screen.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final int productId;
-  const ProductDetailScreen({super.key, required this.productId});
+  final ApiService? api;
+  const ProductDetailScreen({super.key, required this.productId, this.api});
 
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
-  final _api = ApiService();
+  late final ApiService _api;
   Product? _product;
   bool _loading = true;
   int _quantity = 1;
   int? _selectedVariant;
   bool _isFavorited = false;
   bool _adding = false;
-  int _imageIndex = 0;
-  final PageController _pageCtrl = PageController();
 
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? ApiService();
     _load();
   }
 
   Future<void> _load() async {
     try {
       final data = await _api.get('products/${widget.productId}');
+      if (!mounted) return;
       setState(() {
         _product = Product.fromJson(data['product'] as Map<String, dynamic>);
         _isFavorited = _product!.isFavorited;
+        _selectedVariant = _product!.variants
+            .where((v) => v.isAvailable)
+            .firstOrNull
+            ?.id;
         _loading = false;
       });
       await RecentlyViewedService.record(
         data['product'] as Map<String, dynamic>,
       );
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(
         context,
@@ -66,19 +73,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return base + (v?.priceAdjustment ?? 0);
   }
 
-  Future<void> _addToCart() async {
+  int get _availableStock {
+    final product = _product;
+    if (product == null) return 0;
+    if (product.variants.isEmpty) return product.stock;
+    return product.variants
+            .where((v) => v.id == _selectedVariant && v.isAvailable)
+            .firstOrNull
+            ?.stock ??
+        0;
+  }
+
+  Future<bool> _addToCart({bool showFeedback = true}) async {
+    if (_adding || _product == null) return false;
     final auth = AuthServiceProvider.of(context);
     if (!auth.isLoggedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please log in first to add items to your cart.'),
-        ),
-      );
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => const LoginScreen()),
       );
-      return;
+      return false;
+    }
+    if (_availableStock < 1 || _quantity > _availableStock || _quantity > 200) {
+      _show('Choose an available option and quantity.');
+      return false;
     }
     setState(() => _adding = true);
     try {
@@ -87,14 +105,16 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         'variant_id': _selectedVariant,
         'quantity': _quantity,
       });
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Added to cart.')));
-    } on ApiException catch (e) {
-      _show(e.message);
-    } catch (_) {
-      _show('Unable to connect to server.');
+      BuyerUpdates.cartChanged();
+      if (!mounted) return false;
+      if (showFeedback)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Added to your cart.')));
+      return true;
+    } catch (error) {
+      if (mounted) _show(error.toString());
+      return false;
     } finally {
       if (mounted) setState(() => _adding = false);
     }
@@ -116,6 +136,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       final r = await _api.post('favorites/toggle', {
         'product_id': widget.productId,
       });
+      if (!mounted) return;
       setState(() => _isFavorited = r['is_favorited'] as bool);
     } catch (e) {
       _show(e.toString());
@@ -124,7 +145,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _show(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red.shade700),
+      SnackBar(content: Text(message), backgroundColor: AppColors.danger),
     );
   }
 
@@ -170,7 +191,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             _buyBarIcon(
               icon: _isFavorited ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorited ? Colors.red : AppColors.textSecondary,
+              color: _isFavorited ? AppColors.danger : AppColors.textSecondary,
               label: 'Wishlist',
               onTap: _toggleFavorite,
             ),
@@ -197,7 +218,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: OutlinedButton(
-                onPressed: _adding ? null : _addToCart,
+                onPressed: _adding || _availableStock == 0 ? null : _addToCart,
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 46),
                   side: BorderSide(color: AppColors.primary, width: 1.2),
@@ -223,7 +244,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: ElevatedButton(
-                onPressed: _adding ? null : _buyNow,
+                onPressed: _adding || _availableStock == 0 ? null : _buyNow,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 46),
                   backgroundColor: AppColors.primary,
@@ -278,14 +299,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _buyNow() async {
-    await _addToCart();
-    if (!mounted) return;
-    final auth = AuthServiceProvider.of(context);
-    if (auth.isLoggedIn) {
-      Navigator.push(
+    if (!await _addToCart(showFeedback: false) || !mounted) return;
+    setState(() => _adding = true);
+    try {
+      final result = await _api.get('cart');
+      final items = result['cart']['items'] as List;
+      final line = items
+          .where(
+            (item) =>
+                item['product_id'] == widget.productId &&
+                item['variant_id'] == _selectedVariant,
+          )
+          .firstOrNull;
+      if (line == null)
+        throw Exception('The selected item could not be found in your cart.');
+      if (!mounted) return;
+      await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => const CartScreen()),
+        MaterialPageRoute(
+          builder: (_) => CheckoutScreen(cartItemIds: [line['id'] as int]),
+        ),
       );
+    } catch (error) {
+      if (mounted) _show(error.toString());
+    } finally {
+      if (mounted) setState(() => _adding = false);
     }
   }
 
@@ -304,7 +342,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Text(
                 _fmt(_unitPrice),
                 style: const TextStyle(
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -0.3,
@@ -314,10 +352,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Text(
                 p.name,
                 style: const TextStyle(
+                  fontFamily: 'Fraunces',
                   fontSize: 15,
                   height: 1.35,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
@@ -331,15 +370,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF212121),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 8),
                   ],
                   Text(
                     p.sold > 0
-                        ? '${p.sold} sold · ${p.stock} left in stock'
-                        : '${p.stock} left in stock',
+                        ? '${p.sold} sold · ${_availableStock} left in stock'
+                        : '${_availableStock} left in stock',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textSecondary,
@@ -364,7 +403,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF212121),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -384,7 +423,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 10),
@@ -408,16 +447,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF212121),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),
                   _qtyBtn(Icons.add, () {
-                    if (_quantity < p.stock) setState(() => _quantity++);
+                    if (_quantity < _availableStock && _quantity < 200)
+                      setState(() => _quantity++);
                   }),
                   const SizedBox(width: 12),
                   Text(
-                    '${p.stock} available',
+                    '${_availableStock} available',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
@@ -440,7 +480,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -449,7 +489,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 style: const TextStyle(
                   fontSize: 13,
                   height: 1.6,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
             ],
@@ -468,7 +508,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF212121),
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -480,111 +520,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _gallerySection(BuildContext context, Product p) {
-    final images = p.displayImages;
-    if (images.isEmpty) {
-      return Container(
-        height: 280,
-        color: AppColors.surfaceSoft,
-        child: const Icon(
-          Icons.image_not_supported_outlined,
-          color: Colors.grey,
-          size: 48,
-        ),
-      );
-    }
-    return Container(
-      height: 330,
-      color: AppColors.surfaceSoft,
-      child: Column(
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: PageView.builder(
-                    controller: _pageCtrl,
-                    itemCount: images.length,
-                    onPageChanged: (i) => setState(() => _imageIndex = i),
-                    itemBuilder: (context, i) => GestureDetector(
-                      onTap: () => _openImage(images, i),
-                      child: _image(images[i]),
-                    ),
-                  ),
-                ),
-                if (images.length > 1)
-                  Positioned(
-                    right: 12,
-                    bottom: 12,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${_imageIndex + 1}/${images.length}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (images.length > 1)
-            Container(
-              height: 58,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: images.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, i) => GestureDetector(
-                  onTap: () {
-                    setState(() => _imageIndex = i);
-                    _pageCtrl.animateToPage(
-                      i,
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                  child: Container(
-                    width: 46,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: i == _imageIndex
-                            ? AppColors.primary
-                            : AppColors.border,
-                        width: i == _imageIndex ? 2 : 1,
-                      ),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: _image(images[i]),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  void _openImage(List<String> images, int index) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _ImageViewerScreen(images: images, initialIndex: index),
-      ),
-    );
-  }
+  Widget _gallerySection(BuildContext context, Product product) =>
+      ProductGallery(images: product.displayImages, label: product.name);
 
   Widget _specificationsSection(BuildContext context, Product p) {
     final specs = <(String, String)>[
@@ -614,7 +551,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF212121),
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -640,7 +577,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Color(0xFF212121),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),
@@ -670,7 +607,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF212121),
+                color: AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: 6),
@@ -681,10 +618,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 final selected = _selectedVariant == v.id;
                 return ChoiceChip(
                   label: Text(
-                    v.variantValue,
+                    v.isAvailable
+                        ? v.variantValue
+                        : '${v.variantValue} · Sold out',
                     style: TextStyle(
                       fontSize: 13,
-                      color: selected ? Colors.white : const Color(0xFF212121),
+                      color: selected ? Colors.white : AppColors.textPrimary,
                     ),
                   ),
                   selected: selected,
@@ -693,7 +632,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   side: BorderSide(
                     color: selected ? AppColors.primary : AppColors.border,
                   ),
-                  onSelected: (_) => setState(() => _selectedVariant = v.id),
+                  onSelected: !v.isAvailable
+                      ? null
+                      : (_) => setState(() {
+                          _selectedVariant = v.id;
+                          _quantity = _quantity.clamp(
+                            1,
+                            v.stock < 200 ? v.stock : 200,
+                          );
+                        }),
                 );
               }).toList(),
             ),
@@ -759,7 +706,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF212121),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 3),
@@ -772,7 +719,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF212121),
+                        color: AppColors.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -811,25 +758,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-  Widget _image(String? url) {
-    if (url == null || url.isEmpty)
-      return const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 48,
-      );
-    final src = AppConfig.storageUrl(url);
-    return Image.network(
-      src,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 48,
-      ),
-    );
-  }
-
   String _fmt(double v) {
     final n = v.toStringAsFixed(2);
     return '₱${n.split('.')[0]}.${n.split('.')[1]}';
@@ -858,7 +786,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     style: const TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF212121),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -882,7 +810,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     style: const TextStyle(
                       fontSize: 13,
                       height: 1.4,
-                      color: Color(0xFF212121),
+                      color: AppColors.textPrimary,
                     ),
                   ),
                 ),
@@ -895,103 +823,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   void dispose() {
-    _pageCtrl.dispose();
     super.dispose();
-  }
-}
-
-/// Full-screen swipeable image viewer with zoom support.
-class _ImageViewerScreen extends StatefulWidget {
-  final List<String> images;
-  final int initialIndex;
-  const _ImageViewerScreen({required this.images, required this.initialIndex});
-
-  @override
-  State<_ImageViewerScreen> createState() => _ImageViewerScreenState();
-}
-
-class _ImageViewerScreenState extends State<_ImageViewerScreen> {
-  late final PageController _ctrl;
-  late int _index;
-
-  @override
-  void initState() {
-    super.initState();
-    _index = widget.initialIndex;
-    _ctrl = PageController(initialPage: widget.initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: PageView.builder(
-                controller: _ctrl,
-                itemCount: widget.images.length,
-                onPageChanged: (i) => setState(() => _index = i),
-                itemBuilder: (context, i) => InteractiveViewer(
-                  maxScale: 4,
-                  child: Center(child: _viewerImage(widget.images[i])),
-                ),
-              ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const Spacer(),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: Text(
-                      '${_index + 1}/${widget.images.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _viewerImage(String path) {
-    if (path.isEmpty)
-      return const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 48,
-      );
-    final src = AppConfig.storageUrl(path);
-    return Image.network(
-      src,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => const Icon(
-        Icons.image_not_supported_outlined,
-        color: Colors.grey,
-        size: 48,
-      ),
-    );
   }
 }

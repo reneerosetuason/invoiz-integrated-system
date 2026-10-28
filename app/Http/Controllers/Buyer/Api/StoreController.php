@@ -20,10 +20,11 @@ class StoreController extends Controller
      */
     public function show(Request $request, $sellerUserId)
     {
+        $request->validate(['per_page' => 'sometimes|integer|min:1|max:100', 'page' => 'sometimes|integer|min:1', 'search' => 'sometimes|string|max:200']);
         $seller = Seller::where('user_id', $sellerUserId)->first();
         $user = User::find($sellerUserId);
 
-        if (! $seller || ! $user) {
+        if (! $seller || ! $user || ! $seller->isApproved() || ! $user->isActive()) {
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
@@ -95,8 +96,9 @@ class StoreController extends Controller
      */
     public function reviews(Request $request, $sellerUserId)
     {
+        $request->validate(['per_page' => 'sometimes|integer|min:1|max:100', 'page' => 'sometimes|integer|min:1', 'search' => 'sometimes|string|max:200']);
         $seller = Seller::where('user_id', $sellerUserId)->first();
-        if (! $seller) {
+        if (! $seller || ! $seller->isApproved() || ! $seller->user?->isActive()) {
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
@@ -118,7 +120,7 @@ class StoreController extends Controller
     public function follow(Request $request, $sellerUserId)
     {
         $seller = Seller::where('user_id', $sellerUserId)->first();
-        if (! $seller) {
+        if (! $seller || ! $seller->isApproved() || ! $seller->user?->isActive()) {
             return response()->json(['message' => 'Store not found.'], 404);
         }
 
@@ -225,7 +227,7 @@ class StoreController extends Controller
                 '1' => (int) ($reviewAgg->r1 ?? 0),
             ] : [],
             'member_since' => $seller->created_at?->toDateString(),
-            'logo' => null,
+            'logo' => $seller->logo,
         ];
     }
 }

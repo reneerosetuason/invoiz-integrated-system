@@ -11,7 +11,7 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::with('seller')->where('status', 'active');
+        $query = Product::with('seller:id,user_id,store_name,business_name,logo')->storefront();
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
@@ -25,7 +25,7 @@ class ProductController extends Controller
             $query->where('name', 'like', "%{$request->search}%");
         }
 
-        $sort = $request->string('sort', 'newest');
+        $sort = (string) $request->input('sort', 'newest');
         match ($sort) {
             'price_asc' => $query->orderBy('price', 'asc'),
             'price_desc' => $query->orderBy('price', 'desc'),
@@ -42,7 +42,7 @@ class ProductController extends Controller
 
     public function show(Product $product)
     {
-        $product->load('seller', 'images', 'variants');
+        $product->load('seller:id,user_id,store_name,business_name,logo', 'images', 'variants');
         $this->attachShop($product);
 
         return $product;

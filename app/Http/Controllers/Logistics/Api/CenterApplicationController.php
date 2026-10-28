@@ -39,6 +39,7 @@ class CenterApplicationController extends Controller
         $validated = $request->validate([
             'email' => 'required|email|max:255',
         ]);
+        \App\Support\ApplicationStatusAccess::requireOwner($request, $validated['email']);
 
         $app = app(CenterApplicationService::class)->status($validated['email']);
 

@@ -104,7 +104,7 @@ class MobileAuthController extends AuthController
         return response()->json(['message' => 'A verification code was sent to your email.']);
     }
 
-    private function sendCode(User $user): void
+    public function sendCode(User $user): void
     {
         $code = $user->otp && $user->otp_expires_at?->isFuture()
             ? (string) $user->otp : str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);

@@ -7,7 +7,21 @@ import 'api_service.dart';
 
 class AuthService extends ChangeNotifier {
   final ApiService _api;
-  AuthService({ApiService? api}) : _api = api ?? ApiService();
+  AuthService({ApiService? api}) : _api = api ?? ApiService() {
+    ApiService.onSessionInvalidated = _invalidateSession;
+  }
+
+  void _invalidateSession(String requestToken) {
+    if (_token == requestToken) _clearSession();
+  }
+
+  @override
+  void dispose() {
+    if (ApiService.onSessionInvalidated == _invalidateSession)
+      ApiService.onSessionInvalidated = null;
+    super.dispose();
+  }
+
   static String get _tokenKey => 'invoiz:${AppConfig.apiBaseUrl}:token';
   static String get _userKey => 'invoiz:${AppConfig.apiBaseUrl}:user';
 
@@ -46,10 +60,6 @@ class AuthService extends ChangeNotifier {
       'password': password,
     });
     await _saveSession(data);
-  }
-
-  Future<void> saveAfterRegistration() async {
-    // Registration requires email verification before the shared account can log in.
   }
 
   Future<void> _saveSession(dynamic data) async {

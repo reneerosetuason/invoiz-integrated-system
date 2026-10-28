@@ -34,7 +34,7 @@ class HomeController extends Controller {
     return view('buyer.home', compact('products','categories','stats','cartLines','cartTotal','buyer','favoriteIds','sort') + ['saleMode' => false]);
   }
   public function show($id){
-    $p = Product::with(['category','variants'])->where('status', 'active')->findOrFail($id);
+    $p = Product::with(['category','variants'])->storefront()->findOrFail($id);
     $p->trackView();
     $p->setRelation('reviews', Review::with('buyer')->where('product_id', $p->id)->where('status', 'visible')->latest()->get());
     $reviewAverage = Review::where('product_id', $p->id)->where('status', 'visible')->avg('rating');
@@ -88,7 +88,7 @@ class HomeController extends Controller {
 
   private function catalogQuery(Request $request)
   {
-    return Product::with('category')->where('status','active')
+    return Product::with('category')->storefront()
       ->select('products.*')
       ->selectSub(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
       ->selectSub(Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');

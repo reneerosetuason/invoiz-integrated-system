@@ -176,7 +176,7 @@ class SellerApplicationController extends Controller
         try {
             foreach ($uploadMap as $field => $directory) {
                 if ($request->hasFile($field)) {
-                    $path = $request->file($field)->store($directory, 'public');
+                    $path = $request->file($field)->store($directory, $field === 'logo' ? 'public' : 'private');
                     if (! $path) {
                         throw new \RuntimeException("Could not store seller application file: {$field}");
                     }
@@ -224,7 +224,7 @@ class SellerApplicationController extends Controller
                         'status' => 'active',
                         'account_status' => 'active',
                         'approval_status' => 'approved',
-                        'email_verified_at' => now(),
+                        'email_verified_at' => null,
                     ];
                     $user = User::create($userUpdates);
                 }
@@ -278,8 +278,8 @@ class SellerApplicationController extends Controller
                 return $user;
             });
         } catch (Throwable $exception) {
-            foreach ($newFiles as $path) {
-                Storage::disk('public')->delete($path);
+            foreach ($newFiles as $field => $path) {
+                Storage::disk($field === 'logo' ? 'public' : 'private')->delete($path);
             }
             throw $exception;
         }
@@ -291,6 +291,14 @@ class SellerApplicationController extends Controller
             }
         }
 
+        if (! $user->email_verified_at) {
+            app(\App\Http\Controllers\Buyer\Api\MobileAuthController::class)->sendCode($user);
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Application submitted. Verify your email using the code we sent.', 'verification_required' => true], 201);
+            }
+            return redirect('/verify?email='.urlencode($user->email))->with('success', 'Application submitted. Please verify your email.');
+        }
+
         if ($request->expectsJson()) {
             return response()->json([
                 'message' => 'Application submitted. Please wait for the administrator decision.',
@@ -299,6 +307,7 @@ class SellerApplicationController extends Controller
         }
 
         Auth::login($user);
+        $request->session()->regenerate();
         $request->session()->put('buyer', [
             'id' => $user->id,
             'first_name' => $user->first_name,
@@ -319,6 +328,7 @@ class SellerApplicationController extends Controller
         $cleanPath = preg_replace('#^storage/#', '', $cleanPath);
 
         $candidates = [
+            Storage::disk('private')->path($cleanPath),
             Storage::disk('public')->path($cleanPath),
             public_path('storage/'.$cleanPath),
             public_path($cleanPath),
@@ -337,6 +347,7 @@ class SellerApplicationController extends Controller
     {
         $cleanPath = ltrim(str_replace('\\', '/', $path), '/');
         $cleanPath = preg_replace('#^storage/#', '', $cleanPath);
+        Storage::disk('private')->delete($cleanPath);
         Storage::disk('public')->delete($cleanPath);
 
         $publicCopy = public_path('storage/'.$cleanPath);

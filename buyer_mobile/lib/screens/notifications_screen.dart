@@ -1,39 +1,58 @@
+import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../services/buyer_updates.dart';
+import '../widgets/inbox_status.dart';
 import '../theme.dart';
 import '../widgets/main_layout.dart';
 import 'order_detail_screen.dart';
+import 'chat_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  final ApiService? api;
+  const NotificationsScreen({super.key, this.api});
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final _api = ApiService();
+  late final ApiService _api;
   List<Map<String, dynamic>> _items = [];
   bool _loading = true;
-  int _unreadCount = 0;
+  int _unreadCount = 0, _request = 0;
+  String? _error;
+  final _reading = <String>{};
+  bool _markingAll = false, _opening = false;
 
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? ApiService();
     _load();
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (!mounted) return;
+    final request = ++_request;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final data = await _api.get('notifications');
+      if (!mounted || request != _request) return;
       setState(() {
         _items = (data['notifications'] as List).cast<Map<String, dynamic>>();
         _unreadCount = data['unread_count'] as int? ?? 0;
         _loading = false;
       });
     } catch (e) {
-      setState(() => _loading = false);
+      if (!mounted || request != _request) return;
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
       if (mounted)
         ScaffoldMessenger.of(
           context,
@@ -42,26 +61,82 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _markRead(Map<String, dynamic> n) async {
-    if (n['read'] == true) return;
+    final id = n['id'].toString();
+    if (n['read'] == true || _markingAll || !_reading.add(id)) return;
     try {
-      await _api.post('notifications/${n['id']}/read', {});
+      await _api.post('notifications/$id/read', {});
+      if (!mounted) return;
       setState(() {
+        if (n['read'] != true) _unreadCount = (_unreadCount - 1).clamp(0, 999);
         n['read'] = true;
-        _unreadCount = (_unreadCount - 1).clamp(0, 999);
       });
-    } catch (_) {}
+      BuyerUpdates.inboxChanged();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      _reading.remove(id);
+    }
   }
 
   Future<void> _markAllRead() async {
+    if (_markingAll || _reading.isNotEmpty) return;
+    setState(() => _markingAll = true);
     try {
       await _api.post('notifications/read-all', {});
+      if (!mounted) return;
       setState(() {
         for (final n in _items) {
           n['read'] = true;
         }
         _unreadCount = 0;
       });
-    } catch (_) {}
+      BuyerUpdates.inboxChanged();
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _markingAll = false);
+    }
+  }
+
+  Future<void> _open(Map<String, dynamic> n) async {
+    if (_opening || _markingAll) return;
+    _opening = true;
+    try {
+      await _markRead(n);
+      if (!mounted) return;
+      final conversationId = n['conversation_id'] as int?;
+      final orderId = n['order_id'] as int?;
+      if (conversationId != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ChatThreadScreen(
+              api: _api,
+              conversationId: conversationId,
+              subject: 'Messages',
+            ),
+          ),
+        );
+      } else if (orderId != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OrderDetailScreen(api: _api, orderId: orderId),
+          ),
+        );
+      } else {
+        return;
+      }
+      if (mounted) await _load();
+    } finally {
+      _opening = false;
+    }
   }
 
   @override
@@ -69,26 +144,31 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return MainLayout(
       title: 'Notifications',
       currentIndex: -1,
+      showBottomNav: false,
+      showTopActions: false,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh notifications',
+          onPressed: _loading || _markingAll || _opening ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       showNotificationIcon: false,
       showSettingsIcon: false,
       child: _loading
           ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? InboxStatus(message: _error!, onRetry: _load)
           : _items.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.notifications_none,
-                    size: 64,
-                    color: AppColors.textSecondary,
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    'No notifications yet.',
-                    style: TextStyle(color: AppColors.textSecondary),
-                  ),
-                ],
+          ? BuyerEmptyState(
+              icon: Icons.notifications_none,
+              title: 'No notifications yet.',
+              description:
+                  'Your order updates and message alerts will appear here.',
+              action: TextButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
               ),
             )
           : RefreshIndicator(
@@ -120,9 +200,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           ),
                           const Spacer(),
                           TextButton.icon(
-                            onPressed: _markAllRead,
+                            onPressed: _markingAll || _opening
+                                ? null
+                                : _markAllRead,
                             icon: const Icon(Icons.done_all, size: 16),
-                            label: const Text('Mark all as read'),
+                            label: Text(
+                              _markingAll ? 'Updating…' : 'Mark all as read',
+                            ),
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.primary,
                               textStyle: const TextStyle(
@@ -136,9 +220,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                   Expanded(
                     child: ListView.separated(
-                      padding: const EdgeInsets.all(12),
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16),
                       itemCount: _items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, i) => _item(_items[i]),
                     ),
                   ),
@@ -150,12 +235,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Widget _item(Map<String, dynamic> n) {
     final type = n['type'] as String;
-    final orderId = n['order_id'] as int?;
     final read = n['read'] as bool? ?? false;
 
     final IconData icon;
     final Color color;
     switch (type) {
+      case 'chat':
+        icon = Icons.chat_bubble_outline;
+        color = AppColors.primary;
+        break;
       case 'review':
         icon = Icons.star_outline;
         color = AppColors.gold;
@@ -167,17 +255,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     return InkWell(
       borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        _markRead(n);
-        if (orderId != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => OrderDetailScreen(orderId: orderId),
-            ),
-          );
-        }
-      },
+      onTap: () => _open(n),
       child: Container(
         decoration: BoxDecoration(
           color: read ? AppColors.card : AppColors.accent,
@@ -216,7 +294,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             fontWeight: read
                                 ? FontWeight.w500
                                 : FontWeight.w700,
-                            color: const Color(0xFF212121),
+                            color: AppColors.textPrimary,
                           ),
                         ),
                       ),
@@ -235,7 +313,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   Text(
                     n['body'] as String,
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 13,
                       color: AppColors.textSecondary,
                       height: 1.35,
                     ),

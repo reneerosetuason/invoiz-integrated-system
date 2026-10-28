@@ -1,3 +1,4 @@
+import '../widgets/buyer_page.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +27,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _province = TextEditingController();
   final _municipality = TextEditingController();
   final _barangay = TextEditingController();
+  final _currentPassword = TextEditingController();
   final _password = TextEditingController();
   final _passwordConfirm = TextEditingController();
   final _bio = TextEditingController();
@@ -72,6 +74,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _province.dispose();
     _municipality.dispose();
     _barangay.dispose();
+    _currentPassword.dispose();
     _password.dispose();
     _passwordConfirm.dispose();
     _bio.dispose();
@@ -83,7 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       source: ImageSource.gallery,
       maxWidth: 800,
     );
-    if (picked != null) setState(() => _profilePicture = picked);
+    if (picked != null && mounted) setState(() => _profilePicture = picked);
   }
 
   Future<void> _pickImage() async {
@@ -91,16 +94,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       source: ImageSource.gallery,
       maxWidth: 1200,
     );
-    if (picked != null) setState(() => _idImage = picked);
+    if (picked != null && mounted) setState(() => _idImage = picked);
   }
 
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_busy || !_formKey.currentState!.validate()) return;
     if (_password.text.isNotEmpty && _password.text != _passwordConfirm.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Passwords do not match.'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.danger,
         ),
       );
       return;
@@ -140,12 +143,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'barangay': _barangay.text.trim(),
         'address_line': _street.text.trim(),
         'bio': _bio.text.trim(),
+        if (_password.text.isNotEmpty)
+          'current_password': _currentPassword.text,
         if (_password.text.isNotEmpty) 'password': _password.text,
         if (_password.text.isNotEmpty)
           'password_confirmation': _passwordConfirm.text,
       }, files: files);
 
+      if (!mounted) return;
       await AuthServiceProvider.of(context).refreshUser();
+      if (!mounted) return;
+      _currentPassword.clear();
+      _password.clear();
+      _passwordConfirm.clear();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -155,10 +165,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(e.toString()),
-          backgroundColor: Colors.red.shade700,
+          backgroundColor: AppColors.danger,
         ),
       );
     } finally {
@@ -174,12 +185,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final hasLocalAvatar = _profilePicture != null;
 
     return MainLayout(
+      showBottomNav: false,
       title: 'Edit Profile',
       child: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
+            const BuyerPageHeading(
+              title: 'Your profile',
+              description:
+                  'Keep your personal and delivery details up to date.',
+            ),
             Center(
               child: GestureDetector(
                 onTap: _pickProfilePicture,
@@ -252,171 +269,193 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              'Bio',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+            BuyerPanel(
+              title: 'About you',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _bio,
+                    maxLength: 200,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      labelText: 'Tell us about yourself',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _bio,
-              maxLength: 200,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Tell us about yourself',
-                alignLabelWithHint: true,
+            const SizedBox(height: 16),
+            BuyerPanel(
+              title: 'Personal information',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _lastName,
+                    decoration: const InputDecoration(labelText: 'Last name*'),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _firstName,
+                    decoration: const InputDecoration(labelText: 'First name*'),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _middleInitial,
+                    decoration: const InputDecoration(
+                      labelText: 'Middle initial',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: _sex,
+                    decoration: const InputDecoration(labelText: 'Sex'),
+                    items: ['male', 'female', 'other']
+                        .map(
+                          (s) => DropdownMenuItem(
+                            value: s,
+                            child: Text(
+                              s.toUpperCase(),
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _sex = v),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _phone,
+                    decoration: const InputDecoration(labelText: 'Contact No.'),
+                  ),
+                ],
               ),
             ),
-            const Divider(height: 30),
-            Text(
-              'Personal Information',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+            const SizedBox(height: 16),
+            BuyerPanel(
+              title: 'Your address',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _province,
+                    decoration: const InputDecoration(labelText: 'Province'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _municipality,
+                    decoration: const InputDecoration(
+                      labelText: 'Municipality',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _barangay,
+                    decoration: const InputDecoration(labelText: 'Barangay'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _street,
+                    decoration: const InputDecoration(
+                      labelText: 'Street / House no.',
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _lastName,
-              decoration: const InputDecoration(labelText: 'Last name*'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+            const SizedBox(height: 16),
+            BuyerPanel(
+              title: 'Password & security',
+              description:
+                  'Leave these fields blank to keep your current password.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _currentPassword,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Current password (for password changes)',
+                    ),
+                    validator: (value) =>
+                        _password.text.isNotEmpty &&
+                            (value == null || value.isEmpty)
+                        ? 'Enter your current password.'
+                        : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _password,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'New password (leave blank to keep)',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _passwordConfirm,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm new password',
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _firstName,
-              decoration: const InputDecoration(labelText: 'First name*'),
-              validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _middleInitial,
-              decoration: const InputDecoration(labelText: 'Middle initial'),
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _sex,
-              decoration: const InputDecoration(labelText: 'Sex'),
-              items: ['male', 'female', 'other']
-                  .map(
-                    (s) => DropdownMenuItem(
-                      value: s,
-                      child: Text(
-                        s.toUpperCase(),
-                        style: const TextStyle(color: Color(0xFF212121)),
+            const SizedBox(height: 16),
+            BuyerPanel(
+              title: 'Identification',
+              description: 'Upload a replacement document only when needed.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  InkWell(
+                    onTap: _pickImage,
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        border: Border.all(color: AppColors.border),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            _idImage == null
+                                ? Icons.upload_file
+                                : Icons.check_circle,
+                            color: _idImage == null
+                                ? AppColors.textSecondary
+                                : AppColors.success,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _idImage == null
+                                  ? 'Upload new ID (optional)'
+                                  : _idImage!.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                  .toList(),
-              onChanged: (v) => setState(() => _sex = v),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phone,
-              decoration: const InputDecoration(labelText: 'Contact No.'),
-            ),
-            const Divider(height: 30),
-            Text(
-              'Address',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _province,
-              decoration: const InputDecoration(labelText: 'Province'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _municipality,
-              decoration: const InputDecoration(labelText: 'Municipality'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _barangay,
-              decoration: const InputDecoration(labelText: 'Barangay'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _street,
-              decoration: const InputDecoration(
-                labelText: 'Street / House no.',
-              ),
-            ),
-            const Divider(height: 30),
-            Text(
-              'Change Password',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _password,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'New password (leave blank to keep)',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _passwordConfirm,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Confirm new password',
-              ),
-            ),
-            const Divider(height: 30),
-            Text(
-              'Identification',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            InkWell(
-              onTap: _pickImage,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  border: Border.all(color: AppColors.border),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _idImage == null ? Icons.upload_file : Icons.check_circle,
-                      color: _idImage == null
-                          ? AppColors.textSecondary
-                          : AppColors.success,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _idImage == null
-                            ? 'Upload new ID (optional)'
-                            : _idImage!.name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Color(0xFF212121),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            const SizedBox(height: 16),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _busy ? null : _save,
@@ -448,7 +487,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       color: Colors.transparent,
       child: Center(
         child: Text(
-          (user?.firstName ?? '?').substring(0, 1).toUpperCase(),
+          ((user?.firstName ?? '').isEmpty
+                  ? '?'
+                  : user.firstName.substring(0, 1))
+              .toUpperCase(),
           style: TextStyle(
             color: AppColors.primary,
             fontSize: 32,

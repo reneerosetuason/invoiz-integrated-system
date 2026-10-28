@@ -68,6 +68,13 @@ class Product extends Model
         });
     }
 
+    public function scopeStorefront($query)
+    {
+        return $query->where('products.status', 'active')->whereHas('seller', fn ($q) => $q->approved()->whereHas('user', function ($user) {
+            $user->where(fn ($active) => $active->where('account_status', 'active')->orWhere(fn ($legacy) => $legacy->where(fn ($missing) => $missing->whereNull('account_status')->orWhere('account_status', ''))->where(fn ($status) => $status->where('status', 'active')->orWhereNull('status'))));
+        }));
+    }
+
     public function scopeActive($q)
     {
         return $q->where('status', 'active');
@@ -126,7 +133,7 @@ class Product extends Model
 
     public function seller()
     {
-        return $this->belongsTo(Seller::class);
+        return $this->belongsTo(Seller::class, 'seller_id', 'user_id');
     }
 
     public function reviews()

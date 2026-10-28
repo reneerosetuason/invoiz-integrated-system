@@ -1,3 +1,5 @@
+import '../widgets/buyer_page.dart';
+import '../services/buyer_updates.dart';
 import 'package:flutter/material.dart';
 import '../models/address.dart';
 import '../models/cart.dart';
@@ -68,6 +70,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
       ScaffoldMessenger.of(
         context,
@@ -135,11 +138,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _placeOrder() async {
+    if (_placing || _quoting) return;
     if (_selectedAddressId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select a shipping address.'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.danger,
         ),
       );
       return;
@@ -151,6 +155,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         'payment_method': _paymentMethod,
         ..._selection(),
       });
+      BuyerUpdates.cartChanged();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -164,17 +169,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         (route) => false,
       );
     } on ApiException catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Colors.red.shade700,
-        ),
+        SnackBar(content: Text(e.message), backgroundColor: AppColors.danger),
       );
     } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Unable to place order.'),
-          backgroundColor: Colors.red,
+          backgroundColor: AppColors.danger,
         ),
       );
     } finally {
@@ -193,14 +197,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           : _cart == null || _cart!.items.isEmpty
           ? const Center(child: Text('Your cart is empty.'))
           : ListView(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
               children: [
+                const BuyerPageHeading(
+                  title: 'Review your order',
+                  description:
+                      'Confirm your delivery details. Pay when it arrives.',
+                ),
                 _section('Shipping Address', _addressSection(context)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 _section('Payment Method', _paymentSection()),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 _section('Voucher', _voucherSection()),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 _section('Order Summary', _summarySection()),
                 const SizedBox(height: 16),
                 ElevatedButton(
@@ -230,31 +239,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _section(String title, Widget child) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: AppColors.border),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF212121),
-            ),
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
+  Widget _section(String title, Widget child) =>
+      BuyerPanel(title: title, child: child);
 
   Widget _addressSection(BuildContext context) {
     if (_addresses.isEmpty) {
@@ -288,7 +274,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             onChanged: (v) => setState(() => _selectedAddressId = v),
             title: Text(
               a.recipientName,
-              style: const TextStyle(fontSize: 14, color: Color(0xFF212121)),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textPrimary,
+              ),
             ),
             subtitle: Text(
               '${a.phone}\n${a.fullAddress}',
@@ -324,7 +313,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           onChanged: (v) => setState(() => _paymentMethod = v!),
           title: const Text(
             'Cash on Delivery (COD)',
-            style: TextStyle(fontSize: 14, color: Color(0xFF212121)),
+            style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
           ),
           subtitle: const Text(
             'Pay when your order arrives.',
@@ -346,7 +335,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: AppColors.accent,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.primary),
             ),
             child: Row(
@@ -362,7 +351,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: Color(0xFF212121),
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       Text(
@@ -444,7 +433,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.secondary.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.secondary),
       ),
       child: Row(
@@ -460,7 +449,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF212121),
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 Text(
@@ -493,11 +482,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             const Text(
               'Subtotal',
-              style: TextStyle(fontSize: 13, color: Color(0xFF212121)),
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
             ),
             Text(
               _fmt(subtotal),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF212121)),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
         ),
@@ -507,7 +499,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             const Text(
               'Voucher Discount',
-              style: TextStyle(fontSize: 13, color: Color(0xFF212121)),
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
             ),
             Text(
               '-${_fmt(discount)}',
@@ -521,13 +513,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           children: [
             const Text(
               'Shipping',
-              style: TextStyle(fontSize: 13, color: Color(0xFF212121)),
+              style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
             ),
             Text(
               _quote?.shippingFee == 0
                   ? 'FREE'
                   : _fmt(_quote?.shippingFee ?? 0),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF212121)),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary,
+              ),
             ),
           ],
         ),
@@ -540,7 +535,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF212121),
+                color: AppColors.textPrimary,
               ),
             ),
             Text(

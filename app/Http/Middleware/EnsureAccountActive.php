@@ -17,7 +17,7 @@ class EnsureAccountActive
         }
 
         if (! $user->isActive()) {
-            return response()->json(['message' => 'Your account is not active.'], 403);
+            return response()->json(['message' => 'Your account is not active.', 'code' => 'account_inactive'], 403);
         }
 
         return $next($request);

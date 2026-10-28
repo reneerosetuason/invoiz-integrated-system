@@ -18,8 +18,16 @@ if ($ApiBaseUrl) {
 }
 Push-Location -LiteralPath $buyerRoot
 try {
-    & flutter @buildArgs
-    if ($LASTEXITCODE -ne 0) { throw 'Flutter web build failed.' }
+    # Flutter writes informational diagnostics to stderr too. Check its exit code.
+    $previousErrorAction = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        & flutter @buildArgs 2>&1 | ForEach-Object { $_.ToString() }
+        $flutterExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorAction
+    }
+    if ($flutterExitCode -ne 0) { throw 'Flutter web build failed.' }
     New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
     Get-ChildItem -LiteralPath (Join-Path $buyerRoot 'build\web') -Force | Copy-Item -Destination $outputPath -Recurse -Force
     Write-Output 'Buyer app is available at /buyer-app/ on the shared Laravel server.'

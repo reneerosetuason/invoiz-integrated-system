@@ -12,7 +12,7 @@ class VoucherController extends Controller
 {
     public function index()
     {
-        $sellerIds = $this->sellerRecord()->catalogIds();
+        $sellerIds = $this->sellerRecord()->recordIds();
         $scope = Voucher::where(function ($q) use ($sellerIds) {
             $q->whereNull('seller_id')->orWhereIn('seller_id', $sellerIds);
         });
@@ -61,7 +61,7 @@ class VoucherController extends Controller
 
     public function update(Request $request, $id)
     {
-        $sellerIds = $this->sellerRecord()->catalogIds();
+        $sellerIds = $this->sellerRecord()->recordIds();
         $voucher = Voucher::whereIn('seller_id', $sellerIds)->findOrFail($id);
 
         // Once a buyer has claimed the voucher it is locked: only the
@@ -104,7 +104,7 @@ class VoucherController extends Controller
 
     public function destroy($id)
     {
-        $voucher = Voucher::whereIn('seller_id', $this->sellerRecord()->catalogIds())->findOrFail($id);
+        $voucher = Voucher::whereIn('seller_id', $this->sellerRecord()->recordIds())->findOrFail($id);
 
         if ($voucher->used_count > 0 || \App\Models\VoucherClaim::where('voucher_id', $voucher->id)->exists()) {
             return back()->with('error', 'This voucher has already been claimed and cannot be deleted.');

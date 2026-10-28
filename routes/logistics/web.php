@@ -39,7 +39,7 @@ Route::post('logistics-center/apply', [CenterApplicationPublicController::class,
 Route::get('logistics-center/application-status', [CenterApplicationPublicController::class, 'status'])
     ->name('center-application.status');
 Route::post('logistics-center/application-status', [CenterApplicationPublicController::class, 'check'])
-    ->name('center-application.status.check');
+    ->name('center-application.status.check')->middleware('throttle:10,1');
 // Email OTP gate for the public center-application form (mirrors the rider
 // apply flow). JSON endpoints consumed by the wizard via fetch.
 Route::post('logistics-center/verification/send', [CenterEmailVerificationController::class, 'send'])

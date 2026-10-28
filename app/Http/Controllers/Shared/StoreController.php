@@ -49,8 +49,8 @@ class StoreController extends Controller
         ];
 
         if ($withProducts) {
-            $payload['products'] = Product::with('seller')
-                ->where('seller_id', $seller->id)
+            $payload['products'] = Product::with('seller:id,user_id,store_name,business_name,logo')
+                ->where('seller_id', $seller->user_id)
                 ->where('status', 'active')
                 ->get();
         }

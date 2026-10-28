@@ -79,8 +79,10 @@
 
             <form method="POST" action="{{ route('center-application.status.check') }}"
                   class="mt-6 bg-white rounded-2xl border border-gray-200/80 shadow-[0_10px_36px_-16px_rgba(14,74,87,0.28)] p-6 sm:p-7"
+                  data-status-verification
+                  data-send-url="{{ route('center-application.verification.send') }}"
+                  data-verify-url="{{ route('center-application.verification.verify') }}"
                   x-data="{ submitting: false }"
-                  x-on:submit="if (submitting) { $event.preventDefault(); return; } submitting = true"
                   novalidate>
                 @csrf
 
@@ -95,6 +97,12 @@
                     @error('email')<p id="status_email_error" class="mt-2 text-sm font-medium text-red-600">{{ $message }}</p>@enderror
                 </div>
 
+                <div class="mt-4">
+                    <button type="button" data-send-code class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold">Send verification code</button>
+                    <label for="status-code" class="mt-3 block text-sm font-semibold">Email verification code</label>
+                    <input id="status-code" name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" class="mt-2 block w-full rounded-xl border border-gray-300 p-3" placeholder="6-digit code">
+                    <p data-verification-feedback role="status" class="mt-2 text-sm text-gray-600">Verify your email to keep your application details private.</p>
+                </div>
                 <button type="submit" :disabled="submitting"
                         :class="submitting ? 'opacity-70 cursor-not-allowed' : 'hover:bg-teal-dark active:bg-teal-dark active:scale-[0.99]'"
                         class="mt-6 w-full min-h-[52px] bg-teal text-white rounded-xl px-6 py-3.5 text-[15px] font-bold tracking-wide shadow-[0_10px_25px_-10px_rgba(22,105,122,0.55)] transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 disabled:opacity-70">
@@ -225,5 +233,6 @@
     </div>
 </div>
 @include('logistics.layouts.partials.form-controls')
+<script src="{{ asset('assets/logistics/js/application-status.js') }}"></script>
 </body>
 </html>

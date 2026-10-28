@@ -87,7 +87,13 @@ class OrderController extends Controller
             if ($item->quantity < 1 || $item->quantity > $available) {
                 throw ValidationException::withMessages(['cart_item_ids' => 'Insufficient stock for '.$product->name.'.']);
             }
+            if (! $variant && $product->variants()->where('status', 'active')->exists()) {
+                throw ValidationException::withMessages(['cart_item_ids' => 'Please select a variation for '.$product->name.'.']);
+            }
             $unit = Cart::unitFor($product, $variant);
+            if ($unit < 0) {
+                throw ValidationException::withMessages(['cart_item_ids' => 'A selected item has an invalid price. Please contact the store.']);
+            }
             $lineTotal = round($unit * $item->quantity, 2);
             $subtotal += $lineTotal;
             $sellerId = (int) $product->seller_id;
@@ -100,11 +106,15 @@ class OrderController extends Controller
         }
         $sellerIds = array_keys($sellerSubtotals);
         foreach ($sellerIds as $sellerId) {
+            $store = Seller::where('user_id', $sellerId)->approved()->with('user')->first();
+            if (! $store || ! $store->user?->isActive()) {
+                throw ValidationException::withMessages(['cart_item_ids' => 'A selected store is no longer available.']);
+            }
             if ($problem = DeliveryServiceability::pickupAddressProblem($sellerId)) {
                 throw ValidationException::withMessages(['cart_item_ids' => $problem]);
             }
         }
-        $onVacation = Seller::where(fn ($q) => $q->whereIn('id', $sellerIds)->orWhereIn('user_id', $sellerIds))
+        $onVacation = Seller::whereIn('user_id', $sellerIds)
             ->where('vacation_mode', true)->exists();
         if ($onVacation) {
             throw ValidationException::withMessages(['cart_item_ids' => 'A selected store is on vacation.']);
@@ -166,7 +176,6 @@ class OrderController extends Controller
         ]);
 
         $user = $request->user();
-        $cart = $this->checkoutCart($user->id, $validated['cart_item_ids'] ?? null);
 
         $address = Address::where('id', $validated['address_id'])
             ->where('buyer_id', $user->id)
@@ -176,20 +185,20 @@ class OrderController extends Controller
             return response()->json(['message' => $problem], 422);
         }
 
-        [
-            'subtotal' => $subtotal,
-            'lineItems' => $lineItems,
-            'groupIds' => $groupIds,
-            'shippingTotal' => $shippingTotal,
-            'discount' => $discount,
-            'waivedTotal' => $waivedTotal,
-            'perVoucher' => $perVoucher,
-            'claimIds' => $claimIds,
-            'total' => $total,
-        ] = $this->quoteCart($cart, $user, $validated);
-
         try {
-            $order = DB::transaction(function () use ($user, $address, $cart, $lineItems, $subtotal, $discount, $shippingTotal, $waivedTotal, $total, $claimIds, $perVoucher, $validated, $groupIds) {
+            $order = DB::transaction(function () use ($user, $address, $validated) {
+                $header = Cart::where('buyer_id', $user->id)->lockForUpdate()->first();
+                if (! $header) {
+                    throw ValidationException::withMessages(['cart_item_ids' => 'Your cart is empty.']);
+                }
+                $lines = $header->items()->orderBy('id')->lockForUpdate()->get();
+                Product::whereIn('id', $lines->pluck('product_id'))->orderBy('id')->lockForUpdate()->get();
+                \App\Models\ProductVariant::whereIn('id', $lines->pluck('variant_id')->filter())->orderBy('id')->lockForUpdate()->get();
+                $cart = $this->checkoutCart($user->id, $validated['cart_item_ids'] ?? null);
+                if ($cart->items->sum('quantity') > 200) {
+                    throw ValidationException::withMessages(['cart_item_ids' => 'Checkout is limited to 200 items.']);
+                }
+                $claimIds = array_values(array_unique(array_filter(array_merge($validated['voucher_claim_ids'] ?? [], [$validated['voucher_claim_id'] ?? null]))));
                 $lockedClaims = collect();
                 if ($claimIds) {
                     $lockedClaims = VoucherClaim::whereIn('id', $claimIds)->where('buyer_id', $user->id)
@@ -197,15 +206,22 @@ class OrderController extends Controller
                     $lockedVouchers = Voucher::whereIn('id', $lockedClaims->pluck('voucher_id'))
                         ->lockForUpdate()->get()->keyBy('id');
                     if ($lockedClaims->count() !== count($claimIds)) {
-                        throw new \Exception('One of the claimed vouchers is no longer available.');
+                        throw ValidationException::withMessages(['voucher_claim_ids' => 'One of the claimed vouchers is no longer available.']);
                     }
                     foreach ($lockedClaims as $lc) {
                         $lv = $lockedVouchers->get($lc->voucher_id);
                         if (! $lv || ! $lv->is_active || ($lv->usage_limit !== null && $lv->used_count >= $lv->usage_limit)) {
-                            throw new \Exception('One of the claimed vouchers is no longer available.');
+                            throw ValidationException::withMessages(['voucher_claim_ids' => 'One of the claimed vouchers is no longer available.']);
                         }
                     }
                 }
+                // Recalculate after the cart, stock and voucher rows are locked.
+                [
+                    'subtotal' => $subtotal, 'lineItems' => $lineItems, 'groupIds' => $groupIds,
+                    'shippingTotal' => $shippingTotal, 'discount' => $discount,
+                    'waivedTotal' => $waivedTotal, 'perVoucher' => $perVoucher,
+                    'claimIds' => $claimIds, 'total' => $total,
+                ] = $this->quoteCart($cart, $user, $validated);
                 $order = Order::create([
                     'seller_id' => $groupIds[0] ?? null,
                     'buyer_id' => $user->id,
@@ -269,7 +285,7 @@ class OrderController extends Controller
                 // Deduct stock (guarded: fails the whole checkout when short).
                 foreach ($cart->items as $item) {
                     if (! Stock::deduct($item->product_id, $item->variant_id, $item->quantity)) {
-                        throw new \Exception("Insufficient stock for \"{$item->product->name}\".");
+                        throw ValidationException::withMessages(['cart_item_ids' => "Insufficient stock for {$item->product->name}."]);
                     }
                 }
 
@@ -286,13 +302,17 @@ class OrderController extends Controller
                 'order' => $order,
             ], 201);
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'Unable to place order. '.$e->getMessage()], 500);
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
+            report($e);
+            return response()->json(['message' => 'Unable to place order. Nothing was charged. Refresh your cart and try again.'], 500);
         }
     }
 
     public function show(Request $request, $id)
     {
-        $order = Order::with(['items.product', 'payment', 'delivery', 'orderVouchers.voucher', 'address', 'statusHistories'])
+        $order = Order::with(['items.product', 'payment', 'delivery', 'deliveries', 'orderVouchers.voucher', 'address', 'statusHistories'])
             ->where('buyer_id', $request->user()->id)
             ->findOrFail($id);
         $this->hideBuyerVoucherCodes(collect([$order]));
@@ -364,7 +384,8 @@ class OrderController extends Controller
     public function requestReturn(Request $request, $id)
     {
         $validated = $request->validate([
-            'product_id' => ['required', 'exists:products,id'],
+            'order_item_id' => ['required_without:product_id', 'integer', 'min:1'],
+            'product_id' => ['required_without:order_item_id', 'integer', 'min:1'],
             'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
             'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'min:10', 'max:300'],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
@@ -377,14 +398,25 @@ class OrderController extends Controller
                 return response()->json(['message' => 'You can only request a return after the order is delivered.'], 422);
             }
 
-            $windowDays = max(1, (int) Setting::get('return_window_days', 7));
-            if ($order->updated_at && $order->updated_at->lt(now()->subDays($windowDays))) {
-                return response()->json(['message' => "The return window ({$windowDays} days after delivery) has closed."], 422);
+            $matches = ! empty($validated['order_item_id'])
+                ? $order->items->where('id', (int) $validated['order_item_id'])
+                : $order->items->where('product_id', (int) $validated['product_id']);
+            if ($matches->count() !== 1) {
+                throw ValidationException::withMessages(['order_item_id' => 'Choose the specific purchased item or variation to return.']);
             }
-
-            $item = $order->items->firstWhere('product_id', (int) $validated['product_id']);
-            if (! $item) {
-                return response()->json(['message' => 'That product is not part of this order.'], 422);
+            $item = $matches->first();
+            if (! empty($validated['product_id']) && (int) $item->product_id !== (int) $validated['product_id']) {
+                throw ValidationException::withMessages(['order_item_id' => 'This item does not match the selected product.']);
+            }
+            $windowDays = max(1, (int) Setting::get('return_window_days', 7));
+            $deliveredAt = $order->statusHistories()->where('to_status', 'delivered')->oldest('created_at')->value('created_at');
+            if (! $deliveredAt) {
+                $deliveredAt = $order->deliveries()->where('seller_id', $item->seller_id)->where('status', 'delivered')->max('delivered_at');
+            }
+            // Older data without a delivery event uses the immutable order creation time.
+            $deliveredAt = \Illuminate\Support\Carbon::parse($deliveredAt ?: $order->created_at);
+            if ($deliveredAt->lt(now()->subDays($windowDays))) {
+                return response()->json(['message' => "The return window ({$windowDays} days after delivery) has closed."], 422);
             }
 
             $open = ReturnRequest::where('order_id', $order->id)
@@ -434,6 +466,8 @@ class OrderController extends Controller
     private function hideBuyerVoucherCodes($orders): void
     {
         foreach ($orders as $order) {
+            $order->setAttribute('can_cancel', $order->isCancellableByBuyer());
+            $order->setAttribute('returns', ReturnRequest::where('order_id', $order->id)->where('buyer_id', $order->buyer_id)->get());
             foreach ($order->items as $item) {
                 $item->setAttribute('subtotal', $item->lineTotal);
                 $item->setAttribute('product_image', $item->product?->image);

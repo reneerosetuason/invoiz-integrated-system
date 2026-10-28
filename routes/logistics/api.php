@@ -29,9 +29,9 @@ Route::get('/address/provinces', [AddressController::class, 'provinces']);
 Route::get('/address/provinces/{province}/municipalities', [AddressController::class, 'municipalities']);
 Route::get('/address/municipalities/{municipality}/barangays', [AddressController::class, 'barangays']);
 Route::post('/rider/apply', [RiderApplicationController::class, 'store']);
-Route::get('/rider/application-status', [RiderApplicationController::class, 'status']);
+Route::get('/rider/application-status', [RiderApplicationController::class, 'status'])->middleware('throttle:10,1');
 Route::post('/center/apply', [CenterApplicationController::class, 'store']);
-Route::get('/center/application-status', [CenterApplicationController::class, 'status']);
+Route::get('/center/application-status', [CenterApplicationController::class, 'status'])->middleware('throttle:10,1');
 
 Route::post('/rider/email/request-code', [RiderEmailVerificationController::class, 'send'])
     ->middleware('throttle:5,1');

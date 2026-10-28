@@ -1,6 +1,4 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../screens/account_screen.dart';
 import '../screens/cart_screen.dart';
 import '../screens/chat_screen.dart';
@@ -10,6 +8,7 @@ import '../screens/notifications_screen.dart';
 import '../screens/orders_screen.dart';
 import '../screens/product_list_screen.dart';
 import '../services/api_service.dart';
+import '../services/buyer_updates.dart';
 import '../theme.dart';
 import 'auth_service_provider.dart';
 import 'invoiz_logo.dart';
@@ -17,14 +16,16 @@ import 'invoiz_logo.dart';
 class MainLayout extends StatelessWidget {
   final Widget child;
   final String title;
-  final bool showAppBar;
-  final bool showBottomNav;
-  final bool showTopActions;
-  final bool showMessageIcon;
-  final bool showSettingsIcon;
-  final bool showNotificationIcon;
+  final bool showAppBar,
+      showBottomNav,
+      showTopActions,
+      showMessageIcon,
+      showSettingsIcon,
+      showNotificationIcon;
+  static const destinationCount = 5;
   final int currentIndex;
-
+  final ApiService? api;
+  final List<Widget> actions;
   const MainLayout({
     super.key,
     required this.child,
@@ -36,368 +37,194 @@ class MainLayout extends StatelessWidget {
     this.showSettingsIcon = true,
     this.showNotificationIcon = true,
     this.currentIndex = 0,
+    this.api,
+    this.actions = const [],
   });
-
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      backgroundColor: AppColors.background,
-      appBar: showAppBar ? _buildAppBar(context) : null,
-      body: child,
-      bottomNavigationBar: showBottomNav
-          ? _BottomNav(currentIndex: currentIndex)
-          : null,
-    );
-  }
-
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      titleSpacing: 14,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      flexibleSpace: ClipRRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-          child: Container(color: Colors.white.withValues(alpha: 0.7)),
-        ),
-      ),
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.border, width: 0.5),
-            ),
-            child: InvoizLogo.logoWidget(size: 26, radius: 6),
-          ),
-          if (title.isNotEmpty)
-            Flexible(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0.3,
-                    fontFamily: 'Georgia',
-                    color: AppColors.textPrimary,
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: AppColors.background,
+    extendBody: false,
+    appBar: showAppBar
+        ? AppBar(
+            titleSpacing: 12,
+            title: Row(
+              children: [
+                InvoizLogo.logoWidget(size: 30, radius: 8),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    title.isEmpty ? 'INVOIZ' : title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
+              ],
             ),
-        ],
+            actions: [
+              ...actions,
+              if (showTopActions && showMessageIcon)
+                AppMessageBadge(
+                  api: api,
+                  iconColor: AppColors.primaryDark,
+                  background: AppColors.surfaceTint,
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AuthServiceProvider.of(context).isLoggedIn
+                          ? ChatScreen(api: api)
+                          : const LoginScreen(),
+                    ),
+                  ),
+                ),
+              if (showNotificationIcon)
+                AppNotificationBell(
+                  api: api,
+                  background: AppColors.surfaceTint,
+                ),
+              if (showTopActions && showSettingsIcon)
+                IconButton(
+                  tooltip: 'Account',
+                  icon: const Icon(Icons.person_outline),
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AuthServiceProvider.of(context).isLoggedIn
+                          ? const AccountScreen()
+                          : const LoginScreen(),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 8),
+            ],
+          )
+        : null,
+    body: Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: showBottomNav ? 1200 : 760),
+        child: SizedBox(width: double.infinity, child: child),
       ),
-      actions: [
-        if (showTopActions && showMessageIcon)
-          AppMessageBadge(
-            iconColor: AppColors.textPrimary,
-            background: Colors.white,
-            onTap: () {
-              final auth = AuthServiceProvider.of(context);
-              if (!auth.isLoggedIn) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                );
-                return;
-              }
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ChatScreen()),
-              );
-            },
-          ),
-        if (showNotificationIcon) const AppNotificationBell(),
-        if (showTopActions && showSettingsIcon)
-          _AppBarIcon(
-            icon: Icons.settings_outlined,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AccountScreen()),
-            ),
-          ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
+    ),
+    bottomNavigationBar:
+        showBottomNav && currentIndex >= 0 && currentIndex < destinationCount
+        ? _BottomNav(currentIndex: currentIndex)
+        : null,
+  );
 }
 
 class _BottomNav extends StatefulWidget {
   final int currentIndex;
   const _BottomNav({required this.currentIndex});
-
   @override
   State<_BottomNav> createState() => _BottomNavState();
 }
 
 class _BottomNavState extends State<_BottomNav> {
   int _cartCount = 0;
-
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCart());
+    BuyerUpdates.cart.addListener(_loadCart);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadCart();
+  }
+
+  @override
+  void dispose() {
+    BuyerUpdates.cart.removeListener(_loadCart);
+    super.dispose();
   }
 
   Future<void> _loadCart() async {
     if (!mounted) return;
     final auth = AuthServiceProvider.of(context);
-    if (!auth.isLoggedIn) return;
+    if (!auth.isLoggedIn) {
+      if (_cartCount != 0) setState(() => _cartCount = 0);
+      return;
+    }
+    final token = ApiService.token;
     try {
       final data = await ApiService().get('cart');
-      final items = (data['cart']?['items'] as List?) ?? [];
-      if (mounted) setState(() => _cartCount = items.length);
+      final items = data['cart']?['items'] as List? ?? [];
+      if (mounted && token == ApiService.token)
+        setState(
+          () => _cartCount = items.fold<int>(
+            0,
+            (sum, item) => sum + ((item['quantity'] as num?)?.toInt() ?? 0),
+          ),
+        );
     } catch (_) {}
   }
 
-  void _go(BuildContext context, int index) {
+  void _go(int index) {
     if (index == widget.currentIndex) return;
-    final auth = AuthServiceProvider.of(context);
-    Widget target;
-    switch (index) {
-      case 0:
-        target = const HomeScreen();
-        break;
-      case 1:
-        target = const ProductListScreen();
-        break;
-      case 2:
-        if (!auth.isLoggedIn) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-          return;
-        }
-        target = const CartScreen();
-        break;
-      case 3:
-        if (!auth.isLoggedIn) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const LoginScreen()),
-          );
-          return;
-        }
-        target = const OrdersScreen();
-        break;
-      case 4:
-        target = auth.isLoggedIn ? const AccountScreen() : const LoginScreen();
-        break;
-      default:
-        return;
+    final signedIn = AuthServiceProvider.of(context).isLoggedIn;
+    if (!signedIn && [2, 3, 4].contains(index)) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+      );
+      return;
     }
+    final Widget target = switch (index) {
+      0 => const HomeScreen(),
+      1 => const ProductListScreen(showAll: true),
+      2 => const CartScreen(),
+      3 => const OrdersScreen(),
+      _ => const AccountScreen(),
+    };
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (_) => target),
-      (route) => false,
+      (_) => false,
     );
   }
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
+  Widget build(BuildContext context) => DecoratedBox(
+    decoration: const BoxDecoration(
+      border: Border(top: BorderSide(color: AppColors.border)),
+    ),
+    child: NavigationBar(
+      selectedIndex: widget.currentIndex,
+      onDestinationSelected: _go,
+      destinations: [
+        const NavigationDestination(
+          icon: Icon(Icons.home_outlined),
+          selectedIcon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        const NavigationDestination(
+          icon: Icon(Icons.grid_view_outlined),
+          selectedIcon: Icon(Icons.grid_view_rounded),
+          label: 'Shop',
+        ),
+        NavigationDestination(
+          icon: Badge(
+            isLabelVisible: _cartCount > 0,
+            label: Text(_cartCount > 99 ? '99+' : '$_cartCount'),
+            child: const Icon(Icons.shopping_bag_outlined),
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              color: AppColors.background,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _NavButton(
-                      icon: Icons.home_outlined,
-                      activeIcon: Icons.home,
-                      label: 'Home',
-                      selected: widget.currentIndex == 0,
-                      onTap: () => _go(context, 0),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavButton(
-                      icon: Icons.local_offer_outlined,
-                      activeIcon: Icons.local_offer,
-                      label: 'Sale',
-                      selected: widget.currentIndex == 1,
-                      onTap: () => _go(context, 1),
-                    ),
-                  ),
-                  Expanded(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
-                      children: [
-                        _NavButton(
-                          icon: Icons.shopping_cart_outlined,
-                          activeIcon: Icons.shopping_cart,
-                          label: 'Cart',
-                          selected: widget.currentIndex == 2,
-                          onTap: () => _go(context, 2),
-                        ),
-                        if (_cartCount > 0)
-                          Positioned(
-                            right: 8,
-                            top: 2,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 1,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: AppColors.primary,
-                                  width: 1,
-                                ),
-                              ),
-                              child: Text(
-                                '$_cartCount',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavButton(
-                      icon: Icons.receipt_long_outlined,
-                      activeIcon: Icons.receipt_long,
-                      label: 'Orders',
-                      selected: widget.currentIndex == 3,
-                      onTap: () => _go(context, 3),
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavButton(
-                      icon: Icons.person_outline,
-                      activeIcon: Icons.person,
-                      label: 'Me',
-                      selected: widget.currentIndex == 4,
-                      onTap: () => _go(context, 4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          selectedIcon: const Icon(Icons.shopping_bag),
+          label: 'Cart',
         ),
-      ),
-    );
-  }
-}
-
-class _NavButton extends StatelessWidget {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _NavButton({
-    required this.icon,
-    required this.activeIcon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        curve: Curves.easeOutCubic,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+        const NavigationDestination(
+          icon: Icon(Icons.receipt_long_outlined),
+          selectedIcon: Icon(Icons.receipt_long),
+          label: 'Orders',
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: Icon(
-                selected ? activeIcon : icon,
-                key: ValueKey(selected),
-                size: 22,
-                color: selected
-                    ? const Color(0xFFFAECE7)
-                    : AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                color: selected
-                    ? const Color(0xFFFAECE7)
-                    : AppColors.textSecondary,
-                letterSpacing: 0.1,
-                fontFamily: 'Segoe UI',
-              ),
-              child: Text(label),
-            ),
-          ],
+        const NavigationDestination(
+          icon: Icon(Icons.person_outline),
+          selectedIcon: Icon(Icons.person),
+          label: 'Account',
         ),
-      ),
-    );
-  }
-}
-
-class _AppBarIcon extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  const _AppBarIcon({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Icon(icon, color: AppColors.textPrimary, size: 20),
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }
 
 /// Shared notification bell with unread badge. Used on every top bar
@@ -407,11 +234,13 @@ class AppNotificationBell extends StatefulWidget {
   final Color iconColor;
   final double iconSize;
   final Color? background;
+  final ApiService? api;
   const AppNotificationBell({
     super.key,
     this.iconColor = AppColors.textPrimary,
     this.iconSize = 22,
     this.background,
+    this.api,
   });
 
   @override
@@ -419,20 +248,33 @@ class AppNotificationBell extends StatefulWidget {
 }
 
 class _AppNotificationBellState extends State<AppNotificationBell> {
-  final _api = ApiService();
+  late final ApiService _api;
   int _unread = 0;
 
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? ApiService();
+    BuyerUpdates.inbox.addListener(_load);
     _load();
   }
 
+  @override
+  void dispose() {
+    BuyerUpdates.inbox.removeListener(_load);
+    super.dispose();
+  }
+
   Future<void> _load() async {
-    if (ApiService.token == null) return;
+    if (!mounted) return;
+    final token = ApiService.token;
+    if (token == null) {
+      if (_unread != 0) setState(() => _unread = 0);
+      return;
+    }
     try {
       final data = await _api.get('notifications');
-      if (!mounted) return;
+      if (!mounted || token != ApiService.token) return;
       setState(() => _unread = data['unread_count'] as int? ?? 0);
     } catch (_) {}
   }
@@ -443,8 +285,8 @@ class _AppNotificationBellState extends State<AppNotificationBell> {
     if (!auth.isLoggedIn) return const SizedBox.shrink();
     final bell = Container(
       margin: const EdgeInsets.symmetric(horizontal: 3),
-      width: 38,
-      height: 38,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
@@ -454,7 +296,9 @@ class _AppNotificationBellState extends State<AppNotificationBell> {
         onTap: () async {
           await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+            MaterialPageRoute(
+              builder: (_) => NotificationsScreen(api: widget.api),
+            ),
           );
           _load();
         },
@@ -478,15 +322,14 @@ class _AppNotificationBellState extends State<AppNotificationBell> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.primaryDark,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: AppColors.warning, width: 1.5),
               ),
               child: Text(
-                '$_unread',
+                _unread > 99 ? '99+' : '$_unread',
                 style: const TextStyle(
-                  color: AppColors.warning,
-                  fontSize: 9,
+                  color: Colors.white,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -502,12 +345,14 @@ class AppMessageBadge extends StatefulWidget {
   final Color iconColor;
   final double iconSize;
   final Color? background;
-  final VoidCallback onTap;
+  final ApiService? api;
+  final Future<void> Function() onTap;
   const AppMessageBadge({
     super.key,
     this.iconColor = Colors.white,
     this.iconSize = 20,
     this.background,
+    this.api,
     required this.onTap,
   });
 
@@ -516,20 +361,33 @@ class AppMessageBadge extends StatefulWidget {
 }
 
 class _AppMessageBadgeState extends State<AppMessageBadge> {
-  final _api = ApiService();
+  late final ApiService _api;
   int _unread = 0;
 
   @override
   void initState() {
     super.initState();
+    _api = widget.api ?? ApiService();
+    BuyerUpdates.inbox.addListener(_load);
     _load();
   }
 
+  @override
+  void dispose() {
+    BuyerUpdates.inbox.removeListener(_load);
+    super.dispose();
+  }
+
   Future<void> _load() async {
-    if (ApiService.token == null) return;
+    if (!mounted) return;
+    final token = ApiService.token;
+    if (token == null) {
+      if (_unread != 0) setState(() => _unread = 0);
+      return;
+    }
     try {
       final data = await _api.get('conversations/unread-count');
-      if (!mounted) return;
+      if (!mounted || token != ApiService.token) return;
       setState(() => _unread = data['unread_count'] as int? ?? 0);
     } catch (_) {}
   }
@@ -543,15 +401,18 @@ class _AppMessageBadgeState extends State<AppMessageBadge> {
       alignment: Alignment.center,
       children: [
         Container(
-          width: 38,
-          height: 38,
+          width: 44,
+          height: 44,
           decoration: BoxDecoration(
             color: widget.background ?? Colors.white.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
           ),
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: () async {
+              await widget.onTap();
+              if (mounted) _load();
+            },
             borderRadius: BorderRadius.circular(12),
             child: Icon(
               Icons.chat_bubble_outline_rounded,
@@ -567,15 +428,14 @@ class _AppMessageBadgeState extends State<AppMessageBadge> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.primaryDark,
                 borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: AppColors.warning, width: 1.5),
               ),
               child: Text(
-                '$_unread',
+                _unread > 99 ? '99+' : '$_unread',
                 style: const TextStyle(
-                  color: AppColors.warning,
-                  fontSize: 9,
+                  color: Colors.white,
+                  fontSize: 11,
                   fontWeight: FontWeight.w700,
                 ),
               ),

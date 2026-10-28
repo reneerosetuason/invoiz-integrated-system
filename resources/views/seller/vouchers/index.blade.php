@@ -134,6 +134,7 @@
                         <select name="discount_type" class="select" x-model="editing.discount_type">
                             <option value="fixed">Fixed (₱)</option>
                             <option value="percent">Percent (%)</option>
+                            <option value="free_shipping">Free shipping</option>
                         </select>
                     </div>
                     <div>
@@ -197,5 +198,5 @@
         'status' => $v->status,
     ])->toJson(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 @endphp
-<script src="{{ asset('assets/seller/js/vouchers/index.js') }}" data-config="{{ json_encode([(json_decode($voucherJson, true)), (url('vouchers'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+<script src="{{ asset('assets/seller/js/vouchers/index.js') }}" data-config="{{ json_encode([(json_decode($voucherJson, true)), (route('seller.vouchers.index'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endpush

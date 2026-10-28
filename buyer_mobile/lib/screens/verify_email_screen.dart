@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
-import '../widgets/invoiz_logo.dart';
+import '../widgets/buyer_auth.dart';
 import 'login_screen.dart';
 
 class VerifyEmailScreen extends StatefulWidget {
@@ -44,15 +44,17 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   }
 
   void _show(String m, {bool error = true}) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(m, style: const TextStyle(color: Color(0xFF212121))),
-        backgroundColor: error ? Colors.red.shade100 : Colors.green.shade100,
+        content: Text(m, style: const TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: error ? AppColors.errorTint : AppColors.paleTeal,
       ),
     );
   }
 
   Future<void> _verify() async {
+    if (_busy) return;
     final code = _codeCtrl.text.trim();
     if (code.length != 6) {
       _show('Enter the 6-digit code from your email.');
@@ -69,9 +71,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         SnackBar(
           content: Text(
             '${r['message'] ?? 'Email verified.'}',
-            style: const TextStyle(color: Color(0xFF212121)),
+            style: const TextStyle(color: AppColors.textPrimary),
           ),
-          backgroundColor: Colors.green.shade100,
+          backgroundColor: AppColors.paleTeal,
         ),
       );
       Navigator.pushAndRemoveUntil(
@@ -89,7 +91,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   }
 
   Future<void> _resend() async {
-    if (_cooldown > 0) return;
+    if (_cooldown > 0 || _resending) return;
     setState(() => _resending = true);
     try {
       final r = await _api.post('mobile/buyer/resend-code', {
@@ -100,9 +102,9 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
         SnackBar(
           content: Text(
             '${r['message'] ?? 'Code resent.'}',
-            style: const TextStyle(color: Color(0xFF212121)),
+            style: const TextStyle(color: AppColors.textPrimary),
           ),
-          backgroundColor: Colors.green.shade100,
+          backgroundColor: AppColors.paleTeal,
         ),
       );
       _startCooldown();
@@ -116,90 +118,72 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Verify Email')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          const SizedBox(height: 12),
-          Center(child: InvoizLogo.logoWidget(size: 84, radius: 22)),
-          const SizedBox(height: 16),
-          const Text(
-            'Check your email',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF212121),
-            ),
+  Widget build(BuildContext context) => BuyerAuthPage(
+    title: 'Check your email',
+    description: 'Enter the 6-digit code sent to ${widget.email}.',
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: Icon(
+            Icons.mark_email_read_outlined,
+            size: 30,
+            color: AppColors.primary,
           ),
-          const SizedBox(height: 8),
-          Text(
-            'We sent a 6-digit code to\n${widget.email}',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 13,
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
+        ),
+        const SizedBox(height: 22),
+        TextField(
+          controller: _codeCtrl,
+          keyboardType: TextInputType.number,
+          autofillHints: const [AutofillHints.oneTimeCode],
+          textAlign: TextAlign.center,
+          maxLength: 6,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 26,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 7,
+            color: AppColors.primaryDark,
           ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _codeCtrl,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.center,
-            maxLength: 6,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 10,
-              color: Color(0xFF212121),
-            ),
-            decoration: const InputDecoration(
-              hintText: '••••••',
-              counterText: '',
-            ),
-            onSubmitted: (_) => _verify(),
+          decoration: const InputDecoration(
+            labelText: 'Verification code',
+            hintText: '000000',
+            counterText: '',
           ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _busy ? null : _verify,
-            style: ElevatedButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
-            ),
-            child: _busy
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                : const Text('Verify', style: TextStyle(fontSize: 15)),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: _resending
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : TextButton(
-                    onPressed: _cooldown > 0 ? null : _resend,
-                    child: Text(
-                      _cooldown > 0
-                          ? 'Resend code in ${_cooldown}s'
-                          : 'Resend code',
-                    ),
+          onSubmitted: (_) => _verify(),
+        ),
+        const SizedBox(height: 22),
+        ElevatedButton(
+          onPressed: _busy ? null : _verify,
+          child: _busy
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
                   ),
+                )
+              : const Text('Verify'),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: _cooldown > 0 || _resending ? null : _resend,
+          child: Text(
+            _resending
+                ? 'Sending code…'
+                : _cooldown > 0
+                ? 'Resend code in ${_cooldown}s'
+                : 'Resend code',
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+    footer: const Text(
+      'After verifying, your account follows the same approval process as the website.',
+      textAlign: TextAlign.center,
+    ),
+  );
 }

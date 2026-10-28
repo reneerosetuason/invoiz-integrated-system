@@ -16,6 +16,7 @@ abstract class TestCase extends BaseTestCase
      */
     private const PROTECTED_DATABASES = [
         'invoiz_ecommerce_db',
+        'invoizdb',
     ];
 
     /**

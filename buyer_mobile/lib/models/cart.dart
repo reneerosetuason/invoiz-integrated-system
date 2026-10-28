@@ -9,6 +9,12 @@ class CartItem {
   final double lineTotal;
   final Product product;
   final ProductVariant? variant;
+  final int? serverAvailableStock;
+  int get availableStock =>
+      serverAvailableStock ??
+      (variant?.isAvailable == false
+          ? 0
+          : variant?.stock ?? product.availableStock);
 
   CartItem({
     required this.id,
@@ -19,6 +25,7 @@ class CartItem {
     required this.lineTotal,
     required this.product,
     this.variant,
+    this.serverAvailableStock,
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
@@ -28,6 +35,7 @@ class CartItem {
       id: json['id'] as int,
       productId: json['product_id'] as int,
       variantId: json['variant_id'] as int?,
+      serverAvailableStock: int.tryParse('${json['available_stock']}'),
       quantity: json['quantity'] as int,
       unitPrice: double.tryParse('${json['unit_price']}') ?? 0,
       lineTotal: double.tryParse('${json['line_total']}') ?? 0,

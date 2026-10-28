@@ -46,12 +46,17 @@ class Payment {
 }
 
 class Delivery {
+  final int? id;
   final String status;
-
-  Delivery({required this.status});
-
-  factory Delivery.fromJson(Map<String, dynamic> json) =>
-      Delivery(status: json['status'] as String);
+  final String? trackingNumber;
+  Delivery({this.id, required this.status, this.trackingNumber});
+  bool get canShowOtp =>
+      ['out_for_delivery', 'arrived_at_customer'].contains(status);
+  factory Delivery.fromJson(Map<String, dynamic> json) => Delivery(
+    id: json['id'] as int?,
+    status: json['status'] as String? ?? 'pending',
+    trackingNumber: json['tracking_number'] as String?,
+  );
 }
 
 class StatusHistory {
@@ -84,6 +89,9 @@ class Order {
   final List<OrderItem> items;
   final Payment? payment;
   final Delivery? delivery;
+  final List<Delivery> deliveries;
+  final List<Map<String, dynamic>> returns;
+  final bool? canCancel;
   final List<StatusHistory> statusHistories;
   final double? discount;
 
@@ -96,6 +104,9 @@ class Order {
     required this.items,
     this.payment,
     this.delivery,
+    this.deliveries = const [],
+    this.returns = const [],
+    this.canCancel,
     this.statusHistories = const [],
     this.discount,
   });
@@ -124,6 +135,18 @@ class Order {
           .toList(),
       payment: pay is Map<String, dynamic> ? Payment.fromJson(pay) : null,
       delivery: del is Map<String, dynamic> ? Delivery.fromJson(del) : null,
+      deliveries: json['deliveries'] is List
+          ? (json['deliveries'] as List)
+                .whereType<Map<String, dynamic>>()
+                .map(Delivery.fromJson)
+                .toList()
+          : del is Map<String, dynamic>
+          ? [Delivery.fromJson(del)]
+          : [],
+      returns: (json['returns'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList(),
+      canCancel: json['can_cancel'] as bool?,
       statusHistories: hist is List
           ? hist
                 .whereType<Map<String, dynamic>>()

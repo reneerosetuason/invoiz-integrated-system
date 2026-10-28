@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Buyer\Api;
 use App\Http\Controllers\Controller;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\Favorite;
 use App\Models\Review;
 use App\Models\Seller;
 use App\Models\StoreFollow;
@@ -16,13 +17,17 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $request->validate(['per_page' => 'sometimes|integer|min:1|max:100']);
+        $request->validate(['per_page' => 'sometimes|integer|min:1|max:100', 'page' => 'sometimes|integer|min:1', 'search' => 'sometimes|string|max:200', 'category_id' => 'sometimes|integer|min:1', 'ids' => ['sometimes', 'string', 'max:251', 'regex:/^[1-9][0-9]{0,19}(,[1-9][0-9]{0,19}){0,11}$/']]);
         $query = Product::query()
             ->with(['category', 'variants', 'images'])
-            ->where('status', 'active')
+            ->storefront()
             ->select('products.*')
             ->selectSub(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
             ->selectSub(Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count');
+
+        if ($request->filled('ids')) {
+            $query->whereIn('products.id', explode(',', $request->string('ids')->toString()));
+        }
 
         if ($request->has('category_id')) {
             $query->where('category_id', $request->integer('category_id'));
@@ -86,6 +91,11 @@ class ProductController extends Controller
         $this->attachGallery($products->getCollection());
         $this->attachSale($products->getCollection());
 
+        $favoriteIds = $request->user()
+            ? Favorite::where('buyer_id', $request->user()->id)->whereIn('product_id', $products->pluck('id'))->pluck('product_id')->map(fn ($id) => (int) $id)->all()
+            : [];
+        $products->getCollection()->each(fn ($product) => $product->setAttribute('is_favorited', in_array($product->id, $favoriteIds, true)));
+
         return response()->json($products);
     }
 
@@ -98,7 +108,7 @@ class ProductController extends Controller
             'images',
             'reviews' => fn ($query) => $query->where('status', 'visible')->with('buyer:id,first_name,last_name,name'),
         ])
-            ->where('status', 'active')
+            ->storefront()
             ->findOrFail($id);
 
         // Attach whether the logged-in buyer (if any) has this product in favorites.
@@ -125,16 +135,12 @@ class ProductController extends Controller
     protected function attachGallery($products): void
     {
         foreach ($products as $product) {
-            $images = $product->images->pluck('image_path')->all();
-
-            $gallery = [];
-            if (! empty($images)) {
-                $gallery = $images;
-            } elseif ($product->image) {
-                $gallery = [$product->image];
-            }
-
-            $product->gallery = $gallery;
+            $images = $product->images
+                ->sortBy(fn ($image) => [! $image->is_main, (int) $image->sort_order, $image->id])
+                ->map(fn ($image) => $image->resolved_path);
+            $product->gallery = collect([$product->image])->merge($images)
+                ->filter(fn ($path) => is_string($path) && trim($path) !== '')
+                ->map(fn ($path) => trim($path))->unique()->values()->all();
         }
     }
 
@@ -198,7 +204,7 @@ class ProductController extends Controller
                 'rating' => round((float) ($ratings[$product->seller_id] ?? 0), 1),
                 'product_count' => (int) ($counts[$product->seller_id] ?? 0),
                 'followers' => (int) ($followers[$product->seller_id] ?? 0),
-                'logo' => null,
+                'logo' => $store?->logo,
             ];
         }
     }

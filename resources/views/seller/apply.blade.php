@@ -226,7 +226,7 @@
                 @if(!empty($existing?->id_image) && !empty($availableDocuments['id_image']))
                   <a href="{{ $existing->idImageUrl() }}" target="_blank" class="text-teal font-bold underline">View Uploaded ID ({{ basename($existing->id_image) }})</a>
                 @elseif(!empty($user?->id_image) && !empty($availableDocuments['id_image']))
-                  <a href="{{ url('storage/'.ltrim($user->id_image, '/')) }}" target="_blank" class="text-teal font-bold underline">View Uploaded ID ({{ basename($user->id_image) }})</a>
+                  <a href="{{ url('documents/'.ltrim($user->id_image, '/')) }}" target="_blank" class="text-teal font-bold underline">View Uploaded ID ({{ basename($user->id_image) }})</a>
                 @elseif(!empty($existing?->id_image) || !empty($user?->id_image))
                   <span class="text-red-700">The saved ID is missing or exceeds 5 MB. Upload a replacement.</span>
                 @endif
