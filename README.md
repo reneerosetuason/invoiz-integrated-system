@@ -23,6 +23,23 @@ Open `http://127.0.0.1:8000/`. The local Cloudflare tunnel command remains in
 `run.txt`. Database migrations and seeders live in `database/`; apply them only
 as required by the installation being set up.
 
+## Shared backend and database
+
+Buyer, seller, admin, logistics and rider API requests use the same Laravel
+application and the single default database connection configured by `DB_*`
+in `.env`. Accounts share `users`; permissions still depend on the role and
+approved seller/rider/center profiles. Role folders organize the code.
+
+Verify the current installation without changing data:
+
+```powershell
+php artisan invoiz:check-backend
+```
+
+Web clients use the same deployed origin; external mobile clients must point
+their API base URL to that origin's `/api`. Mobile client source is not part
+of this repository. See [shared backend verification](docs/shared-backend.md).
+
 ## Project organization
 
 Views, public assets, routes and controllers are grouped by buyer, seller,
@@ -41,7 +58,7 @@ for the logistics migration moves.
 ## Verification
 
 ```powershell
-php vendor/phpunit/phpunit/phpunit --filter "ViewStructureTest|BuyerWebShoppingTest|CommerceRegressionTest"
+php vendor/phpunit/phpunit/phpunit --filter "ViewStructureTest|BuyerWebShoppingTest|CommerceRegressionTest|SharedBackendTest"
 npm run build
 ```
 

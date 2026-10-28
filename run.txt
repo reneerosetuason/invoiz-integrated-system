@@ -4,3 +4,7 @@ php artisan serve --host=127.0.0.1 --port=8000
 # open http://127.0.0.1:8000/
 
 cloudflared tunnel run --url http://127.0.0.1:8000 laravel-laptop
+
+now, I have a mobile application for buyers, I want to integrate it in here and I want them to use the same backend and database, can you do that? The folder is located in C:\Users\LENOVO\OneDrive\Desktop\Invoiz e-commerce\Invoiz buyer acc
+
+Now I want you to integrate it in this system, without missing any functions. And make sure that they have the same backend.

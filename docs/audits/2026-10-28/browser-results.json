@@ -1,0 +1,276 @@
+{
+  "date": "2026-10-28",
+  "base_url": "http://127.0.0.1:8000",
+  "pages": 27,
+  "notes": [
+    "Authenticated pages are server-rendered snapshots; database writes and browser mutations/XHR were blocked.",
+    "Resized-viewport overflow flags are omitted because fresh narrow-screen checks did not reproduce document overflow on the rechecked pages."
+  ],
+  "results": [
+    {
+      "page": "/",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/shop",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/sale",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/help",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/login",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/register",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/forgot-password",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/seller/login",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/admin/login",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/logistics/login",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/logistics/logistics-center/apply",
+      "render": "live guest",
+      "status": 200,
+      "errors": [
+        "Unexpected token ')'"
+      ],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 1,
+      "wizard": {
+        "alpine": true,
+        "components": 1,
+        "nextButtons": 1
+      }
+    },
+    {
+      "page": "/logistics/logistics-center/application-status",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/product/4",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/store/1",
+      "render": "live guest",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/cart",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/orders",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/seller/dashboard",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/seller/products",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/seller/vouchers",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [
+        "Cannot read properties of null (reading 'code')",
+        "Cannot read properties of null (reading 'name')",
+        "Cannot read properties of null (reading 'description')",
+        "Cannot read properties of null (reading 'discount_type')",
+        "Cannot read properties of null (reading 'discount_value')",
+        "Cannot read properties of null (reading 'min_spend')",
+        "Cannot read properties of null (reading 'max_discount')",
+        "Cannot read properties of null (reading 'valid_from')",
+        "Cannot read properties of null (reading 'valid_until')",
+        "Cannot read properties of null (reading 'usage_limit')",
+        "Cannot read properties of null (reading 'status')"
+      ],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0,
+      "editBase": "http://127.0.0.1:8000/vouchers",
+      "existingVoucherAvailable": true,
+      "editFormPath": "/vouchers/1"
+    },
+    {
+      "page": "/seller/orders",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/seller/remittances",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/admin/dashboard",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/admin/payments",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/admin/manage-accounts",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 0
+    },
+    {
+      "page": "/logistics/dashboard",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 1
+    },
+    {
+      "page": "/logistics/deliveries",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 1
+    },
+    {
+      "page": "/logistics/reports",
+      "render": "authenticated snapshot",
+      "status": 200,
+      "errors": [],
+      "badAssets": [],
+      "externalFailures": [],
+      "blockedRequests": 1
+    }
+  ]
+}

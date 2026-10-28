@@ -55,11 +55,10 @@ class CentralEntryController extends Controller
     /**
      * Resolve the post-login / central-entry destination for a user.
      *
-     * Returns a URL (relative for internal routes, absolute for configured
-     * external platforms), or null when the user should stay on the public
-     * landing page (buyer/seller without a configured platform).
+     * All web roles stay in this application. A null destination means
+     * the account has no supported entry point.
      */
-public static function destinationFor(User $user): ?string
+    public static function destinationFor(User $user): ?string
     {
         // Logistics admin/staff go to dashboard (explicit paths avoid
         // route-name collisions with the main marketplace).
@@ -80,28 +79,14 @@ public static function destinationFor(User $user): ?string
         }
 
         if ($user->role === 'buyer') {
-            return self::externalPlatformUrl('buyer_url');
+            return '/shop';
         }
 
         if ($user->role === 'seller') {
-            return self::externalPlatformUrl('seller_url');
+            // The shared home route handles seller approval and role choice.
+            return '/home';
         }
 
         return null;
     }
-
-    /**
-     * Buyer/Seller applications live outside this repository. Their URL is
-     * a deployment-time integration point ??? never a fake local dashboard.
-     */
-    private static function externalPlatformUrl(string $key): ?string
-    {
-        $url = config("invoiz.platforms.{$key}");
-
-        return is_string($url) && $url !== '' ? $url : null;
-    }
 }
-
-
-
-

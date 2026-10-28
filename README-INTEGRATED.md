@@ -3,6 +3,14 @@
 Single Laravel backend for the marketplace (buyer, seller, admin) and the
 logistics/rider operations center.
 
+Shared-connection verification was added on 28 October 2026. Run
+`php artisan invoiz:check-backend` to check all application models, API-token
+storage, authentication providers, database-backed sessions/cache/queue, and
+core role tables without changing data. Buyer/seller central-entry redirects
+now stay on local routes; legacy external platform URL settings are unused.
+See [shared backend verification](docs/shared-backend.md) for the current
+deployment contract. Historical phase results below are not a current full-suite run.
+
 This document is the authoritative account/role and authorization reference as
 of the Phase 15 audit. The application code remains the source of truth. Phase
 15 added active-account enforcement to protected buyer APIs, hardened the
