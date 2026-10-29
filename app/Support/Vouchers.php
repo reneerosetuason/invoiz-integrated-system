@@ -120,26 +120,63 @@ class Vouchers
         return ['merch' => $merch, 'waived' => $waived, 'perVoucher' => $perVoucher, 'error' => null];
     }
 
+    /** Allocate the quoted checkout discounts without changing their total. */
+    public static function allocateForOrders(iterable $vouchers, array $stack, array $sellerSubtotals): array
+    {
+        ksort($sellerSubtotals);
+        $remaining = array_map(fn ($amount) => (int) round($amount * 100), $sellerSubtotals);
+        $allocations = array_fill_keys(array_keys($remaining), []);
+        $vouchers = collect($vouchers)->sortBy(fn ($v) => self::sellerUserId($v) ? 0 : 1);
+        foreach ($vouchers as $voucher) {
+            $sid = self::sellerUserId($voucher);
+            $quoted = $stack['perVoucher'][$voucher->id] ?? ['merch' => 0, 'waived' => 0];
+            $pot = (int) round($quoted['merch'] * 100);
+            $eligible = $sid ? array_intersect_key($remaining, [$sid => true]) : $remaining;
+            $capacity = array_sum($eligible);
+            foreach ($eligible as $groupId => $available) {
+                $share = $capacity > 0 ? min($available, $pot, (int) round($pot * $available / $capacity)) : 0;
+                $allocations[$groupId][$voucher->id] = $share / 100;
+                $remaining[$groupId] -= $share;
+                $pot -= $share;
+                $capacity -= $available;
+            }
+            if ($quoted['waived'] > 0) {
+                foreach ($stack['waived'] as $groupId => $amount) {
+                    $allocations[$groupId][$voucher->id] = round(($allocations[$groupId][$voucher->id] ?? 0) + $amount, 2);
+                }
+            }
+        }
+        return $allocations;
+    }
+
     public static function restoreForOrder(Order $order, bool $strict = false): void
     {
         try {
             $order->loadMissing('orderVouchers');
 
             foreach ($order->orderVouchers as $orderVoucher) {
-                $voucher = Voucher::find($orderVoucher->voucher_id);
+                $voucher = Voucher::whereKey($orderVoucher->voucher_id)->lockForUpdate()->first();
                 if (! $voucher) {
                     continue;
                 }
 
+                $anchor = $orderVoucher->redemption_order_id ?? $order->id;
                 $claim = VoucherClaim::where('voucher_id', $voucher->id)
-                    ->where('order_id', $order->id)
-                    ->first();
+                    ->where('order_id', $anchor)->whereNotNull('used_at')
+                    ->lockForUpdate()->first();
+
+                // Split store orders share one redemption. Cancelling one must
+                // not release a voucher still used by another live store order.
+                if ($orderVoucher->redemption_order_id && \App\Models\OrderVoucher::where('voucher_id', $voucher->id)
+                    ->where('redemption_order_id', $anchor)->whereHas('order', fn ($q) => $q->where('status', '!=', 'cancelled'))->exists()) {
+                    continue;
+                }
 
                 if ($claim) {
                     $claim->update(['order_id' => null, 'used_at' => null]);
                 }
 
-                if ((int) $voucher->used_count > 0) {
+                if ($claim && (int) $voucher->used_count > 0) {
                     $voucher->decrement('used_count');
                 }
             }

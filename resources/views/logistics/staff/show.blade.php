@@ -15,6 +15,7 @@
             @else
                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 ring-1 ring-inset ring-gray-200">Inactive</span>
             @endif
+            @if(Auth::user()->canManageRiders() || ! $staff->rider()->exists())
             <a href="{{ route('staff.edit', $staff) }}" class="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 hover:text-teal hover:border-teal px-4 py-2 rounded-xl text-sm font-semibold transition">Edit</a>
             @if($staff->status === 'active')
                 <form action="{{ route('staff.destroy', $staff) }}" method="POST" x-data data-confirm-message="Deactivate {{ $staff->name }}?">
@@ -27,6 +28,9 @@
                     @csrf
                     <button type="submit" class="bg-teal hover:bg-teal-dark text-white px-4 py-2 rounded-xl text-sm font-semibold transition">Activate</button>
                 </form>
+            @endif
+            @else
+                <span class="text-sm text-gray-500">Managed by logistics</span>
             @endif
         </div>
     </div>

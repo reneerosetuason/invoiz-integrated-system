@@ -56,8 +56,8 @@ class RiderComplianceTest extends TestCase
             'name' => 'Logistics Admin',
             'email' => 'admin.'.bin2hex(random_bytes(3)).'@test.local',
             'password' => Hash::make('secret123'),
-            'role' => 'admin',
-            'is_admin' => true,
+            'role' => 'logistics_admin',
+            'is_admin' => false,
             'email_verified_at' => now(),
         ]);
     }

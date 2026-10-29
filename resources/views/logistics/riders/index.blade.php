@@ -146,7 +146,7 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                @php($canManage = Auth::user()->isLogisticsAdmin() || (Auth::user()->center_id && (int) Auth::user()->center_id === (int) $rider->center_id))
+                                @php($canManage = Auth::user()->canManageRiders() && (Auth::user()->isLogisticsAdmin() || (Auth::user()->center_id && (int) Auth::user()->center_id === (int) $rider->center_id)))
                                 <div class="flex items-center gap-3">
                                     <a href="{{ route('riders.show', $rider) }}" class="text-sm font-semibold text-teal hover:text-teal-dark">View</a>
                                     @if($canManage)

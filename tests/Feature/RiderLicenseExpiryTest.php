@@ -129,7 +129,7 @@ class RiderLicenseExpiryTest extends TestCase
 
         $admin = User::create([
             'name' => 'Admin', 'email' => 'admin.'.bin2hex(random_bytes(3)).'@test.local',
-            'password' => Hash::make('x'), 'role' => 'admin', 'status' => 'active',
+            'password' => Hash::make('x'), 'role' => 'logistics_admin', 'status' => 'active',
         ]);
 
         $rider = app(RiderAccountProvisioner::class)->approve($application, $admin, [

@@ -22,9 +22,8 @@ class RiderAccountApprovedMail extends Mailable
 
     public function __construct(
         public readonly RiderApplication $application,
-        public readonly string $temporaryPassword,
-    ) {
-    }
+        public readonly ?string $temporaryPassword = null,
+    ) {}
 
     /**
      * Application reference in the same RID-YYYY-NNNN format the Rider App
@@ -32,13 +31,15 @@ class RiderAccountApprovedMail extends Mailable
      */
     public static function referenceFor(RiderApplication $application): string
     {
-        return 'RID-' . now()->year . '-' . str_pad((string) $application->id, 4, '0', STR_PAD_LEFT);
+        return 'RID-'.now()->year.'-'.str_pad((string) $application->id, 4, '0', STR_PAD_LEFT);
     }
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'INVOIZ Rider Account Approved ? Login Credentials',
+            subject: $this->temporaryPassword === null
+                ? 'INVOIZ Rider Application Approved'
+                : 'INVOIZ Rider Account Approved - Login Credentials',
         );
     }
 

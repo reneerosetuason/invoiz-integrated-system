@@ -322,7 +322,8 @@ class PickupRequestController extends Controller
      */
     private function isActionableDelivery(Delivery $delivery): bool
     {
-        return $delivery->picked_up_at === null
+        return (! $delivery->order_id || $delivery->order()->value('status') === 'ready_for_delivery')
+            && $delivery->picked_up_at === null
             && $delivery->archived_at === null
             && ! in_array($delivery->status, [
                 'picked_up',

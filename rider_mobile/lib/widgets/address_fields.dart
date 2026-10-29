@@ -4,25 +4,20 @@ import '../core/network/api_client.dart';
 import '../core/theme/app_theme.dart';
 import '../services/address_service.dart';
 
-/// Philippine Standard Geographic Code (PSGC) cascading address picker:
-/// optionally Region → Province → City/Municipality → Barangay, plus
-/// House No. / Street.
-/// Reports a structured [AddressSelection] via [onChanged].
+enum _Level { region, province, municipality, barangay }
+
+/// Shared PSGC address entry for every rider-app application form.
 class AddressFields extends StatefulWidget {
   const AddressFields({
     super.key,
     this.onChanged,
     this.apiClient,
-    this.showRegion = false,
+    this.initialSelection,
   });
 
   final ValueChanged<AddressSelection>? onChanged;
-
-  /// Shared API client (injectable in tests; defaults to a live client).
   final ApiClient? apiClient;
-
-  /// Shows the first PSGC level for forms that collect rider addresses.
-  final bool showRegion;
+  final AddressSelection? initialSelection;
 
   @override
   State<AddressFields> createState() => _AddressFieldsState();
@@ -30,391 +25,307 @@ class AddressFields extends StatefulWidget {
 
 class _AddressFieldsState extends State<AddressFields> {
   late final AddressService _service;
+  late final TextEditingController _houseNo;
+  late final TextEditingController _street;
 
-  Map<String, String> _regions = {};
+  List<PsgcOption> _regions = [];
   List<PsgcOption> _provinces = [];
   List<PsgcOption> _municipalities = [];
   List<PsgcOption> _barangays = [];
-
-  String? _selectedRegion;
-  String? _provinceId;
-  String? _municipalityId;
-  String? _barangayId;
-
-  bool _loadingRegions = false;
-  bool _loadingProvinces = true;
-  bool _loadingMunicipalities = false;
-  bool _loadingBarangays = false;
-  String? _error;
-
-  final _houseNo = TextEditingController();
-  final _street = TextEditingController();
+  PsgcOption? _region, _province, _municipality, _barangay;
+  bool _provinceNotApplicable = false;
+  _Level? _loading;
+  _Level? _failed;
+  int _request = 0;
 
   @override
   void initState() {
     super.initState();
     _service = AddressService(widget.apiClient ?? ApiClient());
-    if (widget.showRegion) {
-      _loadRegions();
-    } else {
-      _loadProvinces();
-    }
+    _houseNo = TextEditingController(
+      text: widget.initialSelection?.houseNumber,
+    );
+    _street = TextEditingController(text: widget.initialSelection?.street);
     _houseNo.addListener(_report);
     _street.addListener(_report);
+    _load(_Level.region, restore: widget.initialSelection);
   }
 
   @override
   void dispose() {
-    _houseNo.removeListener(_report);
-    _street.removeListener(_report);
     _houseNo.dispose();
     _street.dispose();
     super.dispose();
   }
 
-  Future<void> _loadProvinces() async {
-    await _loadProvinceOptions();
-  }
+  PsgcOption? _matching(List<PsgcOption> items, String? code) =>
+      items.where((item) => item.code == code).firstOrNull;
 
-  Future<void> _loadRegions() async {
+  /// Each parent change invalidates all earlier requests, including errors.
+  Future<void> _load(_Level level, {AddressSelection? restore}) async {
+    final request = ++_request;
     setState(() {
-      _loadingRegions = true;
-      _error = null;
+      _loading = level;
+      _failed = null;
     });
     try {
-      final regions = await _service.regions();
-      if (!mounted) return;
+      final items = switch (level) {
+        _Level.region => await _service.regions(),
+        _Level.province => await _service.provinces(_region!.code),
+        _Level.municipality =>
+          _provinceNotApplicable
+              ? await _service.regionCities(_region!.code)
+              : await _service.municipalities(_province!.code),
+        _Level.barangay => await _service.barangays(_municipality!.code),
+      };
+      if (!mounted || request != _request) return;
       setState(() {
-        _regions = regions;
-        _loadingRegions = false;
-        _loadingProvinces = false;
-        if (regions.isEmpty) _error = 'No PSGC regions are available.';
+        _loading = null;
+        switch (level) {
+          case _Level.region:
+            _regions = items;
+            _region = _matching(items, restore?.regionCode);
+          case _Level.province:
+            _provinces = items;
+            _provinceNotApplicable = items.isEmpty;
+            _province = _matching(items, restore?.province?.code);
+          case _Level.municipality:
+            _municipalities = items;
+            _municipality = _matching(items, restore?.municipality?.code);
+          case _Level.barangay:
+            _barangays = items;
+            _barangay = _matching(items, restore?.barangay?.code);
+        }
       });
+      _report();
+      switch (level) {
+        case _Level.region:
+          if (_region != null) {
+            await _load(_Level.province, restore: restore);
+          }
+        case _Level.province:
+          if (_provinceNotApplicable || _province != null) {
+            await _load(_Level.municipality, restore: restore);
+          }
+        case _Level.municipality:
+          if (_municipality != null) {
+            await _load(_Level.barangay, restore: restore);
+          }
+        case _Level.barangay:
+          break;
+      }
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || request != _request) return;
       setState(() {
-        _loadingRegions = false;
-        _loadingProvinces = false;
-        _error = 'Unable to load regions. Pull to retry.';
+        _loading = null;
+        _failed = level;
       });
+      _report();
     }
   }
 
-  Future<void> _loadProvinceOptions({String? regionCode}) async {
+  void _select(_Level level, String code) {
     setState(() {
-      _loadingProvinces = true;
-      _error = null;
-    });
-    try {
-      final list = await _service.provinces(regionCode: regionCode);
-      if (!mounted) return;
-      setState(() {
-        _provinces = list;
-        _loadingProvinces = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loadingProvinces = false;
-        _error = 'Unable to load provinces. Pull to retry.';
-      });
-    }
-  }
-
-  Future<void> _loadMunicipalities(String provinceId) async {
-    setState(() {
-      _loadingMunicipalities = true;
-      _municipalities = [];
-      _barangays = [];
-      _municipalityId = null;
-      _barangayId = null;
+      _failed = null;
+      switch (level) {
+        case _Level.region:
+          _region = _matching(_regions, code);
+        case _Level.province:
+          _province = _matching(_provinces, code);
+        case _Level.municipality:
+          _municipality = _matching(_municipalities, code);
+        case _Level.barangay:
+          _barangay = _matching(_barangays, code);
+      }
+      if (level.index < _Level.province.index) {
+        _province = null;
+        _provinces = [];
+        _provinceNotApplicable = false;
+      }
+      if (level.index < _Level.municipality.index) {
+        _municipality = null;
+        _municipalities = [];
+      }
+      if (level.index < _Level.barangay.index) {
+        _barangay = null;
+        _barangays = [];
+      }
     });
     _report();
-    try {
-      final list = await _service.municipalities(int.parse(provinceId));
-      if (!mounted) return;
-      setState(() {
-        _municipalities = list;
-        _loadingMunicipalities = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loadingMunicipalities = false;
-        _error = 'Unable to load cities/municipalities.';
-      });
+    switch (level) {
+      case _Level.region:
+        _load(_Level.province);
+      case _Level.province:
+        _load(_Level.municipality);
+      case _Level.municipality:
+        _load(_Level.barangay);
+      case _Level.barangay:
+        break;
     }
   }
 
-  Future<void> _loadBarangays(String municipalityId) async {
-    setState(() {
-      _loadingBarangays = true;
-      _barangays = [];
-      _barangayId = null;
-    });
-    _report();
-    try {
-      final list = await _service.barangays(int.parse(municipalityId));
-      if (!mounted) return;
-      setState(() {
-        _barangays = list;
-        _loadingBarangays = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loadingBarangays = false;
-        _error = 'Unable to load barangays.';
-      });
-    }
-  }
+  void _report() => widget.onChanged?.call(
+    AddressSelection(
+      region: _region?.name,
+      regionCode: _region?.code,
+      province: _province,
+      provinceNotApplicable: _provinceNotApplicable,
+      municipality: _municipality,
+      barangay: _barangay,
+      houseNumber: _houseNo.text,
+      street: _street.text,
+    ),
+  );
 
-  void _report() {
-    widget.onChanged?.call(
-      AddressSelection(
-        province: _provinceId == null
-            ? null
-            : _provinces.where((p) => '${p.id}' == _provinceId).firstOrNull,
-        municipality: _municipalityId == null
-            ? null
-            : _municipalities
-                  .where((m) => '${m.id}' == _municipalityId)
-                  .firstOrNull,
-        barangay: _barangayId == null
-            ? null
-            : _barangays.where((b) => '${b.id}' == _barangayId).firstOrNull,
-        region: _selectedRegion == null ? null : _regions[_selectedRegion],
-        houseNumber: _houseNo.text,
-        street: _street.text,
-      ),
-    );
-  }
+  InputDecoration _decoration(String label) => InputDecoration(
+    labelText: label,
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: AppColors.border),
+    ),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+  );
 
-  InputDecoration _decoration(String label, {IconData? icon}) {
-    return InputDecoration(
-      labelText: label,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.border),
-      ),
-      prefixIcon: icon == null ? null : Icon(icon, size: 20),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-    );
-  }
+  Widget _picker(
+    _Level level,
+    String label,
+    List<PsgcOption> items,
+    PsgcOption? selected, {
+    required bool enabled,
+    String? hint,
+  }) => DropdownButtonFormField<String>(
+    // FormField.initialValue is only read once; changing the key resets it
+    // when a parent selection clears this level or a saved form is restored.
+    key: ValueKey('${level.name}:${selected?.code}'),
+    initialValue: selected?.code,
+    isExpanded: true,
+    itemHeight: null,
+    menuMaxHeight: 320,
+    decoration: _decoration(label).copyWith(
+      suffixIcon: _loading == level
+          ? const Padding(
+              padding: EdgeInsets.all(16),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : null,
+    ),
+    hint: Text(
+      hint ?? 'Select ${label.replaceAll(' *', '')}',
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    ),
+    items: items
+        .map(
+          (item) => DropdownMenuItem(
+            value: item.code,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(item.name),
+            ),
+          ),
+        )
+        .toList(),
+    selectedItemBuilder: (_) => items
+        .map(
+          (item) => Tooltip(
+            message: item.name,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                item.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        )
+        .toList(),
+    onChanged: enabled && _loading != level && items.isNotEmpty
+        ? (code) {
+            if (code != null) _select(level, code);
+          }
+        : null,
+  );
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            SizedBox(
-              width: 120,
-              child: TextField(
-                controller: _houseNo,
-                keyboardType: TextInputType.streetAddress,
-                decoration: _decoration('House No.'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _street,
-                decoration: _decoration('Street'),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (widget.showRegion) ...[_regionField(), const SizedBox(height: 12)],
-        _provinceField(),
-        const SizedBox(height: 12),
-        _municipalityField(),
-        const SizedBox(height: 12),
-        _barangayField(),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const Icon(
-              Icons.info_outline,
-              size: 16,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                widget.showRegion
-                    ? 'Select the Region, Province, City/Municipality and Barangay of your address.'
-                    : 'Select the Province, City/Municipality and Barangay of your address.',
-                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-            ),
-          ],
-        ),
-        if (_error != null)
-          TextButton.icon(
-            onPressed: _retry,
-            icon: const Icon(Icons.refresh, size: 16),
-            label: Text(
-              _error!,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: TextField(
+              controller: _houseNo,
+              keyboardType: TextInputType.streetAddress,
+              decoration: _decoration('House No.'),
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _regionField() {
-    if (_loadingRegions) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: TextField(
+              controller: _street,
+              keyboardType: TextInputType.streetAddress,
+              decoration: _decoration('Street'),
+            ),
           ),
-        ),
-      );
-    }
-    return DropdownButtonFormField<String>(
-      initialValue: _selectedRegion,
-      isExpanded: true,
-      decoration: _decoration('Region *', icon: Icons.map_outlined),
-      items: _regions.entries
-          .map(
-            (region) =>
-                DropdownMenuItem(value: region.key, child: Text(region.value)),
-          )
-          .toList(),
-      onChanged: (code) {
-        if (code == null) return;
-        setState(() {
-          _selectedRegion = code;
-          _provinceId = null;
-          _municipalityId = null;
-          _barangayId = null;
-          _provinces = [];
-          _municipalities = [];
-          _barangays = [];
-        });
-        _report();
-        _loadProvinceOptions(regionCode: code);
-      },
-    );
-  }
-
-  Widget _provinceField() {
-    if (_loadingProvinces) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-    return DropdownButtonFormField<String>(
-      initialValue: _provinceId,
-      isExpanded: true,
-      decoration: _decoration('Province *', icon: Icons.map_outlined),
-      items: _provinces
-          .map((p) => DropdownMenuItem(value: '${p.id}', child: Text(p.name)))
-          .toList(),
-      onChanged: widget.showRegion && _selectedRegion == null
-          ? null
-          : (v) {
-              if (v == null) return;
-              setState(() => _provinceId = v);
-              _loadMunicipalities(v);
-            },
-    );
-  }
-
-  Widget _municipalityField() {
-    if (_loadingMunicipalities) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-    return DropdownButtonFormField<String>(
-      initialValue: _municipalityId,
-      isExpanded: true,
-      decoration: _decoration(
-        'City / Municipality *',
-        icon: Icons.location_city_outlined,
+        ],
       ),
-      items: _municipalities
-          .map((m) => DropdownMenuItem(value: '${m.id}', child: Text(m.name)))
-          .toList(),
-      onChanged: _provinceId == null
-          ? null
-          : (v) {
-              if (v == null) return;
-              setState(() => _municipalityId = v);
-              _loadBarangays(v);
-            },
-    );
-  }
-
-  Widget _barangayField() {
-    if (_loadingBarangays) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(12),
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
+      const SizedBox(height: 12),
+      _picker(_Level.region, 'Region *', _regions, _region, enabled: true),
+      const SizedBox(height: 12),
+      _picker(
+        _Level.province,
+        _provinceNotApplicable ? 'Province' : 'Province *',
+        _provinces,
+        _province,
+        enabled: _region != null,
+        hint: _provinceNotApplicable ? 'Not applicable in this region' : null,
+      ),
+      const SizedBox(height: 12),
+      _picker(
+        _Level.municipality,
+        'City / Municipality *',
+        _municipalities,
+        _municipality,
+        enabled: _province != null || _provinceNotApplicable,
+      ),
+      const SizedBox(height: 12),
+      _picker(
+        _Level.barangay,
+        'Barangay *',
+        _barangays,
+        _barangay,
+        enabled: _municipality != null,
+      ),
+      const SizedBox(height: 12),
+      const Text(
+        'Select your region, province (if applicable), city/municipality and barangay. '
+        'Enter your house number and street above.',
+        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+      ),
+      if (_failed != null) ...[
+        const SizedBox(height: 8),
+        Text(
+          'Unable to load ${switch (_failed!) {
+            _Level.region => 'regions',
+            _Level.province => 'provinces',
+            _Level.municipality => 'cities/municipalities',
+            _Level.barangay => 'barangays',
+          }}. Check your connection and retry.',
+          style: const TextStyle(color: AppColors.textSecondary),
         ),
-      );
-    }
-    return DropdownButtonFormField<String>(
-      initialValue: _barangayId,
-      isExpanded: true,
-      decoration: _decoration('Barangay *', icon: Icons.place_outlined),
-      items: _barangays
-          .map((b) => DropdownMenuItem(value: '${b.id}', child: Text(b.name)))
-          .toList(),
-      onChanged: _municipalityId == null
-          ? null
-          : (v) {
-              if (v == null) return;
-              setState(() => _barangayId = v);
-              _report();
-            },
-    );
-  }
-
-  void _retry() {
-    _error = null;
-    if (widget.showRegion && _regions.isEmpty) {
-      _loadRegions();
-    } else if (_provinces.isEmpty && widget.showRegion) {
-      if (_selectedRegion != null) {
-        _loadProvinceOptions(regionCode: _selectedRegion);
-      }
-    } else if (_provinces.isEmpty) {
-      _loadProvinces();
-    } else if (_municipalities.isEmpty) {
-      _loadMunicipalities(_provinceId!);
-    } else {
-      _loadBarangays(_municipalityId!);
-    }
-  }
+        TextButton.icon(
+          onPressed: () => _load(_failed!, restore: widget.initialSelection),
+          icon: const Icon(Icons.refresh, size: 18),
+          label: const Text('Retry address lookup'),
+        ),
+      ],
+    ],
+  );
 }

@@ -46,9 +46,12 @@ class PickupRequest extends Model
             ]
         );
 
-        if ($notify && $pickup->wasRecentlyCreated) {
+        if ($notify && ($delivery->order_id === null || $delivery->order()->value('status') === 'ready_for_delivery')) {
             try {
-                Notification::create([
+                Notification::firstOrCreate([
+                    'type' => 'new_delivery_request',
+                    'link' => route('pickup-requests.show', $pickup),
+                ], [
                     'type' => 'new_delivery_request',
                     'title' => $delivery->center_id
                         ? 'Pickup Request Needs Review'
@@ -125,6 +128,7 @@ class PickupRequest extends Model
             ->where('status', 'pending')
             ->whereHas('delivery', function (Builder $delivery): void {
                 $delivery->whereNull('picked_up_at')
+                    ->where(fn (Builder $q) => $q->whereNull('order_id')->orWhereHas('order', fn (Builder $order) => $order->where('status', 'ready_for_delivery')))
                     ->whereNull('archived_at')
                     ->whereNotIn('status', ['picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered', 'cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller']);
             });

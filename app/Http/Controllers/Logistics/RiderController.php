@@ -131,6 +131,7 @@ class RiderController extends Controller
 
     public function activate(Rider $rider): RedirectResponse
     {
+        $this->ensureCanManageRiders();
         $this->authorizeRiderCenter($rider);
 
         if ($rider->status !== 'inactive') {
@@ -175,6 +176,7 @@ class RiderController extends Controller
      */
     public function reverify(Request $request, Rider $rider): RedirectResponse
     {
+        $this->ensureCanManageRiders();
         $this->authorizeRiderCenter($rider);
 
         $validated = $request->validate([
@@ -211,6 +213,7 @@ class RiderController extends Controller
 
     public function deactivate(Request $request, Rider $rider, AuditLogger $audit): RedirectResponse
     {
+        $this->ensureCanManageRiders();
         $this->authorizeRiderCenter($rider);
 
         $validated = $request->validate([
@@ -338,6 +341,7 @@ class RiderController extends Controller
      */
     public function resetCredentials(Request $request, Rider $rider): RedirectResponse
     {
+        $this->ensureCanManageRiders();
         $this->authorizeRiderCenter($rider);
 
         $user = User::where('email', $rider->email)->where('role', 'rider')->first();
@@ -371,6 +375,12 @@ class RiderController extends Controller
     /**
      * Staff may only manage riders from their assigned logistics center.
      */
+    private function ensureCanManageRiders(): void
+    {
+        abort_unless(Auth::user()?->canManageRiders(), 403,
+            'Rider management is restricted to authorized logistics personnel.');
+    }
+
     private function authorizeRiderCenter(Rider $rider): void
     {
         $user = Auth::user();

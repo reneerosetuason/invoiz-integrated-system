@@ -141,7 +141,7 @@ class _ApplyCenterScreenState extends State<ApplyCenterScreen> {
   }
 
   String? _regionCode() {
-    final code = _addressSel?.province?.regionCode;
+    final code = _addressSel?.regionCode;
     return code == null || code.isEmpty ? null : code;
   }
 
@@ -187,10 +187,10 @@ class _ApplyCenterScreenState extends State<ApplyCenterScreen> {
       return 'Please enter a valid 11-digit Philippine mobile number (09xxxxxxxxx).';
     }
     if (_addressSel?.complete != true) {
-      return 'Please select your Province, City/Municipality and Barangay.';
+      return 'Please complete your Region, Province (if applicable), City/Municipality and Barangay.';
     }
     if (_regionCode() == null) {
-      return 'Please select a province with a valid region.';
+      return 'Please select a valid region.';
     }
     for (final slot in _docs) {
       if (slot.required && !_uploaded.containsKey(slot.key)) {
@@ -431,6 +431,7 @@ class _ApplyCenterScreenState extends State<ApplyCenterScreen> {
               AddressFields(
                 onChanged: (sel) => setState(() => _addressSel = sel),
                 apiClient: widget.apiClient,
+                initialSelection: _addressSel,
               ),
               const SizedBox(height: 20),
               const Text(

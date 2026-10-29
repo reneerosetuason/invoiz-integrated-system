@@ -1,0 +1,247 @@
+/* Compact operational UI shared by logistics administrators and center staff. */
+.logistics-shell {
+    --ops-border: #dce4e7;
+    --ops-muted: #607078;
+    --ops-surface: #fff;
+    --ops-heading: #213b43;
+    --ops-hover: #f3f7f7;
+}
+.dark .logistics-shell {
+    --ops-border: #3c565b;
+    --ops-muted: #b8ccca;
+    --ops-surface: #1c3036;
+    --ops-heading: #dfefeb;
+    --ops-hover: #28474c;
+}
+.logistics-shell .app-content { min-width: 0; }
+.logistics-shell main { min-width: 0; padding: 20px 24px; }
+.logistics-shell main > .max-w-7xl { max-width: 1480px; }
+.logistics-shell main :is(.logistics-workspace, .logistics-dashboard, .logistics-deliveries) {
+    max-width: 1480px;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.logistics-shell main :is(h1, .lw-page-title, .delivery-tracking):not(:where(#shipping-label, #shipping-label *)) {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 22px;
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: -.025em;
+    text-wrap: pretty;
+}
+.logistics-shell main h2:not(:where(#shipping-label, #shipping-label *)) { font: 600 16px/1.4 'Inter', system-ui, sans-serif; letter-spacing: -.015em; }
+.logistics-shell main :is(h3, h4):not(:where(#shipping-label, #shipping-label *)) { font: 600 14px/1.4 'Inter', system-ui, sans-serif; letter-spacing: 0; }
+.logistics-shell main :is(.text-xs, .text-sm, .ld-note, .delivery-actions-note, .lw-guide, label) { font-size: 13px; line-height: 1.5; }
+.logistics-shell main :is(.lw-head, .ld-head, .delivery-head) p { font-size: 13px; margin-top: 5px; }
+.logistics-shell main :is(.lw-head, .ld-head, .delivery-head, .logistics-page-header) { margin-bottom: 16px; gap: 12px; }
+.logistics-shell main :is(.p-6, .p-8, .ld-panel, .delivery-panel, .delivery-entry-form, .delivery-info-grid > div) { padding: 16px; }
+.logistics-shell main :is(.gap-6, .gap-8) { gap: 16px; }
+.logistics-shell main :is(.space-y-6, .space-y-8) > :not([hidden]) ~ :not([hidden]) { margin-top: 16px; }
+.logistics-shell main :is(.lw-stat-grid, .ld-kpis) { gap: 12px; }
+.logistics-shell main :is(.lw-stat-grid, .ld-kpis) > :is(div, a) { padding: 14px; }
+.logistics-shell main :is(.lw-stat-grid, .ld-kpis) :is(.text-2xl, .text-3xl, .text-4xl, strong) {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 650;
+}
+.logistics-shell main :is(.ld-today, .delivery-bulk) { padding: 16px; }
+.logistics-shell main .ld-today-main strong { font: 650 30px/1.15 'Inter', system-ui, sans-serif; }
+.logistics-shell main .ld-today-main span { font-size: 14px; }
+.logistics-shell main .ld-today dd { font-size: 19px; }
+.logistics-shell main .ld-queue-row { min-height: 38px; padding: 6px 0; }
+.logistics-shell main .ld-queue-row > span:first-child { font-size: 13px; }
+.logistics-shell main .ld-queue-row strong { font-size: 17px; }
+.logistics-shell main .ops-date-separator { display: none; }
+.logistics-shell main :is(.ld-button, .ld-text-button, .delivery-button, button, a[class*="px-"]) {
+    min-height: 34px;
+    font-size: 13px;
+    line-height: 1.4;
+    border-radius: 6px;
+}
+.logistics-shell main :is(.ld-button, .delivery-button) { padding: 8px 12px; }
+.logistics-shell main :is(input:not([type=hidden],[type=checkbox],[type=radio],[type=file]), select) { min-height: 36px; padding-top: 7px; padding-bottom: 7px; font-size: 13px; }
+.logistics-shell main textarea { font-size: 13px; }
+.logistics-shell main :is(input[type=checkbox], input[type=radio]) { width: 16px; height: 16px; }
+.logistics-shell .app-content > header .text-lg { font: 600 15px/1.4 'Inter', system-ui, sans-serif; }
+.logistics-shell #app-sidebar { font-size: 13px; }
+.logistics-shell #app-sidebar :is(.sidebar-nav a, .sb-cat, .role-switch-link) { min-height: 38px; font-size: 13px; }
+.logistics-shell main .ld-desktop-table { display: block; }
+.logistics-shell main :is(.ld-record-cards, .lw-table-sort) { display: none; }
+
+/* Keep full records in real table rows at every viewport. Only the table scrolls. */
+.logistics-shell main .ops-table-scroll {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: auto;
+    border: 1px solid var(--ops-border);
+    border-radius: 8px;
+    background: var(--ops-surface);
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+}
+.logistics-shell main .ops-table-scroll:focus-visible { outline: 2px solid #398a90; outline-offset: 3px; }
+.logistics-shell main .ops-scroll-hint { margin: 0 0 7px; color: var(--ops-muted); font-size: 12px; }
+.logistics-shell main .ops-scroll-hint[hidden] { display: none; }
+.logistics-shell main table.ops-table {
+    display: table;
+    width: max-content !important;
+    min-width: 100% !important;
+    max-width: none;
+    table-layout: auto !important;
+    border-collapse: collapse;
+    font-size: 13px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+.logistics-shell main .ops-table colgroup { display: table-column-group; }
+.logistics-shell main .ops-table thead { display: table-header-group; }
+.logistics-shell main .ops-table tbody { display: table-row-group; }
+.logistics-shell main .ops-table tr { display: table-row; padding: 0; margin: 0; background: transparent; }
+.logistics-shell main .ops-table :is(th, td) {
+    display: table-cell;
+    width: auto !important;
+    max-width: none;
+    min-width: 0;
+    padding: 9px 12px;
+    vertical-align: middle;
+    white-space: nowrap !important;
+    overflow-wrap: normal;
+    border-bottom: 1px solid var(--ops-border);
+    text-align: left;
+}
+.logistics-shell main .ops-table-scroll .ops-table :is(th, td) {
+    display: table-cell;
+    position: static;
+    max-width: none;
+    height: auto;
+    clip: auto;
+    overflow: visible;
+}
+.logistics-shell main .ops-table-scroll .ops-table thead { display: table-header-group; position: static; width: auto; height: auto; padding: 0; margin: 0; clip: auto; overflow: visible; }
+.logistics-shell main .ops-table-scroll .ops-table tbody { display: table-row-group; }
+.logistics-shell main .ops-table-scroll .ops-table tr { display: table-row; }
+.logistics-shell main .ops-table th {
+    background: var(--ops-hover);
+    color: var(--ops-muted);
+    font: 600 12px/1.4 'Inter', system-ui, sans-serif;
+    letter-spacing: .015em;
+    text-transform: none;
+}
+.logistics-shell main .ops-table th::after,
+.logistics-shell main .ops-table td[data-label]::before { content: none; }
+.logistics-shell main .ops-table th:has(input[type=checkbox]) { display: table-cell; }
+.logistics-shell main .ops-table :is(th, td).text-right { text-align: right; }
+.logistics-shell main .ops-table :is(th, td).text-center { text-align: center; }
+.logistics-shell main .ops-table tbody tr:hover { background: var(--ops-hover); }
+.logistics-shell main .ops-table tbody tr:last-child td { border-bottom: 0; }
+.logistics-shell main .ops-table td:not([colspan]) :is(p, small, .block) {
+    display: inline;
+    max-width: none;
+    margin-top: 0;
+    margin-bottom: 0;
+    white-space: nowrap;
+    font-size: inherit;
+    line-height: inherit;
+}
+.logistics-shell main .ops-table td:not([colspan]) :is(p, small):not(:first-child) { margin-left: 8px; color: var(--ops-muted); }
+.logistics-shell main .ops-table td:not([colspan]) > div:not([x-show]):not(.hidden) {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-top: 0;
+}
+.logistics-shell main .ops-table td:not([colspan]) :is(.flex-col, .space-y-1, .space-y-2) {
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 8px;
+}
+.logistics-shell main .ops-table td:not([colspan]) :is(.space-y-1, .space-y-2) > * { margin-top: 0; }
+.logistics-shell main .ops-table td:not([colspan]) br { display: none; }
+.logistics-shell main .ops-table :is(.truncate, .whitespace-nowrap) { max-width: none; white-space: nowrap; overflow: visible; text-overflow: clip; }
+.logistics-shell main .ops-table td[colspan] { white-space: normal !important; padding: 24px; }
+.logistics-shell main .ops-table td[colspan] > .ops-empty-state {
+    position: sticky;
+    left: 0;
+    width: max(100px, calc(var(--ops-table-viewport-width, 100%) - 48px));
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+}
+.logistics-shell main .ops-table :is(.text-xs, .text-sm, .ld-status, .logistics-status) { font-size: 12px; line-height: 1.4; }
+.logistics-shell main .ops-table :is(.h-9.w-9, .h-10.w-10) { width: 28px; height: 28px; flex-shrink: 0; }
+.logistics-shell main .ops-table th a { min-height: 26px; }
+.logistics-shell main .ops-table :is(.ops-action-cell, .delivery-row-actions) { white-space: nowrap; }
+.logistics-shell main .ops-table .ops-action-cell :is(.flex, form),
+.logistics-shell main .ops-table .delivery-row-actions { display: inline-flex; align-items: center; flex-wrap: nowrap; gap: 6px; margin: 0; }
+.logistics-shell main .ops-table .ops-action-cell :is(a, button),
+.logistics-shell main .ops-table .delivery-row-actions :is(a, button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    gap: 5px;
+    min-width: 30px;
+    min-height: 30px;
+    width: auto;
+    height: auto;
+    padding: 5px 9px;
+    border: 1px solid var(--ops-border);
+    border-radius: 5px;
+    background: var(--ops-surface);
+    color: var(--ops-heading);
+    font: 600 12px/1.4 'Inter', system-ui, sans-serif;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.logistics-shell main .ops-table .ops-action-cell :is(a, button):hover { background: var(--ops-hover); border-color: #96b5b9; text-decoration: none; }
+.logistics-shell main .ops-table .ops-action-cell :is(a, button):is(.text-red-500, .text-red-600, .text-red-700, .bg-red-500, .bg-red-600, .delivery-destructive) { color: #a2373a; border-color: #e6c6c8; background: #fff6f6; }
+.dark .logistics-shell main .ops-table .ops-action-cell :is(a, button):is(.text-red-500, .text-red-600, .text-red-700, .bg-red-500, .bg-red-600, .delivery-destructive) { color: #f0b3b6; border-color: #795259; background: #482f37; }
+.logistics-shell main .ops-table .ops-action-cell :is(a, button) svg { width: 15px; height: 15px; }
+.logistics-shell main .ops-table .ops-action-heading .sr-only { position: static; width: auto; height: auto; margin: 0; clip: auto; overflow: visible; white-space: nowrap; }
+.logistics-shell main .ops-table .delivery-action-label { position: static; width: auto; height: auto; margin: 0; clip: auto; overflow: visible; white-space: nowrap; }
+.logistics-shell main .ops-table .lw-sort-actions > form { width: auto; flex-wrap: nowrap; }
+.logistics-shell main .ops-table .lw-sort-actions > form :is(input, select) { min-width: 135px; width: 135px; max-width: none; flex: none; }
+.logistics-shell main .ops-table .delivery-select { width: 38px !important; padding: 6px 10px; text-align: center; }
+.logistics-shell main .ops-table .delivery-select label { min-height: 30px; }
+.dark .logistics-shell main :is(input:not([type=hidden],[type=checkbox],[type=radio],[type=file]), select, textarea) {
+    background-color: var(--ops-surface);
+    color: #f0f4f1;
+    border-color: #68868a;
+}
+.dark .logistics-shell main :is(input, textarea)::placeholder { color: #b8ccca; opacity: 1; }
+.dark .logistics-shell main .ops-table th { color: #d0dfda; background: #28474c; }
+
+@media (max-width: 639.98px) {
+    .logistics-shell main { padding: 14px 12px; }
+    .logistics-shell main h1 { font-size: 20px; }
+    .logistics-shell main :is(.p-6, .p-8, .ld-panel, .delivery-panel, .delivery-entry-form) { padding: 14px; }
+    .logistics-shell main .ops-table-scroll { overflow: auto; }
+    .logistics-shell main nav.-mx-4 { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+    .logistics-shell main .lw-get-form:not(:has([name=per_page])) { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .logistics-shell main .lw-get-form:not(:has([name=per_page])) > :is(.lw-filter-field, .relative) { min-width: 0; width: auto; }
+    .logistics-shell main .lw-get-form > :is(.relative:has([name=search]), .lw-filter-field:has([name=search]), button[type=submit]) { grid-column: 1 / -1; }
+}
+@media (min-width: 768px) {
+    .logistics-shell main .ops-table-scroll .ops-table :is(.ops-action-cell, .ops-action-heading) { position: sticky; right: 0; z-index: 1; background: var(--ops-surface); border-left: 1px solid var(--ops-border); }
+    .logistics-shell main .ops-table-scroll .ops-table .ops-action-heading { background: var(--ops-hover); }
+    .logistics-shell main .ops-table tbody tr:hover .ops-action-cell { background: var(--ops-hover); }
+}
+@media (pointer: coarse) {
+    .logistics-shell #app-sidebar :is(.sidebar-nav a, .sb-cat, .role-switch-link) { min-height: 44px; }
+    .logistics-shell main :is(button, .ld-button, .delivery-button, a[class*="px-"]) { min-height: 44px; }
+    .logistics-shell main .ops-table .ops-action-cell :is(a, button),
+    .logistics-shell main .ops-table .delivery-row-actions :is(a, button) { min-height: 44px; min-width: 44px; }
+    .logistics-shell main :is(input:not([type=hidden],[type=checkbox],[type=radio],[type=file]), select, textarea) { min-height: 44px; font-size: 16px; }
+}
+@media print {
+    .logistics-shell main .ops-scroll-hint { display: none; }
+    .logistics-shell main .ops-table-scroll { overflow: visible; border: 0; }
+}

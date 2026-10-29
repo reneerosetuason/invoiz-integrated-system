@@ -15,8 +15,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
  * Logistics Web ??? Rider Application review & account provisioning.
@@ -27,12 +30,12 @@ use Illuminate\View\View;
  */
 class RiderApplicationAdminController extends Controller
 {
-    public function __construct(private readonly RiderAccountProvisioner $provisioner)
-    {
-    }
+    public function __construct(private readonly RiderAccountProvisioner $provisioner) {}
 
     public function index(Request $request): View
     {
+        $this->ensureAdministrator($request->user());
+
         $perPage = in_array((int) $request->query('per_page'), [10, 25, 50]) ? (int) $request->query('per_page') : 10;
         $status = $request->query('status', '');
         $search = trim((string) $request->query('search', ''));
@@ -45,11 +48,11 @@ class RiderApplicationAdminController extends Controller
         }
 
         if ($search !== '') {
-            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
+            $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $search).'%';
             $query->where(function ($q) use ($like) {
                 $q->where('name', 'like', $like)
-                  ->orWhere('email', 'like', $like)
-                  ->orWhere('phone', 'like', $like);
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('phone', 'like', $like);
             });
         }
 
@@ -63,6 +66,8 @@ class RiderApplicationAdminController extends Controller
 
     public function show(RiderApplication $application): View
     {
+        $this->ensureAdministrator(request()->user());
+
         $application->load([
             'logisticsCenter',
             'serviceArea',
@@ -73,23 +78,33 @@ class RiderApplicationAdminController extends Controller
 
         return view('logistics.rider-applications.show', [
             'application' => $application,
+            'keepsExistingLogin' => User::where('email', $application->email)->first()?->keepsOwnLogin() ?? false,
             'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
-            'areas' => ServiceArea::where('is_active', true)->orderBy('name')->get(),
+            'areas' => ServiceArea::with('logisticsCenter')->where('is_active', true)
+                ->whereHas('logisticsCenter', fn ($query) => $query->where('is_active', true))
+                ->orderBy('name')->get(),
         ]);
     }
 
     public function approve(Request $request, RiderApplication $application): RedirectResponse
     {
+        $admin = $request->user();
+        $this->ensureAdministrator($admin);
+
         $validated = $request->validate([
             'password' => ['nullable', 'confirmed', Password::min(8)],
-            'center_id' => 'required|exists:logistics_centers,id',
-            'service_area_id' => 'required|exists:service_areas,id',
+            'center_id' => ['bail', 'required', 'integer',
+                Rule::exists('logistics_centers', 'id')->where('is_active', true)],
+            'service_area_id' => ['bail', 'required', 'integer',
+                Rule::exists('service_areas', 'id')
+                    ->where('logistics_center_id', $request->integer('center_id'))
+                    ->where('is_active', true)],
             'notes' => 'nullable|string|max:1000',
+        ], [
+            'center_id.exists' => 'Choose an active logistics center.',
+            'service_area_id.required' => 'Select an active service area for this center. If none are listed, add a service area first.',
+            'service_area_id.exists' => 'Choose an active service area belonging to the selected logistics center.',
         ]);
-
-        $admin = $request->user();
-
-        $this->ensureAdministrator($admin);
 
         // A blank password field means "auto-generate a secure temporary
         // initial password". It is hashed by the provisioner and delivered to
@@ -109,32 +124,32 @@ class RiderApplicationAdminController extends Controller
         // plaintext password travels in memory to this single send and is
         // discarded afterwards. If delivery fails the account is kept and
         // the manager is told to use a safe alternative channel.
-        // Accounts that kept their own login (marketplace/admin) get no
-        // credentials mail — their password never changed.
+        // Existing identities receive an approval notice with instructions to
+        // use their current password, without generating new credentials.
         $keptLogin = ($u = User::where('email', $application->email)->first()) && $u->keepsOwnLogin();
         $mailSent = false;
-        if (! $keptLogin) {
-            try {
-                Mail::to($application->email)->send(
-                    new RiderAccountApprovedMail($application->fresh(), $password)
-                );
-                $mailSent = true;
-            } catch (\Throwable $e) {
-                report($e);
-            }
+        try {
+            Mail::to($application->email)->send(
+                new RiderAccountApprovedMail($application->fresh(), $keptLogin ? null : $password)
+            );
+            $mailSent = true;
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         if ($keptLogin) {
-            $success = "Rider approved successfully. {$rider->email} keeps its existing login and is now linked as a rider.";
+            $success = $mailSent
+                ? "Rider approved. An approval email has been sent to {$rider->email}; use the existing INVOIZ password to sign in."
+                : 'Rider approved, but the approval email could not be sent. The existing password still works. Use Resend Approval Email to retry.';
         } else {
             $success = $mailSent
                 ? "Rider approved successfully. Login credentials have been sent to: {$rider->email}"
-                : "Rider account created successfully, but the login credentials could not be emailed to {$rider->email}. Please contact the rider through a secure channel.";
+                : 'Rider account created, but the credentials email could not be sent. Use Resend Login Credentials below to retry.';
         }
 
         return redirect()
             ->route('rider-applications.show', $application)
-            ->with('success', $success);
+            ->with($mailSent ? 'success' : 'warning', $success);
     }
 
     /**
@@ -158,13 +173,17 @@ class RiderApplicationAdminController extends Controller
             'Only approved and provisioned rider accounts can have their credentials resent.'
         );
 
-        $user = User::where('email', $application->email)->where('role', 'rider')->first();
+        $user = User::with('rider')->where('email', $application->email)->first();
 
-        abort_unless($user instanceof User, 422, 'No provisioned rider account exists for this application.');
+        abort_unless($user instanceof User && $user->rider?->email === $application->email,
+            422, 'No provisioned rider account exists for this application.');
 
-        $password = Str::random(12);
-
-        $user->update(['password' => Hash::make($password)]);
+        $keptLogin = $user->keepsOwnLogin();
+        $previousPassword = $user->password;
+        $password = $keptLogin ? null : Str::random(12);
+        if (! $keptLogin) {
+            $user->update(['password' => Hash::make($password)]);
+        }
 
         // Identical to the approval send: the plaintext password lives only in
         // memory for this single mailable and is discarded afterwards. If
@@ -176,20 +195,29 @@ class RiderApplicationAdminController extends Controller
             );
             $mailSent = true;
         } catch (\Throwable $e) {
+            if (! $keptLogin) {
+                // A failed retry must not invalidate the rider's working login.
+                // Avoid overwriting any password changed concurrently.
+                User::whereKey($user->id)->where('password', $user->password)
+                    ->update(['password' => $previousPassword]);
+            }
             report($e);
         }
 
         $message = $mailSent
-            ? "New login credentials have been generated and sent to: {$application->email}"
-            : "New login credentials could not be emailed to {$application->email}. Please contact the rider through a secure channel.";
+            ? ($keptLogin ? 'Approval email sent. The existing INVOIZ password is unchanged.'
+                : "New login credentials have been generated and sent to: {$application->email}")
+            : 'The email could not be sent. The previous password is unchanged. Please retry when the mail service is available.';
 
         return redirect()
             ->route('rider-applications.show', $application)
-            ->with('success', $message);
+            ->with($mailSent ? 'success' : 'warning', $message);
     }
 
     public function reject(Request $request, RiderApplication $application): RedirectResponse
     {
+        $this->ensureAdministrator($request->user());
+
         $validated = $request->validate([
             'reason' => 'required|string|min:10|max:300',
         ]);
@@ -202,7 +230,7 @@ class RiderApplicationAdminController extends Controller
 
         $mailSent = false;
         try {
-            \Illuminate\Support\Facades\Mail::to($application->email)->send(
+            Mail::to($application->email)->send(
                 new RiderApplicationRejectedMail($application->fresh(), $validated['reason'])
             );
             $mailSent = true;
@@ -212,15 +240,35 @@ class RiderApplicationAdminController extends Controller
 
         return redirect()
             ->route('rider-applications.show', $application)
-            ->with('success', $mailSent
+            ->with($mailSent ? 'success' : 'warning', $mailSent
                 ? 'Application rejected. The applicant has been emailed the reason.'
-                : 'Application rejected, but the reason email could not be delivered. Please contact the applicant through a secure channel.');
+                : 'Application rejected, but the email could not be sent. Use Resend Rejection Email below to retry.');
+    }
+
+    public function resendRejection(Request $request, RiderApplication $application): RedirectResponse
+    {
+        $this->ensureAdministrator($request->user());
+        abort_unless($application->status === 'rejected' && filled($application->notes),
+            422, 'Only rejected applications with a recorded reason can receive a rejection email.');
+
+        $mailSent = false;
+        try {
+            Mail::to($application->email)->send(new RiderApplicationRejectedMail($application, $application->notes));
+            $mailSent = true;
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return redirect()->route('rider-applications.show', $application)
+            ->with($mailSent ? 'success' : 'warning', $mailSent
+                ? 'Rejection email sent with the recorded reason.'
+                : 'The rejection email could not be sent. The decision is saved; please retry when the mail service is available.');
     }
 
     /**
      * Preview an uploaded application document in the browser.
      */
-    public function viewDocument(RiderApplicationDocument $document): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function viewDocument(RiderApplicationDocument $document): BinaryFileResponse
     {
         return $this->serveDocument($document, 'inline');
     }
@@ -228,7 +276,7 @@ class RiderApplicationAdminController extends Controller
     /**
      * Download an uploaded application document.
      */
-    public function downloadDocument(RiderApplicationDocument $document): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    public function downloadDocument(RiderApplicationDocument $document): BinaryFileResponse
     {
         return $this->serveDocument($document, 'attachment');
     }
@@ -238,12 +286,10 @@ class RiderApplicationAdminController extends Controller
      * disk and are served only to administrators through the admin-gated
      * review routes.
      */
-    private function serveDocument(RiderApplicationDocument $document, string $disposition): \Symfony\Component\HttpFoundation\BinaryFileResponse
+    private function serveDocument(RiderApplicationDocument $document, string $disposition): BinaryFileResponse
     {
         $user = request()->user();
-        if (! $user || (! in_array($user->role, ['admin', 'logistics_admin'], true) && ! $user->isAdmin())) {
-            abort(403, 'This action is restricted to administrators.');
-        }
+        $this->ensureAdministrator($user);
 
         abort_unless($document->fileExists(), 404, 'Document is missing or was deleted.');
         abort_if($document->fileSizeOnDisk() === 0, 422, 'Document file is empty and cannot be opened.');
@@ -261,8 +307,8 @@ class RiderApplicationAdminController extends Controller
             ])
             ->setContentDisposition(
                 $preview
-                    ? \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_INLINE
-                    : \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                    ? ResponseHeaderBag::DISPOSITION_INLINE
+                    : ResponseHeaderBag::DISPOSITION_ATTACHMENT,
                 $filename,
             );
     }
@@ -273,12 +319,8 @@ class RiderApplicationAdminController extends Controller
             abort(401);
         }
 
-        if (! in_array($user->role, ['admin', 'logistics_admin'], true) && ! $user->isAdmin()) {
-            abort(403, 'This action is restricted to administrators.');
+        if (! $user->canManageRiders() || ! $user->isLogisticsAdmin()) {
+            abort(403, 'This action is restricted to logistics administrators.');
         }
     }
 }
-
-
-
-

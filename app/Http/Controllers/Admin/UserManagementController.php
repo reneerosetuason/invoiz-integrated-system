@@ -40,7 +40,7 @@ class UserManagementController extends Controller
 
     public function index(Request $request)
     {
-        $query = User::query();
+        $query = User::query()->withExists('rider');
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -57,6 +57,12 @@ class UserManagementController extends Controller
 
     public function toggleStatus(Request $request, User $user)
     {
+        abort_if(
+            $user->role === 'rider' || $user->rider()->exists(),
+            403,
+            'Rider accounts are managed by logistics personnel.'
+        );
+
         $request->validate([
             'action' => 'required|in:activate,suspend,deactivate',
         ]);

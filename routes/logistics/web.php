@@ -66,11 +66,11 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // captured by the "deliveries/{delivery}" show route.
     Route::get('deliveries/scan', [DeliveryController::class, 'scanPage'])->name('deliveries.scan-page');
     Route::post('deliveries/scan-verify', [DeliveryController::class, 'scanByTracking'])->name('deliveries.scan-verify');
-    Route::post('deliveries/bulk-assign-rider', [DeliveryController::class, 'bulkAssignRider'])->name('deliveries.bulk-assign');
+    Route::post('deliveries/bulk-assign-rider', [DeliveryController::class, 'bulkAssignRider'])->middleware('rider.manager')->name('deliveries.bulk-assign');
     Route::get('deliveries/export', [DeliveryController::class, 'export'])->name('deliveries.export');
     Route::resource('deliveries', DeliveryController::class)->except(['destroy']);
-    Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->name('deliveries.assign-rider');
-    Route::post('deliveries/{delivery}/auto-assign', [DeliveryController::class, 'autoAssign'])->name('deliveries.auto-assign');
+    Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->middleware('rider.manager')->name('deliveries.assign-rider');
+    Route::post('deliveries/{delivery}/auto-assign', [DeliveryController::class, 'autoAssign'])->middleware('rider.manager')->name('deliveries.auto-assign');
     Route::patch('deliveries/{delivery}/update-status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
     Route::post('deliveries/{delivery}/exception', [DeliveryController::class, 'reportException'])->name('deliveries.exception');
     Route::post('deliveries/{delivery}/return-to-seller', [DeliveryController::class, 'dispatchReturnToSeller'])->name('deliveries.return-to-seller');
@@ -88,10 +88,10 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // Riders (Directory + Management)
     Route::get('riders', [RiderController::class, 'index'])->name('riders.index');
     Route::get('riders/{rider}', [RiderController::class, 'show'])->name('riders.show');
-    Route::post('riders/{rider}/reset-credentials', [RiderController::class, 'resetCredentials'])->name('riders.reset-credentials');
-    Route::post('riders/{rider}/activate', [RiderController::class, 'activate'])->name('riders.activate');
-    Route::post('riders/{rider}/deactivate', [RiderController::class, 'deactivate'])->name('riders.deactivate');
-    Route::post('riders/{rider}/reverify', [RiderController::class, 'reverify'])->name('riders.reverify');
+    Route::post('riders/{rider}/reset-credentials', [RiderController::class, 'resetCredentials'])->middleware('rider.manager')->name('riders.reset-credentials');
+    Route::post('riders/{rider}/activate', [RiderController::class, 'activate'])->middleware('rider.manager')->name('riders.activate');
+    Route::post('riders/{rider}/deactivate', [RiderController::class, 'deactivate'])->middleware('rider.manager')->name('riders.deactivate');
+    Route::post('riders/{rider}/reverify', [RiderController::class, 'reverify'])->middleware('rider.manager')->name('riders.reverify');
 
     // Pickup Requests (staff: approve/reject pickups at their center)
     Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');
@@ -102,14 +102,15 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->name('pickup-requests.approve');
     Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->name('pickup-requests.reject');
 
-    // Rider Applications (Admin Only: review & provision)
-    Route::middleware('admin')->group(function () {
+    // Rider Applications (Logistics Admin Only: review & provision)
+    Route::middleware(['admin', 'rider.manager'])->group(function () {
         Route::get('rider-applications', [RiderApplicationAdminController::class, 'index'])->name('rider-applications.index');
         Route::get('rider-applications/documents/{document}/view', [RiderApplicationAdminController::class, 'viewDocument'])->name('rider-applications.documents.view');
         Route::get('rider-applications/documents/{document}/download', [RiderApplicationAdminController::class, 'downloadDocument'])->name('rider-applications.documents.download');
         Route::get('rider-applications/{application}', [RiderApplicationAdminController::class, 'show'])->name('rider-applications.show');
         Route::post('rider-applications/{application}/approve', [RiderApplicationAdminController::class, 'approve'])->name('rider-applications.approve');
         Route::post('rider-applications/{application}/resend-credentials', [RiderApplicationAdminController::class, 'resendCredentials'])->name('rider-applications.resend-credentials');
+        Route::post('rider-applications/{application}/resend-rejection', [RiderApplicationAdminController::class, 'resendRejection'])->name('rider-applications.resend-rejection');
         Route::post('rider-applications/{application}/reject', [RiderApplicationAdminController::class, 'reject'])->name('rider-applications.reject');
     });
 

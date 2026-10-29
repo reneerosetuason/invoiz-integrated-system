@@ -158,7 +158,8 @@ class OrderController extends Controller
         }
         $total = round($subtotal - $discount + $shippingTotal - $waivedTotal, 2);
 
-        return compact('subtotal', 'sellerSubtotals', 'lineItems', 'groupIds', 'shippingTotal', 'discount', 'waivedTotal', 'perVoucher', 'claimIds', 'total');
+        $waived = $stack['waived'] ?? [];
+        return compact('waived', 'subtotal', 'sellerSubtotals', 'lineItems', 'groupIds', 'shippingTotal', 'discount', 'waivedTotal', 'perVoucher', 'claimIds', 'total');
     }
 
     public function index(Request $request)
@@ -201,7 +202,7 @@ class OrderController extends Controller
         }
 
         try {
-            $order = DB::transaction(function () use ($user, $address, $validated) {
+            $orders = DB::transaction(function () use ($user, $address, $validated) {
                 $header = Cart::where('buyer_id', $user->id)->lockForUpdate()->first();
                 if (! $header) {
                     throw ValidationException::withMessages(['cart_item_ids' => 'Your cart is empty.']);
@@ -235,66 +236,50 @@ class OrderController extends Controller
                     'subtotal' => $subtotal, 'lineItems' => $lineItems, 'groupIds' => $groupIds,
                     'shippingTotal' => $shippingTotal, 'discount' => $discount,
                     'waivedTotal' => $waivedTotal, 'perVoucher' => $perVoucher,
-                    'claimIds' => $claimIds, 'total' => $total,
+                    'claimIds' => $claimIds, 'total' => $total, 'sellerSubtotals' => $sellerSubtotals, 'waived' => $waived,
                 ] = $this->quoteCart($cart, $user, $validated);
-                $order = Order::create([
-                    'seller_id' => $groupIds[0] ?? null,
-                    'buyer_id' => $user->id,
-                    'address_id' => $address->id,
-                    'shipping_address' => $address->toShippingSnapshot(),
-                    'total_amount' => $total,
-                    'sub_total' => $subtotal,
-                    'discount_total' => round($discount + $waivedTotal, 2),
-                    'shipping_fee' => round($shippingTotal - $waivedTotal, 2),
-                    'status' => 'pending',
-                    'notes' => $validated['notes'] ?? null,
-                ]);
-
-                foreach ($lineItems as $li) {
-                    OrderItem::create([...$li, 'order_id' => $order->id]);
-                }
-
-                Payment::create([
-                    'order_id' => $order->id,
-                    'method' => $validated['payment_method'],
-                    'status' => 'pending',
-                    'amount' => $total,
-                ]);
-
-                // Open the money ledger row (pending until delivery settles it).
-                Payments::recordCheckout($order);
-
-                OrderStatusHistory::create([
-                    'order_id' => $order->id,
-                    'to_status' => 'pending',
-                    'note' => 'Order placed.',
-                    'created_at' => now(),
-                ]);
-
-                foreach ($lockedClaims as $lc) {
-                    $amount = ($perVoucher[$lc->voucher_id]['merch'] ?? 0) + ($perVoucher[$lc->voucher_id]['waived'] ?? 0);
-                    OrderVoucher::create([
-                        'order_id' => $order->id,
-                        'voucher_id' => $lc->voucher_id,
-                        'discount_amount' => round($amount, 2),
-                    ]);
-                    Voucher::whereKey($lc->voucher_id)->increment('used_count');
-                    $lc->update(['order_id' => $order->id, 'used_at' => now()]);
-                }
-
-                // One delivery per seller group: the rider earns the flat
-                // fee once per delivery, independent of any voucher.
+                $allocations = Vouchers::allocateForOrders($lockedClaims->map(fn ($claim) => $lockedVouchers->get($claim->voucher_id)), [
+                    'perVoucher' => $perVoucher, 'waived' => $waived,
+                ], $sellerSubtotals);
+                $orders = collect();
+                $redemptions = [];
                 foreach ($groupIds as $sid) {
-                    $delivery = Delivery::create([
-                        'order_id' => $order->id,
-                        'seller_id' => $sid,
-                        'status' => 'waiting_for_rider',
-                        'payment_method' => $validated['payment_method'],
-                        'amount_to_collect' => $order->cashToCollectForSeller((int) $sid),
-                        'delivery_fee' => Order::SHIPPING_FEE_PER_SELLER,
+                    $storeDiscount = round(array_sum($allocations[$sid] ?? []), 2);
+                    $storeShipping = round(Order::SHIPPING_FEE_PER_SELLER - ($waived[$sid] ?? 0), 2);
+                    $storeMerch = round($storeDiscount - ($waived[$sid] ?? 0), 2);
+                    $storeTotal = round($sellerSubtotals[$sid] - $storeMerch + $storeShipping, 2);
+                    $order = Order::create([
+                        'seller_id' => $sid, 'buyer_id' => $user->id, 'address_id' => $address->id,
+                        'shipping_address' => $address->toShippingSnapshot(), 'total_amount' => $storeTotal,
+                        'sub_total' => $sellerSubtotals[$sid], 'discount_total' => $storeDiscount,
+                        'shipping_fee' => $storeShipping, 'status' => 'pending', 'notes' => $validated['notes'] ?? null,
                     ]);
-
-                    PickupRequest::openForDelivery($delivery);
+                    foreach ($lineItems as $li) {
+                        if ((int) $li['seller_id'] === (int) $sid) {
+                            OrderItem::create([...$li, 'order_id' => $order->id]);
+                        }
+                    }
+                    foreach ($allocations[$sid] ?? [] as $voucherId => $amount) {
+                        if ($amount <= 0) {
+                            continue;
+                        }
+                        $redemptions[$voucherId] ??= $order->id;
+                        OrderVoucher::create([
+                            'order_id' => $order->id, 'voucher_id' => $voucherId,
+                            'redemption_order_id' => $redemptions[$voucherId], 'discount_amount' => $amount,
+                        ]);
+                    }
+                    Payment::create(['order_id' => $order->id, 'method' => $validated['payment_method'], 'status' => 'pending', 'amount' => $storeTotal]);
+                    Payments::recordCheckout($order);
+                    OrderStatusHistory::create(['order_id' => $order->id, 'to_status' => 'pending', 'note' => 'Order placed.']);
+                    app(\App\Services\OrderShipmentService::class)->ensure($order);
+                    $orders->push($order);
+                }
+                foreach ($lockedClaims as $claim) {
+                    if (isset($redemptions[$claim->voucher_id])) {
+                        Voucher::whereKey($claim->voucher_id)->increment('used_count');
+                        $claim->update(['order_id' => $redemptions[$claim->voucher_id], 'used_at' => now()]);
+                    }
                 }
 
                 // Deduct stock (guarded: fails the whole checkout when short).
@@ -306,15 +291,16 @@ class OrderController extends Controller
 
                 $cart->items()->whereIn('id', $cart->items->pluck('id'))->delete();
 
-                return $order;
+                return $orders;
             });
 
-            $order->load(['items.product', 'payment', 'delivery', 'orderVouchers.voucher']);
-            $this->hideBuyerVoucherCodes(collect([$order]));
+            $orders->load(['items.product', 'payment', 'delivery', 'orderVouchers.voucher']);
+            $this->hideBuyerVoucherCodes($orders);
 
             return response()->json([
                 'message' => 'Order placed successfully. Payment method: Cash on Delivery.',
-                'order' => $order,
+                'order' => $orders->first(),
+                'orders' => $orders,
             ], 201);
         } catch (\Throwable $e) {
             if ($e instanceof ValidationException) {

@@ -270,7 +270,7 @@ Route::post('/checkout', function(Request $request){
       if(! \App\Support\Stock::deduct($product->id, $variant?->id, $qty)) throw new \Exception('Not enough stock for "'.$product->name.'".');
       $order = \App\Models\Order::create(['seller_id'=>(int) $product->seller_id,'buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
       \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-      if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $product->seller_id,'status'=>'waiting_for_rider','payment_method'=>'cash_on_delivery','amount_to_collect'=>$total,'delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
+
       \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$product->id,'product_variant_id'=>$variant?->id,'seller_id'=>$product->seller_id,'product_name'=>$product->name,'variant_label'=>Cart::labelFor($variant),'quantity'=>$qty,'price'=>$unit,'unit_price'=>$unit,'total_price'=>$subtotal]);
       foreach ($stack['perVoucher'] ?? [] as $vid => $amt) {
         \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$vid,'discount_amount'=>round(($amt['merch'] ?? 0) + ($amt['waived'] ?? 0), 2)]);
@@ -281,6 +281,7 @@ Route::post('/checkout', function(Request $request){
       }
       if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
       \App\Support\Payments::recordCheckout($order);
+      app(\App\Services\OrderShipmentService::class)->ensure($order);
       Cart::itemsFor($buyer['id'])->where('product_id',$product->id)->where('variant_id', $variant ? $variant->id : null)->delete();
       $ordersCreated = 1;
     } else {
@@ -329,7 +330,7 @@ Route::post('/checkout', function(Request $request){
         $total = round($subtotal - $merch + $shipping - $waived, 2);
         $order = \App\Models\Order::create(['seller_id'=>(int) $groupSid,'buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
         \App\Models\OrderStatusHistory::create(['order_id'=>$order->id,'from_status'=>null,'to_status'=>'pending','note'=>'Order placed.']);
-        if (class_exists(\App\Models\Delivery::class)) \App\Models\Delivery::create(['order_id'=>$order->id,'seller_id'=>(int) $groupSid,'status'=>'waiting_for_rider','payment_method'=>'cash_on_delivery','amount_to_collect'=>$total,'delivery_fee'=>\App\Models\Order::SHIPPING_FEE_PER_SELLER]);
+
         foreach($sLines as $l){
           \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$l['product']->id,'product_variant_id'=>$l['variant']?->id,'seller_id'=>$l['product']->seller_id,'product_name'=>$l['product']->name,'variant_label'=>$l['label'],'quantity'=>$l['qty'],'price'=>$l['unit'],'unit_price'=>$l['unit'],'total_price'=>$l['line']]);
           $l['item']->delete();
@@ -343,6 +344,7 @@ Route::post('/checkout', function(Request $request){
         $groupIndex++;
         if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
         \App\Support\Payments::recordCheckout($order);
+      app(\App\Services\OrderShipmentService::class)->ensure($order);
         $ordersCreated++;
       }
       if ($allVouchers->isNotEmpty()) {

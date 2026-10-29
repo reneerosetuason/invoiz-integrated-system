@@ -38,6 +38,9 @@
                 </td>
                 <td style="padding:12px 8px;color:#6E6E73;font-size:13px;">{{ $u->created_at->format('M d, Y') }}</td>
                 <td style="padding:12px 8px;">
+                    @if($u->role === 'rider' || $u->rider_exists)
+                        <span style="font-size:12px;color:#6E6E73;">Managed by logistics</span>
+                    @else
                     @if(($u->account_status ?? 'active') === 'active')
                     <form method="POST" action="{{ url('/admin/manage-accounts/'.$u->id.'/action') }}" style="display:inline;" data-confirm="This account will be suspended and the user will be unable to log in. Continue?" data-confirm-title="Suspend Account?" data-confirm-ok="Suspend" data-confirm-class="btn-danger" data-confirm-icon="suspend">
                         @csrf
@@ -57,6 +60,7 @@
                         <input type="hidden" name="action" value="deactivate" />
                         <button type="submit" style="padding:4px 12px;background:#E05A33;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Deactivate</button>
                     </form>
+                    @endif
                     @endif
                 </td>
             </tr>

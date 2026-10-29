@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Models\Delivery;
+use App\Services\FulfillmentWorkflow;
 use App\Models\DeliveryFailure;
 use App\Models\DeliveryStatusLog;
 use App\Models\LogisticsSetting;
@@ -840,10 +841,17 @@ class DeliveryController extends Controller
      */
     private function assignRiderToDelivery(Delivery $delivery, int $riderId): array
     {
+        abort_unless(Auth::user()?->canManageRiders(), 403,
+            'Rider assignments are managed by logistics personnel.');
+
         return DB::transaction(function () use ($delivery, $riderId): array {
             // Lock both rows so concurrent assignment posts cannot give a
             // rider two active deliveries or reset a delivery mid-transition.
-            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $lockedDelivery = FulfillmentWorkflow::lock($delivery);
+            FulfillmentWorkflow::assertReady($lockedDelivery);
+            if ($lockedDelivery->order_id && $lockedDelivery->status === 'delivery_failed') {
+                abort_unless($lockedDelivery->returned_at && $lockedDelivery->received_at, 409, 'A different rider can only be assigned after the failed parcel is returned to its center.');
+            }
             $riderIds = collect([$riderId, $lockedDelivery->rider_id])
                 ->filter()
                 ->unique()
@@ -960,6 +968,14 @@ class DeliveryController extends Controller
             }
 
             $previousRiderId = $lockedDelivery->rider_id;
+            if ($lockedDelivery->order_id && $lockedDelivery->received_at) {
+                abort_if($lockedDelivery->sorting_center_pickup_at && ! $lockedDelivery->returned_at, 409, 'The current rider still has this parcel. Record its return to center before reassignment.');
+                $lockedDelivery->sorting_center_pickup_at = null;
+                $lockedDelivery->sorting_center_pickup_rider_id = null;
+                $lockedDelivery->accepted_at = null;
+                $lockedDelivery->assigned_at = now();
+            }
+
             $lockedDelivery->rider_id = $rider->id;
             $lockedDelivery->status = 'assigned';
             $lockedDelivery->assigned_at = $lockedDelivery->assigned_at ?? now();
@@ -1027,6 +1043,20 @@ class DeliveryController extends Controller
         $target = $validated['status'];
         $current = $delivery->status;
         $isOverride = $request->boolean('override');
+        FulfillmentWorkflow::assertActiveOrder($delivery);
+        if ($isOverride) {
+            abort_unless(Auth::user()->canManageRiders() && Auth::user()->isLogisticsAdmin(), 403, 'Only a logistics administrator can override a rider milestone.');
+        }
+        if ($delivery->order_id && ! in_array($target, ['cancelled', 'delivery_failed'], true) && ! $isOverride) {
+            return back()->with('error', 'Use rider actions for collection and delivery. A logistics administrator may use a documented exception override.');
+        }
+        if ($delivery->order_id && in_array($target, ['waiting_for_rider', 'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop'], true)) {
+            return back()->with('error', 'Use rider assignment and acceptance actions to change this stage.');
+        }
+        if ($delivery->order_id && $target === 'delivered' && (! $delivery->rider_id || ! $delivery->proofs()->exists())) {
+            return back()->with('error', 'A delivery rider and uploaded proof are required even for an exception override.');
+        }
+
 
         if ($target === $current) {
             return back()->with('error', 'The delivery is already in this status.');
@@ -1096,7 +1126,7 @@ class DeliveryController extends Controller
 
         try {
             DB::transaction(function () use (&$delivery, $target, $reasonText, $isOverride, $previousStatus, $codAmount, &$conflict) {
-                $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+                $locked = FulfillmentWorkflow::lock($delivery);
 
                 // The route model was read before this transaction. If another
                 // request moved the delivery first, refuse this stale write so
@@ -1108,6 +1138,19 @@ class DeliveryController extends Controller
                 }
 
                 $delivery = $locked;
+                FulfillmentWorkflow::assertActiveOrder($delivery);
+                if ($delivery->order_id && $target === 'cancelled') {
+                    \App\Support\OrderCancellation::bySeller($delivery->order, $reasonText ?: 'Cancelled by logistics.', (int) $delivery->seller_id);
+                    $delivery->refresh();
+                    return;
+                }
+                if ($delivery->order_id && $target === 'picked_up') {
+                    FulfillmentWorkflow::assertReady($delivery);
+                    abort_if($delivery->received_at, 409, 'Seller pickup has already completed.');
+                }
+                if ($delivery->order_id && in_array($target, ['out_for_delivery', 'arrived_at_customer'], true)) {
+                    abort_unless($delivery->sorting_center_pickup_at && $delivery->rider_id, 409, 'The delivery rider must collect the dispatched parcel first.');
+                }
                 $delivery->status = $target;
 
                 $now = now();
@@ -1132,6 +1175,9 @@ class DeliveryController extends Controller
                 }
 
                 $delivery->save();
+                if ($delivery->order_id && in_array($target, ['picked_up', 'out_for_delivery', 'delivered'], true)) {
+                    FulfillmentWorkflow::syncOrder($delivery, $target === 'delivered' ? 'delivered' : 'out_for_delivery', $reasonText ?: 'Logistics recorded the shipment milestone.');
+                }
 
                 if ($target === 'delivery_failed' && $delivery->rider_id) {
                     DeliveryFailure::firstOrCreate(
@@ -1406,27 +1452,15 @@ class DeliveryController extends Controller
         }
 
         $received = DB::transaction(function () use ($delivery, $validated): bool {
-            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             if ($lockedDelivery->parcel_status !== 'pending_arrival') {
                 return false;
             }
 
-            $lockedDelivery->update([
-                'center_id' => $validated['center_id'],
-                'parcel_status' => 'received',
-                'received_at' => now(),
-            ]);
-
-            PickupRequest::where('delivery_id', $lockedDelivery->id)->update([
-                'center_id' => $validated['center_id'],
-            ]);
-
-            DeliveryStatusLog::create([
-                'delivery_id' => $lockedDelivery->id,
-                'status' => 'received',
-                'notes' => 'Parcel received at logistics center.',
-                'changed_by' => Auth::id(),
-            ]);
+            abort_if($lockedDelivery->center_id && (int) $lockedDelivery->center_id !== (int) $validated['center_id'], 409, 'Receive this parcel at its assigned handling center.');
+            $lockedDelivery->update(['center_id' => $validated['center_id']]);
+            FulfillmentWorkflow::receive($lockedDelivery, (int) Auth::id());
+            PickupRequest::where('delivery_id', $lockedDelivery->id)->update(['center_id' => $validated['center_id']]);
 
             return true;
         });
@@ -1447,7 +1481,7 @@ class DeliveryController extends Controller
         }
 
         $scanned = DB::transaction(function () use ($delivery): bool {
-            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             if ($lockedDelivery->parcel_status !== 'received') {
                 return false;
             }
@@ -1642,7 +1676,7 @@ class DeliveryController extends Controller
 
         $destinationName = LogisticsCenter::whereKey($validated['destination_center_id'])->value('name');
         $sortedDelivery = DB::transaction(function () use ($delivery, $validated, $destinationName): ?Delivery {
-            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             if ($lockedDelivery->parcel_status !== 'scanned') {
                 return null;
             }
@@ -1691,10 +1725,18 @@ class DeliveryController extends Controller
         $user = Auth::user();
         $isCenterStaff = $user->isLogisticsStaff() && ! $user->isLogisticsAdmin() && ! $user->is_admin;
         $dispatched = DB::transaction(function () use ($delivery, $user, $isCenterStaff): bool {
-            $lockedDelivery = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             if ($isCenterStaff && (! $user->center_id || ! $lockedDelivery->center_id || $lockedDelivery->center_id != $user->center_id)) {
                 abort(403, 'You can only dispatch parcels at your assigned logistics center.');
             }
+
+            FulfillmentWorkflow::assertActiveOrder($lockedDelivery);
+            if ($lockedDelivery->order_id) {
+                abort_unless($lockedDelivery->received_at && $lockedDelivery->scanned_at && $lockedDelivery->sorted_at, 409, 'Receive, scan and sort this parcel first.');
+                abort_unless($lockedDelivery->rider_id && in_array($lockedDelivery->status, ['assigned', 'accepted'], true), 409, 'Assign a delivery rider before dispatch.');
+                FulfillmentWorkflow::assertReady($lockedDelivery);
+            }
+            if ($lockedDelivery->parcel_status === 'dispatched') { return true; }
 
             if ($lockedDelivery->parcel_status !== 'sorted') {
                 return false;

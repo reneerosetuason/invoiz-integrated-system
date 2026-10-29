@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:invoize_rider/core/network/api_client.dart';
 import 'package:invoize_rider/screens/apply/apply_screen.dart';
+import 'support/psgc_fixture.dart';
 
 /// Picker-boundary tests for the Documents step.
 ///
@@ -64,28 +65,8 @@ MockClient _applyBackend() {
         'email': 'juan.test@example.com',
       }, 200);
     }
-    if (path.endsWith('/provinces')) {
-      return json({
-        'regions': {'120000000': 'SOCCSKSARGEN'},
-        'provinces': [
-          {'id': 120000000, 'name': 'SOCCSKSARGEN', 'region_code': '120000000'},
-        ],
-      }, 200);
-    }
-    if (!path.endsWith('/provinces') && path.endsWith('/municipalities')) {
-      return json({
-        'municipalities': [
-          {'id': 1200100000, 'name': 'General Santos City'},
-        ],
-      }, 200);
-    }
-    if (path.endsWith('/barangays')) {
-      return json({
-        'barangays': [
-          {'id': 1200100001, 'name': 'Barangay Poblacion'},
-        ],
-      }, 200);
-    }
+    final addressResponse = psgcFixture(request);
+    if (addressResponse != null) return addressResponse;
     return json({'message': 'not found'}, 404);
   });
 }

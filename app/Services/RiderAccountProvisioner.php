@@ -11,6 +11,7 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Rider Account Provisioning.
@@ -40,6 +41,9 @@ class RiderAccountProvisioner
      */
     public function approve(RiderApplication $application, User $admin, array $settings): Rider
     {
+        abort_unless($admin->canManageRiders() && $admin->isLogisticsAdmin(), 403,
+            'Rider applications are managed by logistics administrators.');
+
         return DB::transaction(function () use ($application, $admin, $settings) {
             $application = RiderApplication::query()
                 ->whereKey($application->id)
@@ -50,9 +54,23 @@ class RiderAccountProvisioner
                 abort(422, 'Only pending applications can be approved.');
             }
 
-            $center = LogisticsCenter::findOrFail($settings['center_id']);
+            // Recheck under locks: an area may be moved/deactivated after the
+            // review page was opened. Invalid choices are form errors, not 404s.
+            $center = LogisticsCenter::whereKey($settings['center_id'])
+                ->where('is_active', true)->lockForUpdate()->first();
+            if (! $center) {
+                throw ValidationException::withMessages([
+                    'center_id' => 'Choose an active logistics center.',
+                ]);
+            }
             $area = ServiceArea::where('logistics_center_id', $center->id)
-                ->findOrFail($settings['service_area_id']);
+                ->whereKey($settings['service_area_id'])->where('is_active', true)
+                ->lockForUpdate()->first();
+            if (! $area) {
+                throw ValidationException::withMessages([
+                    'service_area_id' => 'Choose an active service area belonging to the selected logistics center.',
+                ]);
+            }
 
             $email = $application->email;
 
@@ -174,6 +192,9 @@ class RiderAccountProvisioner
      */
     public function reject(RiderApplication $application, User $admin, string $reason): void
     {
+        abort_unless($admin->canManageRiders() && $admin->isLogisticsAdmin(), 403,
+            'Rider applications are managed by logistics administrators.');
+
         DB::transaction(function () use ($application, $admin, $reason) {
             $application = RiderApplication::query()
                 ->whereKey($application->id)

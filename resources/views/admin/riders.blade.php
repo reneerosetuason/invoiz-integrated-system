@@ -2,7 +2,8 @@
 
 @section('content')
 <div class="card">
-    <h1 class="page-title">Manage Riders</h1>
+    <h1 class="page-title">Rider Directory</h1>
+    <p style="color:#6E6E73;">Rider accounts are managed by logistics personnel.</p>
 
     @if(session('status'))
     <div style="padding:12px 16px;background:#E8F5EE;color:#166534;border-radius:8px;margin-bottom:16px;">{{ session('status') }}</div>
@@ -21,7 +22,6 @@
                 <th style="padding:12px 8px;">Email</th>
                 <th style="padding:12px 8px;">Status</th>
                 <th style="padding:12px 8px;">Registered</th>
-                <th style="padding:12px 8px;">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -33,24 +33,10 @@
                     <span style="padding:3px 10px;border-radius:12px;font-size:12px;background:{{ $rider->account_status === 'active' ? '#E8F5EE' : '#FCE9E4' }};color:{{ $rider->account_status === 'active' ? '#166534' : '#991b1b' }};">{{ ucfirst($rider->account_status ?? 'active') }}</span>
                 </td>
                 <td style="padding:12px 8px;color:#6E6E73;font-size:13px;">{{ $rider->created_at->format('M d, Y') }}</td>
-                <td style="padding:12px 8px;">
-                    @if(($rider->account_status ?? 'active') === 'active')
-                    <form method="POST" action="{{ url('/admin/manage-accounts/'.$rider->id.'/action') }}" style="display:inline;" data-confirm="This rider will be suspended and will not be able to accept deliveries. Continue?" data-confirm-title="Suspend Rider?" data-confirm-ok="Suspend" data-confirm-class="btn-danger" data-confirm-icon="suspend">
-                        @csrf
-                        <input type="hidden" name="action" value="suspend" />
-                        <button type="submit" style="padding:4px 12px;background:#F0A202;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Suspend</button>
-                    </form>
-                    @else
-                    <form method="POST" action="{{ url('/admin/manage-accounts/'.$rider->id.'/action') }}" style="display:inline;">
-                        @csrf
-                        <input type="hidden" name="action" value="activate" />
-                        <button type="submit" style="padding:4px 12px;background:#2E8B57;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">Activate</button>
-                    </form>
-                    @endif
-                </td>
+
             </tr>
             @empty
-            <tr><td colspan="5" style="padding:20px;text-align:center;color:#6E6E73;">No riders found.</td></tr>
+            <tr><td colspan="4" style="padding:20px;text-align:center;color:#6E6E73;">No riders found.</td></tr>
             @endforelse
         </tbody>
     </table>

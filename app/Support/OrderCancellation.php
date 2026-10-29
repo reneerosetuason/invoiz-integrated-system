@@ -12,12 +12,25 @@ class OrderCancellation
 {
     public static function byBuyer(Order $order, string $reason, int $buyerId): bool
     {
-        return DB::transaction(function () use ($order, $reason, $buyerId): bool {
-            $locked = Order::where('buyer_id', $buyerId)->lockForUpdate()->findOrFail($order->id);
+        abort_unless((int) $order->buyer_id === $buyerId, 403);
+        return self::cancel($order, $reason, $buyerId, false);
+    }
+
+    public static function bySeller(Order $order, string $reason, int $sellerId): bool
+    {
+        abort_unless($order->items()->where('seller_id', $sellerId)->exists(), 403);
+        abort_if($order->items()->where('seller_id', '!=', $sellerId)->exists(), 409, 'A shared legacy order needs logistics review before cancellation.');
+        return self::cancel($order, $reason, $sellerId, true);
+    }
+
+    private static function cancel(Order $order, string $reason, int $buyerId, bool $seller): bool
+    {
+        return DB::transaction(function () use ($order, $reason, $buyerId, $seller): bool {
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             if ($locked->status === 'cancelled') {
                 return false;
             }
-            if (! $locked->isCancellableByBuyer()) {
+            if (! ($locked->isCancellableByBuyer() || ($seller && $locked->status === 'ready_for_delivery'))) {
                 throw ValidationException::withMessages(['order' => 'This order can no longer be cancelled.']);
             }
 
@@ -40,15 +53,18 @@ class OrderCancellation
                 DeliveryStatusLog::create([
                     'delivery_id' => $delivery->id,
                     'status' => 'cancelled',
-                    'notes' => 'Cancelled by buyer: ' . $reason,
+                    'notes' => ($seller ? 'Cancelled by seller: ' : 'Cancelled by buyer: ') . $reason,
                     'changed_by' => $buyerId,
                 ]);
+            }
+            foreach ($deliveries->pluck('rider_id')->filter()->unique()->sort() as $riderId) {
+                \App\Services\FulfillmentWorkflow::releaseRider((int) $riderId);
             }
             OrderStatusHistory::create([
                 'order_id' => $locked->id,
                 'from_status' => $from,
                 'to_status' => 'cancelled',
-                'note' => 'Cancelled by buyer: ' . $reason,
+                'note' => ($seller ? 'Cancelled by seller: ' : 'Cancelled by buyer: ') . $reason,
             ]);
             Stock::restoreOrder($locked->load('items'));
             Payments::voidForCancel($locked, strict: true);

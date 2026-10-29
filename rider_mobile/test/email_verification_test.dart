@@ -8,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:invoize_rider/core/network/api_client.dart';
 import 'package:invoize_rider/screens/apply/apply_screen.dart';
 import 'package:invoize_rider/services/application_service.dart';
+import 'support/psgc_fixture.dart';
 
 const _validCode = '123456';
 
@@ -15,15 +16,14 @@ MockClient _otpBackend() {
   return MockClient((http.BaseRequest request) async {
     Map<String, dynamic> body = {};
     try {
-      body =
-          jsonDecode((request as http.Request).body) as Map<String, dynamic>;
+      body = jsonDecode((request as http.Request).body) as Map<String, dynamic>;
     } catch (_) {}
     final path = request.url.path;
     http.Response json(Object data, int status) => http.Response(
-          jsonEncode(data),
-          status,
-          headers: {'content-type': 'application/json'},
-        );
+      jsonEncode(data),
+      status,
+      headers: {'content-type': 'application/json'},
+    );
     if (path.endsWith('/rider/email/request-code') ||
         path.endsWith('/rider/email/resend')) {
       final email = (body['email'] ?? '') as String;
@@ -36,38 +36,18 @@ MockClient _otpBackend() {
       if (body['code'] == _validCode) {
         return json({
           'message': 'Email verified successfully.',
-          'email': body['email']
+          'email': body['email'],
         }, 200);
       }
       return json({
         'message': 'Invalid verification code. Please try again.',
         'errors': {
-          'code': ['The verification code is incorrect.']
-        }
+          'code': ['The verification code is incorrect.'],
+        },
       }, 422);
     }
-    if (path.endsWith('/provinces')) {
-      return json({
-        'regions': {'120000000': 'SOCCSKSARGEN'},
-        'provinces': [
-          {'id': 120000000, 'name': 'SOCCSKSARGEN', 'region_code': '120000000'}
-        ]
-      }, 200);
-    }
-    if (!path.endsWith('/provinces') && path.endsWith('/municipalities')) {
-      return json({
-        'municipalities': [
-          {'id': 1200100000, 'name': 'General Santos City'}
-        ]
-      }, 200);
-    }
-    if (path.endsWith('/barangays')) {
-      return json({
-        'barangays': [
-          {'id': 1200100001, 'name': 'Barangay Poblacion'}
-        ]
-      }, 200);
-    }
+    final addressResponse = psgcFixture(request);
+    if (addressResponse != null) return addressResponse;
     return json({'message': 'not found'}, 404);
   });
 }
@@ -79,24 +59,35 @@ Future<void> _pump(WidgetTester tester, MockClient backend) async {
     tester.view.resetPhysicalSize();
     tester.view.resetDevicePixelRatio();
   });
-  await tester.pumpWidget(MaterialApp(
-    home: ApplyScreen(apiClient: ApiClient(client: backend)),
-  ));
+  await tester.pumpWidget(
+    MaterialApp(
+      home: ApplyScreen(apiClient: ApiClient(client: backend)),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
-Future<void> _fillPersonal(WidgetTester tester,
-    {String email = 'otp.user@example.com'}) async {
+Future<void> _fillPersonal(
+  WidgetTester tester, {
+  String email = 'otp.user@example.com',
+}) async {
   await tester.enterText(
-      find.widgetWithText(TextField, 'First Name *'), 'Juan');
+    find.widgetWithText(TextField, 'First Name *'),
+    'Juan',
+  );
   await tester.enterText(
-      find.widgetWithText(TextField, 'Last Name *'), 'Dela Cruz');
+    find.widgetWithText(TextField, 'Last Name *'),
+    'Dela Cruz',
+  );
   await tester.enterText(
-      find.widgetWithText(TextField, 'Email Address *'), email);
+    find.widgetWithText(TextField, 'Email Address *'),
+    email,
+  );
   await tester.pump();
   await tester.enterText(
-      find.widgetWithText(TextField, 'Phone Number *  (+639 / 09)'),
-      '09178881111');
+    find.widgetWithText(TextField, 'Phone Number *  (+639 / 09)'),
+    '09178881111',
+  );
   await tester.ensureVisible(find.text('Male'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Male'));
@@ -107,10 +98,8 @@ Future<void> _fillPersonal(WidgetTester tester,
   await tester.pumpAndSettle();
   await tester.tap(find.text('OK'));
   await tester.pumpAndSettle();
-  await tester.enterText(
-      find.widgetWithText(TextField, 'House No.'), '123');
-  await tester.enterText(
-      find.widgetWithText(TextField, 'Street'), 'Test St');
+  await tester.enterText(find.widgetWithText(TextField, 'House No.'), '123');
+  await tester.enterText(find.widgetWithText(TextField, 'Street'), 'Test St');
   await _selectAddress(tester);
 }
 
@@ -119,8 +108,10 @@ Future<void> _selectAddress(WidgetTester tester) async {
   Future<void> pick(int index) async {
     await tester.ensureVisible(find.byType(DropdownButton<String>).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(DropdownButton<String>).at(index),
-        warnIfMissed: false);
+    await tester.tap(
+      find.byType(DropdownButton<String>).at(index),
+      warnIfMissed: false,
+    );
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
@@ -150,10 +141,13 @@ Future<void> _sendCode(WidgetTester tester) async {
 /// and SnackBar to appear.
 Future<void> _verifyWith(WidgetTester tester, String code) async {
   await tester.ensureVisible(
-      find.widgetWithText(TextField, 'Verification Code'));
+    find.widgetWithText(TextField, 'Verification Code'),
+  );
   await tester.pumpAndSettle();
   await tester.enterText(
-      find.widgetWithText(TextField, 'Verification Code'), code);
+    find.widgetWithText(TextField, 'Verification Code'),
+    code,
+  );
   await tester.pump();
   await tester.ensureVisible(find.text('Verify Email'));
   await tester.pumpAndSettle();
@@ -166,17 +160,21 @@ Future<void> _verifyWith(WidgetTester tester, String code) async {
 void main() {
   test('ApplicationService OTP contract', () async {
     final requests = <http.BaseRequest>[];
-    final svc = ApplicationService(ApiClient(
+    final svc = ApplicationService(
+      ApiClient(
         client: MockClient((http.BaseRequest request) async {
           requests.add(request);
-      return http.Response(jsonEncode({'message': 'ok', 'email': 'a@b.c'}),
-          200,
-          headers: {'content-type': 'application/json'});
-    })));
+          return http.Response(
+            jsonEncode({'message': 'ok', 'email': 'a@b.c'}),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }),
+      ),
+    );
     await svc.requestEmailCode(email: 'a@b.c', name: 'Ann');
     await svc.resendEmailCode(email: 'a@b.c');
-    final verified =
-        await svc.verifyEmailCode(email: 'a@b.c', code: '123456');
+    final verified = await svc.verifyEmailCode(email: 'a@b.c', code: '123456');
     expect(requests.map((r) => r.url.path).toList(), [
       endsWith('/rider/email/request-code'),
       endsWith('/rider/email/resend'),
@@ -189,8 +187,9 @@ void main() {
     await _pump(tester, _otpBackend());
     expect(find.text('Send Verification Code'), findsOneWidget);
     expect(
-        find.textContaining('send a verification code to this email'),
-        findsOneWidget);
+      find.textContaining('send a verification code to this email'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('send requires a valid email first', (tester) async {
@@ -199,8 +198,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Send Verification Code'));
     await tester.pumpAndSettle();
-    expect(find.text('Please enter a valid email address first.'),
-        findsOneWidget);
+    expect(
+      find.text('Please enter a valid email address first.'),
+      findsOneWidget,
+    );
     expect(find.text('Verify Your Email'), findsNothing);
   });
 
@@ -209,12 +210,15 @@ void main() {
     await _fillPersonal(tester);
     await _sendCode(tester);
     await _verifyWith(tester, '000000');
-    expect(find.text('Invalid verification code. Please try again.'),
-        findsOneWidget);
+    expect(
+      find.text('Invalid verification code. Please try again.'),
+      findsOneWidget,
+    );
   });
 
-  testWidgets('valid OTP verifies and Continue is no longer email-blocked',
-      (tester) async {
+  testWidgets('valid OTP verifies and Continue is no longer email-blocked', (
+    tester,
+  ) async {
     await _pump(tester, _otpBackend());
     await _fillPersonal(tester);
     await _sendCode(tester);
@@ -227,7 +231,9 @@ void main() {
     // The success SnackBar creates a full-screen overlay entry that
     // blocks taps on the Continue button below it. Clear the SnackBar
     // via the ScaffoldMessenger so the overlay entry is removed.
-    final smState = tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger));
+    final smState = tester.state<ScaffoldMessengerState>(
+      find.byType(ScaffoldMessenger),
+    );
     smState.clearSnackBars();
     await tester.pumpAndSettle();
 
@@ -244,8 +250,10 @@ void main() {
     await tester.ensureVisible(find.text('Continue'));
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('Please verify your email address first.'),
-        findsOneWidget);
+    expect(
+      find.text('Please verify your email address first.'),
+      findsOneWidget,
+    );
     expect(find.text('Choose your Rider Type'), findsNothing);
   });
 
@@ -258,13 +266,16 @@ void main() {
     expect(find.text('Email verified'), findsOneWidget);
 
     // Dismiss the "Email verified" SnackBar overlay before interacting.
-    final smState = tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger));
+    final smState = tester.state<ScaffoldMessengerState>(
+      find.byType(ScaffoldMessenger),
+    );
     smState.clearSnackBars();
     await tester.pumpAndSettle();
 
     await tester.enterText(
-        find.widgetWithText(TextField, 'Email Address *'),
-        'changed@example.com');
+      find.widgetWithText(TextField, 'Email Address *'),
+      'changed@example.com',
+    );
     await tester.pumpAndSettle();
     expect(find.text('Email verified'), findsNothing);
     expect(find.text('Send Verification Code'), findsOneWidget);
@@ -272,15 +283,18 @@ void main() {
     await tester.ensureVisible(find.text('Continue'));
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('Please verify your email address first.'),
-        findsOneWidget);
+    expect(
+      find.text('Please verify your email address first.'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('resend shows a 60s cooldown', (tester) async {
     await _pump(tester, _otpBackend());
     await tester.enterText(
-        find.widgetWithText(TextField, 'Email Address *'),
-        'otp.user@example.com');
+      find.widgetWithText(TextField, 'Email Address *'),
+      'otp.user@example.com',
+    );
     await tester.pump();
     await _sendCode(tester);
     expect(find.textContaining('Resend Code in'), findsOneWidget);
@@ -294,21 +308,23 @@ void main() {
     expect(textAfter, isNot(equals(textBefore)));
   });
 
-  testWidgets('OTP section fits 360px width without overflow',
-      (tester) async {
+  testWidgets('OTP section fits 360px width without overflow', (tester) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    await tester.pumpWidget(MaterialApp(
-      home: ApplyScreen(apiClient: ApiClient(client: _otpBackend())),
-    ));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ApplyScreen(apiClient: ApiClient(client: _otpBackend())),
+      ),
+    );
     await tester.pumpAndSettle();
     await tester.enterText(
-        find.widgetWithText(TextField, 'Email Address *'),
-        'otp.user@example.com');
+      find.widgetWithText(TextField, 'Email Address *'),
+      'otp.user@example.com',
+    );
     await tester.pump();
     await _sendCode(tester);
     expect(tester.takeException(), isNull);

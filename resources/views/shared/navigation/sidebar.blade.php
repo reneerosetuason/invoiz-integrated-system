@@ -448,7 +448,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         {{-- Applications (dropdown parent: the link navigates, the arrow toggles the child) --}}
         <div class="sb-parent relative group flex items-center h-10 w-full rounded-xl transition-colors {{ $activeRiderApps ? 'bg-teal-light text-teal-dark' : 'hover:bg-teal-light hover:text-teal-dark' }}"
              :class="sidebarHover ? 'ps-3 pe-1 justify-start gap-1' : 'justify-center'">
-            <a href="{{ route('rider-applications.index') }}"
+            <a href="{{ route(Auth::user()->canManageRiders() ? 'rider-applications.index' : 'center-applications.index') }}"
                aria-label="Applications" data-tip="Applications"
                @if($activeRiderApps) aria-current="page" @endif
                class="{{ $activeRiderApps ? 'active' : '' }} flex items-center gap-3 flex-1 min-w-0 h-full"
@@ -646,9 +646,9 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <x-icon name="users" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Buyers</span>
           </a>
-          <a class="nav-link" href="/admin/riders" title="Manage Riders">
+          <a class="nav-link" href="/admin/riders" title="Rider Directory">
             <x-icon name="truck" class="nav-icon" aria-hidden="true" />
-            <span class="nav-text sb-label sb-hide-collapsed">Manage Riders</span>
+            <span class="nav-text sb-label sb-hide-collapsed">Rider Directory</span>
           </a>
           <a class="nav-link" href="/admin/products" title="Manage Products">
             <x-icon name="package" class="nav-icon" aria-hidden="true" />

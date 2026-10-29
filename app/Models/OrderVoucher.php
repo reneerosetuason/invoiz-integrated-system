@@ -9,9 +9,9 @@ class OrderVoucher extends Model
 {
     public const UPDATED_AT = null;
 
-    protected $fillable = ['order_id', 'voucher_id', 'discount_amount'];
+    protected $fillable = ['order_id', 'voucher_id', 'discount_amount', 'redemption_order_id'];
 
-    protected $hidden = ['seller_user_id'];
+    protected $hidden = ['seller_user_id', 'redemption_order_id'];
 
     protected static function booted(): void
     {

@@ -20,8 +20,8 @@ class DispatchDistanceTest extends TestCase
             'name' => 'Dispatch Admin',
             'email' => 'dispatch-admin-'.bin2hex(random_bytes(4)).'@test.local',
             'password' => Hash::make('secret123'),
-            'role' => 'admin',
-            'is_admin' => true,
+            'role' => 'logistics_admin',
+            'is_admin' => false,
             'status' => 'active',
             'email_verified_at' => now(),
         ]);

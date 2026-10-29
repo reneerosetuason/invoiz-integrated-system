@@ -163,7 +163,7 @@
             <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">
                 <h3 class="text-base font-bold text-gray-900 mb-1">Approve &amp; Provision Account</h3>
                 <p class="text-sm text-gray-500 mb-5">Sets the rider's login password and creates their account. Leave the password blank to automatically generate a secure temporary password. After approval, the login credentials will be sent to the rider's registered email address.</p>
-                <form action="{{ route('rider-applications.approve', $application) }}" method="POST" x-data="{}">
+                <form action="{{ route('rider-applications.approve', $application) }}" method="POST" x-data="{}" data-rider-approval>
                     @csrf
                     <div class="space-y-4">
                         <div>
@@ -172,21 +172,24 @@
                                     class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('center_id') border-red-500 @enderror">
                                 <option value="">Select center</option>
                                 @foreach($centers as $center)
-                                    <option value="{{ $center->id }}">{{ $center->name }}</option>
+                                    <option value="{{ $center->id }}" @selected((int) old('center_id') === $center->id)>{{ $center->name }}</option>
                                 @endforeach
                             </select>
                             @error('center_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         </div>
                         <div>
                             <label for="service_area_id" class="block text-sm font-medium text-gray-700 mb-1.5">Service Area</label>
-                            <select name="service_area_id" id="service_area_id" required
+                            <select name="service_area_id" id="service_area_id" required aria-describedby="service-area-hint"
                                     class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('service_area_id') border-red-500 @enderror">
                                 <option value="">Select service area</option>
                                 @foreach($areas as $area)
-                                    <option value="{{ $area->id }}">{{ $area->name }} ({{ $area->logisticsCenter?->name ?? 'Center' }})</option>
+                                    <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) old('service_area_id') === $area->id)>{{ $area->name }} ({{ $area->logisticsCenter?->name ?? 'Center' }})</option>
                                 @endforeach
                             </select>
                             @error('service_area_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            <p id="service-area-hint" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Select a center to see its active service areas.</p>
+                            <a href="{{ route('service-areas.create') }}" data-create-service-area target="_blank" rel="noopener"
+                               class="mt-2 inline-flex text-xs font-semibold text-teal hover:text-teal-dark">Add a service area (opens a new tab)</a>
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
@@ -202,10 +205,10 @@
                         <div>
                             <label for="notes" class="block text-sm font-medium text-gray-700 mb-1.5">Approval Note (optional)</label>
                             <textarea name="notes" id="notes" rows="2"
-                                      class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
+                                      class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">{{ old('notes') }}</textarea>
                         </div>
                         <div class="flex justify-end">
-                            <button type="submit" class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
+                            <button type="submit" data-approve-rider class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
                                 Approve &amp; Create Account
                             </button>
                         </div>
@@ -240,17 +243,35 @@
     {{-- Resend login credentials (approved & provisioned riders only) --}}
     @if($application->status === 'approved' && $application->provisioned_at)
         <div class="bg-white rounded-2xl shadow-sm border border-teal-100 p-6 mb-6">
-            <h3 class="text-base font-bold text-gray-900 mb-1">Resend Login Credentials</h3>
-            <p class="text-sm text-gray-500 mb-5">This will generate a new temporary password and send new login credentials to the rider's registered email address (<span class="font-medium text-gray-700">{{ $application->email }}</span>). The previous temporary password will stop working.</p>
+            <h3 class="text-base font-bold text-gray-900 mb-1">{{ $keepsExistingLogin ? 'Resend Approval Email' : 'Resend Login Credentials' }}</h3>
+            <p class="text-sm text-gray-500 mb-5">
+                @if($keepsExistingLogin)
+                    Send the approval notice to {{ $application->email }} again. The rider uses their existing INVOIZ password; it will stay unchanged.
+                @else
+                    Send a new temporary password to {{ $application->email }}. After a successful send, the previous temporary password will stop working.
+                @endif
+            </p>
             <form action="{{ route('rider-applications.resend-credentials', $application) }}" method="POST"
-                  x-data data-confirm-message="Resend login credentials? This will generate a new temporary password and send new login credentials to the registered rider email address.">
+                  x-data data-confirm-message="{{ $keepsExistingLogin ? 'Send this rider their approval notice again? Their existing password will stay unchanged.' : 'Send new login credentials? A successful send will replace the previous temporary password.' }}">
                 @csrf
                 <div class="flex justify-end">
                     <button type="submit" class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                        Resend Login Credentials
+                        {{ $keepsExistingLogin ? 'Resend Approval Email' : 'Resend Login Credentials' }}
                     </button>
                 </div>
+            </form>
+        </div>
+    @endif
+
+    @if($application->status === 'rejected')
+        <div class="bg-white rounded-2xl border border-gray-100 p-6 mb-6">
+            <h3 class="text-base font-bold text-gray-900 mb-1">Rejection Email</h3>
+            <p class="text-sm text-gray-500 mb-3">Send the recorded rejection reason to {{ $application->email }} again.</p>
+            <form action="{{ route('rider-applications.resend-rejection', $application) }}" method="POST"
+                  data-confirm-message="Send the rejection email again with the recorded reason?">
+                @csrf
+                <button type="submit" class="inline-flex items-center bg-teal text-white font-semibold px-4 py-2 rounded-lg">Resend Rejection Email</button>
             </form>
         </div>
     @endif
@@ -284,4 +305,7 @@
             </div>
         @endif
     </div>
+    @push('scripts')
+        <script src="{{ asset('assets/logistics/js/rider-applications/review.js') }}?v={{ filemtime(public_path('assets/logistics/js/rider-applications/review.js')) }}" defer></script>
+    @endpush
 </x-app-layout>

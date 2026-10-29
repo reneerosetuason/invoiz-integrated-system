@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>INVOIZ Rider Account Approved – Login Credentials</title>
+    <title>INVOIZ Rider Application Approved</title>
 </head>
 <body style="font-family: Arial, Helvetica, sans-serif; color: #1B1B1E; background: #F7F6F2; margin: 0; padding: 24px;">
 <div style="max-width: 560px; margin: 0 auto; background: #FFFFFF; border: 1px solid #E8E6E0; border-radius: 12px; padding: 32px;">
@@ -16,17 +16,21 @@
     <p>Congratulations! Your application to become an INVOIZ Rider has been approved and your rider account has been successfully created.</p>
 
     <div style="background: #EAF4F3; border: 1px solid #16697A; border-radius: 12px; padding: 20px 24px; margin: 18px 0;">
-        <div style="font-size: 12px; letter-spacing: 1.5px; font-weight: 700; color: #16697A; margin-bottom: 14px; text-align: center;">YOUR LOGIN CREDENTIALS</div>
+        <div style="font-size: 12px; letter-spacing: 1.5px; font-weight: 700; color: #16697A; margin-bottom: 14px; text-align: center;">YOUR RIDER ACCOUNT</div>
 
         <p style="margin: 0 0 12px;">
             Email:<br>
             <strong style="font-size: 15px;">{{ $riderEmail }}</strong>
         </p>
 
+        @if($temporaryPassword !== null)
         <p style="margin: 0 0 12px;">
             Temporary Password:<br>
             <strong style="font-size: 18px; letter-spacing: 1px;">{{ $temporaryPassword }}</strong>
         </p>
+        @else
+        <p style="margin: 0 0 12px;">Use your existing INVOIZ password to sign in. Your existing INVOIZ account and password have not changed.</p>
+        @endif
 
         <p style="margin: 0;">
             Application Reference:<br>
@@ -34,11 +38,13 @@
         </p>
     </div>
 
-    <p>You may now open the INVOIZ Rider App and log in using the credentials above.</p>
+    <p>You may now open the INVOIZ Rider App and sign in with this email address{{ $temporaryPassword === null ? ' and your existing INVOIZ password' : ' and the temporary password above' }}.</p>
 
+    @if($temporaryPassword !== null)
     <p style="background: #F0EEE9; border-radius: 8px; padding: 12px 16px; font-size: 13px; margin: 18px 0;">
         <strong>Important:</strong> For your security, please change your temporary password after your first successful login.
     </p>
+    @endif
 
     <p style="font-size: 13px;">If you did not apply for this rider account or believe this email was sent to you by mistake, please contact the INVOIZ Logistics Team.</p>
 

@@ -90,7 +90,7 @@ class StaffController extends Controller
 
     public function edit(User $staff): View
     {
-        $this->ensureStaffAccount($staff);
+        $this->ensureStaffAccount($staff, manage: true);
 
         return view('logistics.staff.edit', [
             'staff' => $staff,
@@ -100,7 +100,7 @@ class StaffController extends Controller
 
     public function update(Request $request, User $staff): RedirectResponse
     {
-        $this->ensureStaffAccount($staff);
+        $this->ensureStaffAccount($staff, manage: true);
 
         $this->normalizeNameInput($request);
 
@@ -127,14 +127,14 @@ class StaffController extends Controller
 
     public function destroy(User $staff): RedirectResponse
     {
-        $this->ensureStaffAccount($staff);
+        $this->ensureStaffAccount($staff, manage: true);
         $staff->update(['status' => 'inactive']);
         return redirect()->route('staff.index')->with('success', 'Staff account deactivated.');
     }
 
     public function activate(User $staff): RedirectResponse
     {
-        $this->ensureStaffAccount($staff);
+        $this->ensureStaffAccount($staff, manage: true);
         $staff->update(['status' => 'active']);
         return redirect()->route('staff.show', $staff)->with('success', 'Staff account activated.');
     }
@@ -152,9 +152,14 @@ class StaffController extends Controller
         ));
     }
 
-    private function ensureStaffAccount(User $staff): void
+    private function ensureStaffAccount(User $staff, bool $manage = false): void
     {
         abort_unless(in_array($staff->role, ['staff', 'logistics_staff'], true), 404);
+
+        if ($manage && $staff->rider()->exists()) {
+            abort_unless(request()->user()?->canManageRiders(), 403,
+                'Accounts with rider profiles are managed by logistics personnel.');
+        }
     }
 }
 

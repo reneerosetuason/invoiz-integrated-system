@@ -19,7 +19,7 @@
                     <select name="logistics_center_id" id="logistics_center_id" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                         <option value="">— Select center —</option>
                         @foreach($centers as $center)
-                            <option value="{{ $center->id }}" @selected((int) old('logistics_center_id') === $center->id)>{{ $center->name }}</option>
+                            <option value="{{ $center->id }}" @selected((int) old('logistics_center_id', request()->integer('logistics_center_id')) === $center->id)>{{ $center->name }}</option>
                         @endforeach
                     </select>
                     @error('logistics_center_id')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror

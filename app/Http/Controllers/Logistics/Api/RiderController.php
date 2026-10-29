@@ -265,6 +265,17 @@ class RiderController extends Controller
             'status' => $delivery->status,
             'status_label' => $this->statusLabel($delivery->status),
             'parcel_status' => $delivery->parcel_status,
+            'fulfillment_leg' => $delivery->received_at ? 'delivery' : 'pickup',
+            'pickup_location' => $delivery->received_at && $delivery->logisticsCenter ? [
+                'name' => $delivery->logisticsCenter->name,
+                'address' => $delivery->logisticsCenter->address,
+                'phone' => $delivery->logisticsCenter->phone,
+                'latitude' => $delivery->logisticsCenter->latitude,
+                'longitude' => $delivery->logisticsCenter->longitude,
+            ] : [
+                'name' => $delivery->sender_name, 'address' => $delivery->sender_address, 'phone' => $delivery->sender_phone,
+                'latitude' => $delivery->sender_lat, 'longitude' => $delivery->sender_lng,
+            ],
             'delivery_instructions' => $delivery->notes ?? $delivery->delivery_notes,
             'logistics_center' => $delivery->logisticsCenter ? [
                 'id' => $delivery->logisticsCenter->id,

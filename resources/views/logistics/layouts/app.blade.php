@@ -110,6 +110,11 @@
                             <button @click="show = false" class="text-red-500 hover:text-red-700">&times;</button>
                         </div>
                     @endif
+                    @if(session('warning'))
+                        <div role="alert" class="mb-5 border border-amber-200 bg-amber-50 text-amber-900 px-4 py-3 rounded-xl text-sm">
+                            {{ session('warning') }}
+                        </div>
+                    @endif
 
                     <div class="max-w-7xl mx-auto {{ !request()->routeIs('dashboard', 'deliveries.*') ? 'logistics-workspace' : '' }}">
                         @isset($header)
@@ -123,6 +128,8 @@
         </div>
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app-2.css') }}">
         @include('logistics.layouts.partials.form-controls')
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-density.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-density.css')) }}">
+        <script src="{{ asset('assets/logistics/js/logistics-density.js') }}?v={{ filemtime(public_path('assets/logistics/js/logistics-density.js')) }}" defer></script>
         @stack('scripts')
     </body>
 </html>

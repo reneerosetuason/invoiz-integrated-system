@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'support/psgc_fixture.dart';
 
 // ignore_for_file: avoid_relative_lib_imports
 // (Same checkout-wide package-config note as the other runnable tests.)
@@ -31,28 +32,8 @@ MockClient _applyBackend() {
         'email': 'juan.test@example.com',
       }, 200);
     }
-    if (path.endsWith('/provinces')) {
-      return json({
-        'regions': {'120000000': 'SOCCSKSARGEN'},
-        'provinces': [
-          {'id': 120000000, 'name': 'SOCCSKSARGEN', 'region_code': '120000000'},
-        ],
-      }, 200);
-    }
-    if (!path.endsWith('/provinces') && path.endsWith('/municipalities')) {
-      return json({
-        'municipalities': [
-          {'id': 1200100000, 'name': 'General Santos City'},
-        ],
-      }, 200);
-    }
-    if (path.endsWith('/barangays')) {
-      return json({
-        'barangays': [
-          {'id': 1200100001, 'name': 'Barangay Poblacion'},
-        ],
-      }, 200);
-    }
+    final addressResponse = psgcFixture(request);
+    if (addressResponse != null) return addressResponse;
     return json({'message': 'not found'}, 404);
   });
 }
@@ -186,6 +167,29 @@ void main() {
 
     await tester.ensureVisible(find.text('Continue'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose your Rider Type'), findsOneWidget);
+
+    // Restore the visible address when returning to the Personal step.
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, 'Street'))
+          .controller!
+          .text,
+      'Test St',
+    );
+    final addressFields = tester.widgetList<DropdownButtonFormField<String>>(
+      find.byType(DropdownButtonFormField<String>),
+    );
+    expect(addressFields.map((field) => field.initialValue), [
+      '120000000',
+      '126300000',
+      '126303000',
+      '126303001',
+    ]);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(find.text('Choose your Rider Type'), findsOneWidget);

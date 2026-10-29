@@ -160,6 +160,13 @@ class User extends Authenticatable
             || $this->hasProvisionedCenterAssignment();
     }
 
+    public function canManageRiders(): bool
+    {
+        // Marketplace administrators may inspect logistics records, but rider
+        // accounts and assignments belong to authorized logistics personnel.
+        return ! $this->isAdmin() && $this->isActive() && $this->isLogisticsStaff();
+    }
+
     /**
      * True only when a non-staff marketplace account was assigned a center
      * through an approved, provisioned center application. A center_id alone

@@ -187,7 +187,9 @@ class SellerController extends Controller
         $seller->status = 'inactive';
         $seller->save();
 
-        if ($seller->user) {
+        // A store restriction must not suspend an independently managed rider
+        // login attached to the same shared identity.
+        if ($seller->user && $seller->user->role !== 'rider' && ! $seller->user->rider()->exists()) {
             $seller->user->account_status = 'suspended';
             $seller->user->status = 'suspended';
             $seller->user->save();
@@ -214,7 +216,7 @@ class SellerController extends Controller
         $seller->status = 'active';
         $seller->save();
 
-        if ($seller->user) {
+        if ($seller->user && $seller->user->role !== 'rider' && ! $seller->user->rider()->exists()) {
             $seller->user->account_status = 'active';
             $seller->user->status = 'active';
             $seller->user->save();

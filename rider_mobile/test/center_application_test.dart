@@ -9,6 +9,7 @@ import 'package:invoize_rider/core/network/api_client.dart';
 import 'package:invoize_rider/screens/apply_center/apply_center_screen.dart';
 import 'package:invoize_rider/screens/apply_center/center_application_status_screen.dart';
 import 'package:invoize_rider/services/center_application_service.dart';
+import 'support/psgc_fixture.dart';
 
 /// Fake doc picker — the real one resolves to native code at build time.
 /// Yields [picked] docs in order, once per invocation (then null).
@@ -27,7 +28,7 @@ CenterPickedDoc _doc(String name) => CenterPickedDoc(
 
 /// Backend for the center apply + status endpoints (PSGC data included so
 /// the cascading address picker can be driven in widget tests).
-MockClient _backend() {
+MockClient _backend({void Function(http.BaseRequest)? onSubmit}) {
   return MockClient((http.BaseRequest request) async {
     http.Response json(Object data, int status) => http.Response(
       jsonEncode(data),
@@ -36,28 +37,10 @@ MockClient _backend() {
     );
     final path = request.url.path;
 
-    if (path.endsWith('/provinces')) {
-      return json({
-        'provinces': [
-          {'id': 120000000, 'name': 'SOCCSKSARGEN', 'region_code': '120000000'},
-        ],
-      }, 200);
-    }
-    if (!path.endsWith('/provinces') && path.endsWith('/municipalities')) {
-      return json({
-        'municipalities': [
-          {'id': 1200100000, 'name': 'General Santos City'},
-        ],
-      }, 200);
-    }
-    if (path.endsWith('/barangays')) {
-      return json({
-        'barangays': [
-          {'id': 1200100001, 'name': 'Barangay Poblacion'},
-        ],
-      }, 200);
-    }
+    final addressResponse = psgcFixture(request);
+    if (addressResponse != null) return addressResponse;
     if (path.endsWith('/center/apply')) {
+      onSubmit?.call(request);
       return json({
         'message': 'Application submitted successfully.',
         'application': {'id': 7, 'status': 'pending', 'submitted_via': 'app'},
@@ -233,11 +216,17 @@ void main() {
     testWidgets('submit posts the full application and shows the reference', (
       tester,
     ) async {
+      String? submittedBody;
+      final backend = _backend(
+        onSubmit: (request) {
+          submittedBody = (request as http.Request).body;
+        },
+      );
       await _pump(
         tester,
-        _backend(),
+        backend,
         home: ApplyCenterScreen(
-          apiClient: ApiClient(client: _backend()),
+          apiClient: ApiClient(client: backend),
           picker: _SeqPicker([_doc('dti.pdf'), _doc('id.png')]),
         ),
       );
@@ -275,47 +264,20 @@ void main() {
       );
       await tester.pump();
 
-      // Select Province → City/Municipality → Barangay (dropdowns appear
-      // progressively — 1, then 2, then 3 in the tree). The menu is driven
-      // by keyboard because overlay taps are unreliable in the cascade.
-      await tester.ensureVisible(find.byType(DropdownButton<String>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byType(DropdownButton<String>).first,
-        warnIfMissed: false,
-      );
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(find.byType(DropdownButton<String>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byType(DropdownButton<String>).at(1),
-        warnIfMissed: false,
-      );
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-
-      await tester.ensureVisible(find.byType(DropdownButton<String>).first);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byType(DropdownButton<String>).at(2),
-        warnIfMissed: false,
-      );
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
+      // Select Region, Province, City/Municipality and Barangay.
+      for (var index = 0; index < 4; index++) {
+        await tester.ensureVisible(
+          find.byType(DropdownButton<String>).at(index),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(DropdownButton<String>).at(index));
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+      }
 
       // Attach the required documents — business_registration first, then
       // valid_id (the first remaining "Upload" after each pick).
@@ -337,6 +299,16 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Reference number: CEN-2026-0007'), findsOneWidget);
+      expect(submittedBody, contains('name="region"\r\n\r\n120000000'));
+      expect(submittedBody, contains('name="province"\r\n\r\nSouth Cotabato'));
+      expect(
+        submittedBody,
+        contains('name="municipality"\r\n\r\nGeneral Santos City'),
+      );
+      expect(
+        submittedBody,
+        contains('name="barangay"\r\n\r\nBarangay Poblacion'),
+      );
     });
   });
 

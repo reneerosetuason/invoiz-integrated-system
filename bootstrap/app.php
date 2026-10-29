@@ -32,6 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'account.active' => \App\Http\Middleware\EnsureAccountActive::class,
             'marketplace.admin' => \App\Http\Middleware\EnsureMarketplaceAdmin::class,
             'staff' => \App\Http\Middleware\Logistics\EnsureLogisticsStaff::class,
+            'rider.manager' => \App\Http\Middleware\Logistics\EnsureRiderManager::class,
             'admin' => \App\Http\Middleware\Logistics\EnsureAdmin::class,
             'rider.web' => \App\Http\Middleware\Logistics\EnsureRiderWeb::class,
             'rider' => \App\Http\Middleware\Logistics\EnsureRiderRole::class,

@@ -46,7 +46,7 @@
             <x-per-page route="deliveries.index"/>
         </div>
 
-    @if($filterRiders->isNotEmpty())
+    @if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
         <form id="bulk-assign-form" method="POST" action="{{ route('deliveries.bulk-assign') }}" class="delivery-bulk">
             @csrf
             <div>
@@ -96,7 +96,7 @@
         <table class="delivery-table {{ $filterRiders->isEmpty() ? 'delivery-table--no-selection' : '' }}" role="table">
             <thead role="rowgroup">
                 <tr role="row">
-                    @if($filterRiders->isNotEmpty())
+                    @if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
                         <th scope="col" role="columnheader" class="delivery-select"><label><input id="bulk-select-all" type="checkbox" aria-label="Select all assignable deliveries"></label></th>
                     @endif
                     <th scope="col" role="columnheader" class="delivery-shipment">Shipment</th>
@@ -125,7 +125,7 @@
                         $priorityText = ucfirst($delivery->priority ?? 'normal') . ' priority';
                     @endphp
                     <tr role="row">
-                        @if($filterRiders->isNotEmpty())
+                        @if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
                             <td role="cell" class="delivery-select">
                                 @if(in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
                                     <label><input form="bulk-assign-form" type="checkbox" name="delivery_ids[]" value="{{ $delivery->id }}" aria-label="Select {{ $delivery->tracking_number }}" class="bulk-delivery-checkbox"></label>
@@ -178,7 +178,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr role="row" class="delivery-empty-row"><td role="cell" colspan="{{ $filterRiders->isNotEmpty() ? 8 : 7 }}">
+                    <tr role="row" class="delivery-empty-row"><td role="cell" colspan="{{ Auth::user()->canManageRiders() && $filterRiders->isNotEmpty() ? 8 : 7 }}">
                         <div class="delivery-empty">
                             <h2>No deliveries found</h2>
                             <p class="text-gray-500">{{ $hasFilters ? 'Try a different search or clear your filters to see more records.' : 'New deliveries will appear here. Create one to get started.' }}</p>
@@ -224,7 +224,7 @@
     </div>
 </div>
 
-@if($filterRiders->isNotEmpty())
+@if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
 <script src="{{ asset('assets/logistics/js/deliveries/index.js') }}"></script>
 @endif
     </div>

@@ -782,7 +782,7 @@
 
         @if(!$delivery->archived_at)
             <div class="delivery-processing-actions flex flex-wrap gap-3">
-                @if($delivery->status === 'waiting_for_rider')
+                @if(Auth::user()->canManageRiders() && $delivery->status === 'waiting_for_rider')
                     <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-2xl">
                         @csrf
                         <div class="flex flex-col sm:flex-row sm:items-end gap-2">
@@ -844,7 +844,7 @@
                     @endif
                 @endif
 
-                @if(in_array($delivery->status, ['assigned', 'delivery_failed'], true))
+                @if(Auth::user()->canManageRiders() && in_array($delivery->status, ['assigned', 'delivery_failed'], true))
                     @php $reassignLabel = $delivery->status === 'delivery_failed' ? 'Retry — Assign Rider' : 'Reassign Rider'; @endphp
                     <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-xl">
                         @csrf

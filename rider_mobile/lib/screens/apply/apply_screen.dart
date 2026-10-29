@@ -555,7 +555,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
     if (_dob == null) return 'Please select your date of birth.';
     if (_age < 18) return 'You must be at least 18 years old to apply.';
     if (_addressSel?.complete != true) {
-      return 'Please select your Province, City/Municipality and Barangay.';
+      return 'Please complete your Region, Province (if applicable), City/Municipality and Barangay.';
     }
     return null;
   }
@@ -1010,7 +1010,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
         AddressFields(
           onChanged: (sel) => setState(() => _addressSel = sel),
           apiClient: widget.apiClient,
-          showRegion: true,
+          initialSelection: _addressSel,
         ),
       ],
     );

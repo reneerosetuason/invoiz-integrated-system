@@ -21,8 +21,8 @@ class OrderController extends Controller
         'pending'             => ['confirmed', 'cancelled'],
         'confirmed'           => ['processing', 'cancelled'],
         'processing'          => ['ready_for_delivery', 'cancelled'],
-        'ready_for_delivery'  => ['out_for_delivery', 'cancelled'],
-        'out_for_delivery'    => ['delivered'],
+        'ready_for_delivery'  => ['cancelled'],
+        'out_for_delivery'    => [],
         'delivered'           => [],
         'cancelled'           => [],
     ];
@@ -161,35 +161,25 @@ class OrderController extends Controller
 
         $note = $request->input('note');
 
-        DB::transaction(function () use ($order, $target, $action, $note) {
-            $from = $order->status;
-            $order->update(['status' => $target]);
-
-            OrderStatusHistory::create([
-                'order_id'    => $order->id,
-                'from_status' => $from,
-                'to_status'   => $target,
-                'note'        => $note ?: $this->defaultNote($action),
-                'created_at'  => now(),
-            ]);
-
-            // Cancelling before shipment returns the deducted stock.
-            if ($target === 'cancelled') {
-                \App\Support\Stock::restoreOrder($order->load('items'));
-                // COD money never moved: void the pending ledger row.
-                \App\Support\Payments::voidForCancel($order);
-                // Release any voucher locked to this order back to the buyer.
-                \App\Support\Vouchers::restoreForOrder($order);
+        DB::transaction(function () use ($order, $target, $action, $note, $sellerId) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($target, self::TRANSITIONS[$order->status] ?? [], true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['order' => 'The order changed. Refresh before trying again.']);
             }
-
-            $this->syncDelivery($order, $target, $action);
-
+            if ($target === 'cancelled') {
+                \App\Support\OrderCancellation::bySeller($order, $note ?: 'Cancelled by seller.', $sellerId);
+            } else {
+                $from = $order->status;
+                $order->update(['status' => $target]);
+                OrderStatusHistory::create([
+                    'order_id' => $order->id, 'from_status' => $from, 'to_status' => $target,
+                    'note' => $note ?: $this->defaultNote($action),
+                ]);
+                app(\App\Services\OrderShipmentService::class)->ensure($order, $target === 'ready_for_delivery');
+            }
             SellerNotification::create([
-                'seller_id' => auth()->id(),
-                'order_id'  => $order->id,
-                'type'      => 'status',
-                'title'     => $this->notificationTitle($action),
-                'body'      => "Order #{$order->id} is now {$target}.",
+                'seller_id' => $sellerId, 'order_id' => $order->id, 'type' => 'status',
+                'title' => $this->notificationTitle($action), 'body' => "Order #{$order->id} is now {$target}.",
             ]);
         });
 
@@ -213,6 +203,11 @@ class OrderController extends Controller
             'notes'           => ['nullable', 'string', 'max:1000'],
         ]);
 
+        DB::transaction(function () use ($order, $sellerId, $validated) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(in_array($order->status, ['processing', 'ready_for_delivery'], true), 409, 'The order can no longer be scheduled for pickup.');
+            $delivery = app(\App\Services\OrderShipmentService::class)->ensure($order, $order->status === 'ready_for_delivery');
+            abort_if($delivery->picked_up_at, 409, 'The parcel has already left the seller.');
         CourierPickup::create([
             'order_id'        => $order->id,
             'seller_id'       => $sellerId,
@@ -222,6 +217,8 @@ class OrderController extends Controller
             'status'          => 'scheduled',
             'notes'           => $validated['notes'] ?? null,
         ]);
+
+        });
 
         return back()->with('success', 'Courier pickup scheduled successfully.');
     }
@@ -249,40 +246,6 @@ class OrderController extends Controller
         }
 
         return view('seller.orders.waybill', compact('order'));
-    }
-
-    private function syncDelivery(Order $order, string $target, string $action): void
-    {
-        $delivery = $order->delivery;
-
-        if (! $delivery) {
-            $delivery = Delivery::create(['order_id' => $order->id]);
-            PickupRequest::openForDelivery($delivery);
-        }
-
-        if ($target === 'out_for_delivery') {
-            $data = ['status' => 'picked_up'];
-            if (! $delivery->picked_up_at) {
-                $data['picked_up_at'] = now();
-            }
-            $delivery->update($data);
-
-            if ($order->courierPickup) {
-                $order->courierPickup->update(['status' => 'picked_up']);
-            }
-        }
-
-        if ($target === 'delivered') {
-            $delivery->update([
-                'status'       => 'delivered',
-                'delivered_at' => now(),
-            ]);
-
-            // Cash is with the rider now, NOT the seller yet: open the
-            // handoff record instead of settling. The sale books (payment
-            // paid, ledger split) only after the seller confirms receipt.
-            \App\Support\Remittances::ensureForOrder($order->fresh(['items', 'orderVouchers.voucher', 'deliveries']));
-        }
     }
 
     private function defaultNote(string $action): string

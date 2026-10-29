@@ -24,8 +24,8 @@ class RiderHistoryController extends Controller
         ]);
 
         $query = Delivery::with(['items'])
-            ->where('rider_id', $rider->id)
-            ->whereIn('status', ['delivered', 'delivery_failed', 'lost', 'damaged']);
+            ->where(fn ($q) => $q->where(fn ($owned) => $owned->where('rider_id', $rider->id)->whereIn('status', ['delivered', 'delivery_failed', 'lost', 'damaged']))
+                ->orWhere(fn ($pickup) => $pickup->where('sorting_center_handoff_rider_id', $rider->id)->whereNotNull('received_at')));
 
         if (! empty($validated['search'])) {
             $query->where(function ($q) use ($validated) {
@@ -44,7 +44,9 @@ class RiderHistoryController extends Controller
         }
 
         if (! empty($validated['status'])) {
-            if ($validated['status'] === 'failed') {
+            if ($validated['status'] === 'pickup_completed') {
+                $query->where('sorting_center_handoff_rider_id', $rider->id)->whereNotNull('received_at');
+            } elseif ($validated['status'] === 'failed') {
                 $query->whereIn('status', ['delivery_failed', 'lost', 'damaged']);
             } else {
                 $query->where('status', $validated['status']);
@@ -61,11 +63,11 @@ class RiderHistoryController extends Controller
                     'shop_name' => $d->sender_name,
                     'customer_name' => $d->recipient_name,
                     'delivered_at' => $d->delivered_at?->toIso8601String(),
-                    'status' => $d->status,
-                    'status_label' => $d->status === 'delivered' ? 'Delivered' : ($d->status === 'lost' ? 'Lost' : ($d->status === 'damaged' ? 'Damaged' : 'Failed')),
+                    'status' => (int) $d->rider_id !== (int) $rider->id ? 'pickup_completed' : $d->status,
+                    'status_label' => (int) $d->rider_id !== (int) $rider->id ? 'Pickup completed' : ($d->status === 'delivered' ? 'Delivered' : ($d->status === 'lost' ? 'Lost' : ($d->status === 'damaged' ? 'Damaged' : 'Failed'))),
                     'payment_method' => $d->payment_method,
                     'total' => $d->amount_to_collect,
-                    'earned' => $d->earnings()->value('amount'),
+                    'earned' => $d->earnings()->where('rider_id', $rider->id)->sum('amount'),
                 ])->values(),
             'pagination' => [
                 'current_page' => $items->currentPage(),

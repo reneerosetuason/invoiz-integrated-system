@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Buyer\Api;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -37,13 +39,25 @@ class PsgcController extends Controller
             return response()->json(['message' => 'Unknown address lookup.'], 404);
         }
 
-        $data = Cache::remember('psgc:'.$path, now()->addDay(), function () use ($path) {
-            $response = Http::timeout(15)
-                ->acceptJson()
-                ->get('https://psgc.gitlab.io/api/'.$path);
+        try {
+            $data = Cache::remember('psgc:'.$path, now()->addDay(), function () use ($path) {
+                $data = Http::timeout(15)
+                    ->acceptJson()
+                    ->get('https://psgc.gitlab.io/api/'.$path)
+                    ->throw()
+                    ->json();
 
-            return $response->successful() ? $response->json() : [];
-        });
+                if (! is_array($data) || ! array_is_list($data)) {
+                    throw new \UnexpectedValueException('Invalid PSGC list response.');
+                }
+
+                return $data;
+            });
+        } catch (ConnectionException|RequestException|\UnexpectedValueException) {
+            // A failed lookup must be retryable, rather than cached as an
+            // empty province list and mistaken for a province-free region.
+            return response()->json(['message' => 'Address lookup is unavailable. Please retry.'], 503);
+        }
 
         return response()->json(is_array($data) ? $data : []);
     }

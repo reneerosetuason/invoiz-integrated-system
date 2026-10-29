@@ -78,6 +78,20 @@ class ApiClient {
     return _decode(response);
   }
 
+  /// Public lookups shared by all clients on this Laravel installation.
+  /// Resolve beside /api/logistics, preserving any deployment subdirectory.
+  Future<dynamic> getShared(String path) async {
+    final base = AppConfig.apiBaseUrl.replaceFirst(RegExp(r'/+$'), '');
+    final relativePath = path.replaceFirst(RegExp(r'^/+'), '');
+    final uri = Uri.parse('$base/').resolve('../$relativePath');
+    final response = await _guard(
+      () => _client.get(uri, headers: const {
+        'Accept': 'application/json',
+      }).timeout(_timeout),
+    );
+    return _decode(response);
+  }
+
   Future<dynamic> patch(String path, {Map<String, dynamic>? body}) async {
     final response = await _guard(
       () => _client

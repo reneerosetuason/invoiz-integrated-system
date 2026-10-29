@@ -35,7 +35,7 @@ trait BuyerMobileDatabase
             'payment_transactions' => 'order_id transaction_ref gateway amount status seller_earning platform_commission rider_fee logistics_fee refunded_amount paid_at',
             'vouchers' => 'seller_id code name discount_type type value discount_value used_count status min_spend max_discount usage_limit starts_at ends_at',
             'voucher_claims' => 'voucher_id buyer_id order_id claimed_at used_at',
-            'order_vouchers' => 'order_id voucher_id discount_amount',
+            'order_vouchers' => 'order_id voucher_id discount_amount redemption_order_id',
             'conversations' => 'buyer_id seller_id subject',
             'messages' => 'conversation_id sender_id receiver_id body is_read',
             'complaints' => 'buyer_id subject status resolution deleted_at',
@@ -49,12 +49,13 @@ trait BuyerMobileDatabase
         $tables['seller_profiles'] .= ' contact_email contact_phone address';
         $tables['products'] .= ' low_stock_threshold';
         $tables['orders'] .= ' notes cancellation_reason commission_amount';
-        $tables['deliveries'] .= ' center_id rider_id picked_up_at cancelled_at cancellation_reason delivered_at';
+        $tables['deliveries'] .= ' center_id rider_id picked_up_at cancelled_at cancellation_reason delivered_at parcel_status sender_name sender_phone sender_address recipient_name recipient_phone recipient_address notes';
         $tables['vouchers'] .= ' description valid_from valid_until';
         $tables += [
             'product_images' => 'product_id path image_path sort_order is_main deleted_at',
             'store_follows' => 'buyer_id seller_id',
             'personal_access_tokens' => 'tokenable_type tokenable_id name token abilities last_used_at expires_at',
+            'delivery_items' => 'delivery_id name variant_label quantity price',
             'pickup_requests' => 'delivery_id center_id status requested_at reviewed_at',
             'notifications' => 'type title message icon priority center_id audience link',
             'login_histories' => 'user_id logged_in_at ip_address user_agent',
