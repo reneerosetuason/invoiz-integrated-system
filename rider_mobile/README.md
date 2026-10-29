@@ -118,3 +118,22 @@ Keep `API_BASE_URL` empty in the local rider `.env` when using this script's
 build-time URL; a non-empty dotenv value takes precedence in the original
 client. This file is a Flutter configuration asset, not the Laravel root
 `.env`; never put database credentials or secrets in the client asset.
+
+## VS Code SDK and TECNO debugging
+
+The rider app needs Flutter 3.44 / Dart 3.12.2 or later. The older buyer SDK
+at `C:\flutter` can report red editor errors when used for the rider project.
+This workspace has a separate SDK at `.tools/flutter-rider-3.44.5`, excluded
+from Git. The Android build helper automatically uses it when available.
+The buyer SDK installation and global VS Code settings are kept intact.
+
+Local settings in the repository root `.vscode/settings.json` select the rider
+SDK for this editor window. After changing an SDK, run **Developer: Reload
+Window** once if old diagnostics remain. Do not change the application's
+functions to work around diagnostics from an incompatible SDK.
+
+This computer's local **INVOIZ Rider (TECNO)** launch profile opens
+`rider_mobile/lib/main.dart`, selects the connected TECNO, and forwards port
+8000 before launch. Keep the shared Laravel backend running. Select that
+profile in Run and Debug, then press F5. The phone must remain authorized in
+USB or Wireless debugging. These local device settings are excluded from Git.

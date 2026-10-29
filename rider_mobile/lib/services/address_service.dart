@@ -21,6 +21,7 @@ class PsgcOption {
 /// Structured address selection: province / municipality / barangay names.
 class AddressSelection {
   const AddressSelection({
+    this.region,
     this.province,
     this.municipality,
     this.barangay,
@@ -28,6 +29,7 @@ class AddressSelection {
     this.street = '',
   });
 
+  final String? region;
   final PsgcOption? province;
   final PsgcOption? municipality;
   final PsgcOption? barangay;
@@ -45,6 +47,7 @@ class AddressSelection {
       barangay?.name ?? '',
       municipality?.name ?? '',
       province?.name ?? '',
+      region ?? '',
     ].where((p) => p.isNotEmpty);
     return parts.join(', ');
   }
@@ -54,8 +57,17 @@ class AddressService {
   AddressService(this._api);
   final ApiClient _api;
 
-  Future<List<PsgcOption>> provinces() async {
+  Future<Map<String, String>> regions() async {
     final data = await _api.get('/address/provinces') as Map<String, dynamic>;
+    final raw = data['regions'];
+    if (raw is! Map) return const {};
+    return raw.map((code, name) => MapEntry(code.toString(), name.toString()));
+  }
+
+  Future<List<PsgcOption>> provinces({String? regionCode}) async {
+    final data =
+        await _api.get('/address/provinces', query: {'region': regionCode})
+            as Map<String, dynamic>;
     return _options(data['provinces']);
   }
 

@@ -5,15 +5,24 @@ import '../core/theme/app_theme.dart';
 import '../services/address_service.dart';
 
 /// Philippine Standard Geographic Code (PSGC) cascading address picker:
-/// Province → City/Municipality → Barangay, plus House No. / Street.
+/// optionally Region → Province → City/Municipality → Barangay, plus
+/// House No. / Street.
 /// Reports a structured [AddressSelection] via [onChanged].
 class AddressFields extends StatefulWidget {
-  const AddressFields({super.key, this.onChanged, this.apiClient});
+  const AddressFields({
+    super.key,
+    this.onChanged,
+    this.apiClient,
+    this.showRegion = false,
+  });
 
   final ValueChanged<AddressSelection>? onChanged;
 
   /// Shared API client (injectable in tests; defaults to a live client).
   final ApiClient? apiClient;
+
+  /// Shows the first PSGC level for forms that collect rider addresses.
+  final bool showRegion;
 
   @override
   State<AddressFields> createState() => _AddressFieldsState();
@@ -22,14 +31,17 @@ class AddressFields extends StatefulWidget {
 class _AddressFieldsState extends State<AddressFields> {
   late final AddressService _service;
 
+  Map<String, String> _regions = {};
   List<PsgcOption> _provinces = [];
   List<PsgcOption> _municipalities = [];
   List<PsgcOption> _barangays = [];
 
+  String? _selectedRegion;
   String? _provinceId;
   String? _municipalityId;
   String? _barangayId;
 
+  bool _loadingRegions = false;
   bool _loadingProvinces = true;
   bool _loadingMunicipalities = false;
   bool _loadingBarangays = false;
@@ -42,7 +54,11 @@ class _AddressFieldsState extends State<AddressFields> {
   void initState() {
     super.initState();
     _service = AddressService(widget.apiClient ?? ApiClient());
-    _loadProvinces();
+    if (widget.showRegion) {
+      _loadRegions();
+    } else {
+      _loadProvinces();
+    }
     _houseNo.addListener(_report);
     _street.addListener(_report);
   }
@@ -57,12 +73,40 @@ class _AddressFieldsState extends State<AddressFields> {
   }
 
   Future<void> _loadProvinces() async {
+    await _loadProvinceOptions();
+  }
+
+  Future<void> _loadRegions() async {
+    setState(() {
+      _loadingRegions = true;
+      _error = null;
+    });
+    try {
+      final regions = await _service.regions();
+      if (!mounted) return;
+      setState(() {
+        _regions = regions;
+        _loadingRegions = false;
+        _loadingProvinces = false;
+        if (regions.isEmpty) _error = 'No PSGC regions are available.';
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingRegions = false;
+        _loadingProvinces = false;
+        _error = 'Unable to load regions. Pull to retry.';
+      });
+    }
+  }
+
+  Future<void> _loadProvinceOptions({String? regionCode}) async {
     setState(() {
       _loadingProvinces = true;
       _error = null;
     });
     try {
-      final list = await _service.provinces();
+      final list = await _service.provinces(regionCode: regionCode);
       if (!mounted) return;
       setState(() {
         _provinces = list;
@@ -126,23 +170,24 @@ class _AddressFieldsState extends State<AddressFields> {
   }
 
   void _report() {
-    widget.onChanged?.call(AddressSelection(
-      province: _provinceId == null
-          ? null
-          : _provinces
-              .where((p) => '${p.id}' == _provinceId)
-              .firstOrNull,
-      municipality: _municipalityId == null
-          ? null
-          : _municipalities
-              .where((m) => '${m.id}' == _municipalityId)
-              .firstOrNull,
-      barangay: _barangayId == null
-          ? null
-          : _barangays.where((b) => '${b.id}' == _barangayId).firstOrNull,
-      houseNumber: _houseNo.text,
-      street: _street.text,
-    ));
+    widget.onChanged?.call(
+      AddressSelection(
+        province: _provinceId == null
+            ? null
+            : _provinces.where((p) => '${p.id}' == _provinceId).firstOrNull,
+        municipality: _municipalityId == null
+            ? null
+            : _municipalities
+                  .where((m) => '${m.id}' == _municipalityId)
+                  .firstOrNull,
+        barangay: _barangayId == null
+            ? null
+            : _barangays.where((b) => '${b.id}' == _barangayId).firstOrNull,
+        region: _selectedRegion == null ? null : _regions[_selectedRegion],
+        houseNumber: _houseNo.text,
+        street: _street.text,
+      ),
+    );
   }
 
   InputDecoration _decoration(String label, {IconData? icon}) {
@@ -153,8 +198,7 @@ class _AddressFieldsState extends State<AddressFields> {
         borderSide: const BorderSide(color: AppColors.border),
       ),
       prefixIcon: icon == null ? null : Icon(icon, size: 20),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
     );
   }
 
@@ -183,6 +227,7 @@ class _AddressFieldsState extends State<AddressFields> {
           ],
         ),
         const SizedBox(height: 12),
+        if (widget.showRegion) ...[_regionField(), const SizedBox(height: 12)],
         _provinceField(),
         const SizedBox(height: 12),
         _municipalityField(),
@@ -191,11 +236,17 @@ class _AddressFieldsState extends State<AddressFields> {
         const SizedBox(height: 12),
         Row(
           children: [
-            const Icon(Icons.info_outline, size: 16, color: AppColors.textSecondary),
+            const Icon(
+              Icons.info_outline,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text(
-                'Select the Province, City/Municipality and Barangay of your address.',
+                widget.showRegion
+                    ? 'Select the Region, Province, City/Municipality and Barangay of your address.'
+                    : 'Select the Province, City/Municipality and Barangay of your address.',
                 style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
             ),
@@ -205,11 +256,55 @@ class _AddressFieldsState extends State<AddressFields> {
           TextButton.icon(
             onPressed: _retry,
             icon: const Icon(Icons.refresh, size: 16),
-            label: Text(_error!,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary)),
+            label: Text(
+              _error!,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
           ),
       ],
+    );
+  }
+
+  Widget _regionField() {
+    if (_loadingRegions) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    return DropdownButtonFormField<String>(
+      initialValue: _selectedRegion,
+      isExpanded: true,
+      decoration: _decoration('Region *', icon: Icons.map_outlined),
+      items: _regions.entries
+          .map(
+            (region) =>
+                DropdownMenuItem(value: region.key, child: Text(region.value)),
+          )
+          .toList(),
+      onChanged: (code) {
+        if (code == null) return;
+        setState(() {
+          _selectedRegion = code;
+          _provinceId = null;
+          _municipalityId = null;
+          _barangayId = null;
+          _provinces = [];
+          _municipalities = [];
+          _barangays = [];
+        });
+        _report();
+        _loadProvinceOptions(regionCode: code);
+      },
     );
   }
 
@@ -233,11 +328,13 @@ class _AddressFieldsState extends State<AddressFields> {
       items: _provinces
           .map((p) => DropdownMenuItem(value: '${p.id}', child: Text(p.name)))
           .toList(),
-      onChanged: (v) {
-        if (v == null) return;
-        setState(() => _provinceId = v);
-        _loadMunicipalities(v);
-      },
+      onChanged: widget.showRegion && _selectedRegion == null
+          ? null
+          : (v) {
+              if (v == null) return;
+              setState(() => _provinceId = v);
+              _loadMunicipalities(v);
+            },
     );
   }
 
@@ -257,8 +354,10 @@ class _AddressFieldsState extends State<AddressFields> {
     return DropdownButtonFormField<String>(
       initialValue: _municipalityId,
       isExpanded: true,
-      decoration: _decoration('City / Municipality *',
-          icon: Icons.location_city_outlined),
+      decoration: _decoration(
+        'City / Municipality *',
+        icon: Icons.location_city_outlined,
+      ),
       items: _municipalities
           .map((m) => DropdownMenuItem(value: '${m.id}', child: Text(m.name)))
           .toList(),
@@ -304,7 +403,13 @@ class _AddressFieldsState extends State<AddressFields> {
 
   void _retry() {
     _error = null;
-    if (_provinces.isEmpty) {
+    if (widget.showRegion && _regions.isEmpty) {
+      _loadRegions();
+    } else if (_provinces.isEmpty && widget.showRegion) {
+      if (_selectedRegion != null) {
+        _loadProvinceOptions(regionCode: _selectedRegion);
+      }
+    } else if (_provinces.isEmpty) {
       _loadProvinces();
     } else if (_municipalities.isEmpty) {
       _loadMunicipalities(_provinceId!);

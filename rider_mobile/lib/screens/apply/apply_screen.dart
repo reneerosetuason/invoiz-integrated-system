@@ -1010,6 +1010,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
         AddressFields(
           onChanged: (sel) => setState(() => _addressSel = sel),
           apiClient: widget.apiClient,
+          showRegion: true,
         ),
       ],
     );

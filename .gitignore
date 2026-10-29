@@ -18,6 +18,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+/.tools/
 /.phpunit.cache.mysql
 /.taste-skill/
 /server.log

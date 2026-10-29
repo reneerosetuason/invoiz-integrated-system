@@ -1,11 +1,15 @@
 param(
     [string]$ApiBaseUrl = 'http://127.0.0.1:8000/api/logistics',
-    [string]$FlutterCommand = 'flutter',
+    [string]$FlutterCommand = '',
     [switch]$NoPub
 )
 
 $ErrorActionPreference = 'Stop'
 $riderRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+if (-not $FlutterCommand) {
+    $workspaceSdk = Join-Path $riderRoot '..\.tools\flutter-rider-3.44.5\bin\flutter.bat'
+    $FlutterCommand = if (Test-Path -LiteralPath $workspaceSdk -PathType Leaf) { $workspaceSdk } else { 'flutter' }
+}
 $apiUri = [Uri]$ApiBaseUrl
 if (-not $apiUri.IsAbsoluteUri -or $apiUri.Scheme -notin @('http', 'https') -or $apiUri.UserInfo -or $apiUri.Query -or $apiUri.Fragment -or $apiUri.AbsolutePath.TrimEnd('/') -ne '/api/logistics') {
     throw 'ApiBaseUrl must be the shared Laravel HTTP(S) address ending in /api/logistics.'

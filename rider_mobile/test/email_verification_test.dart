@@ -48,8 +48,9 @@ MockClient _otpBackend() {
     }
     if (path.endsWith('/provinces')) {
       return json({
+        'regions': {'120000000': 'SOCCSKSARGEN'},
         'provinces': [
-          {'id': 120000000, 'name': 'SOCCSKSARGEN'}
+          {'id': 120000000, 'name': 'SOCCSKSARGEN', 'region_code': '120000000'}
         ]
       }, 200);
     }
@@ -113,9 +114,7 @@ Future<void> _fillPersonal(WidgetTester tester,
   await _selectAddress(tester);
 }
 
-/// Drives Province → City/Municipality → Barangay with the keyboard because
-/// overlay menu-item taps are unreliable in the cascade. The dropdowns are
-/// built progressively — index 0, then 1, then 2 in the tree.
+/// Drives Region → Province → City/Municipality → Barangay with the keyboard.
 Future<void> _selectAddress(WidgetTester tester) async {
   Future<void> pick(int index) async {
     await tester.ensureVisible(find.byType(DropdownButton<String>).first);
@@ -133,6 +132,7 @@ Future<void> _selectAddress(WidgetTester tester) async {
   await pick(0);
   await pick(1);
   await pick(2);
+  await pick(3);
 }
 
 /// Tap Send and wait for the OTP section to appear.
@@ -168,7 +168,7 @@ void main() {
     final requests = <http.BaseRequest>[];
     final svc = ApplicationService(ApiClient(
         client: MockClient((http.BaseRequest request) async {
-      requests.add(request);
+          requests.add(request);
       return http.Response(jsonEncode({'message': 'ok', 'email': 'a@b.c'}),
           200,
           headers: {'content-type': 'application/json'});

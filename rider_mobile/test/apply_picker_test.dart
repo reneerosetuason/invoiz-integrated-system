@@ -66,8 +66,9 @@ MockClient _applyBackend() {
     }
     if (path.endsWith('/provinces')) {
       return json({
+        'regions': {'120000000': 'SOCCSKSARGEN'},
         'provinces': [
-          {'id': 120000000, 'name': 'SOCCSKSARGEN'},
+          {'id': 120000000, 'name': 'SOCCSKSARGEN', 'region_code': '120000000'},
         ],
       }, 200);
     }
@@ -89,8 +90,7 @@ MockClient _applyBackend() {
   });
 }
 
-/// Selects Province → City/Municipality → Barangay by keyboard (overlay
-/// menu taps are unreliable in the cascade). Index 0, then 1, then 2.
+/// Selects Region → Province → City/Municipality → Barangay by keyboard.
 Future<void> _selectAddress(WidgetTester tester) async {
   Future<void> pick(int index) async {
     await tester.ensureVisible(find.byType(DropdownButton<String>).first);
@@ -110,6 +110,7 @@ Future<void> _selectAddress(WidgetTester tester) async {
   await pick(0);
   await pick(1);
   await pick(2);
+  await pick(3);
 }
 
 /// Sends a code and verifies it, clearing the success SnackBar overlay so
