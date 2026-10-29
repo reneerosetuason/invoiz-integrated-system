@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../theme.dart';
 
@@ -22,8 +23,11 @@ class InvoizLogo {
       child: Image.asset(
         assetPath,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) =>
-            Icon(Icons.storefront, color: AppColors.primary, size: 28),
+        errorBuilder: (_, __, ___) => Icon(
+          CupertinoIcons.building_2_fill,
+          color: AppColors.primary,
+          size: 28,
+        ),
       ),
     );
   }

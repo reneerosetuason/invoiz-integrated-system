@@ -1,3 +1,5 @@
+import '../widgets/buyer_controls.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/product_photo.dart';
 import '../widgets/shopping_ui.dart';
@@ -196,14 +198,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       showBottomNav: false,
       showSettingsIcon: false,
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CupertinoActivityIndicator())
           : _cart == null || _cart!.items.isEmpty
           ? const Center(child: Text('Your cart is empty.'))
           : Column(
               children: [
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
                     children: [
                       const BuyerPageHeading(
                         title: 'Review your order',
@@ -211,13 +213,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             'Check your items and delivery details. Pay when it arrives.',
                       ),
                       _section('Your items', _itemsSection()),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _section('Delivery address', _addressSection(context)),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _section('Payment method', _paymentSection()),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _section('Voucher', _voucherSection()),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 12),
                       _section('Order summary', _summarySection()),
                     ],
                   ),
@@ -233,7 +235,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         total: true,
                       ),
                       const SizedBox(height: 10),
-                      FilledButton(
+                      BuyerButton.primary(
                         onPressed:
                             _placing ||
                                 _quoting ||
@@ -245,9 +247,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ? const SizedBox(
                                 width: 22,
                                 height: 22,
-                                child: CircularProgressIndicator(
+                                child: CupertinoActivityIndicator(
                                   color: AppColors.surface,
-                                  strokeWidth: 2,
                                 ),
                               )
                             : const Text(
@@ -327,7 +328,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             style: TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 8),
-          ElevatedButton(
+          BuyerButton.primary(
             onPressed: () async {
               await Navigator.push(
                 context,
@@ -343,8 +344,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       children: [
         ..._addresses.map((a) {
-          return RadioListTile<int>(
-            contentPadding: EdgeInsets.zero,
+          return BuyerChoiceRow<int>(
             value: a.id,
             groupValue: _selectedAddressId,
             activeColor: AppColors.primary,
@@ -364,8 +364,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         }),
         Align(
           alignment: Alignment.centerRight,
-          child: TextButton.icon(
-            icon: const Icon(Icons.add),
+          child: BuyerButton.plain(
+            icon: const Icon(CupertinoIcons.add),
             label: const Text('Add Address'),
             onPressed: () async {
               await Navigator.push(
@@ -383,8 +383,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Widget _paymentSection() {
     return Column(
       children: [
-        RadioListTile<String>(
-          contentPadding: EdgeInsets.zero,
+        BuyerChoiceRow<String>(
           value: 'cash_on_delivery',
           groupValue: _paymentMethod,
           activeColor: AppColors.primary,
@@ -442,9 +441,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ],
                   ),
                 ),
-                IconButton(
+                BuyerButton.icon(
                   tooltip: 'Remove voucher',
-                  icon: const Icon(Icons.close, size: 18),
+                  icon: const Icon(CupertinoIcons.xmark, size: 18),
                   onPressed: _quoting ? null : _removeVoucher,
                 ),
               ],
@@ -545,7 +544,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
           ),
-          TextButton(
+          BuyerButton.plain(
             onPressed: _quoting ? null : () => _applyVoucher(best!),
             child: const Text('Apply'),
           ),

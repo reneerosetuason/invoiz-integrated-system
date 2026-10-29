@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart';
+import 'buyer_controls.dart';
 import 'package:flutter/material.dart';
 import '../config.dart';
 import '../theme.dart';
@@ -34,18 +36,19 @@ class _ProductPhotoState extends State<ProductPhoto> {
       loadingBuilder: (_, child, progress) => progress == null
           ? child
           : ColoredBox(
-              color: AppColors.sandLight,
+              color: AppColors.cream,
               child: Center(
                 child: SizedBox(
                   width: 22,
                   height: 22,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    value: progress.expectedTotalBytes == null
-                        ? null
-                        : progress.cumulativeBytesLoaded /
+                  child: progress.expectedTotalBytes == null
+                      ? const CupertinoActivityIndicator(radius: 10)
+                      : CupertinoActivityIndicator.partiallyRevealed(
+                          radius: 10,
+                          progress:
+                              progress.cumulativeBytesLoaded /
                               progress.expectedTotalBytes!,
-                  ),
+                        ),
                 ),
               ),
             ),
@@ -65,19 +68,19 @@ class _ProductPhotoState extends State<ProductPhoto> {
           constraints.maxHeight < 110 ||
           constraints.maxWidth < 100;
       return ColoredBox(
-        color: AppColors.sandLight,
+        color: AppColors.cream,
         child: Center(
           child: compact
               ? (retry == null
                     ? const Icon(
-                        Icons.image_outlined,
+                        CupertinoIcons.photo,
                         color: AppColors.textMuted,
                         size: 24,
                       )
-                    : IconButton(
+                    : BuyerButton.icon(
                         tooltip: 'Retry photo',
                         onPressed: retry,
-                        icon: const Icon(Icons.refresh, size: 22),
+                        icon: const Icon(CupertinoIcons.refresh, size: 22),
                       ))
               : Padding(
                   padding: const EdgeInsets.all(6),
@@ -85,7 +88,7 @@ class _ProductPhotoState extends State<ProductPhoto> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Icon(
-                        Icons.image_outlined,
+                        CupertinoIcons.photo,
                         color: AppColors.textMuted,
                         size: 28,
                       ),
@@ -98,9 +101,9 @@ class _ProductPhotoState extends State<ProductPhoto> {
                           ),
                         ),
                       if (retry != null)
-                        TextButton.icon(
+                        BuyerButton.plain(
                           onPressed: retry,
-                          icon: const Icon(Icons.refresh, size: 16),
+                          icon: const Icon(CupertinoIcons.refresh, size: 16),
                           label: const Text(
                             'Retry photo',
                             style: TextStyle(fontSize: 12),

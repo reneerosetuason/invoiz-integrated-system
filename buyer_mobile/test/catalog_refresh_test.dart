@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -171,7 +172,7 @@ void main() {
     await tester.tap(find.byTooltip('Sort products'));
     await tester.pumpAndSettle();
     await tester.tap(
-      find.widgetWithText(CheckedPopupMenuItem<String>, 'Top rated'),
+      find.widgetWithText(CupertinoActionSheetAction, 'Top rated'),
     );
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -354,14 +355,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<ChoiceChip>(option).selected, true);
       await tester.scrollUntilVisible(
-        find.byIcon(Icons.add),
+        find.byIcon(CupertinoIcons.add),
         150,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(CupertinoIcons.add));
       await tester.pump();
-      await tester.tap(find.byIcon(Icons.add));
+      await tester.tap(find.byIcon(CupertinoIcons.add));
       await tester.pump();
       await tester.tap(find.text('Add to Cart'));
       await tester.pumpAndSettle();
@@ -409,7 +410,7 @@ void main() {
     await tester.pumpAndSettle();
     final second = find.descendant(
       of: find.byKey(const ValueKey('cart-selection-12')),
-      matching: find.byType(Checkbox),
+      matching: find.byType(CupertinoCheckbox),
     );
     final cartScroll = find
         .descendant(
@@ -418,13 +419,17 @@ void main() {
         )
         .first;
     await tester.scrollUntilVisible(second, 150, scrollable: cartScroll);
+    await tester.pumpAndSettle();
     await tester.tap(second);
     await tester.pump();
-    await tester.ensureVisible(find.byIcon(Icons.add).first);
-    await tester.tap(find.byIcon(Icons.add).first);
+    await tester.ensureVisible(find.byIcon(CupertinoIcons.add).first);
     await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(CupertinoIcons.add).first);
+    await tester.pumpAndSettle();
+    expect(qty, 2);
     await tester.scrollUntilVisible(second, 150, scrollable: cartScroll);
-    expect(tester.widget<Checkbox>(second).value, false);
+    await tester.pumpAndSettle();
+    expect(tester.widget<CupertinoCheckbox>(second).value, false);
   });
   for (final width in [320.0, 390.0, 768.0]) {
     testWidgets('catalog fits a $width pixel viewport', (tester) async {

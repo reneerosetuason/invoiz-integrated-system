@@ -1,3 +1,6 @@
+import '../widgets/buyer_dialog.dart';
+import '../widgets/buyer_controls.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../models/address.dart';
@@ -56,17 +59,18 @@ class _AddressesScreenState extends State<AddressesScreen> {
   Future<void> _change(Address address, {bool delete = false}) async {
     if (_busy) return;
     if (delete) {
-      final yes = await showDialog<bool>(
+      final yes = await showCupertinoDialog<bool>(
+        barrierDismissible: true,
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => BuyerAlertDialog(
           title: const Text('Delete address?'),
           content: Text(address.fullAddress),
           actions: [
-            TextButton(
+            BuyerDialogAction(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Keep'),
             ),
-            FilledButton(
+            BuyerDialogAction(
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Delete'),
             ),
@@ -98,18 +102,18 @@ class _AddressesScreenState extends State<AddressesScreen> {
     title: 'My addresses',
     showBottomNav: false,
     child: _loading
-        ? const Center(child: CircularProgressIndicator())
-        : RefreshIndicator(
+        ? const Center(child: CupertinoActivityIndicator())
+        : RefreshIndicator.adaptive(
             onRefresh: _load,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               physics: const AlwaysScrollableScrollPhysics(),
               children: [
                 const BuyerPageHeading(
                   title: 'Your delivery addresses',
                   description: 'Choose where your next order should arrive.',
                 ),
-                FilledButton.icon(
+                BuyerButton.primary(
                   onPressed: _busy ? null : () => _edit(),
                   icon: const Icon(Icons.add_location_alt_outlined),
                   label: const Text('Add address'),
@@ -117,7 +121,10 @@ class _AddressesScreenState extends State<AddressesScreen> {
                 const SizedBox(height: 12),
                 if (_error != null) ...[
                   Text(_error!),
-                  TextButton(onPressed: _load, child: const Text('Try again')),
+                  BuyerButton.plain(
+                    onPressed: _load,
+                    child: const Text('Try again'),
+                  ),
                 ],
                 if (_addresses.isEmpty && _error == null)
                   const Padding(
@@ -143,30 +150,33 @@ class _AddressesScreenState extends State<AddressesScreen> {
                             if (address.isDefault)
                               const Chip(
                                 label: Text('Default delivery address'),
-                                avatar: Icon(Icons.check, size: 16),
+                                avatar: Icon(
+                                  CupertinoIcons.check_mark,
+                                  size: 16,
+                                ),
                               ),
                             Wrap(
                               spacing: 8,
                               children: [
-                                TextButton.icon(
+                                BuyerButton.plain(
                                   onPressed: _busy
                                       ? null
                                       : () => _edit(address),
                                   icon: const Icon(
-                                    Icons.edit_outlined,
+                                    CupertinoIcons.pencil,
                                     size: 18,
                                   ),
                                   label: const Text('Edit'),
                                 ),
                                 if (!address.isDefault)
-                                  TextButton(
+                                  BuyerButton.plain(
                                     onPressed: _busy
                                         ? null
                                         : () => _change(address),
                                     child: const Text('Make default'),
                                   ),
                                 if (!address.isDefault)
-                                  TextButton(
+                                  BuyerButton.plain(
                                     onPressed: _busy
                                         ? null
                                         : () => _change(address, delete: true),

@@ -1,3 +1,5 @@
+import '../widgets/buyer_controls.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/product_photo.dart';
 import 'package:flutter/material.dart';
@@ -99,14 +101,14 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.favorite_border,
+                CupertinoIcons.heart,
                 size: 60,
                 color: AppColors.textSecondary,
               ),
               const SizedBox(height: 12),
               const Text('Please log in to view your favorites.'),
               const SizedBox(height: 16),
-              ElevatedButton(
+              BuyerButton.primary(
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -122,35 +124,52 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       showBottomNav: false,
       title: 'Favorites',
       actions: [
-        IconButton(
+        BuyerButton.icon(
           tooltip: 'Refresh favorites',
           onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(CupertinoIcons.refresh),
         ),
       ],
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CupertinoActivityIndicator())
           : _error != null
           ? InboxStatus(message: _error!, onRetry: _load)
           : _favorites.isEmpty
           ? const BuyerEmptyState(
-              icon: Icons.favorite_border,
+              icon: CupertinoIcons.heart,
               title: 'No favorites yet.',
               description: 'Tap the heart on a product to save it here.',
             )
-          : RefreshIndicator(
+          : RefreshIndicator.adaptive(
               onRefresh: _load,
-              child: GridView.builder(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 14,
-                  crossAxisSpacing: 14,
-                  mainAxisExtent: 320,
-                ),
-                itemCount: _favorites.length,
-                itemBuilder: (context, i) => _card(_favorites[i]),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final textScale = MediaQuery.textScalerOf(context).scale(1);
+                  final columns = constraints.maxWidth >= 1000
+                      ? 4
+                      : constraints.maxWidth >= 700
+                      ? 3
+                      : textScale > 1.2
+                      ? 1
+                      : 2;
+                  final tileWidth =
+                      (constraints.maxWidth - 32 - (columns - 1) * 12) /
+                      columns;
+                  return GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: columns,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      mainAxisExtent:
+                          tileWidth * (constraints.maxWidth < 600 ? .72 : .95) +
+                          116 * textScale,
+                    ),
+                    itemCount: _favorites.length,
+                    itemBuilder: (context, i) => _card(_favorites[i]),
+                  );
+                },
               ),
             ),
     );
@@ -177,69 +196,83 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                Container(
-                  height: 175,
-                  width: double.infinity,
-                  color: AppColors.surfaceSoft,
-                  child: ProductPhoto(
-                    path: p.displayImages.firstOrNull,
-                    label: p.name,
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    color: AppColors.surfaceSoft,
+                    child: ProductPhoto(
+                      path: p.displayImages.firstOrNull,
+                      label: p.name,
+                    ),
                   ),
-                ),
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: GestureDetector(
-                    onTap: _removing.contains(p.id)
-                        ? null
-                        : () => _remove(p.id),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite,
-                        color: AppColors.primaryDark,
-                        size: 20,
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: _removing.contains(p.id)
+                          ? null
+                          : () => _remove(p.id),
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 44,
+                          minHeight: 44,
+                        ),
+                        padding: const EdgeInsets.all(10),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          CupertinoIcons.heart_fill,
+                          color: AppColors.primaryDark,
+                          size: 20,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            Expanded(
+            SizedBox(
+              height: 116 * MediaQuery.textScalerOf(context).scale(1),
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      p.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Fraunces',
-                        fontSize: 17,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primaryDark,
+                    SizedBox(
+                      height: 36.4 * MediaQuery.textScalerOf(context).scale(1),
+                      child: Text(
+                        p.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: 'Inter',
+                          fontSize: 14,
+                          height: 1.3,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primaryDark,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       p.formattedPrice,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: AppColors.primary,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
+                        height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 4),
                     if (p.shop != null)
                       GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -247,27 +280,30 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 SellerStoreScreen(sellerId: p.shop!.sellerId),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.storefront,
-                              size: 12,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(width: 3),
-                            Expanded(
-                              child: Text(
-                                p.shop!.businessName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          child: Row(
+                            children: [
+                              Icon(
+                                CupertinoIcons.building_2_fill,
+                                size: 12,
+                                color: AppColors.primary,
+                              ),
+                              const SizedBox(width: 3),
+                              Expanded(
+                                child: Text(
+                                  p.shop!.businessName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                   ],

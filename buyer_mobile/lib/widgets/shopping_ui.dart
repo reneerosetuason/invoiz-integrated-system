@@ -1,3 +1,6 @@
+import 'package:flutter/cupertino.dart';
+import 'buyer_controls.dart';
+import 'buyer_search.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../theme.dart';
@@ -13,7 +16,7 @@ String shoppingMoney(num value) => _peso.format(value);
 class ShoppingPrice extends StatelessWidget {
   final String value;
   final double size;
-  const ShoppingPrice(this.value, {super.key, this.size = 22});
+  const ShoppingPrice(this.value, {super.key, this.size = 20});
 
   @override
   Widget build(BuildContext context) => Text(
@@ -43,16 +46,16 @@ class ShoppingQuantity extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: AppColors.paper,
-      border: Border.all(color: AppColors.border),
-      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: AppColors.border, width: .5),
+      borderRadius: BorderRadius.circular(999),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        IconButton(
+        BuyerButton.icon(
           tooltip: 'Decrease quantity',
           onPressed: onDecrease,
-          icon: const Icon(Icons.remove, size: 18),
+          icon: const Icon(CupertinoIcons.minus, size: 18),
           constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         ),
         Semantics(
@@ -70,10 +73,10 @@ class ShoppingQuantity extends StatelessWidget {
             ),
           ),
         ),
-        IconButton(
+        BuyerButton.icon(
           tooltip: 'Increase quantity',
           onPressed: onIncrease,
-          icon: const Icon(Icons.add, size: 18),
+          icon: const Icon(CupertinoIcons.add, size: 18),
           constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         ),
       ],
@@ -93,7 +96,7 @@ class ShoppingValueRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
+    padding: const EdgeInsets.symmetric(vertical: 4),
     child: SizedBox(
       width: double.infinity,
       child: Wrap(
@@ -105,7 +108,7 @@ class ShoppingValueRow extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              fontSize: total ? 16 : 14,
+              fontSize: total ? 15 : 13,
               fontWeight: total ? FontWeight.w600 : FontWeight.w400,
               color: AppColors.textPrimary,
             ),
@@ -140,7 +143,10 @@ class ShoppingDock extends StatelessWidget {
     ),
     child: SafeArea(
       top: false,
-      child: Padding(padding: const EdgeInsets.all(16), child: child),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: child,
+      ),
     ),
   );
 }
@@ -157,25 +163,14 @@ class ShoppingSearch extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => TextField(
+  Widget build(BuildContext context) => BuyerSearch(
     controller: controller,
     onChanged: onChanged,
     onSubmitted: onChanged,
-    textInputAction: TextInputAction.search,
-    style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
-    decoration: InputDecoration(
-      hintText: hint,
-      prefixIcon: const Icon(Icons.search, size: 21),
-      suffixIcon: controller.text.isEmpty
-          ? null
-          : IconButton(
-              tooltip: 'Clear search',
-              icon: const Icon(Icons.close, size: 19),
-              onPressed: () {
-                controller.clear();
-                onChanged('');
-              },
-            ),
-    ),
+    hint: hint,
+    onClear: () {
+      controller.clear();
+      onChanged('');
+    },
   );
 }

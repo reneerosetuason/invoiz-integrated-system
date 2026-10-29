@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'buyer_page.dart';
 import 'invoiz_logo.dart';
+import 'buyer_scaffold.dart';
 
 class BuyerAuthPage extends StatelessWidget {
   final String title, description;
@@ -15,24 +16,19 @@ class BuyerAuthPage extends StatelessWidget {
     this.footer,
   });
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => BuyerScaffold(
     backgroundColor: AppColors.paper,
-    appBar: AppBar(
-      title: Row(
-        children: [
-          InvoizLogo.logoWidget(size: 28, radius: 8),
-          const SizedBox(width: 10),
-          const Text('INVOIZ'),
-        ],
-      ),
-    ),
-    body: SafeArea(
+    title: 'INVOIZ',
+    leading: Navigator.canPop(context)
+        ? null
+        : InvoizLogo.logoWidget(size: 26, radius: 8),
+    child: SafeArea(
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

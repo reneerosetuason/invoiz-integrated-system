@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../config.dart';
@@ -47,7 +48,7 @@ class _AccountScreenState extends State<AccountScreen> {
       showSettingsIcon: false,
       title: 'Account',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
           const BuyerPageHeading(
             title: 'Your account',
@@ -91,7 +92,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       Text(
                         user?.fullName ?? 'User',
                         style: TextStyle(
-                          fontSize: 23,
+                          fontSize: 20,
                           fontWeight: FontWeight.w600,
                           fontFamily: 'Fraunces',
                           color: AppColors.textPrimary,
@@ -118,39 +119,59 @@ class _AccountScreenState extends State<AccountScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          const BuyerPageHeading(title: 'Shopping & deliveries'),
-          _menuTile(Icons.receipt_long_outlined, 'My Orders', () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const OrdersScreen()),
-            );
-          }),
-          _menuTile(
-            Icons.location_on_outlined,
-            'My Addresses ($_addressCount)',
-            () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AddressesScreen()),
-              );
-              _loadAddressCount();
-            },
+          const SizedBox(height: 20),
+          Text(
+            'Shopping & deliveries',
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          _menuTile(Icons.favorite_border, 'My Favorites', () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const FavoritesScreen()),
-            );
-          }),
+          const SizedBox(height: 10),
+          CupertinoListSection.insetGrouped(
+            margin: EdgeInsets.zero,
+            backgroundColor: Colors.transparent,
+            children: [
+              _menuTile(CupertinoIcons.doc_text, 'My Orders', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OrdersScreen()),
+                );
+              }),
+              _menuTile(
+                CupertinoIcons.location,
+                'My Addresses ($_addressCount)',
+                () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const AddressesScreen()),
+                  );
+                  _loadAddressCount();
+                },
+              ),
+              _menuTile(CupertinoIcons.heart, 'My Favorites', () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                );
+              }),
+            ],
+          ),
           const SizedBox(height: 12),
-          const BuyerPageHeading(title: 'Personal details'),
-          _menuTile(Icons.person_outline, 'Edit Profile', () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            );
-          }),
+          Text(
+            'Personal details',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 10),
+          CupertinoListSection.insetGrouped(
+            margin: EdgeInsets.zero,
+            backgroundColor: Colors.transparent,
+            children: [
+              _menuTile(CupertinoIcons.person, 'Edit Profile', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              }),
+            ],
+          ),
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
@@ -158,11 +179,16 @@ class _AccountScreenState extends State<AccountScreen> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border, width: 0.5),
             ),
-            child: ListTile(
-              leading: const Icon(Icons.logout, color: AppColors.danger),
+            child: CupertinoListTile.notched(
+              leading: const Icon(
+                CupertinoIcons.square_arrow_right,
+                color: AppColors.danger,
+              ),
               title: const Text(
                 'Logout',
                 style: TextStyle(
+                  fontFamily: 'Inter',
+                  fontSize: 14,
                   color: AppColors.danger,
                   fontWeight: FontWeight.w600,
                 ),
@@ -183,35 +209,26 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Widget _menuTile(IconData icon, String title, VoidCallback onTap) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: ListTile(
-        leading: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: AppColors.sandLight,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Icon(icon, color: AppColors.primary, size: 20),
+    return CupertinoListTile.notched(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      backgroundColor: AppColors.surface,
+      leading: Icon(icon, color: AppColors.primary, size: 21),
+      title: Text(
+        title,
+        maxLines: 2,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPrimary,
+          fontFamily: 'Inter',
         ),
-        title: Text(
-          title,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-            fontFamily: 'Inter',
-          ),
-        ),
-        trailing: Icon(Icons.chevron_right, color: AppColors.textMuted),
-        onTap: onTap,
       ),
+      trailing: const Icon(
+        CupertinoIcons.chevron_right,
+        size: 16,
+        color: AppColors.textMuted,
+      ),
+      onTap: onTap,
     );
   }
 

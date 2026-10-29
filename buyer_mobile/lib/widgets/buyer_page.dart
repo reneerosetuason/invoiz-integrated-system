@@ -8,13 +8,18 @@ class BuyerPageHeading extends StatelessWidget {
   const BuyerPageHeading({super.key, required this.title, this.description});
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 20),
+    padding: const EdgeInsets.only(bottom: 10),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontSize: 24),
+        ),
         if (description != null) ...[
-          const SizedBox(height: 7),
+          const SizedBox(height: 4),
           Text(description!, style: Theme.of(context).textTheme.bodyMedium),
         ],
       ],
@@ -31,7 +36,7 @@ class BuyerPanel extends StatelessWidget {
     this.title,
     this.description,
     required this.child,
-    this.padding = const EdgeInsets.all(18),
+    this.padding = const EdgeInsets.all(12),
   });
   @override
   Widget build(BuildContext context) => Container(
@@ -39,7 +44,7 @@ class BuyerPanel extends StatelessWidget {
     padding: padding,
     decoration: BoxDecoration(
       color: AppColors.surface,
-      border: Border.all(color: AppColors.border),
+      border: Border.all(color: AppColors.border, width: .5),
       borderRadius: BorderRadius.circular(16),
     ),
     child: Column(
@@ -48,18 +53,18 @@ class BuyerPanel extends StatelessWidget {
         if (title != null) ...[
           Text(
             title!,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Fraunces',
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryDark,
             ),
           ),
-          SizedBox(height: description == null ? 16 : 6),
+          SizedBox(height: description == null ? 8 : 4),
         ],
         if (description != null) ...[
           Text(description!, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
         ],
         child,
       ],
@@ -112,7 +117,7 @@ class BuyerEmptyState extends StatelessWidget {
               const SizedBox(height: 8),
               Text(description!, textAlign: TextAlign.center),
             ],
-            if (action != null) ...[const SizedBox(height: 16), action!],
+            if (action != null) ...[const SizedBox(height: 12), action!],
           ],
         ),
       ),

@@ -1,3 +1,8 @@
+import '../widgets/buyer_picker.dart';
+import '../widgets/buyer_dialog.dart';
+import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/product_photo.dart';
 import '../widgets/shopping_ui.dart';
@@ -45,17 +50,19 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _cancelOrder() async {
-    final confirm = await showDialog<bool>(
+    final confirm = await showCupertinoDialog<bool>(
+      barrierDismissible: true,
       context: context,
-      builder: (ctx) => AlertDialog(
+      builder: (ctx) => BuyerAlertDialog(
         title: const Text('Cancel Order'),
         content: const Text('Are you sure you want to cancel this order?'),
         actions: [
-          TextButton(
+          BuyerDialogAction(
             onPressed: () => Navigator.pop(ctx, false),
             child: const Text('No'),
           ),
-          ElevatedButton(
+          BuyerDialogAction(
+            isDestructiveAction: true,
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Yes, cancel'),
           ),
@@ -94,10 +101,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     var quantity = 1;
     var reasonDetails = '';
     final form = GlobalKey<FormState>();
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showCupertinoDialog<bool>(
+      barrierDismissible: true,
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, update) => AlertDialog(
+        builder: (ctx, update) => BuyerAlertDialog(
           title: const Text('Request a return'),
           content: SingleChildScrollView(
             child: Form(
@@ -109,9 +117,8 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   if (item.variantLabel?.isNotEmpty == true)
                     Text(item.variantLabel!),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  BuyerPicker<String>(
                     value: reason,
-                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Reason'),
                     items: const [
                       DropdownMenuItem(
@@ -135,7 +142,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     onChanged: (value) => update(() => reason = value!),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     initialValue: '1',
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
@@ -152,7 +159,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     onSaved: (value) => quantity = int.parse(value!),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     onChanged: (value) => reasonDetails = value.trim(),
                     maxLength: 300,
                     maxLines: 3,
@@ -167,11 +174,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ),
           ),
           actions: [
-            TextButton(
+            BuyerDialogAction(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Keep item'),
             ),
-            FilledButton(
+            BuyerDialogAction(
               onPressed: () {
                 if (form.currentState!.validate()) {
                   form.currentState!.save();
@@ -220,9 +227,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         'orders/${widget.orderId}/deliveries/${delivery.id}/otp',
       );
       if (!mounted) return;
-      await showDialog<void>(
+      await showCupertinoDialog<void>(
+        barrierDismissible: true,
         context: context,
-        builder: (ctx) => AlertDialog(
+        builder: (ctx) => BuyerAlertDialog(
           title: const Text('Delivery code'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -244,7 +252,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ],
           ),
           actions: [
-            TextButton(
+            BuyerDialogAction(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Close'),
             ),
@@ -284,7 +292,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   BuyerStatusChip(status: delivery.status),
                   if (delivery.canShowOtp && delivery.id != null) ...[
                     const SizedBox(height: 12),
-                    OutlinedButton.icon(
+                    BuyerButton.secondary(
                       onPressed: _actionBusy
                           ? null
                           : () => _showDeliveryCode(delivery),
@@ -323,7 +331,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         );
     if (refundedQuantity >= item.quantity)
       return const Text('Returned and refunded');
-    return TextButton.icon(
+    return BuyerButton.plain(
       onPressed: _actionBusy ? null : () => _requestReturn(item),
       icon: const Icon(Icons.assignment_return_outlined, size: 18),
       label: const Text('Request return'),
@@ -333,16 +341,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _rateProduct(OrderItem item) async {
     int rating = 5;
     final commentCtrl = TextEditingController();
-    final result = await showDialog<bool>(
+    final result = await showCupertinoDialog<bool>(
+      barrierDismissible: true,
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 24,
-          ),
-          contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-          scrollable: true,
+        builder: (ctx, setLocal) => BuyerAlertDialog(
           title: const Text('Rate this item'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -355,26 +358,32 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Wrap(
-                alignment: WrapAlignment.center,
-                children: List.generate(5, (i) {
-                  return IconButton(
-                    tooltip: '${i + 1} star${i == 0 ? '' : 's'}',
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 40,
-                    ),
-                    padding: const EdgeInsets.all(4),
-                    icon: Icon(
-                      Icons.star,
-                      color: i < rating ? AppColors.gold : AppColors.border,
-                      size: 28,
-                    ),
-                    onPressed: () => setLocal(() => rating = i + 1),
-                  );
-                }),
+              SizedBox(
+                width:
+                    MediaQuery.sizeOf(ctx).width < 350 ||
+                        MediaQuery.textScalerOf(ctx).scale(1) > 1.3
+                    ? 132
+                    : 220,
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  children: List.generate(5, (i) {
+                    return BuyerButton.icon(
+                      tooltip: '${i + 1} star${i == 0 ? '' : 's'}',
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 40,
+                      ),
+                      icon: Icon(
+                        CupertinoIcons.star_fill,
+                        color: i < rating ? AppColors.gold : AppColors.border,
+                        size: 28,
+                      ),
+                      onPressed: () => setLocal(() => rating = i + 1),
+                    );
+                  }),
+                ),
               ),
-              TextField(
+              BuyerField(
                 controller: commentCtrl,
                 maxLines: 3,
                 decoration: const InputDecoration(
@@ -384,11 +393,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             ],
           ),
           actions: [
-            TextButton(
+            BuyerDialogAction(
               onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel'),
             ),
-            ElevatedButton(
+            BuyerDialogAction(
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text('Submit'),
             ),
@@ -424,11 +433,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       showBottomNav: false,
       title: 'Order #${widget.orderId}',
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CupertinoActivityIndicator())
           : _order == null
           ? const Center(child: Text('Order not found.'))
           : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
               children: [
                 BuyerPageHeading(
                   title: 'Order #${widget.orderId}',
@@ -436,17 +445,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       'Delivery updates, purchased items and payment details.',
                 ),
                 _header(_order!),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _progressCard(_order!),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 if (_order!.deliveries.isNotEmpty) ...[
                   _deliveriesCard(_order!),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                 ],
                 _itemsCard(_order!),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _summaryCard(_order!),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _timelineCard(_order!),
                 const SizedBox(height: 20),
                 if (_order!.canCancel ??
@@ -455,7 +464,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       'confirmed',
                       'processing',
                     ].contains(_order!.status))
-                  OutlinedButton(
+                  BuyerButton.secondary(
                     onPressed: _actionBusy ? null : _cancelOrder,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.danger,
@@ -463,7 +472,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     ),
                     child: const Text('Cancel Order'),
                   ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
               ],
             ),
     );
@@ -484,13 +493,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               children: [
                 const Text('Order total', style: TextStyle(fontSize: 14)),
                 const SizedBox(height: 4),
-                ShoppingPrice(_fmt(order.totalAmount), size: 30),
+                ShoppingPrice(_fmt(order.totalAmount), size: 22),
               ],
             ),
             BuyerStatusChip(status: order.status),
           ],
         ),
-        const Divider(height: 28),
+        const Divider(height: 16),
         Text(
           'Placed ${_date(order.createdAt)}',
           style: const TextStyle(fontSize: 14),
@@ -544,7 +553,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
           labels.length,
           (index) => Padding(
             padding: EdgeInsets.only(
-              bottom: index == labels.length - 1 ? 0 : 14,
+              bottom: index == labels.length - 1 ? 0 : 10,
             ),
             child: Row(
               children: [
@@ -592,7 +601,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       ),
     ),
     child: Icon(
-      isDone ? Icons.check : Icons.circle_outlined,
+      isDone ? CupertinoIcons.check_mark : Icons.circle_outlined,
       size: isDone ? 18 : 13,
       color: isDone ? AppColors.surface : AppColors.textSecondary,
     ),
@@ -663,7 +672,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _returnAction(order, item),
-                        OutlinedButton(
+                        BuyerButton.secondary(
                           onPressed: () => _rateProduct(item),
                           child: const Text('Rate'),
                         ),

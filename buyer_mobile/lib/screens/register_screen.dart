@@ -1,3 +1,9 @@
+import '../widgets/buyer_picker.dart';
+import '../widgets/buyer_dialog.dart';
+import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
+import '../widgets/buyer_scaffold.dart';
 import '../widgets/buyer_page.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -117,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _pickBirthday() async {
-    final picked = await showDatePicker(
+    final picked = await showBuyerDatePicker(
       context: context,
       initialDate: DateTime(2000, 1, 1),
       firstDate: DateTime(1940),
@@ -232,10 +238,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BuyerScaffold(
       backgroundColor: AppColors.paper,
-      appBar: AppBar(title: const Text('Create account')),
-      body: Align(
+      title: 'Create account',
+      child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 640),
@@ -267,24 +273,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _field(
                                 'Last name*',
                                 _lastName,
-                                icon: Icons.person_outline,
+                                icon: CupertinoIcons.person,
                                 required: true,
                               ),
                               _field(
                                 'First name*',
                                 _firstName,
-                                icon: Icons.person_outline,
+                                icon: CupertinoIcons.person,
                                 required: true,
                               ),
                               _field(
                                 'Middle initial',
                                 _middleInitial,
-                                icon: Icons.person_pin_outlined,
+                                icon: CupertinoIcons.person_crop_circle,
                               ),
                               const SizedBox(height: 12),
                               Text('Sex*', style: _labelStyle()),
                               const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
+                              BuyerPicker<String>(
                                 value: _sex,
                                 decoration: const InputDecoration(
                                   prefixIcon: Icon(Icons.wc_outlined),
@@ -310,14 +316,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _field(
                                 'E-mail*',
                                 _email,
-                                icon: Icons.email_outlined,
+                                icon: CupertinoIcons.mail,
                                 required: true,
                                 keyboard: TextInputType.emailAddress,
                               ),
                               _field(
                                 'Contact No.*',
                                 _phone,
-                                icon: Icons.phone_outlined,
+                                icon: CupertinoIcons.phone,
                                 required: true,
                                 keyboard: TextInputType.phone,
                               ),
@@ -358,14 +364,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _field(
                                 'Password*',
                                 _password,
-                                icon: Icons.lock_outline,
+                                icon: CupertinoIcons.lock,
                                 obscure: true,
                                 required: true,
                               ),
                               _field(
                                 'Confirm Password*',
                                 _passwordConfirm,
-                                icon: Icons.lock_outline,
+                                icon: CupertinoIcons.lock,
                                 obscure: true,
                                 required: true,
                                 confirmWith: _password,
@@ -458,7 +464,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               _field(
                                 'Street / House no. / etc.',
                                 _street,
-                                icon: Icons.home_outlined,
+                                icon: CupertinoIcons.house,
                               ),
                               if (_loadingAddress)
                                 const LinearProgressIndicator(),
@@ -466,7 +472,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         const SizedBox(height: 24),
-                        ElevatedButton(
+                        BuyerButton.primary(
                           onPressed: _busy ? null : _submit,
                           style: ElevatedButton.styleFrom(
                             minimumSize: const Size.fromHeight(46),
@@ -475,9 +481,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ? const SizedBox(
                                   width: 22,
                                   height: 22,
-                                  child: CircularProgressIndicator(
+                                  child: CupertinoActivityIndicator(
                                     color: Colors.white,
-                                    strokeWidth: 2,
                                   ),
                                 )
                               : const Text(
@@ -524,7 +529,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: TextFormField(
+      child: BuyerField.form(
         controller: controller,
         obscureText: obscure,
         keyboardType: keyboard,
@@ -555,7 +560,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: DropdownButtonFormField<String>(
+      child: BuyerPicker<String>(
         value: value != null
             ? items.firstWhere(
                 (i) => i['name'] == value,
@@ -564,9 +569,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             : null,
         hint: Text(label, style: const TextStyle(color: AppColors.textMuted)),
         decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.location_on_outlined),
+          prefixIcon: Icon(CupertinoIcons.location),
         ),
-        isExpanded: true,
         items: items
             .map<DropdownMenuItem<String>>(
               (i) => DropdownMenuItem(

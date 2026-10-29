@@ -1,3 +1,6 @@
+import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
@@ -99,7 +102,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       child: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
             BuyerPageHeading(
               title: widget.address == null
@@ -112,7 +115,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
+                  BuyerField.form(
                     controller: _recipient,
                     decoration: const InputDecoration(
                       labelText: 'Recipient Name',
@@ -121,7 +124,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _phone,
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(labelText: 'Phone'),
@@ -129,7 +132,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _street,
                     decoration: const InputDecoration(
                       labelText: 'Street / House No.',
@@ -138,14 +141,14 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _barangay,
                     decoration: const InputDecoration(labelText: 'Barangay'),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _city,
                     decoration: const InputDecoration(
                       labelText: 'City / Municipality',
@@ -154,21 +157,21 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _province,
                     decoration: const InputDecoration(labelText: 'Province'),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _postal,
                     decoration: const InputDecoration(
                       labelText: 'Postal Code (optional)',
                     ),
                   ),
                   const SizedBox(height: 8),
-                  CheckboxListTile(
+                  BuyerSwitchRow(
                     value: _isDefault,
                     onChanged: widget.address?.isDefault == true
                         ? null
@@ -177,13 +180,12 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                       'Set as default address',
                       style: TextStyle(fontSize: 14),
                     ),
-                    controlAffinity: ListTileControlAffinity.leading,
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
+            BuyerButton.primary(
               onPressed: _busy ? null : _save,
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size.fromHeight(46),
@@ -192,10 +194,7 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
+                      child: CupertinoActivityIndicator(color: Colors.white),
                     )
                   : const Text('Save Address'),
             ),

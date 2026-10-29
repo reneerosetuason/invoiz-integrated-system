@@ -1,9 +1,12 @@
+import 'buyer_dialog.dart';
+import 'buyer_controls.dart';
+import 'buyer_search.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../screens/product_list_screen.dart';
 import '../services/api_service.dart';
 import '../services/recently_viewed_service.dart';
 import '../theme.dart';
-import 'invoiz_logo.dart';
 import 'product_card.dart';
 
 class CatalogBrowser extends StatefulWidget {
@@ -44,6 +47,12 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
     'rating': 'Top rated',
     'most_reviewed': 'Most reviewed',
     'discount': 'Biggest discount',
+  };
+  static const _compactSorts = {
+    'price_asc': 'Price ↑',
+    'price_desc': 'Price ↓',
+    'most_reviewed': 'Reviews',
+    'discount': 'Discount',
   };
   @override
   void initState() {
@@ -152,34 +161,26 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   }
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator(
+  Widget build(BuildContext context) => RefreshIndicator.adaptive(
     onRefresh: () => _load(),
     child: CustomScrollView(
       controller: _scroll,
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
           sliver: SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
+                BuyerSearch(
                   key: const ValueKey('catalog-search'),
                   controller: _search,
-                  textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _load(),
-                  decoration: InputDecoration(
-                    hintText: 'Search products',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: IconButton(
-                      tooltip: 'Search products',
-                      onPressed: () => _load(),
-                      icon: const Icon(Icons.arrow_forward),
-                    ),
-                  ),
+                  hint: 'Search products',
+                  onSearch: () => _load(),
                 ),
-                if (widget.showIntro) ...[const SizedBox(height: 16), _intro()],
+                if (widget.showIntro) ...[const SizedBox(height: 8), _intro()],
                 if (widget.onSale)
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
@@ -206,7 +207,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                         scrollDirection: Axis.horizontal,
                         itemCount: _vouchers.length,
                         separatorBuilder: (_, i) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) => OutlinedButton.icon(
+                        itemBuilder: (_, i) => BuyerButton.secondary(
                           onPressed: () => _claim(_vouchers[i]),
                           icon: const Icon(Icons.confirmation_number_outlined),
                           label: Text(
@@ -216,7 +217,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -231,18 +232,22 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 2),
                 Row(
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 2,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             _category == null
                                 ? (widget.onSale ? 'On sale' : 'The collection')
                                 : '${_categories.where((c) => c['id'] == _category).firstOrNull?['name'] ?? 'Products'}',
-                            style: Theme.of(context).textTheme.titleLarge,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.titleLarge?.copyWith(fontSize: 18),
                           ),
                           Text(
                             '$_total ${_total == 1 ? 'product' : 'products'}',
@@ -251,7 +256,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                         ],
                       ),
                     ),
-                    PopupMenuButton<String>(
+                    BuyerActionMenu<String>(
                       tooltip: 'Sort products',
                       initialValue: _sort,
                       onSelected: (value) {
@@ -268,23 +273,36 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                             ),
                           )
                           .toList(),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: 8,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minHeight: 44,
+                          maxWidth: 124,
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.sort, size: 20),
-                            const SizedBox(width: 5),
-                            Text(
-                              _sorts[_sort] ?? 'Sort',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.primaryDark,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(CupertinoIcons.sort_down, size: 20),
+                              const SizedBox(width: 5),
+                              Flexible(
+                                child: Text(
+                                  MediaQuery.textScalerOf(context).scale(1) >
+                                          1.2
+                                      ? 'Sort'
+                                      : _compactSorts[_sort] ??
+                                            _sorts[_sort] ??
+                                            'Sort',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -298,13 +316,13 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.all(40),
-              child: Center(child: CircularProgressIndicator()),
+              child: Center(child: CupertinoActivityIndicator()),
             ),
           )
         else if (_error != null)
           SliverToBoxAdapter(
             child: _message(
-              Icons.cloud_off_outlined,
+              CupertinoIcons.cloud,
               'Unable to load products',
               _error!,
               'Try again',
@@ -314,7 +332,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
         else if (_products.isEmpty)
           SliverToBoxAdapter(
             child: _message(
-              Icons.search_off,
+              CupertinoIcons.search,
               'No products found',
               'Try another search or category.',
               'Clear filters',
@@ -330,11 +348,17 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverLayoutBuilder(
               builder: (_, constraints) {
-                final columns = constraints.crossAxisExtent >= 900
+                var columns = constraints.crossAxisExtent >= 900
                     ? 4
                     : constraints.crossAxisExtent >= 600
                     ? 3
                     : 2;
+                final textScale = MediaQuery.textScalerOf(context).scale(1);
+                if (constraints.crossAxisExtent / columns < 120 * textScale) {
+                  columns = (constraints.crossAxisExtent / (120 * textScale))
+                      .floor()
+                      .clamp(1, columns);
+                }
                 final width =
                     (constraints.crossAxisExtent - (columns - 1) * 12) /
                     columns;
@@ -352,7 +376,10 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                     crossAxisCount: columns,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    mainAxisExtent: width + 132,
+                    mainAxisExtent:
+                        width *
+                            (constraints.crossAxisExtent < 600 ? .72 : .95) +
+                        110 * textScale,
                   ),
                 );
               },
@@ -362,13 +389,13 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: OutlinedButton(
+              child: BuyerButton.secondary(
                 onPressed: _more ? null : () => _load(append: true),
                 child: _more
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        child: CupertinoActivityIndicator(),
                       )
                     : const Text('Load more products'),
               ),
@@ -377,7 +404,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
         if (widget.showIntro && _recent.isNotEmpty)
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -389,7 +416,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                       ),
-                      TextButton(
+                      BuyerButton.plain(
                         onPressed: () async {
                           await RecentlyViewedService.clear();
                           if (mounted) setState(() => _recent = []);
@@ -399,13 +426,15 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                     ],
                   ),
                   SizedBox(
-                    height: 275,
+                    height:
+                        146 * .72 +
+                        MediaQuery.textScalerOf(context).scale(1) * 110,
                     child: ListView.separated(
                       scrollDirection: Axis.horizontal,
                       itemCount: _recent.length,
                       separatorBuilder: (_, i) => const SizedBox(width: 12),
                       itemBuilder: (_, i) => SizedBox(
-                        width: 160,
+                        width: 146,
                         child: ProductCard(
                           data: _recent[i],
                           api: _api,
@@ -435,45 +464,57 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
     ),
   );
   Widget _intro() => Container(
-    padding: const EdgeInsets.all(18),
+    key: const ValueKey('catalog-intro'),
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     decoration: BoxDecoration(
       color: AppColors.surfaceTint,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
     ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Curated for you',
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 7),
-              const Text(
-                'Everyday essentials. Honest prices.',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 8),
-              TextButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ProductListScreen()),
-                ),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  alignment: Alignment.centerLeft,
-                ),
-                label: const Text('Explore sale'),
-                icon: const Icon(Icons.arrow_forward, size: 18),
-              ),
-            ],
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final message = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Curated for you',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontSize: 18),
+            ),
+            const Text(
+              'Cash on delivery.',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          ],
+        );
+        final action = BuyerButton.plain(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProductListScreen()),
           ),
-        ),
-        const SizedBox(width: 12),
-        InvoizLogo.logoWidget(size: 70, radius: 16),
-      ],
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            alignment: Alignment.centerLeft,
+          ),
+          label: const Text('Explore sale'),
+          icon: const Icon(CupertinoIcons.arrow_right, size: 18),
+        );
+        if (constraints.maxWidth <
+            250 * MediaQuery.textScalerOf(context).scale(1)) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [message, action],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: message),
+            const SizedBox(width: 8),
+            action,
+          ],
+        );
+      },
     ),
   );
   Widget _message(
@@ -492,7 +533,7 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
         const SizedBox(height: 8),
         Text(detail, textAlign: TextAlign.center),
         const SizedBox(height: 12),
-        OutlinedButton(onPressed: callback, child: Text(action)),
+        BuyerButton.secondary(onPressed: callback, child: Text(action)),
       ],
     ),
   );

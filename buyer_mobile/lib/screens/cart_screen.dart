@@ -1,3 +1,5 @@
+import '../widgets/buyer_controls.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/product_photo.dart';
 import '../services/buyer_updates.dart';
 import 'package:flutter/material.dart';
@@ -136,7 +138,7 @@ class _CartScreenState extends State<CartScreen> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -159,10 +161,10 @@ class _CartScreenState extends State<CartScreen> {
           Expanded(
             child: !signedIn
                 ? BuyerEmptyState(
-                    icon: Icons.shopping_bag_outlined,
+                    icon: CupertinoIcons.bag,
                     title: 'Your cart awaits',
                     description: 'Log in to see the items you saved.',
-                    action: FilledButton(
+                    action: BuyerButton.primary(
                       onPressed: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -171,13 +173,13 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   )
                 : _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CupertinoActivityIndicator())
                 : _cart == null || _cart!.items.isEmpty
                 ? BuyerEmptyState(
-                    icon: Icons.shopping_bag_outlined,
+                    icon: CupertinoIcons.bag,
                     title: 'Your cart is empty',
                     description: 'Find something you would love to bring home.',
-                    action: FilledButton(
+                    action: BuyerButton.primary(
                       onPressed: () => Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (_) => const HomeScreen()),
@@ -188,55 +190,68 @@ class _CartScreenState extends State<CartScreen> {
                   )
                 : _visibleItems.isEmpty
                 ? const BuyerEmptyState(
-                    icon: Icons.search,
+                    icon: CupertinoIcons.search,
                     title: 'No matching items',
                     description:
                         'Try another product name or clear your search.',
                   )
-                : RefreshIndicator(
+                : RefreshIndicator.adaptive(
                     onRefresh: _load,
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       itemCount: _visibleItems.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) => _cartItemTile(_visibleItems[i]),
                     ),
                   ),
           ),
           if (signedIn && !_loading && _cart?.items.isNotEmpty == true)
-            _checkoutBar(context),
+            Offstage(
+              offstage: MediaQuery.viewInsetsOf(context).bottom > 0,
+              child: _checkoutBar(context),
+            ),
         ],
       ),
     );
   }
 
   Widget _cartItemTile(CartItem item) => BuyerPanel(
-    padding: const EdgeInsets.all(14),
+    key: ValueKey('cart-item-${item.id}'),
+    padding: const EdgeInsets.all(10),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Semantics(
-              key: ValueKey('cart-selection-${item.id}'),
-              label: 'Select ${item.product.name}',
-              child: Checkbox(
-                value: _selected.contains(item.id),
-                onChanged: item.availableStock < item.quantity
-                    ? null
-                    : (value) => setState(() {
-                        if (value == true) {
-                          _selected.add(item.id);
-                        } else {
-                          _selected.remove(item.id);
-                        }
-                      }),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Semantics(
+                key: ValueKey('cart-selection-${item.id}'),
+                label: 'Select ${item.product.name}',
+                child: CupertinoCheckbox(
+                  shape: const CircleBorder(),
+                  fillColor: WidgetStateProperty.resolveWith(
+                    (states) => states.contains(WidgetState.selected)
+                        ? AppColors.primaryDark
+                        : Colors.transparent,
+                  ),
+                  value: _selected.contains(item.id),
+                  onChanged: item.availableStock < item.quantity
+                      ? null
+                      : (value) => setState(() {
+                          if (value == true) {
+                            _selected.add(item.id);
+                          } else {
+                            _selected.remove(item.id);
+                          }
+                        }),
+                ),
               ),
             ),
             InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -245,10 +260,10 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
                 child: SizedBox(
-                  width: 72,
-                  height: 88,
+                  width: 48,
+                  height: 56,
                   child: ProductPhoto(
                     path: item.product.image,
                     label: item.product.name,
@@ -256,71 +271,98 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     item.product.name,
+                    maxLines: MediaQuery.textScalerOf(context).scale(1) > 1.2
+                        ? null
+                        : 2,
+                    overflow: MediaQuery.textScalerOf(context).scale(1) > 1.2
+                        ? TextOverflow.visible
+                        : TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.4,
+                      fontSize: 14,
+                      height: 1.3,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
                   ),
                   if (item.variantLabel.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       item.variantLabel,
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 12, height: 1.3),
                     ),
                   ],
+                  const SizedBox(height: 3),
+                  Text(
+                    '${_fmt(item.unitPrice)} each',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.3,
+                      color: AppColors.textSecondary,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ShoppingPrice(_fmt(item.unitPrice), size: 18),
-        if (item.availableStock < item.quantity)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text(
-              'Unavailable in this quantity',
-              style: TextStyle(color: AppColors.danger, fontSize: 13),
-            ),
-          ),
-        const SizedBox(height: 14),
-        Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          alignment: WrapAlignment.spaceBetween,
-          children: [
-            ShoppingQuantity(
-              quantity: item.quantity,
-              onDecrease: item.availableStock < 1 || item.quantity <= 1
-                  ? null
-                  : () => _updateQty(item, item.quantity - 1),
-              onIncrease:
-                  item.quantity >= item.availableStock || item.quantity >= 200
-                  ? null
-                  : () => _updateQty(item, item.quantity + 1),
-            ),
-            TextButton.icon(
+            BuyerButton.icon(
+              tooltip: 'Remove item',
               onPressed: () => _remove(item),
-              icon: const Icon(Icons.delete_outline, size: 19),
-              label: const Text('Remove'),
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.textSecondary,
+              icon: const Icon(
+                CupertinoIcons.trash,
+                size: 18,
+                color: AppColors.textSecondary,
               ),
             ),
           ],
         ),
-        const Divider(height: 24),
-        ShoppingValueRow('Item total', _fmt(item.lineTotal)),
+        if (item.availableStock < item.quantity)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              'Unavailable in this quantity',
+              style: TextStyle(color: AppColors.danger, fontSize: 12),
+            ),
+          ),
+        const SizedBox(height: 6),
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Item total',
+                    style: TextStyle(fontSize: 12, height: 1.2),
+                  ),
+                  const SizedBox(height: 2),
+                  ShoppingPrice(_fmt(item.lineTotal), size: 16),
+                ],
+              ),
+              ShoppingQuantity(
+                quantity: item.quantity,
+                onDecrease: item.availableStock < 1 || item.quantity <= 1
+                    ? null
+                    : () => _updateQty(item, item.quantity - 1),
+                onIncrease:
+                    item.quantity >= item.availableStock || item.quantity >= 200
+                    ? null
+                    : () => _updateQty(item, item.quantity + 1),
+              ),
+            ],
+          ),
+        ),
       ],
     ),
   );
@@ -344,7 +386,7 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ],
         );
-        final checkout = FilledButton(
+        final checkout = BuyerButton.primary(
           onPressed: _selected.isEmpty
               ? null
               : () => Navigator.push(
@@ -356,7 +398,7 @@ class _CartScreenState extends State<CartScreen> {
                 ),
           child: const Text('Checkout'),
         );
-        if (constraints.maxWidth < 360 ||
+        if (constraints.maxWidth < 280 ||
             MediaQuery.textScalerOf(context).scale(1) > 1.2) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

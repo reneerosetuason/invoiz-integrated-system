@@ -1,3 +1,8 @@
+import '../widgets/buyer_dialog.dart';
+import '../widgets/buyer_controls.dart';
+import 'package:flutter/cupertino.dart';
+import '../widgets/buyer_scaffold.dart';
+import '../widgets/buyer_search.dart';
 import '../widgets/product_photo.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
@@ -182,47 +187,22 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return BuyerScaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.card,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Container(
-          height: 38,
-          decoration: BoxDecoration(
-            color: AppColors.surfaceSoft,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            children: [
-              const SizedBox(width: 10),
-              Icon(Icons.search, size: 18, color: AppColors.textSecondary),
-              const SizedBox(width: 6),
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  textInputAction: TextInputAction.search,
-                  onSubmitted: (_) => _load(),
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    hintText: 'Search in this store...',
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 9),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_cart_outlined),
+      leading: BuyerButton.icon(
+        icon: const Icon(CupertinoIcons.chevron_left),
+        onPressed: () => Navigator.pop(context),
+      ),
+      titleWidget: BuyerSearch(
+        controller: _searchCtrl,
+        onSubmitted: (_) => _load(),
+        hint: 'Search this store',
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BuyerButton.icon(
+            icon: const Icon(CupertinoIcons.cart),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const CartScreen()),
@@ -231,22 +211,48 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
           const SizedBox(width: 4),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
+      child: _loading
+          ? const Center(child: CupertinoActivityIndicator())
           : _store == null
           ? const Center(child: Text('Store not found.'))
           : Column(
               children: [
-                _storeHeader(context),
-                TabBar(
-                  controller: _tabController,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: AppColors.textSecondary,
-                  indicatorColor: AppColors.primary,
-                  tabs: const [
-                    Tab(text: 'Products'),
-                    Tab(text: 'Reviews'),
-                  ],
+                Offstage(
+                  offstage: MediaQuery.viewInsetsOf(context).bottom > 0,
+                  child: _storeHeader(context),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: CupertinoSlidingSegmentedControl<int>(
+                      groupValue: _tab,
+                      backgroundColor: AppColors.surfaceTint,
+                      thumbColor: AppColors.surface,
+                      onValueChanged: (value) {
+                        if (value != null) _tabController.animateTo(value);
+                      },
+                      children: const {
+                        0: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 6),
+                          child: Text(
+                            'Products',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 13),
+                          ),
+                        ),
+                        1: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 6),
+                          child: Text(
+                            'Reviews',
+                            style: TextStyle(fontFamily: 'Inter', fontSize: 13),
+                          ),
+                        ),
+                      },
+                    ),
+                  ),
                 ),
                 Expanded(
                   child: _tab == 0
@@ -280,7 +286,9 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 100,
+            height: (64 * MediaQuery.textScalerOf(context).scale(1))
+                .clamp(64.0, 96.0)
+                .toDouble(),
             width: double.infinity,
             decoration: BoxDecoration(color: AppColors.surfaceTint),
             child: Stack(
@@ -289,8 +297,8 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                   right: -16,
                   bottom: -22,
                   child: Icon(
-                    Icons.storefront,
-                    size: 110,
+                    CupertinoIcons.building_2_fill,
+                    size: 80,
                     color: AppColors.primary.withValues(alpha: 0.08),
                   ),
                 ),
@@ -301,8 +309,8 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                   child: Row(
                     children: [
                       Container(
-                        width: 54,
-                        height: 54,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: AppColors.card,
                           shape: BoxShape.circle,
@@ -336,7 +344,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                                     style: const TextStyle(
                                       fontFamily: 'Fraunces',
                                       color: AppColors.primaryDark,
-                                      fontSize: 22,
+                                      fontSize: 18,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -369,22 +377,40 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Row(
-              children: [
-                _statCell(rating.toStringAsFixed(1), 'Rating'),
-                _statCell('$_followers', 'Followers'),
-                _statCell('$productCount', 'Products'),
-                _statCell('$totalSold', 'Sold'),
-              ],
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: MediaQuery.textScalerOf(context).scale(1) > 1.2
+                ? Column(
+                    children: [
+                      Row(
+                        children: [
+                          _statCell(rating.toStringAsFixed(1), 'Rating'),
+                          _statCell('$_followers', 'Followers'),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _statCell('$productCount', 'Products'),
+                          _statCell('$totalSold', 'Sold'),
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      _statCell(rating.toStringAsFixed(1), 'Rating'),
+                      _statCell('$_followers', 'Followers'),
+                      _statCell('$productCount', 'Products'),
+                      _statCell('$totalSold', 'Sold'),
+                    ],
+                  ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
             child: Row(
               children: [
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: BuyerButton.secondary(
                     onPressed: _followBusy ? null : _toggleFollow,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _following
@@ -395,21 +421,26 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                             ? AppColors.border
                             : AppColors.primary,
                       ),
-                      minimumSize: const Size.fromHeight(42),
+                      minimumSize: const Size.fromHeight(44),
                     ),
                     icon: _followBusy
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CupertinoActivityIndicator(),
                           )
-                        : Icon(_following ? Icons.check : Icons.add, size: 18),
+                        : Icon(
+                            _following
+                                ? CupertinoIcons.check_mark
+                                : CupertinoIcons.add,
+                            size: 18,
+                          ),
                     label: Text(_following ? 'Following' : 'Follow'),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: OutlinedButton.icon(
+                  child: BuyerButton.secondary(
                     onPressed: () => openSellerChat(
                       context,
                       sellerId: sellerId,
@@ -418,10 +449,10 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                           'Hello $name! I have a question about your products.',
                     ),
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(42),
+                      minimumSize: const Size.fromHeight(44),
                       foregroundColor: AppColors.primary,
                     ),
-                    icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                    icon: const Icon(CupertinoIcons.chat_bubble, size: 18),
                     label: const Text('Chat'),
                   ),
                 ),
@@ -433,7 +464,11 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
               child: Row(
                 children: [
-                  Icon(Icons.storefront, size: 14, color: AppColors.primary),
+                  Icon(
+                    CupertinoIcons.building_2_fill,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     'This is your own store.',
@@ -466,7 +501,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
           const SizedBox(height: 2),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -492,13 +527,13 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                   color: AppColors.surfaceSoft,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: PopupMenuButton<String>(
+                child: BuyerActionMenu<String>(
                   initialValue: _sort,
                   onSelected: (v) {
                     setState(() => _sort = v);
                     _load();
                   },
-                  icon: const Icon(Icons.sort, size: 18),
+                  icon: const Icon(CupertinoIcons.sort_down, size: 18),
                   tooltip: 'Sort',
                   itemBuilder: (_) => const [
                     PopupMenuItem(value: 'newest', child: Text('Newest')),
@@ -520,29 +555,47 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         Expanded(
           child: _products.isEmpty
               ? const Center(child: Text('No products in this store.'))
-              : GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 14,
-                    crossAxisSpacing: 14,
-                    childAspectRatio: 0.64,
-                  ),
-                  itemCount:
-                      _products.length +
-                      (_productsPage < _productsLastPage ? 1 : 0),
-                  itemBuilder: (context, i) => i < _products.length
-                      ? _productCard(_products[i])
-                      : Center(
-                          child: OutlinedButton(
-                            onPressed: _loadingMore
-                                ? null
-                                : () => _load(more: true),
-                            child: Text(
-                              _loadingMore ? 'Loading…' : 'More products',
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final textScale = MediaQuery.textScalerOf(context).scale(1);
+                    final columns = constraints.maxWidth >= 1000
+                        ? 4
+                        : constraints.maxWidth >= 700
+                        ? 3
+                        : textScale > 1.2
+                        ? 1
+                        : 2;
+                    final tileWidth =
+                        (constraints.maxWidth - 32 - (columns - 1) * 12) /
+                        columns;
+                    return GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: columns,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        mainAxisExtent:
+                            tileWidth *
+                                (constraints.maxWidth < 600 ? .72 : .95) +
+                            112 * textScale,
+                      ),
+                      itemCount:
+                          _products.length +
+                          (_productsPage < _productsLastPage ? 1 : 0),
+                      itemBuilder: (context, i) => i < _products.length
+                          ? _productCard(_products[i])
+                          : Center(
+                              child: BuyerButton.secondary(
+                                onPressed: _loadingMore
+                                    ? null
+                                    : () => _load(more: true),
+                                child: Text(
+                                  _loadingMore ? 'Loading…' : 'More products',
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
+                    );
+                  },
                 ),
         ),
       ],
@@ -603,7 +656,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                         children: List.generate(
                           5,
                           (i) => Icon(
-                            Icons.star,
+                            CupertinoIcons.star_fill,
                             size: 18,
                             color: i < rating.round()
                                 ? AppColors.gold
@@ -630,10 +683,10 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
           ),
         ),
         const SizedBox(height: 16),
-        if (_reviewsLoading) const Center(child: CircularProgressIndicator()),
+        if (_reviewsLoading) const Center(child: CupertinoActivityIndicator()),
         if (_reviewsError != null) ...[
           Text(_reviewsError!),
-          TextButton(
+          BuyerButton.plain(
             onPressed: _loadReviews,
             child: const Text('Retry reviews'),
           ),
@@ -651,7 +704,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         else
           ..._reviews.map((r) => _reviewTile(r)),
         if (_reviewsPage < _reviewsLastPage && _reviews.isNotEmpty)
-          TextButton(
+          BuyerButton.plain(
             onPressed: _reviewsLoading ? null : () => _loadReviews(more: true),
             child: const Text('More reviews'),
           ),
@@ -666,7 +719,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
       child: Row(
         children: [
           Text('$star', style: const TextStyle(fontSize: 12)),
-          Icon(Icons.star, size: 13, color: AppColors.gold),
+          Icon(CupertinoIcons.star_fill, size: 13, color: AppColors.gold),
           const SizedBox(width: 8),
           Expanded(
             child: ClipRRect(
@@ -725,7 +778,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                 children: List.generate(
                   5,
                   (i) => Icon(
-                    Icons.star,
+                    CupertinoIcons.star_fill,
                     size: 13,
                     color: i < rating ? AppColors.gold : AppColors.border,
                   ),
@@ -783,43 +836,52 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              height: 138,
-              width: double.infinity,
-              color: AppColors.surfaceSoft,
-              child: _productImage(p['image'] as String?),
-            ),
             Expanded(
+              child: Container(
+                width: double.infinity,
+                color: AppColors.surfaceSoft,
+                child: _productImage(p['image'] as String?),
+              ),
+            ),
+            SizedBox(
+              height: 112 * MediaQuery.textScalerOf(context).scale(1),
               child: Padding(
                 padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      p['name'] as String,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.25,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                    SizedBox(
+                      height: 36.4 * MediaQuery.textScalerOf(context).scale(1),
+                      child: Text(
+                        p['name'] as String,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 1.3,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _formatPrice(price),
                       style: TextStyle(
-                        color: AppColors.warning,
+                        color: AppColors.primaryDark,
                         fontWeight: FontWeight.w800,
-                        fontSize: 14,
+                        fontSize: 16,
                       ),
                     ),
                     const Spacer(),
                     Row(
                       children: [
                         if (rating != null) ...[
-                          Icon(Icons.star, color: AppColors.gold, size: 12),
+                          Icon(
+                            CupertinoIcons.star_fill,
+                            color: AppColors.gold,
+                            size: 12,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             rating.toStringAsFixed(1),

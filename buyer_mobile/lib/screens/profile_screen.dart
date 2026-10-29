@@ -1,3 +1,7 @@
+import '../widgets/buyer_picker.dart';
+import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -190,7 +194,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
           children: [
             const BuyerPageHeading(
               title: 'Your profile',
@@ -203,8 +207,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Stack(
                   children: [
                     Container(
-                      width: 90,
-                      height: 90,
+                      width: 72,
+                      height: 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.transparent,
@@ -219,21 +223,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ? Image.network(
                                       _profilePicture!.path,
                                       fit: BoxFit.cover,
-                                      width: 90,
-                                      height: 90,
+                                      width: 72,
+                                      height: 72,
                                     )
                                   : Image.file(
                                       File(_profilePicture!.path),
                                       fit: BoxFit.cover,
-                                      width: 90,
-                                      height: 90,
+                                      width: 72,
+                                      height: 72,
                                     ))
                             : hasNetworkAvatar
                             ? Image.network(
                                 AppConfig.storageUrl(user.profilePicture),
                                 fit: BoxFit.cover,
-                                width: 90,
-                                height: 90,
+                                width: 72,
+                                height: 72,
                                 errorBuilder: (_, __, ___) =>
                                     _avatarFallback(user),
                               )
@@ -274,7 +278,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
+                  BuyerField.form(
                     controller: _bio,
                     maxLength: 200,
                     maxLines: 3,
@@ -292,28 +296,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
+                  BuyerField.form(
                     controller: _lastName,
                     decoration: const InputDecoration(labelText: 'Last name*'),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _firstName,
                     decoration: const InputDecoration(labelText: 'First name*'),
                     validator: (v) =>
                         (v == null || v.isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _middleInitial,
                     decoration: const InputDecoration(
                       labelText: 'Middle initial',
                     ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  BuyerPicker<String>(
                     value: _sex,
                     decoration: const InputDecoration(labelText: 'Sex'),
                     items: ['male', 'female', 'other']
@@ -332,7 +336,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     onChanged: (v) => setState(() => _sex = v),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _phone,
                     decoration: const InputDecoration(labelText: 'Contact No.'),
                   ),
@@ -345,24 +349,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
+                  BuyerField.form(
                     controller: _province,
                     decoration: const InputDecoration(labelText: 'Province'),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _municipality,
                     decoration: const InputDecoration(
                       labelText: 'Municipality',
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _barangay,
                     decoration: const InputDecoration(labelText: 'Barangay'),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _street,
                     decoration: const InputDecoration(
                       labelText: 'Street / House no.',
@@ -379,7 +383,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  TextFormField(
+                  BuyerField.form(
                     controller: _currentPassword,
                     obscureText: true,
                     decoration: const InputDecoration(
@@ -392,7 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _password,
                     obscureText: true,
                     decoration: const InputDecoration(
@@ -400,7 +404,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
+                  BuyerField.form(
                     controller: _passwordConfirm,
                     obscureText: true,
                     decoration: const InputDecoration(
@@ -430,8 +434,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           Icon(
                             _idImage == null
-                                ? Icons.upload_file
-                                : Icons.check_circle,
+                                ? CupertinoIcons.doc_on_clipboard
+                                : CupertinoIcons.checkmark_circle_fill,
                             color: _idImage == null
                                 ? AppColors.textSecondary
                                 : AppColors.success,
@@ -457,7 +461,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 16),
             const SizedBox(height: 24),
-            ElevatedButton(
+            BuyerButton.primary(
               onPressed: _busy ? null : _save,
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size.fromHeight(46),
@@ -466,10 +470,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ? const SizedBox(
                       width: 22,
                       height: 22,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
+                      child: CupertinoActivityIndicator(color: Colors.white),
                     )
                   : const Text('Save Changes'),
             ),
@@ -482,8 +483,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _avatarFallback(dynamic user) {
     return Container(
-      width: 90,
-      height: 90,
+      width: 72,
+      height: 72,
       color: Colors.transparent,
       child: Center(
         child: Text(
@@ -493,7 +494,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .toUpperCase(),
           style: TextStyle(
             color: AppColors.primary,
-            fontSize: 32,
+            fontSize: 26,
             fontWeight: FontWeight.w700,
           ),
         ),

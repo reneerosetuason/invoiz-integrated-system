@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/product_photo.dart';
@@ -125,7 +126,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     child: Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -144,7 +145,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
           child: Row(
             children: _tabs
                 .map(
@@ -158,15 +159,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       backgroundColor: AppColors.paper,
                       labelStyle: TextStyle(
                         fontFamily: 'Inter',
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: _status == tab.$1
                             ? AppColors.surface
                             : AppColors.textPrimary,
                       ),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                        horizontal: 6,
+                        vertical: 4,
                       ),
                       onSelected: (_) {
                         setState(() => _status = tab.$1);
@@ -180,8 +181,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
+              ? const Center(child: CupertinoActivityIndicator())
+              : RefreshIndicator.adaptive(
                   onRefresh: _load,
                   child: _orders.isEmpty
                       ? LayoutBuilder(
@@ -191,7 +192,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                               SizedBox(
                                 height: constraints.maxHeight,
                                 child: BuyerEmptyState(
-                                  icon: Icons.receipt_long_outlined,
+                                  icon: CupertinoIcons.doc_text,
                                   title: _search.isNotEmpty
                                       ? 'No matching orders'
                                       : 'No orders here yet',
@@ -208,7 +209,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                           itemCount: _orders.length,
                           separatorBuilder: (_, __) =>
-                              const SizedBox(height: 14),
+                              const SizedBox(height: 10),
                           itemBuilder: (_, i) => _orderCard(_orders[i]),
                         ),
                 ),
@@ -221,10 +222,11 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final first = order.items.firstOrNull;
     final others = order.items.length - 1;
     return Material(
+      key: ValueKey('order-card-${order.id}'),
       color: AppColors.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: AppColors.border),
+        side: const BorderSide(color: AppColors.border, width: .5),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -239,109 +241,138 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (mounted) _load();
         },
         child: Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Order #${order.id}',
-                    style: Theme.of(context).textTheme.titleLarge,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Order #${order.id}',
+                          style: const TextStyle(
+                            fontFamily: 'Inter',
+                            fontSize: 13,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Placed ${_date(order.createdAt)}',
+                          style: const TextStyle(fontSize: 12, height: 1.3),
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   BuyerStatusChip(
                     status: order.status,
                     label: _statusLabel(order.status),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Placed ${_date(order.createdAt)}',
-                style: const TextStyle(fontSize: 13),
-              ),
-              const Divider(height: 28),
-              if (first != null)
+              if (first != null) ...[
+                const SizedBox(height: 8),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: SizedBox(
-                        width: 64,
-                        height: 80,
+                        width: 48,
+                        height: 56,
                         child: ProductPhoto(
                           path: first.productImage,
                           label: first.productName,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             first.productName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+                            maxLines:
+                                MediaQuery.textScalerOf(context).scale(1) > 1.2
+                                ? null
+                                : 2,
+                            overflow:
+                                MediaQuery.textScalerOf(context).scale(1) > 1.2
+                                ? TextOverflow.visible
+                                : TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
+                              height: 1.3,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary,
-                              height: 1.4,
                             ),
                           ),
-                          if (first.variantLabel?.isNotEmpty == true) ...[
-                            const SizedBox(height: 4),
-                            Text(first.variantLabel!),
-                          ],
                           const SizedBox(height: 4),
-                          Text(
-                            others > 0
-                                ? '+$others more item${others == 1 ? '' : 's'}'
-                                : 'Quantity ${first.quantity}',
-                            style: const TextStyle(fontSize: 13),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 2,
+                            children: [
+                              if (first.variantLabel?.isNotEmpty == true)
+                                Text(
+                                  first.variantLabel!,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              Text(
+                                others > 0
+                                    ? '+$others more item${others == 1 ? '' : 's'}'
+                                    : 'Quantity ${first.quantity}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-              const Divider(height: 28),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                spacing: 16,
-                runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Order total', style: TextStyle(fontSize: 13)),
-                      const SizedBox(height: 3),
-                      ShoppingPrice(_fmt(order.totalAmount)),
-                    ],
-                  ),
-                  const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View order',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryDark,
+              ],
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  spacing: 12,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Total', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 6),
+                        ShoppingPrice(_fmt(order.totalAmount), size: 16),
+                      ],
+                    ),
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View order',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryDark,
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, size: 19),
-                    ],
-                  ),
-                ],
+                        SizedBox(width: 6),
+                        Icon(CupertinoIcons.arrow_right, size: 16),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

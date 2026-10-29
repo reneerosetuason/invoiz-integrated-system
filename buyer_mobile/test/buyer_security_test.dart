@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -366,7 +367,16 @@ void main() {
     );
     await tester.pumpWidget(app(OrderDetailScreen(orderId: 42, api: api)));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Request return'), 250);
+    await tester.scrollUntilVisible(
+      find.text('Request return'),
+      250,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Request return'));
     await tester.pumpAndSettle();
@@ -393,7 +403,16 @@ void main() {
     );
     await tester.pumpWidget(app(OrderDetailScreen(orderId: 42, api: api)));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('Show delivery code'), 200);
+    await tester.scrollUntilVisible(
+      find.text('Show delivery code'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Show delivery code'));
     await tester.pumpAndSettle();
@@ -492,11 +511,13 @@ void main() {
       );
       await tester.pumpWidget(app(CartScreen(api: api), auth: _SignedInAuth()));
       await tester.pumpAndSettle();
-      final check = tester.widget<Checkbox>(find.byType(Checkbox));
+      final check = tester.widget<CupertinoCheckbox>(
+        find.byType(CupertinoCheckbox),
+      );
       expect(check.value, isFalse);
       expect(check.onChanged, isNull);
       expect(find.text('Unavailable in this quantity'), findsOneWidget);
-      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+      expect(find.byIcon(CupertinoIcons.trash), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     },
   );

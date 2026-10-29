@@ -1,3 +1,5 @@
+import 'package:invoiz/widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -62,7 +64,7 @@ void main() {
     ApiService.onSessionInvalidated = null;
   });
   for (final index in [-1, 5, 999]) {
-    testWidgets('secondary/invalid tab $index never crashes NavigationBar', (
+    testWidgets('secondary/invalid tab $index never crashes CupertinoTabBar', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -77,7 +79,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Secondary page'), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(CupertinoTabBar), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
@@ -98,8 +100,8 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           tester
-              .widget<NavigationBar>(find.byType(NavigationBar))
-              .selectedIndex,
+              .widget<CupertinoTabBar>(find.byType(CupertinoTabBar))
+              .currentIndex,
           index,
         );
         expect(tester.takeException(), isNull);
@@ -127,10 +129,10 @@ void main() {
       );
       await tester.pumpWidget(app(HomeScreen(api: api)));
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.chat_bubble_outline_rounded));
+      await tester.tap(find.byIcon(CupertinoIcons.chat_bubble));
       await tester.pumpAndSettle();
       expect(find.text('No conversations yet.'), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(CupertinoTabBar), findsNothing);
       await tester.tap(find.text('Start a Conversation'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Send'));
@@ -140,10 +142,10 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pageBack();
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(Icons.notifications_outlined));
+      await tester.tap(find.byIcon(CupertinoIcons.bell));
       await tester.pumpAndSettle();
       expect(find.text('No notifications yet.'), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(CupertinoTabBar), findsNothing);
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(find.byType(HomeScreen), findsOneWidget);
@@ -178,7 +180,7 @@ void main() {
       await tester.tap(find.text('Product question'));
       await tester.pumpAndSettle();
       expect(find.text('Shop reply'), findsOneWidget);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(CupertinoTabBar), findsNothing);
       await tester.pageBack();
       await tester.pumpAndSettle();
       expect(reads, 2);
@@ -205,23 +207,32 @@ void main() {
         app(ChatThreadScreen(api: api, conversationId: 9, subject: 'Shop')),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Keep this draft');
-      await tester.tap(find.byIcon(Icons.send));
+      await tester.enterText(
+        find.byType(CupertinoTextField),
+        'Keep this draft',
+      );
+      await tester.tap(find.byIcon(CupertinoIcons.arrow_up));
       await tester.pumpAndSettle();
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester
+            .widget<CupertinoTextField>(find.byType(CupertinoTextField))
+            .controller!
+            .text,
         'Keep this draft',
       );
-      await tester.tap(find.byIcon(Icons.send));
+      await tester.tap(find.byIcon(CupertinoIcons.arrow_up));
       await tester.pump();
-      tester.widget<TextField>(find.byType(TextField)).onSubmitted!(
-        'Keep this draft',
-      );
+      tester
+          .widget<CupertinoTextField>(find.byType(CupertinoTextField))
+          .onSubmitted!('Keep this draft');
       expect(sends, 2);
       pending.complete(json({'message': message(2, 'Keep this draft')}, 201));
       await tester.pumpAndSettle();
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester
+            .widget<CupertinoTextField>(find.byType(CupertinoTextField))
+            .controller!
+            .text,
         isEmpty,
       );
       expect(find.text('Keep this draft'), findsOneWidget);
@@ -243,8 +254,8 @@ void main() {
         app(ChatThreadScreen(api: api, conversationId: 9, subject: 'Shop')),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Fixture reply');
-      await tester.tap(find.byIcon(Icons.send));
+      await tester.enterText(find.byType(CupertinoTextField), 'Fixture reply');
+      await tester.tap(find.byIcon(CupertinoIcons.arrow_up));
       await tester.pump();
       await tester.pumpWidget(const SizedBox());
       pending.complete(json({'message': message(2, 'Fixture reply')}, 201));
@@ -380,7 +391,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(OrderDetailScreen), findsOneWidget);
       expect(find.text('Order #42'), findsWidgets);
-      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.byType(CupertinoTabBar), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -421,7 +432,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('1'), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.notifications_outlined));
+      await tester.tap(find.byIcon(CupertinoIcons.bell));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Mark all as read'));
       await tester.pump();
@@ -488,7 +499,7 @@ void main() {
       await tester.tap(find.text('Start a Conversation'));
       await tester.pumpAndSettle();
       await tester.enterText(
-        find.byType(TextFormField).last,
+        find.byType(BuyerField).last,
         'Support fixture text',
       );
       await tester.ensureVisible(find.text('Send'));
@@ -497,7 +508,7 @@ void main() {
       expect(find.text('Please retry.'), findsOneWidget);
       expect(
         tester
-            .widget<TextFormField>(find.byType(TextFormField).last)
+            .widget<BuyerField>(find.byType(BuyerField).last)
             .controller!
             .text,
         'Support fixture text',
@@ -540,7 +551,7 @@ void main() {
       await tester.pumpWidget(app(FavoritesScreen(api: api)));
       await tester.pumpAndSettle();
       expect(find.text('Favorite fixture'), findsOneWidget);
-      final heart = find.byIcon(Icons.favorite);
+      final heart = find.byIcon(CupertinoIcons.heart_fill);
       await tester.tap(heart);
       await tester.tap(heart);
       expect(writes, 1);

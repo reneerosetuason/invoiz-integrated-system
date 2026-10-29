@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart';
+import 'buyer_controls.dart';
 import 'package:flutter/material.dart';
 
 /// Gives inbox failures a visible recovery action instead of a false empty state.
@@ -13,13 +15,13 @@ class InboxStatus extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.cloud_off_outlined, size: 40),
+          const Icon(CupertinoIcons.cloud, size: 40),
           const SizedBox(height: 12),
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          FilledButton.icon(
+          BuyerButton.primary(
             onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(CupertinoIcons.refresh),
             label: const Text('Try again'),
           ),
         ],

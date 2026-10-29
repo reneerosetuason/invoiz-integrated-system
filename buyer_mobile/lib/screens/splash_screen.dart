@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/invoiz_logo.dart';
 import 'home_screen.dart';
 
@@ -29,9 +30,9 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return CupertinoPageScaffold(
       backgroundColor: Colors.white,
-      body: SafeArea(
+      child: SafeArea(
         child: Center(
           child: Hero(
             tag: 'invoiz_logo',

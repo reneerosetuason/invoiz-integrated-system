@@ -1,3 +1,5 @@
+import '../widgets/buyer_controls.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/product_gallery.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/shopping_ui.dart';
@@ -157,7 +159,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       showBottomNav: false,
       title: 'Product',
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CupertinoActivityIndicator())
           : _product == null
           ? const Center(child: Text('Product not found.'))
           : Column(
@@ -172,17 +174,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _buyBar(BuildContext context) => ShoppingDock(
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final add = OutlinedButton(
+        final add = BuyerButton.secondary(
           onPressed: _adding || _availableStock == 0 ? null : _addToCart,
           child: _adding
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
+                  child: CupertinoActivityIndicator(),
                 )
               : const Text('Add to Cart'),
         );
-        final buy = FilledButton(
+        final buy = BuyerButton.primary(
           onPressed: _adding || _availableStock == 0 ? null : _buyNow,
           child: Text(_availableStock == 0 ? 'Sold out' : 'Buy Now'),
         );
@@ -236,21 +238,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   Widget _build(BuildContext context) {
     final p = _product!;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
       children: [
         _gallerySection(context, p),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
         if (p.brand?.isNotEmpty == true) ...[
           Text(
             p.brand!,
             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
         ],
-        Text(p.name, style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 12),
-        ShoppingPrice(_fmt(_unitPrice), size: 30),
-        const SizedBox(height: 12),
+        Text(
+          p.name,
+          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            fontSize: MediaQuery.sizeOf(context).width < 600 ? 24 : 26,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ShoppingPrice(
+          _fmt(_unitPrice),
+          size: MediaQuery.sizeOf(context).width < 600 ? 22 : 26,
+        ),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 14,
           runSpacing: 8,
@@ -260,7 +270,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.star, color: AppColors.gold, size: 18),
+                  const Icon(
+                    CupertinoIcons.star_fill,
+                    color: AppColors.gold,
+                    size: 18,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     p.rating!.toStringAsFixed(1),
@@ -275,15 +289,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             Text('$_availableStock left in stock'),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 4),
         Wrap(
           spacing: 12,
           runSpacing: 4,
           children: [
-            TextButton.icon(
+            BuyerButton.plain(
               onPressed: _toggleFavorite,
               icon: Icon(
-                _isFavorited ? Icons.favorite : Icons.favorite_border,
+                _isFavorited ? CupertinoIcons.heart_fill : CupertinoIcons.heart,
                 size: 21,
                 color: _isFavorited ? AppColors.danger : AppColors.primaryDark,
               ),
@@ -291,7 +305,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 _isFavorited ? 'Saved to wishlist' : 'Save to wishlist',
               ),
             ),
-            TextButton.icon(
+            BuyerButton.plain(
               onPressed: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -300,12 +314,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       : const LoginScreen(),
                 ),
               ),
-              icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+              icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
               label: const Text('Chat'),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         if (p.variants.isNotEmpty) ...[
           BuyerPanel(
             title: 'Choose an option',
@@ -314,7 +328,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               children: _buildVariantGroups(p.variants),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
         ],
         BuyerPanel(
           title: 'Quantity',
@@ -339,9 +353,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         _sellerCard(context, p),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         BuyerPanel(
           title: 'Product Details',
           child: Text(
@@ -349,14 +363,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 ? p.description!
                 : 'No description provided.',
             style: const TextStyle(
-              fontSize: 15,
-              height: 1.65,
+              fontSize: 14,
+              height: 1.5,
               color: AppColors.textPrimary,
             ),
           ),
         ),
         _specificationsSection(context, p),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         BuyerPanel(title: 'Ratings & Reviews', child: _reviewsSection()),
       ],
     );
@@ -381,7 +395,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     ];
     if (specs.isEmpty) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.only(top: 12),
       child: BuyerPanel(
         title: 'Specifications',
         child: Column(
@@ -402,7 +416,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
     return groups.entries.map((entry) {
       return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: 4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -501,8 +515,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          OutlinedButton(
+          const SizedBox(height: 12),
+          BuyerButton.secondary(
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -553,7 +567,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     children: List.generate(
                       5,
                       (i) => Icon(
-                        Icons.star,
+                        CupertinoIcons.star_fill,
                         size: 14,
                         color: i < r.rating ? AppColors.gold : AppColors.border,
                       ),
@@ -567,8 +581,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Text(
                     r.comment!,
                     style: const TextStyle(
-                      fontSize: 15,
-                      height: 1.6,
+                      fontSize: 14,
+                      height: 1.5,
                       color: AppColors.textPrimary,
                     ),
                   ),

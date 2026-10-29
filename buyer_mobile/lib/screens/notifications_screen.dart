@@ -1,3 +1,5 @@
+import '../widgets/buyer_controls.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
@@ -147,16 +149,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       showBottomNav: false,
       showTopActions: false,
       actions: [
-        IconButton(
+        BuyerButton.icon(
           tooltip: 'Refresh notifications',
           onPressed: _loading || _markingAll || _opening ? null : _load,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(CupertinoIcons.refresh),
         ),
       ],
       showNotificationIcon: false,
       showSettingsIcon: false,
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CupertinoActivityIndicator())
           : _error != null
           ? InboxStatus(message: _error!, onRetry: _load)
           : _items.isEmpty
@@ -165,20 +167,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               title: 'No notifications yet.',
               description:
                   'Your order updates and message alerts will appear here.',
-              action: TextButton.icon(
+              action: BuyerButton.plain(
                 onPressed: _load,
-                icon: const Icon(Icons.refresh),
+                icon: const Icon(CupertinoIcons.refresh),
                 label: const Text('Refresh'),
               ),
             )
-          : RefreshIndicator(
+          : RefreshIndicator.adaptive(
               onRefresh: _load,
               child: Column(
                 children: [
                   if (_unreadCount > 0)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                      child: Row(
+                      child: Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 4,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -198,8 +204,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               ),
                             ),
                           ),
-                          const Spacer(),
-                          TextButton.icon(
+                          BuyerButton.plain(
                             onPressed: _markingAll || _opening
                                 ? null
                                 : _markAllRead,
@@ -210,6 +215,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             style: TextButton.styleFrom(
                               foregroundColor: AppColors.primary,
                               textStyle: const TextStyle(
+                                fontFamily: 'Inter',
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -241,7 +247,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final Color color;
     switch (type) {
       case 'chat':
-        icon = Icons.chat_bubble_outline;
+        icon = CupertinoIcons.chat_bubble;
         color = AppColors.primary;
         break;
       case 'review':

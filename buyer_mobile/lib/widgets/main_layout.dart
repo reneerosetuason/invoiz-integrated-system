@@ -1,3 +1,6 @@
+import 'buyer_controls.dart';
+import 'buyer_scaffold.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../screens/account_screen.dart';
 import '../screens/cart_screen.dart';
@@ -41,75 +44,79 @@ class MainLayout extends StatelessWidget {
     this.actions = const [],
   });
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: AppColors.background,
-    extendBody: false,
-    appBar: showAppBar
-        ? AppBar(
-            titleSpacing: 12,
-            title: Row(
-              children: [
-                InvoizLogo.logoWidget(size: 30, radius: 8),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    title.isEmpty ? 'INVOIZ' : title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+  Widget build(BuildContext context) {
+    final headerActions = <Widget>[
+      ...actions,
+      if (showTopActions && showMessageIcon)
+        AppMessageBadge(
+          api: api,
+          iconSize: 23,
+          iconColor: AppColors.primaryDark,
+          background: AppColors.surfaceTint,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AuthServiceProvider.of(context).isLoggedIn
+                  ? ChatScreen(api: api)
+                  : const LoginScreen(),
             ),
-            actions: [
-              ...actions,
-              if (showTopActions && showMessageIcon)
-                AppMessageBadge(
-                  api: api,
-                  iconColor: AppColors.primaryDark,
-                  background: AppColors.surfaceTint,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AuthServiceProvider.of(context).isLoggedIn
-                          ? ChatScreen(api: api)
-                          : const LoginScreen(),
-                    ),
-                  ),
-                ),
-              if (showNotificationIcon)
-                AppNotificationBell(
-                  api: api,
-                  background: AppColors.surfaceTint,
-                ),
-              if (showTopActions && showSettingsIcon)
-                IconButton(
-                  tooltip: 'Account',
-                  icon: const Icon(Icons.person_outline),
-                  onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AuthServiceProvider.of(context).isLoggedIn
-                          ? const AccountScreen()
-                          : const LoginScreen(),
-                    ),
-                  ),
-                ),
-              const SizedBox(width: 8),
-            ],
-          )
-        : null,
-    body: Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: showBottomNav ? 1200 : 760),
-        child: SizedBox(width: double.infinity, child: child),
+          ),
+        ),
+      if (showNotificationIcon)
+        AppNotificationBell(
+          api: api,
+          iconSize: 23,
+          background: AppColors.surfaceTint,
+        ),
+      if (showTopActions && showSettingsIcon)
+        BuyerButton.icon(
+          tooltip: 'Account',
+          icon: const Icon(CupertinoIcons.person, size: 23),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AuthServiceProvider.of(context).isLoggedIn
+                  ? const AccountScreen()
+                  : const LoginScreen(),
+            ),
+          ),
+        ),
+      const SizedBox(width: 8),
+    ];
+    final stackActions =
+        MediaQuery.sizeOf(context).width < 380 && headerActions.length > 4;
+    return BuyerScaffold(
+      title: title.isEmpty ? 'INVOIZ' : title,
+      showNavigationBar: showAppBar,
+      leading:
+          showBottomNav && currentIndex >= 0 && currentIndex < destinationCount
+          ? InvoizLogo.logoWidget(size: 32, radius: 9)
+          : null,
+      trailing: stackActions
+          ? null
+          : Row(mainAxisSize: MainAxisSize.min, children: headerActions),
+      header: stackActions
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: headerActions,
+            )
+          : null,
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: showBottomNav ? 1200 : 760),
+          child: SizedBox(width: double.infinity, child: child),
+        ),
       ),
-    ),
-    bottomNavigationBar:
-        showBottomNav && currentIndex >= 0 && currentIndex < destinationCount
-        ? _BottomNav(currentIndex: currentIndex)
-        : null,
-  );
+      bottomBar:
+          showBottomNav && currentIndex >= 0 && currentIndex < destinationCount
+          ? Offstage(
+              offstage: MediaQuery.viewInsetsOf(context).bottom > 0,
+              child: _BottomNav(currentIndex: currentIndex),
+            )
+          : null,
+    );
+  }
 }
 
 class _BottomNav extends StatefulWidget {
@@ -185,44 +192,81 @@ class _BottomNavState extends State<_BottomNav> {
   }
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: const BoxDecoration(
-      border: Border(top: BorderSide(color: AppColors.border)),
-    ),
-    child: NavigationBar(
-      selectedIndex: widget.currentIndex,
-      onDestinationSelected: _go,
-      destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.grid_view_outlined),
-          selectedIcon: Icon(Icons.grid_view_rounded),
-          label: 'Shop',
-        ),
-        NavigationDestination(
-          icon: Badge(
-            isLabelVisible: _cartCount > 0,
-            label: Text(_cartCount > 99 ? '99+' : '$_cartCount'),
-            child: const Icon(Icons.shopping_bag_outlined),
+  Widget build(BuildContext context) => SafeArea(
+    top: false,
+    minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+    child: Align(
+      heightFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 540),
+        child: DecoratedBox(
+          key: const ValueKey('floating-tab-pill'),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryDark.withValues(alpha: .12),
+                blurRadius: 24,
+                offset: const Offset(0, 6),
+              ),
+            ],
+            border: Border.all(
+              color: AppColors.border.withValues(alpha: .8),
+              width: .5,
+            ),
           ),
-          selectedIcon: const Icon(Icons.shopping_bag),
-          label: 'Cart',
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: MediaQuery.withNoTextScaling(
+              child: CupertinoTabBar(
+                currentIndex: widget.currentIndex,
+                onTap: _go,
+                activeColor: AppColors.primaryDark,
+                inactiveColor: AppColors.textMuted,
+                backgroundColor: AppColors.paper.withValues(alpha: .96),
+                border: null,
+                height: 62,
+                iconSize: 25,
+                items: [
+                  const BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.house),
+                    activeIcon: Icon(CupertinoIcons.house_fill),
+                    label: 'Home',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.square_grid_2x2),
+                    activeIcon: Icon(CupertinoIcons.square_grid_2x2_fill),
+                    label: 'Shop',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Badge(
+                      isLabelVisible: _cartCount > 0,
+                      label: Text(_cartCount > 99 ? '99+' : '$_cartCount'),
+                      child: const Icon(CupertinoIcons.bag),
+                    ),
+                    activeIcon: Badge(
+                      isLabelVisible: _cartCount > 0,
+                      label: Text(_cartCount > 99 ? '99+' : '$_cartCount'),
+                      child: const Icon(CupertinoIcons.bag_fill),
+                    ),
+                    label: 'Cart',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.doc_text),
+                    activeIcon: Icon(CupertinoIcons.doc_text_fill),
+                    label: 'Orders',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(CupertinoIcons.person),
+                    activeIcon: Icon(CupertinoIcons.person_fill),
+                    label: 'Account',
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        const NavigationDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long),
-          label: 'Orders',
-        ),
-        const NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Account',
-        ),
-      ],
+      ),
     ),
   );
 }
@@ -283,31 +327,21 @@ class _AppNotificationBellState extends State<AppNotificationBell> {
   Widget build(BuildContext context) {
     final auth = AuthServiceProvider.of(context);
     if (!auth.isLoggedIn) return const SizedBox.shrink();
-    final bell = Container(
-      margin: const EdgeInsets.symmetric(horizontal: 3),
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: InkWell(
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => NotificationsScreen(api: widget.api),
-            ),
-          );
-          _load();
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Icon(
-          Icons.notifications_outlined,
-          size: widget.iconSize,
-          color: widget.iconColor,
-        ),
+    final bell = BuyerButton.icon(
+      tooltip: 'Notifications',
+      onPressed: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => NotificationsScreen(api: widget.api),
+          ),
+        );
+        _load();
+      },
+      icon: Icon(
+        CupertinoIcons.bell,
+        size: widget.iconSize,
+        color: widget.iconColor,
       ),
     );
     return Stack(
@@ -400,25 +434,16 @@ class _AppMessageBadgeState extends State<AppMessageBadge> {
       clipBehavior: Clip.none,
       alignment: Alignment.center,
       children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: widget.background ?? Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
-          ),
-          child: InkWell(
-            onTap: () async {
-              await widget.onTap();
-              if (mounted) _load();
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Icon(
-              Icons.chat_bubble_outline_rounded,
-              size: widget.iconSize,
-              color: widget.iconColor,
-            ),
+        BuyerButton.icon(
+          tooltip: 'Messages',
+          onPressed: () async {
+            await widget.onTap();
+            if (mounted) _load();
+          },
+          icon: Icon(
+            CupertinoIcons.chat_bubble,
+            size: widget.iconSize,
+            color: widget.iconColor,
           ),
         ),
         if (_unread > 0)

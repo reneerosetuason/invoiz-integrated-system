@@ -1,3 +1,6 @@
+import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_auth.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
@@ -78,59 +81,54 @@ class _LoginScreenState extends State<LoginScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          TextField(
+          BuyerField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             textInputAction: TextInputAction.next,
             autofillHints: const [AutofillHints.username, AutofillHints.email],
             decoration: const InputDecoration(
               labelText: 'E-mail',
-              prefixIcon: Icon(Icons.email_outlined),
+              prefixIcon: Icon(CupertinoIcons.mail),
             ),
           ),
           const SizedBox(height: 18),
-          TextField(
+          BuyerField(
             controller: _passCtrl,
             obscureText: _obscure,
             autofillHints: const [AutofillHints.password],
             onSubmitted: (_) => _login(),
             decoration: InputDecoration(
               labelText: 'Password',
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
+              prefixIcon: const Icon(CupertinoIcons.lock),
+              suffixIcon: BuyerButton.icon(
                 tooltip: _obscure ? 'Show password' : 'Hide password',
                 icon: Icon(
-                  _obscure
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined,
+                  _obscure ? CupertinoIcons.eye_slash : CupertinoIcons.eye,
                 ),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),
             ),
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
+          BuyerButton.primary(
             onPressed: _busy ? null : _login,
             child: _busy
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
+                    child: CupertinoActivityIndicator(color: Colors.white),
                   )
                 : const Text('Login'),
           ),
           const SizedBox(height: 12),
-          OutlinedButton.icon(
+          BuyerButton.secondary(
             onPressed: _busy
                 ? null
                 : () => Navigator.pushReplacement(
                     context,
                     MaterialPageRoute(builder: (_) => const HomeScreen()),
                   ),
-            icon: const Icon(Icons.explore_outlined, size: 19),
+            icon: const Icon(CupertinoIcons.compass, size: 19),
             label: const Text('Continue as Guest'),
           ),
         ],
@@ -141,7 +139,7 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         const Text('New to Invoiz?'),
-        TextButton(
+        BuyerButton.plain(
           onPressed: _busy
               ? null
               : () => Navigator.push(

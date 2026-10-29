@@ -1,3 +1,7 @@
+import '../widgets/buyer_dialog.dart';
+import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -106,7 +110,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _newConversation() async {
-    final conversation = await showDialog<Map<String, dynamic>>(
+    final conversation = await showCupertinoDialog<Map<String, dynamic>>(
       context: context,
       barrierDismissible: false,
       builder: (_) => _NewMessageDialog(api: _api),
@@ -135,32 +139,32 @@ class _ChatScreenState extends State<ChatScreen> {
       showTopActions: false,
       showNotificationIcon: false,
       actions: [
-        IconButton(
+        BuyerButton.icon(
           tooltip: 'Refresh messages',
           onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(CupertinoIcons.refresh),
         ),
       ],
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CupertinoActivityIndicator())
           : _error != null
           ? InboxStatus(message: _error!, onRetry: _load)
           : _conversations.isEmpty
           ? BuyerEmptyState(
-              icon: Icons.chat_bubble_outline,
+              icon: CupertinoIcons.chat_bubble,
               title: 'No conversations yet.',
               description:
                   'Ask a seller about a product, or get help from support.',
               action: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  TextButton.icon(
+                  BuyerButton.plain(
                     onPressed: _load,
-                    icon: const Icon(Icons.refresh),
+                    icon: const Icon(CupertinoIcons.refresh),
                     label: const Text('Refresh'),
                   ),
                   const SizedBox(height: 6),
-                  ElevatedButton(
+                  BuyerButton.primary(
                     onPressed: _newConversation,
                     child: const Text('Start a Conversation'),
                   ),
@@ -170,7 +174,7 @@ class _ChatScreenState extends State<ChatScreen> {
           : Column(
               children: [
                 Expanded(
-                  child: RefreshIndicator(
+                  child: RefreshIndicator.adaptive(
                     onRefresh: _load,
                     child: ListView.separated(
                       physics: const AlwaysScrollableScrollPhysics(),
@@ -184,9 +188,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.all(12),
-                  child: ElevatedButton.icon(
+                  child: BuyerButton.primary(
                     onPressed: _newConversation,
-                    icon: const Icon(Icons.add),
+                    icon: const Icon(CupertinoIcons.add),
                     label: const Text('New Message'),
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size.fromHeight(44),
@@ -461,22 +465,22 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
       showTopActions: false,
       showNotificationIcon: false,
       actions: [
-        IconButton(
+        BuyerButton.icon(
           tooltip: 'Refresh messages',
           onPressed: _loading || _sending ? null : () => _load(),
-          icon: const Icon(Icons.refresh),
+          icon: const Icon(CupertinoIcons.refresh),
         ),
       ],
       child: Column(
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: CupertinoActivityIndicator())
                 : _error != null && _messages.isEmpty
                 ? InboxStatus(message: _error!, onRetry: () => _load())
                 : _messages.isEmpty
                 ? const BuyerEmptyState(
-                    icon: Icons.forum_outlined,
+                    icon: CupertinoIcons.chat_bubble_2,
                     title: 'No messages yet. Say hello!',
                     description:
                         'Start a conversation using the message box below.',
@@ -506,7 +510,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
+                    child: BuyerField(
                       controller: _inputCtrl,
                       readOnly: _sending,
                       maxLength: 2000,
@@ -523,7 +527,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  ElevatedButton(
+                  BuyerButton.primary(
                     onPressed: _sending || _loading ? null : _send,
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(46, 46),
@@ -534,9 +538,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CupertinoActivityIndicator(),
                           )
-                        : const Icon(Icons.send),
+                        : const Icon(CupertinoIcons.arrow_up),
                   ),
                 ],
               ),
@@ -655,7 +659,7 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
   @override
   Widget build(BuildContext context) => PopScope(
     canPop: !_sending,
-    child: AlertDialog(
+    child: BuyerAlertDialog(
       title: const Text('Contact support'),
       content: SingleChildScrollView(
         child: Form(
@@ -667,7 +671,7 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
                 'For a product question, use Chat with seller on the product or store page.',
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              BuyerField.form(
                 controller: _subject,
                 enabled: !_sending,
                 maxLength: 150,
@@ -676,7 +680,7 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
                 ),
               ),
               const SizedBox(height: 10),
-              TextFormField(
+              BuyerField.form(
                 controller: _body,
                 enabled: !_sending,
                 maxLines: 3,
@@ -692,11 +696,11 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
         ),
       ),
       actions: [
-        TextButton(
+        BuyerDialogAction(
           onPressed: _sending ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
+        BuyerDialogAction(
           onPressed: _sending ? null : _send,
           child: Text(_sending ? 'Sending…' : 'Send'),
         ),

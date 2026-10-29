@@ -1,3 +1,6 @@
+import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_field.dart';
+import 'package:flutter/cupertino.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -133,7 +136,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           ),
         ),
         const SizedBox(height: 22),
-        TextField(
+        BuyerField(
           controller: _codeCtrl,
           keyboardType: TextInputType.number,
           autofillHints: const [AutofillHints.oneTimeCode],
@@ -155,21 +158,18 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
           onSubmitted: (_) => _verify(),
         ),
         const SizedBox(height: 22),
-        ElevatedButton(
+        BuyerButton.primary(
           onPressed: _busy ? null : _verify,
           child: _busy
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
+                  child: CupertinoActivityIndicator(color: Colors.white),
                 )
               : const Text('Verify'),
         ),
         const SizedBox(height: 12),
-        TextButton(
+        BuyerButton.plain(
           onPressed: _cooldown > 0 || _resending ? null : _resend,
           child: Text(
             _resending

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'theme.dart';
@@ -55,11 +56,16 @@ class _InvoizAppState extends State<InvoizApp> {
   Widget build(BuildContext context) {
     return AuthServiceProvider(
       authService: widget.authService,
-      child: MaterialApp(
+      child: CupertinoApp(
         navigatorKey: _navigator,
         title: 'Invoiz',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.light,
+        theme: AppTheme.cupertino,
+        localizationsDelegates: const [DefaultMaterialLocalizations.delegate],
+        builder: (context, child) => Theme(
+          data: AppTheme.light,
+          child: ScaffoldMessenger(child: child!),
+        ),
         home: const SplashScreen(),
       ),
     );

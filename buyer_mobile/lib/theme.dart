@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 /// The same teal, ivory and soft mist used by the INVOIZ website.
@@ -13,14 +14,14 @@ class AppColors {
   static const border = Color(0xFFD9E4E1);
   static const textPrimary = Color(0xFF1B1B1E);
   static const textSecondary = Color(0xFF56696B);
-  static const textMuted = Color(0xFF65777C);
+  static const textMuted = Color(0xFF6E6E73);
   static const primary = Color(0xFF16697A);
   static const primaryDark = Color(0xFF0E4A57);
   static const accentOnLight = Colors.white;
   static const success = Color(0xFF287660);
   static const danger = Color(0xFFB3261E);
   static const warning = Color(0xFF8A610B);
-  static const gold = Color(0xFFA87513);
+  static const gold = Color(0xFFF0A202);
   static const accent = surfaceTint;
   static const card = surface;
   static const secondary = primaryDark;
@@ -32,6 +33,49 @@ class AppColors {
 
 class AppTheme {
   AppTheme._();
+  static const cupertino = CupertinoThemeData(
+    brightness: Brightness.light,
+    primaryColor: AppColors.primaryDark,
+    primaryContrastingColor: CupertinoColors.white,
+    barBackgroundColor: AppColors.paper,
+    scaffoldBackgroundColor: AppColors.background,
+    textTheme: CupertinoTextThemeData(
+      textStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 14,
+        height: 1.4,
+        color: AppColors.textPrimary,
+      ),
+      actionTextStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: AppColors.primaryDark,
+      ),
+      navTitleTextStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: AppColors.primaryDark,
+      ),
+      navActionTextStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 15,
+        color: AppColors.primaryDark,
+      ),
+      tabLabelTextStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: AppColors.textMuted,
+      ),
+      dateTimePickerTextStyle: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: 18,
+        color: AppColors.textPrimary,
+      ),
+    ),
+  );
   static ThemeData get dark => light;
   static ThemeData get light {
     final scheme = ColorScheme.fromSeed(
@@ -50,6 +94,19 @@ class AppTheme {
       fontFamily: 'Inter',
     );
     return base.copyWith(
+      platform: TargetPlatform.iOS,
+      cupertinoOverrideTheme: cupertino,
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+        },
+      ),
       scaffoldBackgroundColor: AppColors.background,
       textTheme: base.textTheme
           .apply(
@@ -59,7 +116,7 @@ class AppTheme {
           .copyWith(
             headlineMedium: const TextStyle(
               fontFamily: 'Fraunces',
-              fontSize: 27,
+              fontSize: 26,
               height: 1.15,
               fontWeight: FontWeight.w600,
               letterSpacing: -.6,
@@ -67,7 +124,7 @@ class AppTheme {
             ),
             headlineSmall: const TextStyle(
               fontFamily: 'Fraunces',
-              fontSize: 25,
+              fontSize: 24,
               height: 1.2,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryDark,
@@ -104,6 +161,7 @@ class AppTheme {
             ),
           ),
       appBarTheme: const AppBarTheme(
+        toolbarHeight: 52,
         backgroundColor: AppColors.paper,
         foregroundColor: AppColors.primaryDark,
         surfaceTintColor: Colors.transparent,
@@ -111,7 +169,7 @@ class AppTheme {
         scrolledUnderElevation: 0,
         titleTextStyle: TextStyle(
           fontFamily: 'Inter',
-          fontSize: 18,
+          fontSize: 17,
           fontWeight: FontWeight.w600,
           color: AppColors.primaryDark,
         ),
@@ -122,12 +180,12 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
+          side: const BorderSide(color: AppColors.border, width: .5),
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(44, 48),
+          minimumSize: const Size(44, 44),
           backgroundColor: AppColors.primaryDark,
           foregroundColor: Colors.white,
           textStyle: const TextStyle(
@@ -135,16 +193,18 @@ class AppTheme {
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
-          shape: const StadiumBorder(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(999),
+          ),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          minimumSize: const Size(44, 48),
+          minimumSize: const Size(44, 44),
           backgroundColor: AppColors.primaryDark,
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           textStyle: const TextStyle(
             fontFamily: 'Inter',
             fontSize: 14,
@@ -157,9 +217,9 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(44, 46),
+          minimumSize: const Size(44, 44),
           foregroundColor: AppColors.primaryDark,
-          side: const BorderSide(color: AppColors.border),
+          side: const BorderSide(color: AppColors.border, width: .5),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(999),
           ),
@@ -175,7 +235,8 @@ class AppTheme {
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
         indicatorColor: AppColors.surfaceTint,
-        height: 72,
+        height: 64,
+        iconTheme: WidgetStateProperty.all(const IconThemeData(size: 22)),
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
             fontSize: 12,
@@ -189,35 +250,37 @@ class AppTheme {
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.paper,
         selectedColor: AppColors.surfaceTint,
-        side: const BorderSide(color: AppColors.border),
+        side: BorderSide.none,
         labelStyle: const TextStyle(
           fontFamily: 'Inter',
           fontSize: 13,
           color: AppColors.primaryDark,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       ),
       inputDecorationTheme: InputDecorationTheme(
+        isDense: true,
+        constraints: const BoxConstraints(minHeight: 44),
         filled: true,
         fillColor: AppColors.paper,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 13,
+          horizontal: 12,
+          vertical: 11,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border, width: .5),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.border, width: .5),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1),
         ),
         hintStyle: const TextStyle(fontSize: 14, color: AppColors.textMuted),
         prefixIconColor: AppColors.textSecondary,

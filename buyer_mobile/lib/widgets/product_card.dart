@@ -1,3 +1,5 @@
+import 'package:flutter/cupertino.dart';
+import 'buyer_controls.dart';
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../screens/login_screen.dart';
@@ -83,6 +85,7 @@ class _ProductCardState extends State<ProductCard> {
   @override
   Widget build(BuildContext context) {
     final product = Product.fromJson(widget.data);
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -115,7 +118,7 @@ class _ProductCardState extends State<ProductCard> {
                         child: Text(
                           '−${product.discountPercent}%',
                           style: const TextStyle(
-                            fontFamily: 'Fraunces',
+                            fontFamily: 'Inter',
                             color: Colors.white,
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -126,7 +129,7 @@ class _ProductCardState extends State<ProductCard> {
                   Positioned(
                     right: 3,
                     top: 3,
-                    child: IconButton.filledTonal(
+                    child: BuyerButton.icon(
                       tooltip: _favorite
                           ? 'Remove from wishlist'
                           : 'Save to wishlist',
@@ -135,7 +138,9 @@ class _ProductCardState extends State<ProductCard> {
                         backgroundColor: Colors.white,
                       ),
                       icon: Icon(
-                        _favorite ? Icons.favorite : Icons.favorite_border,
+                        _favorite
+                            ? CupertinoIcons.heart_fill
+                            : CupertinoIcons.heart,
                         size: 20,
                         color: _favorite
                             ? AppColors.danger
@@ -147,19 +152,19 @@ class _ProductCardState extends State<ProductCard> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(11),
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   SizedBox(
-                    height: 38,
+                    height: 36.4 * textScale,
                     child: Text(
                       product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
+                        fontSize: 14,
+                        height: 1.3,
                         fontWeight: FontWeight.w500,
                         color: AppColors.textPrimary,
                       ),
@@ -171,17 +176,17 @@ class _ProductCardState extends State<ProductCard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 17,
+                      fontSize: 16,
                       color: AppColors.primaryDark,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       if ((product.rating ?? 0) > 0) ...[
                         const Icon(
-                          Icons.star_rounded,
+                          CupertinoIcons.star_fill,
                           size: 14,
                           color: AppColors.gold,
                         ),
@@ -200,7 +205,7 @@ class _ProductCardState extends State<ProductCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: product.availableStock == 0
                                 ? AppColors.danger
                                 : AppColors.textSecondary,
