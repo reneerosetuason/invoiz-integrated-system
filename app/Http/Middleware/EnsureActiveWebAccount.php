@@ -24,7 +24,18 @@ class EnsureActiveWebAccount
                 return response()->json(['message' => 'Your account is not active.'], 403);
             }
 
-            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+            $loginPath = match (true) {
+                $request->is('admin/*') => '/admin/login',
+                $request->is('logistics/*') => '/logistics/login',
+                $request->is('seller/*') => '/seller/login',
+                default => '/login',
+            };
+
+            if ($request->is('logistics/*') && ! $request->isMethod('POST')) {
+                return redirect($loginPath)->with('error', 'Your account is not active.');
+            }
+
+            return redirect($loginPath)->withErrors(['email' => 'Your account is not active.']);
         }
 
         return $next($request);

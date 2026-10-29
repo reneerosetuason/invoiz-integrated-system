@@ -2,6 +2,35 @@ var invoizData_68dbadcd18 = JSON.parse(document.currentScript.dataset.config);
 
         (function () {
             var qrTarget = invoizData_68dbadcd18[0];
+            var label = document.getElementById('shipping-label');
+            var labelParent = null;
+            var labelNextSibling = null;
+
+            function isolateWaybillForPrint() {
+                if (!label || label.parentElement === document.body) return;
+
+                labelParent = label.parentElement;
+                labelNextSibling = label.nextSibling;
+                document.body.appendChild(label);
+                document.body.classList.add('printing-delivery-waybill');
+            }
+
+            function restoreWaybillAfterPrint() {
+                if (!labelParent || !label) return;
+
+                if (labelNextSibling && labelNextSibling.parentElement === labelParent) {
+                    labelParent.insertBefore(label, labelNextSibling);
+                } else {
+                    labelParent.appendChild(label);
+                }
+
+                document.body.classList.remove('printing-delivery-waybill');
+                labelParent = null;
+                labelNextSibling = null;
+            }
+
+            window.addEventListener('beforeprint', isolateWaybillForPrint);
+            window.addEventListener('afterprint', restoreWaybillAfterPrint);
 
             var qrEl = document.getElementById('parcel-qr');
             if (qrEl && typeof QRCode !== 'undefined') {

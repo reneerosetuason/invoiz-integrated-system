@@ -35,6 +35,8 @@ class DeliveryOtpTest extends TestCase
             'role' => 'buyer',
             'status' => 'active',
             'account_status' => 'active',
+            'approval_status' => 'approved',
+            'email_verified_at' => now(),
         ]);
 
         $riderUser = User::create([
@@ -166,6 +168,8 @@ class DeliveryOtpTest extends TestCase
             'role' => 'buyer',
             'status' => 'active',
             'account_status' => 'active',
+            'approval_status' => 'approved',
+            'email_verified_at' => now(),
         ]);
 
         Sanctum::actingAs($otherBuyer);

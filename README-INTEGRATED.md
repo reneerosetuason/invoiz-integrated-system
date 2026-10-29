@@ -1,7 +1,8 @@
 # INVOIZ Integrated System
 
 Single Laravel backend for the marketplace (buyer, seller, admin) and the
-logistics/rider operations center.
+logistics/rider operations center, with the separate Flutter rider client in
+`rider_mobile`.
 
 The Flutter buyer client is integrated under `buyer_mobile`. Its mobile
 verification endpoints use the existing `users` OTP fields; mobile registrations
@@ -22,6 +23,13 @@ of the Phase 15 audit. The application code remains the source of truth. Phase
 15 added active-account enforcement to protected buyer APIs, hardened the
 logistics admin middleware, and rejected inactive or blocked legacy API logins.
 No schema, migration, or database state was changed.
+
+## Flutter rider client
+
+The Flutter app is kept as a separate frontend under `rider_mobile`; it uses
+the existing `/api/logistics` endpoints and does not connect directly to
+MySQL. Setup, API configuration, supported flows, and Flutter verification
+commands are documented in [`rider_mobile/README.md`](rider_mobile/README.md).
 
 ## Scope and sources
 
@@ -360,7 +368,7 @@ following items remain open:
 - Marketplace `/admin/login` now rejects inactive administrators before a
   session is established; `EnsureMarketplaceAdmin` continues to recheck every
   request.
-- Unified web OTP and mobile/rider authentication boundaries were reviewed.
+- Unified web OTP and rider_mobile authentication boundaries were reviewed.
   The mobile buyer and legacy API registration flows remain separate existing
   contracts; no new OTP endpoint or schema was introduced.
 

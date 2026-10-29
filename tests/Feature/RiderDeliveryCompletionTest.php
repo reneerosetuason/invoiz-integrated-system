@@ -734,7 +734,9 @@ class RiderDeliveryCompletionTest extends TestCase
             'payment_method' => 'cash_on_delivery',
             'amount_to_collect' => 170,
         ]);
-        $prepaid = $this->delivery($rider, $order);
+        // Deliveries have a unique order_id in the shared marketplace schema.
+        [$prepaidOrder] = $this->order();
+        $prepaid = $this->delivery($rider, $prepaidOrder);
 
         $admin = $this->admin();
 

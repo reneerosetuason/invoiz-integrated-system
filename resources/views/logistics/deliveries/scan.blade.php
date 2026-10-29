@@ -28,6 +28,8 @@
 
     <div class="delivery-scan-grid grid gap-6"
          x-data="scanParcel()"
+         data-expect="{{ $expect }}"
+         data-submit-url="{{ route('deliveries.scan-verify', [], false) }}"
          x-cloak>
 
         {{-- Camera / Scanner --}}
@@ -182,7 +184,7 @@
                                class="flex-1 min-w-0 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm font-mono">
                         <button type="submit"
                                 :disabled="busy"
-                                class="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
+                                class="bg-teal hover:bg-teal-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
                             Verify parcel
                         </button>
                     </div>
@@ -195,7 +197,7 @@
     @push('scripts')
         <script src="{{ asset('vendor/jsqr/jsQR.js') }}"></script>
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/deliveries/scan.css') }}">
-        <script src="{{ asset('assets/logistics/js/deliveries/scan.js') }}" data-config="{{ json_encode([($expect), (route('deliveries.scan-verify'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+        <script src="{{ asset('assets/logistics/js/deliveries/scan.js') }}" data-config="{{ json_encode([($expect), (route('deliveries.scan-verify', [], false))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
     @endpush
     </div>
 </x-app-layout>

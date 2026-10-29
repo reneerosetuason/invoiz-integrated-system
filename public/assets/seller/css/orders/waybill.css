@@ -1,8 +1,123 @@
-body { background: #F7F6F2; }
-        .waybill { border: 2px dashed #16697A; border-radius: 14px; }
-        @media print {
-            body { background: #fff; }
-            body * { visibility: hidden; }
-            #print-area, #print-area * { visibility: visible; }
-            #print-area { position: absolute; left: 0; top: 0; width: 100%; }
-        }
+@page {
+    size: A4 portrait;
+    margin: 8mm;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    background: #F4F6F8;
+    margin: 0;
+    padding: 24px;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #111827;
+}
+
+.waybill-screen-container {
+    max-width: 105mm;
+    margin: 0 auto;
+}
+
+.waybill {
+    width: 105mm;
+    max-width: 105mm;
+    height: 148.5mm;
+    max-height: 148.5mm;
+    background: #ffffff;
+    border: 1.5px solid #16697A;
+    border-radius: 8px;
+    padding: 3mm 3.5mm;
+    box-sizing: border-box;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: avoid;
+    break-after: avoid;
+    page-break-before: avoid;
+    break-before: avoid;
+    position: relative;
+}
+
+/* Fit the preview to a phone; physical label dimensions stay in print rules. */
+@media screen and (max-width: 445px) {
+    body { padding: 12px; }
+    .waybill { width: 100%; max-width: 105mm; }
+}
+
+/* Print specific styles */
+@media print {
+    *, *::before, *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    html, body {
+        width: 100% !important;
+        height: 281mm !important;
+        min-height: 281mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+    }
+
+    .no-print,
+    .no-print * {
+        display: none !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        visibility: hidden !important;
+    }
+
+    .waybill-screen-container {
+        max-width: none !important;
+        width: 100% !important;
+        height: 281mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    .waybill-wrapper {
+        display: flex !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .waybill {
+        position: relative !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 105mm !important;
+        max-width: 105mm !important;
+        height: 148.5mm !important;
+        max-height: 148.5mm !important;
+        box-sizing: border-box !important;
+        margin: 0 !important;
+        padding: 3mm 3.5mm !important;
+        border: 1.5px solid #000000 !important;
+        border-radius: 0 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        overflow: hidden !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+        page-break-before: avoid !important;
+        break-before: avoid !important;
+    }
+}
