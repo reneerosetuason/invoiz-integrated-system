@@ -1,7 +1,10 @@
 # Rider integration into main ? 2026-10-29
 
-Local merge: `d05df1d` (parents `605278e` and `379df5e`). Remote repository:
-`reneerosetuason/invoiz-integrated-system`. No push or branch deletion.
+Local merge: `d05df1d` (parents `605278e` and `379df5e`). Repository:
+`reneerosetuason/invoiz-integrated-system`. This agent did not run any push or
+branch deletion. Another Git operation subsequently created commits
+`4174324` and `2444186` and updated `origin/main` while verification was
+running; those commits are preserved.
 
 ## Preservation and merge decisions
 
@@ -70,16 +73,28 @@ The post-repair current model audit reports no missing fields.
 ## Verification
 
 - Rider Flutter 3.44.5 / Dart 3.12.2: analyzer clean; all 240 tests passed.
+- Rider Android debug APK built successfully for ARM32, ARM64, and x86_64 with
+  the shared backend URL `http://127.0.0.1:8000/api/logistics`. The build script
+  passed and the APK package metadata was inspected. The phone needs ADB
+  reverse on port 8000 to use this local development URL.
+- APK: `rider_mobile/build/app/outputs/flutter-apk/app-debug.apk`; SHA-256
+  `be1a0bfe2611fe367257072adb8c2ad613af8d078d89acfdad73306d8752dffd`.
 - Buyer/seller backend regression suite: 112 tests / 959 assertions passed.
+- Final shared rider/logistics/OTP suite after restoring original work: 140 tests /
+  809 assertions passed. Backend total: 252 tests / 1,768 assertions.
+- Buyer Flutter suite using its unchanged SDK: all 200 tests passed; both mobile
+  clients total 440 passing tests.
 - Website production build: `npm run build` passed.
 - PHP syntax: 99 logistics/controllers/middleware/routes/rider tests checked,
   no syntax errors. Blade view cache compilation passed.
 - JavaScript syntax: logistics scan/show and seller waybill passed `node --check`.
-- Route audit before restoring pre-existing route edits: 438 routes, no duplicate
-  names or method/path pairs; final audit is recorded below.
-- Browser inspected the real Blade fixture in Chromium at 360px and 1280px:
-  no JavaScript errors, tracking barcode and QR present, no horizontal overflow
-  after the mobile preview fix. A print PDF was generated.
+- Final route audit after restoring pre-existing route edits: 440 routes, no
+  duplicate names or method/path pairs. All 397 controller actions resolve to
+  existing classes and methods.
+- Browser inspected real seller and logistics Blade fixtures in Chromium at
+  360px and 1280px: no JavaScript errors, tracking barcode and QR present, no
+  horizontal overflow after the seller preview fix. Print PDFs were generated;
+  the seller fixture prints on one A4 page.
 - Schema repair test: existing profile values and counts survive retries;
   missing fields are nullable. Current live schema comparison shows only the
   four intended added columns, with no removed tables/columns.
@@ -90,11 +105,30 @@ no customer data, translated from schema metadata and adapted for older
 fixtures' omitted MySQL values. This checks application behavior, not MySQL
 engine-specific compatibility. No tests use the live shared database.
 
+## Android build compatibility repair
+
+The incoming app required API 37 but pinned AGP 9.0.1 / Gradle 9.1.0. The first
+APK build installed its missing NDK and SDK packages, then failed because the
+platform is `android-37.0` while that AGP resolved `android-37`.
+
+Updated only the rider Android build tooling to AGP 9.1.1 and Gradle 9.3.1,
+which are the documented minimum compatible versions for API 37.0. The
+corrected full APK build passed. Generated Android `.kotlin` build output is
+ignored so it cannot be accidentally committed. Kotlin,
+Dart dependencies, application code, Android application ID, and the buyer
+Android configuration are unchanged. This is required for building the incoming
+client, not an unrelated configuration change. The root environment remains
+untouched.
+
+References: [Android API support table](https://developer.android.com/build/releases/about-agp),
+[AGP 9.1.1 compatibility](https://developer.android.com/build/releases/agp-9-1-0-release-notes).
+
 ## Review notes and next action
 
-- Pre-existing buyer/cart/voucher/return work is restored but remains uncommitted,
-  including its original staging. It is not silently included in this merge.
-  Review and commit the desired outstanding work before approving a push.
+- Pre-existing buyer/cart/voucher/return work was restored with its original
+  staging and verified against the backup. A subsequent external Git operation
+  committed that work in `4174324` / `2444186`; it was not silently included in
+  the agent's merge commit. Original file hashes still match the backup.
 - Rider release builds still use the incoming debug signing configuration.
   Development builds are suitable for testing; distribution requires release
   signing. No public APK download was enabled.
