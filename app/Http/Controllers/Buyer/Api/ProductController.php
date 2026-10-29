@@ -201,6 +201,7 @@ class ProductController extends Controller
                 'seller_id' => $product->seller_id,
                 'business_name' => $store->business_name ?? 'Invoiz Store',
                 'line_of_business' => $store->line_of_business ?? '',
+                'logo' => $store?->logo,
                 'rating' => round((float) ($ratings[$product->seller_id] ?? 0), 1),
                 'product_count' => (int) ($counts[$product->seller_id] ?? 0),
                 'followers' => (int) ($followers[$product->seller_id] ?? 0),

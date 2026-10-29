@@ -15,6 +15,7 @@ class Message extends Model
         'receiver_id',
         'body',
         'is_read',
+        'product_card',
     ];
 
     protected static function booted(): void
@@ -27,6 +28,7 @@ class Message extends Model
 
     protected $casts = [
         'is_read' => 'boolean',
+        'product_card' => 'array',
     ];
 
     public function sender()

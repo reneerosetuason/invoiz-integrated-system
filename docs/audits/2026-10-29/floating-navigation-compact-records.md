@@ -47,6 +47,9 @@ labels keep native stable sizing and usable touch areas at 320px.
 - Android and web builds succeeded. `/buyer-app/` was refreshed from this
   source. The Android update was installed over the existing app without
   clearing app data and launched on the connected TECNO KI7.
+  Its process was running with no Flutter/fatal error entries in the checked
+  startup logs. The app was not in the foreground at capture time, so a phone
+  screenshot was skipped; visual review used the rendered widget captures.
 
 An iPhone/macOS environment is not available, so iOS hardware/build validation
 remains outstanding. Purchases and order mutations were tested with fixtures;

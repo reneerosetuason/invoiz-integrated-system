@@ -6,6 +6,7 @@ import '../widgets/buyer_page.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/chat.dart';
+import '../widgets/chat_product_card.dart';
 import '../services/api_service.dart';
 import '../services/buyer_updates.dart';
 import '../widgets/inbox_status.dart';
@@ -21,6 +22,8 @@ Future<void> openSellerChat(
   required int sellerId,
   required String subject,
   required String initialBody,
+  int? productId,
+  int? variantId,
   ApiService? api,
 }) async {
   final auth = AuthServiceProvider.of(context);
@@ -41,7 +44,10 @@ Future<void> openSellerChat(
       'seller_id': sellerId,
       'subject': subject,
       'body': initialBody,
+      if (productId != null) 'product_id': productId,
+      if (variantId != null) 'variant_id': variantId,
     });
+    BuyerUpdates.inboxChanged();
     final conv = r['conversation'] as Map<String, dynamic>;
     if (!context.mounted) return;
     await Navigator.push(
@@ -585,6 +591,10 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
                 ),
               ),
             const SizedBox(height: 2),
+            if (m.productCard != null) ...[
+              ChatProductCard(card: m.productCard!, api: _api),
+              const SizedBox(height: 8),
+            ],
             Text(
               m.body,
               style: TextStyle(

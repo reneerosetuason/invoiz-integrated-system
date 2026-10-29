@@ -1,4 +1,5 @@
 import '../widgets/buyer_controls.dart';
+import '../widgets/store_avatar.dart';
 import 'package:flutter/cupertino.dart';
 import '../widgets/product_gallery.dart';
 import '../widgets/buyer_page.dart';
@@ -33,6 +34,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   int? _selectedVariant;
   bool _isFavorited = false;
   bool _adding = false;
+  bool _openingChat = false;
 
   @override
   void initState() {
@@ -307,20 +309,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             BuyerButton.plain(
-              onPressed: () {
-                final sellerId = p.sellerId ?? p.shop?.sellerId;
-                if (sellerId == null || sellerId <= 0) {
-                  _show('This product has no store to message yet.');
-                  return;
-                }
-                openSellerChat(
-                  context,
-                  api: _api,
-                  sellerId: sellerId,
-                  subject: _inquirySubject(p),
-                  initialBody: _inquiryBody(p),
-                );
-              },
+              onPressed: _openingChat
+                  ? null
+                  : () async {
+                      final sellerId = p.sellerId ?? p.shop?.sellerId;
+                      if (sellerId == null || sellerId <= 0) {
+                        _show('This product has no store to message yet.');
+                        return;
+                      }
+                      setState(() => _openingChat = true);
+                      try {
+                        await openSellerChat(
+                          context,
+                          api: _api,
+                          sellerId: sellerId,
+                          subject: _inquirySubject(p),
+                          initialBody: _inquiryBody(p),
+                          productId: p.id,
+                          variantId: _selectedVariant,
+                        );
+                      } finally {
+                        if (mounted) setState(() => _openingChat = false);
+                      }
+                    },
               icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
               label: const Text('Message seller'),
             ),
@@ -486,15 +497,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                backgroundColor: AppColors.paleTeal,
-                foregroundColor: AppColors.primaryDark,
-                radius: 24,
-                child: Text(
-                  shop.initial,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
+              StoreAvatar(name: shop.businessName, path: shop.logo),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

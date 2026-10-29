@@ -67,6 +67,7 @@ class Conversation {
 }
 
 class ChatMessage {
+  final ChatProduct? productCard;
   final int id;
   final int conversationId;
   final int senderId;
@@ -76,6 +77,7 @@ class ChatMessage {
   final String? senderName;
 
   ChatMessage({
+    this.productCard,
     required this.id,
     required this.conversationId,
     required this.senderId,
@@ -88,6 +90,9 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final sender = json['sender'];
     return ChatMessage(
+      productCard: json['product_card'] is Map<String, dynamic>
+          ? ChatProduct.fromJson(json['product_card'] as Map<String, dynamic>)
+          : null,
       id: json['id'] as int,
       conversationId: json['conversation_id'] as int,
       senderId: json['sender_id'] as int,
@@ -99,4 +104,28 @@ class ChatMessage {
           : 'User',
     );
   }
+}
+
+class ChatProduct {
+  final int id;
+  final String name;
+  final String? image;
+  final double price;
+  final String? option;
+
+  const ChatProduct({
+    required this.id,
+    required this.name,
+    this.image,
+    required this.price,
+    this.option,
+  });
+
+  factory ChatProduct.fromJson(Map<String, dynamic> json) => ChatProduct(
+    id: (json['id'] as num).toInt(),
+    name: json['name'] as String,
+    image: json['image'] as String?,
+    price: double.tryParse('${json['price']}') ?? 0,
+    option: json['option'] as String?,
+  );
 }

@@ -28,6 +28,7 @@
                 <div class="max-w-[75%]">
                     <div class="rounded-2xl px-4 py-3 text-sm leading-relaxed {{ $mine ? 'rounded-br-md text-white' : 'rounded-bl-md bg-basebg' }}"
                          style="{{ $mine ? 'background:#16697A;' : '' }}">
+                        @include('partials.chat-product-card', ['card' => $message->product_card])
                         {{ $message->body }}
                     </div>
                     <div class="mt-1 flex items-center gap-2 px-1 text-[11px] text-ink-light">

@@ -62,6 +62,7 @@ class ProductReview {
 }
 
 class SellerShop {
+  final String? logo;
   final int sellerId;
   final String businessName;
   final String lineOfBusiness;
@@ -70,6 +71,7 @@ class SellerShop {
   final int followers;
 
   SellerShop({
+    this.logo,
     required this.sellerId,
     required this.businessName,
     this.lineOfBusiness = '',
@@ -82,6 +84,7 @@ class SellerShop {
     Map<String, dynamic> json, {
     int? fallbackSellerId,
   }) => SellerShop(
+    logo: json['logo'] as String?,
     sellerId: (json['seller_id'] as num?)?.toInt() ?? fallbackSellerId ?? 0,
     businessName:
         '${json['business_name'] ?? json['store_name'] ?? 'Invoiz Store'}',

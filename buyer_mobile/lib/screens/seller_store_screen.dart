@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_scaffold.dart';
 import '../widgets/buyer_search.dart';
 import '../widgets/product_photo.dart';
+import '../widgets/store_avatar.dart';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
@@ -270,9 +271,6 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
   Widget _storeHeader(BuildContext context) {
     final s = _store!;
     final name = s['business_name'] as String? ?? 'Store';
-    final initial = name.trim().isEmpty
-        ? 'S'
-        : name.trim().substring(0, 1).toUpperCase();
     final rating = double.tryParse('${s['rating']}') ?? 0;
     final productCount = (s['product_count'] as int?) ?? 0;
     final totalSold = (s['total_sold'] as int?) ?? 0;
@@ -320,13 +318,10 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                           ),
                         ),
                         alignment: Alignment.center,
-                        child: Text(
-                          initial,
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                          ),
+                        child: StoreAvatar(
+                          name: name,
+                          path: s['logo'] as String?,
+                          size: 40,
                         ),
                       ),
                       const SizedBox(width: 12),
