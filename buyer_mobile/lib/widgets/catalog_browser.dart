@@ -15,6 +15,10 @@ class CatalogBrowser extends StatefulWidget {
   final int? categoryId;
   final String? initialSearch;
   final double bottomPadding;
+
+  /// Hosts the same search field in a page's navigation instead of its body.
+  final Widget Function(BuildContext context, Widget search, Widget content)?
+  scaffoldBuilder;
   const CatalogBrowser({
     super.key,
     this.api,
@@ -23,6 +27,7 @@ class CatalogBrowser extends StatefulWidget {
     this.categoryId,
     this.initialSearch,
     this.bottomPadding = 24,
+    this.scaffoldBuilder,
   });
   @override
   State<CatalogBrowser> createState() => _CatalogBrowserState();
@@ -162,10 +167,20 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
+  Widget build(BuildContext context) {
+    final content = _content(context);
+    return widget.scaffoldBuilder?.call(
+          context,
+          _searchField(compact: true),
+          content,
+        ) ??
+        content;
+  }
+
+  Widget _content(BuildContext context) => Column(
     children: [
-      // Search and categories are chrome, not content: they stay put while
-      // the products scroll and float above the page like the tab pill.
+      // Categories stay in place while the products scroll. Search can be
+      // hosted by the navigation above them.
       _floatingHeader(context),
       Expanded(
         child: RefreshIndicator.adaptive(
@@ -461,26 +476,24 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
     ],
   );
   Widget _floatingHeader(BuildContext context) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+    padding: const EdgeInsets.symmetric(vertical: 2),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // No capsule: the field sits straight on the page.
-        BuyerSearch(
-          key: const ValueKey('catalog-search'),
-          controller: _search,
-          onSubmitted: (_) => _load(),
-          hint: 'Search products',
-          onSearch: () => _load(),
-          bare: true,
-        ),
-        const SizedBox(height: 2),
+        if (widget.scaffoldBuilder == null) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _searchField(),
+          ),
+          const SizedBox(height: 2),
+        ],
         // Each category is its own pill; nothing wraps the row.
         SingleChildScrollView(
           key: const ValueKey('catalog-categories'),
           scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.only(bottom: 2),
+          // Space around the individual pills keeps their shadows visible.
+          padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
           child: Row(
             children: [
               _categoryChip(null, 'All'),
@@ -495,33 +508,67 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
     ),
   );
 
+  Widget _searchField({bool compact = false}) => BuyerSearch(
+    key: const ValueKey('catalog-search'),
+    controller: _search,
+    onSubmitted: (_) => _load(),
+    hint: compact ? 'Search' : 'Search products',
+    onSearch: () => _load(),
+    onClear: compact
+        ? () {
+            _search.clear();
+            _load();
+          }
+        : null,
+    bare: !compact,
+    compact: compact,
+  );
+
   Widget _categoryChip(int? id, String name) {
     final selected = _category == id;
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(name),
+      padding: const EdgeInsets.only(right: 10),
+      child: Semantics(
         selected: selected,
-        showCheckmark: false,
-        backgroundColor: AppColors.surface,
-        selectedColor: AppColors.primaryDark,
-        side: BorderSide(
-          color: selected
-              ? AppColors.primaryDark
-              : AppColors.border.withValues(alpha: .9),
-          width: .5,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: selected ? AppColors.primaryDark : AppColors.paper,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? AppColors.primaryDark
+                  : AppColors.border.withValues(alpha: .8),
+              width: .5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.primaryDark.withValues(
+                  alpha: selected ? .16 : .10,
+                ),
+                blurRadius: 14,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: CupertinoButton(
+            minimumSize: const Size(44, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            onPressed: () {
+              _category = id;
+              _load();
+            },
+            child: Text(
+              name,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 13,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : AppColors.primaryDark,
+              ),
+            ),
+          ),
         ),
-        shape: const StadiumBorder(),
-        labelStyle: TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: selected ? Colors.white : AppColors.primaryDark,
-        ),
-        onSelected: (_) {
-          _category = id;
-          _load();
-        },
       ),
     );
   }

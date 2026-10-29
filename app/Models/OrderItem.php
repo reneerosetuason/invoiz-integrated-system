@@ -25,8 +25,15 @@ class OrderItem extends Model
         'total_price',
     ];
 
+    protected $hidden = ['product_stock_deducted'];
+
     protected static function booted(): void
     {
+        static::creating(function (OrderItem $item) {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('order_items', 'product_stock_deducted')) {
+                $item->product_stock_deducted = true;
+            }
+        });
         // Keep buyer cols and admin cols in sync so every screen shows the
         // same line totals. NOTE: `subtotal` is a DB-generated column on
         // shared invoizdb — never write it, only read it.

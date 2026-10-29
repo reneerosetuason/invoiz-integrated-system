@@ -8,15 +8,17 @@ class HomeScreen extends StatelessWidget {
   final ApiService? api;
   const HomeScreen({super.key, this.api});
   @override
-  Widget build(BuildContext context) => MainLayout(
+  Widget build(BuildContext context) => CatalogBrowser(
     api: api,
-    title: 'INVOIZ',
-    currentIndex: 0,
-    showSettingsIcon: false,
-    child: CatalogBrowser(
+    showIntro: true,
+    bottomPadding: AppSizes.bottomNavClearance(context),
+    scaffoldBuilder: (context, search, content) => MainLayout(
       api: api,
-      showIntro: true,
-      bottomPadding: AppSizes.bottomNavClearance(context),
+      title: 'INVOIZ',
+      currentIndex: 0,
+      showSettingsIcon: false,
+      headerSearch: search,
+      child: content,
     ),
   );
 }

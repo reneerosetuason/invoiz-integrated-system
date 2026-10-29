@@ -1,4 +1,5 @@
 import '../widgets/buyer_controls.dart';
+import '../widgets/buyer_search.dart';
 import 'package:flutter/cupertino.dart';
 import '../widgets/product_photo.dart';
 import '../services/buyer_updates.dart';
@@ -135,26 +136,63 @@ class _CartScreenState extends State<CartScreen> {
       title: 'Cart',
       showSettingsIcon: false,
       api: _api,
+      headerSearch: signedIn && _cart?.items.isNotEmpty == true
+          ? BuyerSearch(
+              controller: _searchCtrl,
+              hint: 'Search cart',
+              compact: true,
+              onChanged: (value) => setState(() => _search = value.trim()),
+              onSubmitted: (value) => setState(() => _search = value.trim()),
+            )
+          : null,
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                BuyerPageHeading(
-                  title: 'Your cart',
-                  description: _cart == null || _cart!.items.isEmpty
-                      ? 'A place for your next finds.'
-                      : '${_cart!.items.length} item${_cart!.items.length == 1 ? '' : 's'} · Choose what to check out.',
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Your cart',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleLarge?.copyWith(fontSize: 22),
+                      ),
+                    ),
+                    if (_cart?.items.isNotEmpty == true)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.paleTeal,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: Text(
+                          '${_cart!.items.length} item${_cart!.items.length == 1 ? '' : 's'}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                if (signedIn && _cart?.items.isNotEmpty == true)
-                  ShoppingSearch(
-                    controller: _searchCtrl,
-                    hint: 'Search in your cart...',
-                    onChanged: (value) =>
-                        setState(() => _search = value.trim()),
+                const SizedBox(height: 3),
+                Text(
+                  _cart == null || _cart!.items.isEmpty
+                      ? 'A place for your next finds.'
+                      : 'Select items to check out.',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
                   ),
+                ),
               ],
             ),
           ),
@@ -209,13 +247,21 @@ class _CartScreenState extends State<CartScreen> {
           if (signedIn && !_loading && _cart?.items.isNotEmpty == true)
             Offstage(
               offstage: MediaQuery.viewInsetsOf(context).bottom > 0,
-              // Keep the checkout dock above the floating tab pill instead of
-              // letting the pill sit on top of it.
               child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: AppSizes.bottomNavClearance(context),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  8,
+                  16,
+                  AppSizes.bottomNavClearance(context) -
+                      AppSizes.floatingNavBreathingRoom,
                 ),
-                child: _checkoutBar(context),
+                child: Align(
+                  heightFactor: 1,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 540),
+                    child: _checkoutBar(context),
+                  ),
+                ),
               ),
             ),
         ],
@@ -225,7 +271,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Widget _cartItemTile(CartItem item) => BuyerPanel(
     key: ValueKey('cart-item-${item.id}'),
-    padding: const EdgeInsets.all(10),
+    padding: const EdgeInsets.all(8),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -337,7 +383,7 @@ class _CartScreenState extends State<CartScreen> {
               style: TextStyle(color: AppColors.danger, fontSize: 12),
             ),
           ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         SizedBox(
           width: double.infinity,
           child: Wrap(
@@ -358,6 +404,7 @@ class _CartScreenState extends State<CartScreen> {
                 ],
               ),
               ShoppingQuantity(
+                compact: true,
                 quantity: item.quantity,
                 onDecrease: item.availableStock < 1 || item.quantity <= 1
                     ? null
@@ -374,7 +421,24 @@ class _CartScreenState extends State<CartScreen> {
     ),
   );
 
-  Widget _checkoutBar(BuildContext context) => ShoppingDock(
+  Widget _checkoutBar(BuildContext context) => Container(
+    key: const ValueKey('cart-checkout-dock'),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: AppColors.paper,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: AppColors.border.withValues(alpha: .8),
+        width: .5,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: AppColors.primaryDark.withValues(alpha: .10),
+          blurRadius: 20,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
     child: LayoutBuilder(
       builder: (context, constraints) {
         final amount = Column(
@@ -382,15 +446,14 @@ class _CartScreenState extends State<CartScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${_selected.length} selected · Subtotal',
-              style: const TextStyle(fontSize: 13),
+              'Subtotal · ${_selected.length} selected',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
             ),
-            const SizedBox(height: 3),
-            ShoppingPrice(_fmt(_selectedSubtotal)),
-            const Text(
-              'Shipping calculated at checkout',
-              style: TextStyle(fontSize: 12),
-            ),
+            const SizedBox(height: 2),
+            ShoppingPrice(_fmt(_selectedSubtotal), size: 18),
           ],
         );
         final checkout = BuyerButton.primary(
@@ -405,19 +468,32 @@ class _CartScreenState extends State<CartScreen> {
                 ),
           child: const Text('Checkout'),
         );
-        if (constraints.maxWidth < 280 ||
-            MediaQuery.textScalerOf(context).scale(1) > 1.2) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [amount, const SizedBox(height: 12), checkout],
-          );
-        }
-        return Row(
+        final stacked =
+            constraints.maxWidth < 250 ||
+            MediaQuery.textScalerOf(context).scale(1) > 1.2;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(child: amount),
-            const SizedBox(width: 12),
-            checkout,
+            if (stacked)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [amount, const SizedBox(height: 8), checkout],
+              )
+            else
+              Row(
+                children: [
+                  Expanded(child: amount),
+                  const SizedBox(width: 12),
+                  checkout,
+                ],
+              ),
+            const SizedBox(height: 6),
+            const Text(
+              'Shipping calculated at checkout',
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            ),
           ],
         );
       },

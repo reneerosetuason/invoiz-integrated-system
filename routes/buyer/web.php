@@ -121,6 +121,14 @@ Route::get('/checkout', function(Request $request){
     ->where('buyer_id', $buyer['id'])->whereNull('used_at')
     ->whereHas('voucher', fn ($q) => $q->active()->where(fn ($x) => $x->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit')))
     ->latest('claimed_at')->get();
+  $eligibleClaimsFor = function(array $sellerSubtotals) use ($claimedVouchers) {
+    return $claimedVouchers->filter(function($claim) use ($sellerSubtotals) {
+      // Web checkout creates one order per store. Platform offers retain
+      // their existing first-order scope; store offers use their own store.
+      $subtotals = $claim->voucher->seller_id ? $sellerSubtotals : array_slice($sellerSubtotals, 0, 1, true);
+      return ! \App\Support\Shipping::resolveVoucher($claim->voucher, array_sum($subtotals), array_keys($subtotals), $subtotals)['error'];
+    })->values();
+  };
   \App\Models\Address::ensureForBuyer((int) $buyer['id']);
   $addresses = \App\Models\Address::where('buyer_id', $buyer['id'])->orderByDesc('is_default')->orderByDesc('updated_at')->get();
   $selectedAddressId = old('address_id', $request->input('address_id', $addresses->firstWhere('is_default', true)?->id));
@@ -141,6 +149,7 @@ Route::get('/checkout', function(Request $request){
     $qty = min($qty, $available);
     session(['checkout_single'=>['id'=>$p->id,'qty'=>$qty,'variant_id'=>$variant?->id]]);
     $unit = Cart::unitFor($p, $variant);
+    $claimedVouchers = $eligibleClaimsFor([(int) $p->seller_id => $unit * $qty]);
     return view('buyer.checkout',['products'=>collect([$p]),'single'=>$p->id,'singleQty'=>$qty,'singleUnit'=>$unit,'singleVariantId'=>$variant ? $variant->id : null,'singleLabel'=>Cart::labelFor($variant),'cartItems'=>collect(),'checkoutMode'=>'single','addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
   if($request->filled('seller') || session()->has('checkout_seller_id')){
@@ -150,6 +159,7 @@ Route::get('/checkout', function(Request $request){
     $cartItems = Cart::itemsFor($buyer['id'])->get();
     $pIds = $lines->pluck('product.id')->all();
     $products = Product::whereIn('id',$pIds)->get();
+    $claimedVouchers = $eligibleClaimsFor([(int) $sellerId => (float) $lines->sum('line')]);
     return view('buyer.checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'seller','sellerId'=>$sellerId,'sellerLines'=>$lines,'addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
   }
   if($request->filled('all') || session()->has('checkout_all')){
@@ -159,6 +169,7 @@ Route::get('/checkout', function(Request $request){
     $sellerGroups = [];
     foreach($bySeller as $sid => $sLines){ $sellerGroups[$sid] = ['lines'=>$sLines->values(),'total'=>$sLines->sum('line')]; }
     $grandTotal = collect($sellerGroups)->sum('total');
+    $claimedVouchers = $eligibleClaimsFor(collect($sellerGroups)->map(fn($group) => (float) $group['total'])->all());
     $products = $lines->pluck('product');
     $cartItems = Cart::itemsFor($buyer['id'])->get();
     return view('buyer.checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'all','sellerGroups'=>$sellerGroups,'grandTotal'=>$grandTotal,'addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
@@ -171,6 +182,7 @@ Route::get('/checkout', function(Request $request){
     $sellerGroups = [];
     foreach($bySeller as $sid => $sLines){ $sellerGroups[$sid] = ['lines'=>$sLines->values(),'total'=>$sLines->sum('line')]; }
     $grandTotal = collect($sellerGroups)->sum('total');
+    $claimedVouchers = $eligibleClaimsFor(collect($sellerGroups)->map(fn($group) => (float) $group['total'])->all());
     $products = $lines->pluck('product');
     $cartItems = Cart::itemsFor($buyer['id'])->get();
     return view('buyer.checkout',['products'=>$products,'cartItems'=>$cartItems,'single'=>null,'checkoutMode'=>'selected','sellerGroups'=>$sellerGroups,'grandTotal'=>$grandTotal,'addresses'=>$addresses,'selectedAddressId'=>$selectedAddressId,'claimedVouchers'=>$claimedVouchers]);
@@ -287,6 +299,9 @@ Route::post('/checkout', function(Request $request){
       $consumedClaimIds = [];
       $groupIndex = 0;
       $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [(int) $lines->first()['product']->seller_id => $lines];
+      $sellerSubtotals = collect($bySeller)->map(fn($sLines) => (float) $sLines->sum('line'))->all();
+      $checkoutStack = \App\Support\Vouchers::resolveStack($allVouchers, array_sum($sellerSubtotals), array_keys($sellerSubtotals), $sellerSubtotals);
+      if ($checkoutStack['error']) throw new \Exception($checkoutStack['error']);
       foreach($bySeller as $groupSid => $sLines){
         if ($pickupProblem = \App\Support\DeliveryServiceability::pickupAddressProblem((int) $groupSid)) {
           throw new \Exception($pickupProblem);
@@ -300,9 +315,7 @@ Route::post('/checkout', function(Request $request){
         $isFirstGroup = ($groupIndex === 0);
         $groupVouchers = $allVouchers->filter(function($v) use ($groupSid, $isFirstGroup, $consumedClaimIds){
           if (isset($consumedClaimIds[$v->id])) return false;
-          $type = $v->discount_type ?? $v->type;
-          if ($type === 'free_shipping') return $isFirstGroup;
-          if ($v->seller_id) return \App\Models\Seller::userIdFor((int)$v->seller_id) === \App\Models\Seller::userIdFor((int)$groupSid);
+          if ($v->seller_id) return \App\Support\Vouchers::sellerUserId($v) === (int) $groupSid;
           return $isFirstGroup;
         })->values();
         $merch = 0.0; $waived = 0.0; $stack = ['perVoucher' => []];

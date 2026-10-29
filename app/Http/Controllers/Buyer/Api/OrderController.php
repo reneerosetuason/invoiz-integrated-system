@@ -16,6 +16,7 @@ use App\Models\Product;
 use App\Models\ReturnRequest;
 use App\Models\Review;
 use App\Models\Seller;
+use App\Models\SellerNotification;
 use App\Models\Setting;
 use App\Models\User;
 use App\Models\Voucher;
@@ -45,7 +46,7 @@ class OrderController extends Controller
             'shipping_discount' => $quote['waivedTotal'],
             'total' => $quote['total'],
             'cart_item_ids' => $cart->items->pluck('id')->all(),
-        ]]);
+        ], 'vouchers' => Vouchers::checkoutOffers($request->user()->id, $quote['sellerSubtotals'])]);
     }
 
     private function selectionRules(): array
@@ -77,15 +78,27 @@ class OrderController extends Controller
         $subtotal = 0;
         $lineItems = [];
         $sellerSubtotals = [];
+        $productQuantities = [];
+        $variantQuantities = [];
         foreach ($cart->items as $item) {
             $product = $item->product;
             $variant = $item->variant;
             if (! $product || $product->status !== 'active' || ($item->variant_id && (! $variant || $variant->status !== 'active' || (int) $variant->product_id !== (int) $product->id))) {
                 throw ValidationException::withMessages(['cart_item_ids' => 'A selected product or variation is no longer available.']);
             }
-            $available = $variant ? $variant->stock : $product->stock;
+            $available = Cart::availableFor($product, $variant, $item->variant_id);
             if ($item->quantity < 1 || $item->quantity > $available) {
                 throw ValidationException::withMessages(['cart_item_ids' => 'Insufficient stock for '.$product->name.'.']);
+            }
+            $productQuantities[$product->id] = ($productQuantities[$product->id] ?? 0) + $item->quantity;
+            if ($productQuantities[$product->id] > $product->stock) {
+                throw ValidationException::withMessages(['cart_item_ids' => 'The selected variations exceed the general stock for '.$product->name.'.']);
+            }
+            if ($variant) {
+                $variantQuantities[$variant->id] = ($variantQuantities[$variant->id] ?? 0) + $item->quantity;
+                if ($variantQuantities[$variant->id] > $variant->stock) {
+                    throw ValidationException::withMessages(['cart_item_ids' => 'Insufficient variation stock for '.$product->name.'.']);
+                }
             }
             if (! $variant && $product->variants()->where('status', 'active')->exists()) {
                 throw ValidationException::withMessages(['cart_item_ids' => 'Please select a variation for '.$product->name.'.']);
@@ -145,7 +158,7 @@ class OrderController extends Controller
         }
         $total = round($subtotal - $discount + $shippingTotal - $waivedTotal, 2);
 
-        return compact('subtotal', 'lineItems', 'groupIds', 'shippingTotal', 'discount', 'waivedTotal', 'perVoucher', 'claimIds', 'total');
+        return compact('subtotal', 'sellerSubtotals', 'lineItems', 'groupIds', 'shippingTotal', 'discount', 'waivedTotal', 'perVoucher', 'claimIds', 'total');
     }
 
     public function index(Request $request)
@@ -154,7 +167,9 @@ class OrderController extends Controller
             ->where('buyer_id', $request->user()->id)
             ->latest();
 
-        if ($request->has('status') && $request->filled('status')) {
+        if ($request->input('status') === 'return') {
+            $query->whereHas('returnRequests', fn ($returns) => $returns->where('buyer_id', $request->user()->id));
+        } elseif ($request->filled('status') && $request->input('status') !== 'all') {
             $query->where('status', $request->input('status'));
         }
 
@@ -387,7 +402,7 @@ class OrderController extends Controller
             'order_item_id' => ['required_without:product_id', 'integer', 'min:1'],
             'product_id' => ['required_without:order_item_id', 'integer', 'min:1'],
             'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
-            'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'min:10', 'max:300'],
+            'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'max:300', ...($request->input('reason') === 'other' ? ['min:10'] : [])],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
         ]);
 
@@ -422,9 +437,9 @@ class OrderController extends Controller
             $open = ReturnRequest::where('order_id', $order->id)
                 ->where('order_item_id', $item->id)
                 ->whereIn('status', ['requested', 'approved', 'item_received'])
-                ->exists();
+                ->first();
             if ($open) {
-                return response()->json(['message' => 'You already have an open return for this item.'], 409);
+                return response()->json(['message' => 'You already have an open return for this item.', 'return' => $open], 409);
             }
 
             $completed = ReturnRequest::where('order_item_id', $item->id)->where('status', 'refunded');
@@ -454,6 +469,16 @@ class OrderController extends Controller
                 'reason_details' => $validated['reason_details'] ?? null,
                 'refund_amount' => $refund,
                 'status' => 'requested',
+            ]);
+
+            SellerNotification::create([
+                'seller_id' => $item->seller_id,
+                'order_id' => $order->id,
+                'product_id' => $item->product_id,
+                'type' => 'return_requested',
+                'title' => 'New return request',
+                'body' => 'Return #'.$return->id.' for '.$qty.' × '.($item->product_name ?: 'purchased item').'. Review it in Returns & Refunds.',
+                'is_read' => false,
             ]);
 
             return response()->json([

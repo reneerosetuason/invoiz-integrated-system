@@ -28,7 +28,11 @@
                 <div class="mt-0.5 text-[11px] text-ink-light">{{ $notification->created_at->format('M j, Y · g:i A') }}</div>
             </div>
             <div class="flex shrink-0 items-center gap-2">
-                @if($notification->order_id)
+                @if($notification->type === 'return_requested')
+                    <a href="{{ route('seller.returns.index') }}" class="btn btn-outline btn-xs">
+                        <x-icon name="eye" class="h-3.5 w-3.5" /> Review return
+                    </a>
+                @elseif($notification->order_id)
                     <a href="{{ route('seller.orders.show', $notification->order_id) }}" class="btn btn-outline btn-xs">
                         <x-icon name="eye" class="h-3.5 w-3.5" /> View
                     </a>

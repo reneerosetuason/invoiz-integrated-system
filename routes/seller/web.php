@@ -53,6 +53,7 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     // Vouchers
     Route::get('/vouchers', [SellerAppVouchers::class, 'index'])->name('seller.vouchers.index');
     Route::post('/vouchers', [SellerAppVouchers::class, 'store'])->name('seller.vouchers.store');
+    Route::post('/vouchers/{voucher}/status', [SellerAppVouchers::class, 'updateStatus'])->whereNumber('voucher')->name('seller.vouchers.status');
     Route::post('/vouchers/{voucher}', [SellerAppVouchers::class, 'update'])->name('seller.vouchers.update');
     Route::delete('/vouchers/{voucher}', [SellerAppVouchers::class, 'destroy'])->name('seller.vouchers.destroy');
 
@@ -83,6 +84,7 @@ Route::delete('/sales/{sale}', [\App\Http\Controllers\Seller\SaleController::cla
     // Account
     Route::get('/account', [SellerAppProfile::class, 'index'])->name('seller.account');
     Route::post('/account/profile', [SellerAppProfile::class, 'updateProfile'])->name('seller.account.profile');
+    Route::post('/account/pickup-address', [SellerAppProfile::class, 'updatePickupAddress'])->name('seller.account.pickup-address');
     Route::post('/account/vacation', [SellerAppProfile::class, 'updateVacation'])->name('seller.account.vacation');
     Route::post('/account/password', [SellerAppProfile::class, 'updatePassword'])->name('seller.account.password');
 });

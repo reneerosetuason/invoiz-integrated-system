@@ -19,6 +19,7 @@ import 'invoiz_logo.dart';
 
 class MainLayout extends StatelessWidget {
   final Widget child;
+  final Widget? headerSearch;
   final String title;
   final bool showAppBar,
       showBottomNav,
@@ -34,6 +35,7 @@ class MainLayout extends StatelessWidget {
   const MainLayout({
     super.key,
     required this.child,
+    this.headerSearch,
     this.title = '',
     this.showAppBar = true,
     this.showBottomNav = true,
@@ -93,10 +95,27 @@ class MainLayout extends StatelessWidget {
       const SizedBox(width: 8),
     ];
     final stackActions =
-        MediaQuery.sizeOf(context).width < 380 && headerActions.length > 4;
+        headerSearch == null &&
+        MediaQuery.sizeOf(context).width < 380 &&
+        headerActions.length > 4;
     return BuyerScaffold(
       title: title.isEmpty ? 'INVOIZ' : title,
       showNavigationBar: showAppBar,
+      navigationContent: headerSearch == null
+          ? null
+          : Padding(
+              key: const ValueKey('catalog-navigation'),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  InvoizLogo.logoWidget(size: 32, radius: 9),
+                  const SizedBox(width: 8),
+                  Expanded(child: headerSearch!),
+                  const SizedBox(width: 4),
+                  ...headerActions.take(headerActions.length - 1),
+                ],
+              ),
+            ),
       leading:
           showBottomNav && currentIndex >= 0 && currentIndex < destinationCount
           ? InvoizLogo.logoWidget(size: 32, radius: 9)

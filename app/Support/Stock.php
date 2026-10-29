@@ -6,13 +6,14 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\SellerNotification;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Single place for every stock movement so buyer, seller and admin
  * always agree:
  * - placing an order DEDUCTS (guarded: never below zero, fails loudly)
- * - cancelling a NOT-YET-SHIPPED order RESTORES the same side
- *   (variant stock when the line has a variant, else product stock)
+ * - variation quantities are allocated within the product's general stock
+ * - cancelling a NOT-YET-SHIPPED order RESTORES the quantities deducted
  * - shipped / delivered orders never move stock on cancel.
  */
 class Stock
@@ -34,23 +35,20 @@ class Stock
         if ($qty < 1 || ! $productId) {
             return false;
         }
-        if ($variantId) {
-            $affected = ProductVariant::where('id', $variantId)
-                ->where('product_id', $productId)
-                ->where('stock', '>=', $qty)
-                ->decrement('stock', $qty);
-            if ($affected > 0) {
-                self::checkLowStock($productId, $variantId);
+        return DB::transaction(function () use ($productId, $variantId, $qty) {
+            $product = Product::whereKey($productId)->lockForUpdate()->first();
+            if (! $product || $product->stock < $qty) return false;
+            if ($variantId) {
+                $variant = ProductVariant::whereKey($variantId)->where('product_id', $productId)->lockForUpdate()->first();
+                if (! $variant || $variant->status !== 'active' || $variant->stock < $qty) return false;
+                $variant->decrement('stock', $qty);
+            } elseif ($product->stock - (int) $product->variants()->sum('stock') < $qty) {
+                return false;
             }
-            return $affected > 0;
-        }
-        $affected = Product::where('id', $productId)
-            ->where('stock', '>=', $qty)
-            ->decrement('stock', $qty);
-        if ($affected > 0) {
-            self::checkLowStock($productId);
-        }
-        return $affected > 0;
+            $product->decrement('stock', $qty);
+            self::checkLowStock($productId, $variantId);
+            return true;
+        });
     }
 
     /**
@@ -126,11 +124,17 @@ class Stock
         if ($qty < 1 || $qty > (int) $item->quantity) {
             throw new \InvalidArgumentException('The restored quantity must be within the purchased quantity.');
         }
-        if ($variantId) {
-            ProductVariant::where('id', $variantId)->increment('stock', $qty);
-        } else {
-            Product::where('id', $item->product_id)->increment('stock', $qty);
-        }
+        DB::transaction(function () use ($item, $variantId, $qty) {
+            $product = Product::withTrashed()->whereKey($item->product_id)->lockForUpdate()->first();
+            if ($variantId) {
+                ProductVariant::withTrashed()->whereKey($variantId)->where('product_id', $item->product_id)->increment('stock', $qty);
+            }
+            // Imported variant orders only deducted their variant. New orders
+            // snapshot that both the general and variation counts were deducted.
+            if ($product && (! $variantId || ($item->getAttribute('product_stock_deducted') ?? true))) {
+                $product->increment('stock', $qty);
+            }
+        });
         // Stock came back (e.g. cancelled order) — resolve the alert if
         // the level is healthy again.
         self::checkLowStock($item->product_id, $variantId);

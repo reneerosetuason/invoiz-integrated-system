@@ -99,13 +99,15 @@ class Cart extends Model
         return $variant;
     }
 
-    /** Variant stock is independent of base stock, as in Stock::deduct(). */
+    /** Variation units are allocated within, and capped by, general stock. */
     public static function availableFor(?Product $product, ?ProductVariant $variant = null, ?int $variantId = null): int
     {
         if (! $product || $product->trashed() || $product->status !== 'active') return 0;
         if ($variantId && ! $variant) return 0;
         if ($variant && ($variant->trashed() || ($variant->status ?? 'active') !== 'active' || (int) $variant->product_id !== (int) $product->id)) return 0;
-        return max(0, (int) ($variant ? $variant->stock : $product->stock));
+        return max(0, $variant
+            ? min((int) $variant->stock, (int) $product->stock)
+            : (int) $product->stock - (int) $product->variants()->sum('stock'));
     }
 
     /** Serialize changes through the cart header to enforce stock and the 200-unit cap. */
@@ -118,6 +120,8 @@ class Cart extends Model
             if ($available < 1) return $variant ? 'Selected variation is out of stock' : 'Product is out of stock';
             $line = CartItem::where('cart_id', $cart->id)->where('product_id', $product->id)->where('variant_id', $variant?->id)->first();
             $current = (int) ($line?->quantity ?? 0);
+            $otherUnits = (int) $cart->items()->where('product_id', $product->id)->when($line, fn ($q) => $q->where('id', '!=', $line->id))->sum('quantity');
+            $available = min($available, max(0, (int) $product->stock - $otherUnits));
             if ($current >= $available) return 'Only '.$available.' available for this item.';
             $added = min($quantity, $available - $current);
             if ((int) $cart->items()->sum('quantity') + $added > 200) return 'Cart limit is 200 items';
@@ -135,6 +139,8 @@ class Cart extends Model
             $line = $cart->items()->with(['product', 'variant'])->find($itemId);
             if (! $line) return 'Item not found in cart.';
             $available = static::availableFor($line->product, $line->variant, $line->variant_id);
+            $otherUnits = (int) $cart->items()->where('product_id', $line->product_id)->where('id', '!=', $line->id)->sum('quantity');
+            $available = min($available, max(0, (int) ($line->product?->stock ?? 0) - $otherUnits));
             if ($available < 1) return 'This item is no longer available. Remove it or choose another variation.';
             if ($line->quantity >= $available) return 'Only '.$available.' available for this item.';
             if ((int) $cart->items()->sum('quantity') >= 200) return 'Cart limit is 200 items';

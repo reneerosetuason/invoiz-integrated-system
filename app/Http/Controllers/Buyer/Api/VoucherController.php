@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Buyer\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cart;
 use App\Models\Voucher;
 use App\Models\VoucherClaim;
+use App\Support\Shipping;
 use Illuminate\Http\Request;
 
 class VoucherController extends Controller
@@ -66,7 +68,10 @@ class VoucherController extends Controller
     {
         $validated = $request->validate([
             'code'      => ['required', 'string', 'max:12'],
-            'subtotal'  => ['required', 'numeric', 'min:0'],
+            // Kept for old clients; prices and store ownership come from the cart.
+            'subtotal'  => ['nullable', 'numeric', 'min:0'],
+            'cart_item_ids' => ['sometimes', 'array', 'min:1', 'max:200'],
+            'cart_item_ids.*' => ['required', 'integer', 'distinct', 'min:1'],
         ]);
 
         $voucher = Voucher::active()->where('code', strtoupper(trim($validated['code'])))->first();
@@ -75,45 +80,25 @@ class VoucherController extends Controller
             return response()->json(['message' => 'Invalid or expired voucher code.'], 422);
         }
 
-        if ($validated['subtotal'] < $voucher->min_spend) {
-            return response()->json([
-                'message' => "This voucher requires a minimum spend of ₱{$voucher->min_spend}.",
-            ], 422);
+        $selected = $validated['cart_item_ids'] ?? null;
+        $lines = $selected === null
+            ? Cart::linesFor($request->user()->id)
+            : Cart::selectedLinesFor($request->user()->id, $selected);
+        if ($lines->isEmpty() || ($selected !== null && $lines->count() !== count($selected))
+            || $lines->contains(fn ($line) => $line['qty'] < 1 || Cart::availableFor($line['product'], $line['variant'], $line['item']->variant_id) < $line['qty'])) {
+            return response()->json(['message' => 'Your selected cart items are empty or unavailable.'], 422);
         }
-
-        $type = $voucher->discount_type ?? $voucher->type;
-        if ($type === 'free_shipping') {
-            $cap = (float) ($voucher->discount_value ?? 0) > 0
-                ? (float) $voucher->discount_value
-                : \App\Models\Order::SHIPPING_FEE_PER_SELLER;
-            if ($voucher->max_discount !== null) {
-                $cap = min($cap, (float) $voucher->max_discount);
-            }
-
-            return response()->json([
-                'message'             => 'Voucher is valid.',
-                'voucher'             => $voucher,
-                'discount'            => 0,
-                'free_shipping_cover' => round($cap, 2),
-            ]);
-        }
-
-        $discount = $voucher->discount_type === 'fixed'
-            ? $voucher->discount_value
-            : round($validated['subtotal'] * $voucher->discount_value / 100, 2);
-
-        if ($voucher->discount_type === 'percent' && $voucher->max_discount && $discount > $voucher->max_discount) {
-            $discount = $voucher->max_discount;
-        }
-
-        if ($discount > $validated['subtotal']) {
-            $discount = $validated['subtotal'];
-        }
+        $sellerSubtotals = $lines->groupBy(fn ($line) => (int) $line['product']->seller_id)
+            ->map(fn ($group) => (float) $group->sum('line'))->all();
+        $resolved = Shipping::resolveVoucher($voucher, array_sum($sellerSubtotals), array_keys($sellerSubtotals), $sellerSubtotals);
+        if ($resolved['error']) return response()->json(['message' => $resolved['error']], 422);
+        $this->hideBuyerCode($voucher);
 
         return response()->json([
             'message'  => 'Voucher is valid.',
             'voucher'  => $voucher,
-            'discount' => round($discount, 2),
+            'discount' => $resolved['merch'],
+            'free_shipping_cover' => round(array_sum($resolved['waived']), 2),
         ]);
     }
 

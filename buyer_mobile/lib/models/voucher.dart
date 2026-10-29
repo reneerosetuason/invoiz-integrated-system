@@ -7,6 +7,7 @@ class Voucher {
   final double discountValue;
   final double minSpend;
   final double? maxDiscount;
+  final double? checkoutSavings;
 
   Voucher({
     required this.id,
@@ -17,6 +18,7 @@ class Voucher {
     required this.discountValue,
     this.minSpend = 0,
     this.maxDiscount,
+    this.checkoutSavings,
   });
 
   factory Voucher.fromJson(Map<String, dynamic> json) => Voucher(
@@ -30,6 +32,7 @@ class Voucher {
     maxDiscount: json['max_discount'] != null
         ? double.tryParse('${json['max_discount']}')
         : null,
+    checkoutSavings: double.tryParse('${json['checkout_savings']}'),
   );
 
   String get descriptionText {

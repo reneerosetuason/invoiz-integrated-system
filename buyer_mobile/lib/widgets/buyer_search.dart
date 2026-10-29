@@ -11,6 +11,7 @@ class BuyerSearch extends StatelessWidget {
   /// Drops the filled capsule so the field sits straight on the page: only
   /// the icon, placeholder and action remain.
   final bool bare;
+  final bool compact;
   const BuyerSearch({
     super.key,
     required this.controller,
@@ -20,6 +21,7 @@ class BuyerSearch extends StatelessWidget {
     this.onSearch,
     this.onClear,
     this.bare = false,
+    this.compact = false,
   });
   @override
   Widget build(BuildContext context) => DecoratedBox(
@@ -31,7 +33,7 @@ class BuyerSearch extends StatelessWidget {
       children: [
         Expanded(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 46),
+            constraints: BoxConstraints(minHeight: compact ? 44 : 46),
             child: CupertinoSearchTextField(
               controller: controller,
               placeholder: hint,
@@ -43,7 +45,7 @@ class BuyerSearch extends StatelessWidget {
                     controller.clear();
                     onChanged?.call('');
                   },
-              suffixMode: onSearch == null
+              suffixMode: onSearch == null || compact
                   ? OverlayVisibilityMode.editing
                   : OverlayVisibilityMode.never,
               decoration: const BoxDecoration(
@@ -61,13 +63,19 @@ class BuyerSearch extends StatelessWidget {
               ),
               itemColor: AppColors.textSecondary,
               itemSize: 19,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-              prefixInsets: const EdgeInsetsDirectional.only(start: 14, end: 2),
+              padding: EdgeInsets.symmetric(
+                horizontal: compact ? 4 : 8,
+                vertical: compact ? 4 : 12,
+              ),
+              prefixInsets: EdgeInsetsDirectional.only(
+                start: compact ? 8 : 14,
+                end: 2,
+              ),
               suffixInsets: const EdgeInsetsDirectional.only(end: 12),
             ),
           ),
         ),
-        if (onSearch != null)
+        if (onSearch != null && !compact)
           BuyerButton.icon(
             tooltip: 'Search products',
             onPressed: onSearch,

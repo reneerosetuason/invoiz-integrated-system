@@ -355,8 +355,15 @@ class BuyerMobileIntegrationTest extends TestCase
         Sanctum::actingAs($user);
         $id = $this->postJson('/api/orders/checkout', ['address_id' => $address->id, 'payment_method' => 'cash_on_delivery'])->assertCreated()->json('order.id');
         $this->postJson('/api/orders/'.$id.'/rate', ['product_id' => $product->id, 'rating' => 5])->assertUnprocessable();
-        $this->postJson('/api/orders/'.$id.'/cancel', ['reason' => 'changed_mind'])->assertOk();
+        $this->postJson('/api/orders/'.$id.'/cancel', [])->assertUnprocessable()->assertJsonValidationErrors('reason');
+        $this->postJson('/api/orders/'.$id.'/cancel', ['reason' => 'not_a_reason'])->assertUnprocessable()->assertJsonValidationErrors('reason');
+        $this->postJson('/api/orders/'.$id.'/cancel', ['reason' => 'other'])->assertUnprocessable()->assertJsonValidationErrors('reason_details');
+        $this->postJson('/api/orders/'.$id.'/cancel', ['reason' => 'other', 'reason_details' => 'short'])->assertUnprocessable()->assertJsonValidationErrors('reason_details');
+        $this->assertNotSame('cancelled', Order::findOrFail($id)->status);
+        $this->assertSame(9, $product->fresh()->stock);
+        $this->postJson('/api/orders/'.$id.'/cancel', ['reason' => 'other', 'reason_details' => 'Ordered the same item twice.'])->assertOk();
         $this->assertSame('cancelled', Order::findOrFail($id)->status);
+        $this->assertSame('Other: Ordered the same item twice.', Order::findOrFail($id)->cancellation_reason);
         $this->assertSame(10, $product->fresh()->stock);
     }
 

@@ -83,11 +83,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     final product = _product;
     if (product == null) return 0;
     if (product.variants.isEmpty) return product.stock;
-    return product.variants
+    final variantStock =
+        product.variants
             .where((v) => v.id == _selectedVariant && v.isAvailable)
             .firstOrNull
             ?.stock ??
         0;
+    return variantStock.clamp(0, product.stock < 0 ? 0 : product.stock);
   }
 
   Future<bool> _addToCart({bool showFeedback = true}) async {
@@ -468,13 +470,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   side: BorderSide(
                     color: selected ? AppColors.primary : AppColors.border,
                   ),
-                  onSelected: !v.isAvailable
+                  onSelected: !v.isAvailable || _product!.stock < 1
                       ? null
                       : (_) => setState(() {
                           _selectedVariant = v.id;
                           _quantity = _quantity.clamp(
                             1,
-                            v.stock < 200 ? v.stock : 200,
+                            _availableStock < 200 ? _availableStock : 200,
                           );
                         }),
                 );

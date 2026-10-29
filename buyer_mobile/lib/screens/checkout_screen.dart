@@ -38,6 +38,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _paymentMethod = 'cash_on_delivery';
   bool _loading = true;
   bool _placing = false;
+  String? _loadError;
 
   @override
   void initState() {
@@ -46,11 +47,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadError = null;
+      _quote = null;
+    });
     try {
       final cartData = await _api.get('cart');
+      if (!mounted) return;
+      final fullCart = Cart.fromJson(cartData);
+      setState(() => _cart = fullCart.select(widget.cartItemIds));
+      if (_cart!.items.isEmpty) {
+        setState(() {
+          _loading = false;
+          if (fullCart.items.isNotEmpty) {
+            _loadError =
+                'The selected items are no longer in your cart. Return to your cart and choose your items again.';
+          }
+        });
+        return;
+      }
       final addrData = await _api.get('addresses');
-      final voucherData = await _api.get('vouchers');
       final quoteData = await _api.post('orders/preview', _selection());
       if (!mounted) return;
       setState(() {
@@ -62,7 +79,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             .whereType<Map<String, dynamic>>()
             .map(Address.fromJson)
             .toList();
-        _vouchers = (voucherData['vouchers'] as List)
+        _vouchers = (quoteData['vouchers'] as List? ?? [])
             .whereType<Map<String, dynamic>>()
             .map(Voucher.fromJson)
             .toList();
@@ -76,10 +93,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      setState(() {
+        _loading = false;
+        _loadError = e is ApiException
+            ? e.message
+            : 'Checkout could not be loaded. Please try again.';
+      });
     }
   }
 
@@ -106,7 +125,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _selectedVoucher = voucher.name;
         _voucherClaimId = claimId;
         _quote = quote;
-        _validatedDiscount = quote.discount;
+        _validatedDiscount = quote.discount + quote.shippingDiscount;
+        _vouchers = (data['vouchers'] as List? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map(Voucher.fromJson)
+            .toList();
       });
     } catch (e) {
       if (mounted)
@@ -131,6 +154,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         _selectedVoucher = null;
         _voucherClaimId = null;
         _validatedDiscount = null;
+        _vouchers = (data['vouchers'] as List? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .map(Voucher.fromJson)
+            .toList();
       });
     } catch (e) {
       if (mounted)
@@ -143,7 +170,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _placeOrder() async {
-    if (_placing || _quoting) return;
+    if (_placing || _quoting || _quote == null || _loadError != null) return;
     if (_selectedAddressId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -199,6 +226,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       showSettingsIcon: false,
       child: _loading
           ? const Center(child: CupertinoActivityIndicator())
+          : _loadError != null
+          ? ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const BuyerPageHeading(title: 'Checkout unavailable'),
+                Text(_loadError!, style: const TextStyle(fontSize: 15)),
+                const SizedBox(height: 12),
+                if (_cart?.items.isNotEmpty == true) ...[
+                  const Text('Your items are still in your cart.'),
+                  const SizedBox(height: 12),
+                  _section('Your items', _itemsSection()),
+                  const SizedBox(height: 12),
+                ],
+                BuyerButton.primary(
+                  onPressed: _load,
+                  child: const Text('Try again'),
+                ),
+                const SizedBox(height: 8),
+                BuyerButton.plain(
+                  onPressed: () => Navigator.maybePop(context),
+                  child: const Text('Go back'),
+                ),
+              ],
+            )
           : _cart == null || _cart!.items.isEmpty
           ? const Center(child: Text('Your cart is empty.'))
           : Column(
@@ -468,35 +519,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           )
         else
           Text(
-            'No active vouchers.',
+            'No vouchers apply to the selected items.',
             style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
       ],
     );
   }
 
-  /// Finds the voucher that saves the most for the current cart subtotal
-  /// and surfaces it as a one-tap "best for you" suggestion.
+  /// Savings are calculated by the server using each voucher's store scope.
   Widget _bestVoucherHint() {
-    final subtotal = _cart?.subtotal ?? 0;
     Voucher? best;
     double bestSave = 0;
 
     for (final v in _vouchers) {
-      if (subtotal < v.minSpend) continue;
-      double save;
-      if (v.discountType == 'free_shipping') {
-        save = v.discountValue > 0
-            ? v.discountValue
-            : (_quote?.shippingFee ?? 0);
-      } else if (v.discountType == 'fixed') {
-        save = v.discountValue;
-      } else {
-        save = subtotal * v.discountValue / 100;
-        if (v.maxDiscount != null && save > v.maxDiscount!)
-          save = v.maxDiscount!;
-      }
-      if (save > subtotal) save = subtotal;
+      final save = v.checkoutSavings ?? 0;
       if (save > bestSave) {
         bestSave = save;
         best = v;

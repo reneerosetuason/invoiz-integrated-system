@@ -162,6 +162,46 @@ class Order {
 
   double get subtotal => items.fold(0, (s, i) => s + i.subtotal);
 
+  bool get hasReturnRequests => returns.isNotEmpty;
+
+  List<Map<String, dynamic>> returnsForItem(OrderItem item) => returns
+      .where((r) => int.tryParse('${r['order_item_id']}') == item.id)
+      .toList();
+
+  int returnableQuantity(OrderItem item) {
+    final completed = returnsForItem(item)
+        .where((r) => r['status'] == 'refunded')
+        .fold<int>(
+          0,
+          (sum, r) => sum + (int.tryParse('${r['quantity']}') ?? 0),
+        );
+    return (item.quantity - completed).clamp(0, item.quantity).toInt();
+  }
+
+  static String returnStatusLabel(String? status) => switch (status) {
+    'requested' => 'Awaiting seller review',
+    'approved' => 'Return approved',
+    'item_received' => 'Item received',
+    'refunded' => 'Refund recorded',
+    'rejected' => 'Return rejected',
+    'cancelled' => 'Return cancelled',
+    _ => 'Return requested',
+  };
+
+  String? get returnSummary {
+    if (returns.isEmpty) return null;
+    final active = returns.where(
+      (r) => ['requested', 'approved', 'item_received'].contains(r['status']),
+    );
+    final records = (active.isEmpty ? returns : active).toList()
+      ..sort(
+        (a, b) => (int.tryParse('${b['id']}') ?? 0).compareTo(
+          int.tryParse('${a['id']}') ?? 0,
+        ),
+      );
+    return returnStatusLabel(records.first['status'] as String?);
+  }
+
   // Stored shipping is already reduced by shipping vouchers. Keep those
   // savings out of the merchandise discount so the displayed totals reconcile.
   double get merchandiseDiscount => shippingFee == null

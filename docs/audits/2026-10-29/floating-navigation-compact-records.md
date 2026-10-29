@@ -56,3 +56,35 @@ remains outstanding. Purchases and order mutations were tested with fixtures;
 no real order, payment, message or account changes were submitted.
 
 No commit was created.
+
+## Cart screenshot refinement
+
+Refined `buyer_mobile/lib/screens/cart_screen.dart` after reviewing the cart
+screenshot. Cart search now uses the compact navigation slot shared with Home
+and Shop. The 22px page heading and item-count badge replace the larger heading,
+long description and separate search row. Item-card padding is 8px, with a
+tighter footer gap; photos, product information and all item actions remain.
+
+Checkout now sits in its own rounded, shadowed card aligned with the tab pill,
+with an 8px gap above it and a 540px maximum width. Subtotal and Checkout share
+a row on ordinary phones; enlarged text stacks them. The shipping note keeps
+the card's full width. The cart-specific card replaces the previous full-width
+summary strip and removes the extra bottom clearance.
+
+`buyer_mobile/lib/widgets/shopping_ui.dart` adds an optional compact visual
+treatment for the cart quantity control. Its visible pill is slimmer while the
+plus/minus targets stay 44px. Larger text retains the full pill height, and
+other screens keep their existing quantity-control appearance.
+
+All 182 Flutter tests passed. Analyzer: zero errors/warnings, with the same
+61 informational items. Reviewed 320px, 360px and enlarged-text cart renders;
+existing coverage also includes wider screens, keyboard, item selection,
+quantity/removal and selected-item checkout. Source comparison confirms that
+cart loading, filtering, totals, quantity/removal requests and checkout item
+IDs/destination are unchanged. No backend or environment change was needed.
+
+Android and web builds succeeded; `/buyer-app/` was refreshed. Installed and
+launched the final update on the paired TECNO, retaining its app data and local
+API forwarding. Its process was running with zero Flutter/fatal errors in the
+checked startup logs. Cart visual checks used rendered widget captures; no
+real cart, order or payment mutation was submitted during device validation.

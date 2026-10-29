@@ -185,8 +185,8 @@
         <div style="font-size:11px;color:var(--text3);margin:8px 0 6px">{{ $type }}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap" data-vgroup="{{ $type }}">
           @foreach($opts as $v)
-            @php $vOut = ((int) $v->stock) < 1; @endphp
-            <button type="button" class="opt-pill" data-variant="{{ $v->id }}" data-adj="{{ $v->price_adjustment }}" data-stock="{{ (int) $v->stock }}" data-label="{{ $v->variant_type }}: {{ $v->variant_value }}" @if($vOut) disabled title="Out of stock" @else onclick="pickVariant(this)" @endif style="padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:{{ $vOut ? '#f3f4f6' : '#fff' }};font-size:12px;font-weight:600;cursor:{{ $vOut ? 'not-allowed' : 'pointer' }};font-family:inherit;{{ $vOut ? 'opacity:.5;text-decoration:line-through;' : '' }}">{{ $v->variant_value }}{{ $v->price_adjustment > 0 ? ' (+₱'.number_format($v->price_adjustment,2).')' : '' }}</button>
+            @php $vOut = min((int) $p->stock, (int) $v->stock) < 1; @endphp
+            <button type="button" class="opt-pill" data-variant="{{ $v->id }}" data-adj="{{ $v->price_adjustment }}" data-stock="{{ max(0, min((int) $p->stock, (int) $v->stock)) }}" data-label="{{ $v->variant_type }}: {{ $v->variant_value }}" @if($vOut) disabled title="Out of stock" @else onclick="pickVariant(this)" @endif style="padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:{{ $vOut ? '#f3f4f6' : '#fff' }};font-size:12px;font-weight:600;cursor:{{ $vOut ? 'not-allowed' : 'pointer' }};font-family:inherit;{{ $vOut ? 'opacity:.5;text-decoration:line-through;' : '' }}">{{ $v->variant_value }}{{ $v->price_adjustment > 0 ? ' (+₱'.number_format($v->price_adjustment,2).')' : '' }}</button>
           @endforeach
         </div>
       @endforeach
@@ -206,5 +206,5 @@
     </div>
   </div>
 </div>
-<script src="{{ asset('assets/buyer/js/product.js') }}" data-config="{{ json_encode([($effPrice), ((int) $p->stock), ($vgroups->isNotEmpty()), (url('/buy/'.$p->id)), (url('/cart/add/'.$p->id)), (csrf_token())], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+<script src="{{ asset('assets/buyer/js/product.js') }}?v={{ filemtime(public_path('assets/buyer/js/product.js')) }}" data-config="{{ json_encode([($effPrice), ((int) $p->stock), ($vgroups->isNotEmpty()), (url('/buy/'.$p->id)), (url('/cart/add/'.$p->id)), (csrf_token())], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endsection

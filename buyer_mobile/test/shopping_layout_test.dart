@@ -17,6 +17,7 @@ import 'package:invoiz/screens/orders_screen.dart';
 import 'package:invoiz/screens/order_detail_screen.dart';
 import 'package:invoiz/screens/product_detail_screen.dart';
 import 'package:invoiz/screens/home_screen.dart';
+import 'package:invoiz/screens/product_list_screen.dart';
 import 'package:invoiz/screens/account_screen.dart';
 import 'package:invoiz/screens/profile_screen.dart';
 import 'package:invoiz/screens/login_screen.dart';
@@ -467,6 +468,17 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         await tester.pumpWidget(_app(HomeScreen(api: _api())));
         await tester.pumpAndSettle();
+        final navigation = find.byKey(const ValueKey('catalog-navigation'));
+        final search = find.byKey(const ValueKey('catalog-search'));
+        expect(
+          find.descendant(of: navigation, matching: search),
+          findsOneWidget,
+        );
+        expect(search, findsOneWidget);
+        expect(tester.getSize(search).height, greaterThanOrEqualTo(44));
+        expect(find.byTooltip('Messages').hitTestable(), findsOneWidget);
+        expect(find.byTooltip('Notifications').hitTestable(), findsOneWidget);
+        expect(find.byTooltip('Wishlist').hitTestable(), findsOneWidget);
         expect(find.byType(ProductCard), findsWidgets);
         final first = find.byType(ProductCard).at(0);
         final second = find.byType(ProductCard).at(1);
@@ -524,6 +536,7 @@ void main() {
     );
   }
   final secondary = <String, Widget Function(ApiService)>{
+    'shop': (api) => ProductListScreen(api: api, showAll: true),
     'account': (_) => const AccountScreen(),
     'profile': (_) => const ProfileScreen(),
     'login': (_) => const LoginScreen(),
@@ -712,14 +725,27 @@ void main() {
       expect(find.byType(CupertinoAlertDialog), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _capture(tester, 'dialog-${action.replaceAll(' ', '-')}');
-      if (action == 'Rate' || action == 'Request return') {
+      if (action == 'Cancel Order') {
+        await tester.tap(find.text('Select a reason'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.widgetWithText(CupertinoActionSheetAction, 'Other reason'),
+        );
+        await tester.pumpAndSettle();
+        await _capture(tester, 'dialog-Cancel-Order-other');
+      }
+      if (action == 'Rate' ||
+          action == 'Request return' ||
+          action == 'Cancel Order') {
         final input = find
             .descendant(
               of: find.byType(CupertinoAlertDialog),
               matching: find.byType(CupertinoTextField),
             )
             .last;
-        await tester.ensureVisible(input);
+        if (action != 'Cancel Order') {
+          await tester.ensureVisible(input);
+        }
         await tester.pumpAndSettle();
         await tester.tap(input);
         tester.view.viewInsets = const FakeViewPadding(bottom: 280);
@@ -736,7 +762,7 @@ void main() {
         'Rate' => 'Cancel',
         'Request return' => 'Keep item',
         'Show delivery code' => 'Close',
-        _ => 'No',
+        _ => 'Keep order',
       };
       await tester.tap(find.text(dismiss));
       await tester.pumpAndSettle();

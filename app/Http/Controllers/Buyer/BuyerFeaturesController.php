@@ -65,6 +65,10 @@ class BuyerFeaturesController extends Controller
             ->unique()
             ->values()
             ->all();
+        // Cart items reference users.id; vouchers reference sellers.id.
+        // recordIds() includes safe legacy keys without crossing store ownership.
+        $voucherSellerIds = \App\Models\Seller::whereIn('user_id', $cartSellerIds)->get()
+            ->flatMap(fn ($seller) => $seller->recordIds())->unique()->values()->all();
 
         $voucherClaims = VoucherClaim::where('buyer_id', $buyerId)->get()->keyBy('voucher_id');
         $claimedIds = $voucherClaims->keys()->map(fn ($id) => (int) $id)->all();
@@ -73,10 +77,10 @@ class BuyerFeaturesController extends Controller
             ->where(function ($q) {
                 $q->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit');
             })
-            ->where(function ($q) use ($cartSellerIds) {
+            ->where(function ($q) use ($voucherSellerIds) {
                 // Platform-wide vouchers (no seller) or vouchers from a seller in the buyer's cart.
                 $q->whereNull('seller_id')
-                  ->orWhereIn('seller_id', $cartSellerIds);
+                  ->orWhereIn('seller_id', $voucherSellerIds);
             })
             ->latest()->paginate(12);
 

@@ -34,22 +34,24 @@ class ShoppingPrice extends StatelessWidget {
 
 class ShoppingQuantity extends StatelessWidget {
   final int quantity;
+  final bool compact;
   final VoidCallback? onDecrease, onIncrease;
   const ShoppingQuantity({
     super.key,
     required this.quantity,
+    this.compact = false,
     this.onDecrease,
     this.onIncrease,
   });
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
-    decoration: BoxDecoration(
+  Widget build(BuildContext context) {
+    final decoration = BoxDecoration(
       color: AppColors.paper,
       border: Border.all(color: AppColors.border, width: .5),
       borderRadius: BorderRadius.circular(999),
-    ),
-    child: Row(
+    );
+    final controls = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         BuyerButton.icon(
@@ -80,8 +82,23 @@ class ShoppingQuantity extends StatelessWidget {
           constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
         ),
       ],
-    ),
-  );
+    );
+    if (!compact) {
+      return DecoratedBox(decoration: decoration, child: controls);
+    }
+    final inset = MediaQuery.textScalerOf(context).scale(1) > 1.2 ? 0.0 : 4.0;
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned.fill(
+          top: inset,
+          bottom: inset,
+          child: DecoratedBox(decoration: decoration),
+        ),
+        controls,
+      ],
+    );
+  }
 }
 
 class ShoppingValueRow extends StatelessWidget {

@@ -219,9 +219,14 @@ class Product {
     );
   }
 
-  int get availableStock => variants.isEmpty
-      ? stock
-      : variants.where((v) => v.isAvailable).fold(0, (sum, v) => sum + v.stock);
+  int get availableStock {
+    final allocated = variants.isEmpty
+        ? stock
+        : variants
+              .where((v) => v.isAvailable)
+              .fold(0, (sum, v) => sum + v.stock);
+    return allocated.clamp(0, stock < 0 ? 0 : stock);
+  }
 
   List<String> get displayImages => [if (image != null) image!, ...gallery]
       .map((path) => path.trim())

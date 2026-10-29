@@ -7,7 +7,7 @@
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
             <h2 class="text-xl font-extrabold tracking-tight">Vouchers &amp; Discounts</h2>
-            <p class="mt-0.5 text-sm text-ink-light">Create discount codes buyers can apply at checkout.</p>
+            <p class="mt-0.5 text-sm text-ink-light">Create and manage vouchers for your store.</p>
         </div>
         <button type="button" @click="$refs.createModal.showModal()" class="btn btn-primary">
             <x-icon name="plus" class="h-4 w-4" /> Create Voucher
@@ -60,22 +60,27 @@
                                 <span class="font-bold">{{ $voucher->used_count }}</span>
                                 @if($voucher->usage_limit)<span class="text-ink-light">/ {{ $voucher->usage_limit }}</span>@endif
                             </td>
-                            <td><span class="badge badge-{{ $voucher->status }}">{{ ucfirst($voucher->status) }}</span></td>
+                            <td><span class="badge badge-{{ $voucher->status_bool ? 'active' : 'inactive' }}">{{ $voucher->status_bool ? 'Active' : 'Inactive' }}</span></td>
                             <td class="text-right">
                                 <div class="flex justify-end gap-1.5">
-                                    <button @click="openEdit({{ $voucher->id }})" class="btn btn-outline btn-xs" title="Edit">
+                                    <form method="POST" action="{{ route('seller.vouchers.status', $voucher->id) }}">
+                                        @csrf
+                                        <input type="hidden" name="status" value="{{ $voucher->status_bool ? 'inactive' : 'active' }}">
+                                        <button type="submit" class="btn btn-outline btn-xs min-h-[44px]" aria-label="{{ $voucher->status_bool ? 'Deactivate' : 'Activate' }} {{ $voucher->name }}">
+                                            {{ $voucher->status_bool ? 'Deactivate' : 'Activate' }}
+                                        </button>
+                                    </form>
+                                    <button type="button" @click="openEdit({{ $voucher->id }})" class="btn btn-outline btn-xs" title="Edit" aria-label="Edit {{ $voucher->name }}">
                                         <x-icon name="edit" class="h-3.5 w-3.5" />
                                     </button>
-                                    @if($voucher->seller_id)
-                                        <form method="POST" action="{{ route('seller.vouchers.destroy', $voucher->id) }}"
-                                              onsubmit="return confirm('Delete this voucher?');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button class="btn btn-danger btn-xs" title="Delete">
-                                                <x-icon name="trash" class="h-3.5 w-3.5" />
-                                            </button>
-                                        </form>
-                                    @endif
+                                    <form method="POST" action="{{ route('seller.vouchers.destroy', $voucher->id) }}"
+                                          onsubmit="return confirm('Delete this voucher?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="btn btn-danger btn-xs" title="Delete">
+                                            <x-icon name="trash" class="h-3.5 w-3.5" />
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
@@ -116,22 +121,23 @@
                 <button type="button" @click="$refs.editModal.close()" class="rounded-xl p-1.5 text-ink-light hover:bg-soft"><x-icon name="x" class="h-5 w-5" /></button>
             </div>
             <div class="space-y-4" x-show="editing">
+                <p x-show="editing.has_claims" x-cloak class="text-xs text-ink-light">Buyers have claimed or used this voucher. You can change its status; its offer details are locked.</p>
                 <div>
                     <label class="field-label">Code</label>
                     <input type="text" class="input bg-white font-bold" :value="editing.code" disabled>
                 </div>
                 <div>
                     <label class="field-label">Name</label>
-                    <input type="text" name="name" class="input" x-model="editing.name" required>
+                    <input type="text" name="name" class="input" x-model="editing.name" :disabled="editing.has_claims" required>
                 </div>
                 <div>
                     <label class="field-label">Description</label>
-                    <textarea name="description" rows="2" class="textarea" x-model="editing.description"></textarea>
+                    <textarea name="description" rows="2" class="textarea" x-model="editing.description" :disabled="editing.has_claims"></textarea>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="field-label">Type</label>
-                        <select name="discount_type" class="select" x-model="editing.discount_type">
+                        <select name="discount_type" class="select" x-model="editing.discount_type" :disabled="editing.has_claims">
                             <option value="fixed">Fixed (₱)</option>
                             <option value="percent">Percent (%)</option>
                             <option value="free_shipping">Free shipping</option>
@@ -139,33 +145,33 @@
                     </div>
                     <div>
                         <label class="field-label">Value</label>
-                        <input type="number" name="discount_value" step="0.01" min="0" class="input" x-model="editing.discount_value" required>
+                        <input type="number" name="discount_value" step="0.01" min="0" class="input" x-model="editing.discount_value" :disabled="editing.has_claims" required>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="field-label">Min Spend</label>
-                        <input type="number" name="min_spend" step="0.01" min="0" class="input" x-model="editing.min_spend">
+                        <input type="number" name="min_spend" step="0.01" min="0" class="input" x-model="editing.min_spend" :disabled="editing.has_claims">
                     </div>
                     <div>
                         <label class="field-label">Max Discount (percent)</label>
-                        <input type="number" name="max_discount" step="0.01" min="0" class="input" x-model="editing.max_discount">
+                        <input type="number" name="max_discount" step="0.01" min="0" class="input" x-model="editing.max_discount" :disabled="editing.has_claims">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="field-label">Valid From</label>
-                        <input type="date" name="valid_from" class="input" x-model="editing.valid_from">
+                        <input type="date" name="valid_from" class="input" x-model="editing.valid_from" :disabled="editing.has_claims">
                     </div>
                     <div>
                         <label class="field-label">Valid Until</label>
-                        <input type="date" name="valid_until" class="input" x-model="editing.valid_until">
+                        <input type="date" name="valid_until" class="input" x-model="editing.valid_until" :disabled="editing.has_claims">
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <label class="field-label">Usage Limit</label>
-                        <input type="number" name="usage_limit" min="1" class="input" x-model="editing.usage_limit">
+                        <input type="number" name="usage_limit" min="1" class="input" x-model="editing.usage_limit" :disabled="editing.has_claims">
                     </div>
                     <div>
                         <label class="field-label">Status</label>
@@ -195,8 +201,10 @@
         'valid_from' => $v->valid_from?->toDateString(),
         'valid_until' => $v->valid_until?->toDateString(),
         'usage_limit' => $v->usage_limit,
-        'status' => $v->status,
+        'status' => $v->status_bool ? 'active' : 'inactive',
+        'has_claims' => $v->claims_count > 0 || $v->order_vouchers_count > 0 || $v->used_count > 0,
+        'update_url' => route('seller.vouchers.update', $v->id),
     ])->toJson(JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP);
 @endphp
-<script src="{{ asset('assets/seller/js/vouchers/index.js') }}" data-config="{{ json_encode([(json_decode($voucherJson, true)), (route('seller.vouchers.index'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+<script src="{{ asset('assets/seller/js/vouchers/index.js') }}?v={{ filemtime(public_path('assets/seller/js/vouchers/index.js')) }}" data-config="{{ json_encode([(json_decode($voucherJson, true))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endpush

@@ -79,7 +79,7 @@ class BuyerWebShoppingTest extends TestCase
 
     public function test_add_to_cart_repeats_and_keeps_variations_separate(): void
     {
-        [$buyer,$product]=$this->shoppingFixture();
+        [$buyer,$product]=$this->shoppingFixture();$product->update(['stock'=>20]);
         $variant=ProductVariant::create(['product_id'=>$product->id,'variant_type'=>'Color','variant_value'=>'White','stock'=>8,'price_adjustment'=>20,'status'=>'active']);
         $this->post('/cart/add/'.$product->id,['qty'=>2])->assertRedirect('/cart');
         $this->post('/cart/add/'.$product->id,['qty'=>3])->assertRedirect('/cart');
@@ -89,12 +89,12 @@ class BuyerWebShoppingTest extends TestCase
         $this->assertDatabaseHas('cart_items',['variant_id'=>$variant->id,'quantity'=>2]);
     }
 
-    public function test_in_stock_variation_can_be_added_when_base_stock_is_zero(): void
+    public function test_variation_cannot_be_added_when_general_stock_is_zero(): void
     {
         [$buyer,$product]=$this->shoppingFixture();$product->update(['stock'=>0]);
         $variant=ProductVariant::create(['product_id'=>$product->id,'stock'=>4,'price_adjustment'=>20,'status'=>'active']);
-        $this->post('/cart/add/'.$product->id,['qty'=>2,'variant_id'=>$variant->id])->assertRedirect('/cart')->assertSessionHas('success');
-        $this->assertDatabaseHas('cart_items',['variant_id'=>$variant->id,'quantity'=>2]);
+        $this->post('/cart/add/'.$product->id,['qty'=>2,'variant_id'=>$variant->id])->assertRedirect('/cart')->assertSessionHas('error');
+        $this->assertDatabaseCount('cart_items',0);
     }
 
     public function test_invalid_or_inactive_variation_does_not_silently_add_base_product(): void
@@ -218,7 +218,7 @@ class BuyerWebShoppingTest extends TestCase
         $this->assertDatabaseHas('order_items',['product_id'=>$product->id,'product_variant_id'=>$variant->id,'quantity'=>3,'unit_price'=>120,'total_price'=>360]);
         $this->assertDatabaseHas('orders',['buyer_id'=>$buyer->id,'total_amount'=>410]);
         $this->assertSame(5,(int)$variant->fresh()->stock);
-        $this->assertSame(10,$product->fresh()->stock);
+        $this->assertSame(7,$product->fresh()->stock);
         $this->assertDatabaseCount('payments',1);
         $this->assertDatabaseCount('payment_transactions',1);
     }

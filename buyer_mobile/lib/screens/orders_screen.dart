@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../widgets/buyer_page.dart';
+import '../widgets/buyer_search.dart';
 import '../widgets/product_photo.dart';
 import '../widgets/shopping_ui.dart';
 import '../models/order.dart';
@@ -31,6 +32,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     ('pending', 'To Ship'),
     ('out_for_delivery', 'In Transit'),
     ('delivered', 'Delivered'),
+    ('return', 'Return'),
     ('cancelled', 'Cancelled'),
   ];
 
@@ -72,7 +74,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   void _applyFilters() {
     var filtered = List<Order>.from(_allOrders);
-    if (_status != 'all') {
+    if (_status == 'return') {
+      filtered = filtered.where((order) => order.hasReturnRequests).toList();
+    } else if (_status != 'all') {
       final group = _statusGroups[_status] ?? [_status];
       filtered = filtered.where((o) => group.contains(o.status)).toList();
     }
@@ -123,24 +127,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
     title: 'Orders',
     showSettingsIcon: false,
     api: _api,
+    headerSearch: BuyerSearch(
+      key: const ValueKey('orders-search'),
+      controller: _searchCtrl,
+      hint: 'Search',
+      compact: true,
+      onChanged: _onSearch,
+      onSubmitted: _onSearch,
+    ),
     child: Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const BuyerPageHeading(
-                title: 'Your orders',
-                description:
-                    'From the store to your door. Follow every order here.',
-              ),
-              ShoppingSearch(
-                controller: _searchCtrl,
-                hint: 'Search orders...',
-                onChanged: _onSearch,
-              ),
-            ],
+          child: const BuyerPageHeading(
+            title: 'Your orders',
+            description:
+                'From the store to your door. Follow every order here.',
           ),
         ),
         SingleChildScrollView(
@@ -195,9 +197,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
                                   icon: CupertinoIcons.doc_text,
                                   title: _search.isNotEmpty
                                       ? 'No matching orders'
+                                      : _status == 'return'
+                                      ? 'No return requests yet'
                                       : 'No orders here yet',
                                   description: _search.isNotEmpty
                                       ? 'Try another product name or clear the filters.'
+                                      : _status == 'return'
+                                      ? 'Requests you send from a delivered order will appear here.'
                                       : 'Your purchases and delivery updates will appear here.',
                                 ),
                               ),
@@ -339,6 +345,29 @@ class _OrdersScreenState extends State<OrdersScreen> {
                             ],
                           ),
                         ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (order.returnSummary != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.assignment_return_outlined,
+                      size: 16,
+                      color: AppColors.primaryDark,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        order.returnSummary!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ],

@@ -19,17 +19,19 @@ class ProductListScreen extends StatelessWidget {
     this.api,
   });
   @override
-  Widget build(BuildContext context) => MainLayout(
+  Widget build(BuildContext context) => CatalogBrowser(
     api: api,
-    title: categoryName ?? (showAll ? 'Shop' : 'Sale'),
-    currentIndex: 1,
-    showSettingsIcon: false,
-    child: CatalogBrowser(
+    onSale: !showAll,
+    categoryId: categoryId,
+    initialSearch: search,
+    bottomPadding: AppSizes.bottomNavClearance(context),
+    scaffoldBuilder: (context, search, content) => MainLayout(
       api: api,
-      onSale: !showAll,
-      categoryId: categoryId,
-      initialSearch: search,
-      bottomPadding: AppSizes.bottomNavClearance(context),
+      title: categoryName ?? (showAll ? 'Shop' : 'Sale'),
+      currentIndex: 1,
+      showSettingsIcon: false,
+      headerSearch: search,
+      child: content,
     ),
   );
 }

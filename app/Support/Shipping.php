@@ -46,7 +46,7 @@ class Shipping
         $eligibleGroups = $groupIds;
         $applicableSubtotal = $subtotal;
         if ($voucher->seller_id) {
-            $ownerId = (int) (\App\Models\Seller::withTrashed()->find($voucher->seller_id)?->user_id ?? $voucher->seller_id);
+            $ownerId = Vouchers::sellerUserId($voucher);
             $eligibleGroups = array_values(array_filter($groupIds, fn ($id) => (int) $id === $ownerId));
             if (! $eligibleGroups) {
                 return ['merch' => 0.0, 'waived' => [], 'error' => 'This voucher does not apply to the items in your order.'];

@@ -27,8 +27,7 @@
             $value = $voucher->discount_value ?? $voucher->value;
             $claimed = in_array((int)$voucher->id, array_map('intval', $claimedIds), true);
             $used = filled($voucherClaims->get($voucher->id)?->used_at);
-            $sellerName = 'Store offer';
-            try { $sellerName = \App\Models\Seller::nameFor(\App\Models\Seller::userIdFor((int) $voucher->seller_id)); } catch (\Throwable $e) {}
+            $sellerName = $voucher->seller_id ? \App\Models\Seller::nameFor(\App\Support\Vouchers::sellerUserId($voucher)) : 'Platform offer';
             $voucherExpiry = $voucher->ends_at ?? $voucher->valid_until;
             $voucherExpiryLabel = $voucherExpiry ? \Illuminate\Support\Carbon::parse($voucherExpiry)->format('M j, Y') : null;
           @endphp

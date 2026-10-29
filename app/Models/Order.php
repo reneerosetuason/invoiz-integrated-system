@@ -88,6 +88,11 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function returnRequests()
+    {
+        return $this->hasMany(ReturnRequest::class);
+    }
+
     public function itemsForSeller($sellerId)
     {
         $ids = $sellerId instanceof Seller ? $sellerId->catalogIds() : [$sellerId];
@@ -184,27 +189,49 @@ class Order extends Model
         return round((float) $items->sum(fn ($it) => $it->lineTotal ?? ((float) ($it->unit_price ?? $it->price ?? 0)) * ((int) ($it->quantity ?? 0))), 2);
     }
 
-    /**
-     * This seller's share of the order's voucher discount (the cost the
-     * seller absorbs). Apportioned pro-rata by the seller's share of the
-     * order subtotal and capped at the seller's subtotal, so multi-seller
-     * orders split the discount fairly and single-seller orders take it all.
-     */
+    /** Store offers stay with their owner; platform offers share the remaining merchandise. */
     public function voucherDiscountForSeller($sellerId): float
     {
-        $discount = $this->voucherDiscountTotal();
-        if ($discount <= 0) {
-            return 0.0;
+        $sid = $sellerId instanceof Seller ? (int) $sellerId->user_id : (int) $sellerId;
+        $remaining = [];
+        $discounts = [];
+        foreach ($this->shippingGroupIds() as $groupId) {
+            $remaining[$groupId] = $this->sellerSubtotal($groupId);
+            $discounts[$groupId] = 0.0;
         }
-        $orderSubtotal = $this->itemsSubtotal();
-        if ($orderSubtotal <= 0) {
-            return 0.0;
+        $vouchers = $this->relationLoaded('orderVouchers')
+            ? $this->orderVouchers
+            : $this->orderVouchers()->with('voucher')->get();
+        $platform = 0.0;
+        foreach ($vouchers as $ov) {
+            $voucher = $ov->voucher;
+            if (($voucher->discount_type ?? $voucher->type ?? null) === 'free_shipping') {
+                continue;
+            }
+            $ownerId = $ov->voucherSellerUserId();
+            if ($ownerId === null) {
+                $platform += (float) $ov->discount_amount;
+            } elseif (isset($remaining[$ownerId])) {
+                $amount = min(max(0, (float) $ov->discount_amount), $remaining[$ownerId]);
+                $discounts[$ownerId] += $amount;
+                $remaining[$ownerId] -= $amount;
+            }
         }
-        $sellerSubtotal = $this->sellerSubtotal($sellerId);
-        if ($sellerSubtotal <= 0) {
-            return 0.0;
+        // Allocate cents deterministically, preserving the order total even
+        // when a store voucher has already exhausted one seller's subtotal.
+        ksort($remaining);
+        $remainingSubtotal = array_sum($remaining);
+        $platform = min(max(0, $platform), $remainingSubtotal);
+        foreach ($remaining as $groupId => $capacity) {
+            $amount = $remainingSubtotal > 0
+                ? round(min($capacity, $platform * $capacity / $remainingSubtotal), 2)
+                : 0.0;
+            $discounts[$groupId] += $amount;
+            $platform = round($platform - $amount, 2);
+            $remainingSubtotal = round($remainingSubtotal - $capacity, 2);
         }
-        return round(min($sellerSubtotal, $discount * $sellerSubtotal / $orderSubtotal), 2);
+
+        return round($discounts[$sid] ?? 0, 2);
     }
 
     /**
@@ -309,12 +336,24 @@ class Order extends Model
     /** This seller group's waived shipping (absorbed by the seller, never the rider). */
     public function shippingWaivedForSeller($sellerId): float
     {
-        $waived = $this->shippingWaivedTotal();
-        if ($waived <= 0) {
-            return 0.0;
+        $sid = $sellerId instanceof Seller ? (int) $sellerId->user_id : (int) $sellerId;
+        $groups = $this->shippingGroupIds();
+        $vouchers = $this->relationLoaded('orderVouchers')
+            ? $this->orderVouchers
+            : $this->orderVouchers()->with('voucher')->get();
+        $waived = 0.0;
+        foreach ($vouchers as $ov) {
+            $voucher = $ov->voucher;
+            if (($voucher->discount_type ?? $voucher->type ?? null) !== 'free_shipping') {
+                continue;
+            }
+            $ownerId = $ov->voucherSellerUserId();
+            $eligible = $ownerId === null ? $groups : array_values(array_filter($groups, fn ($id) => $id === $ownerId));
+            $alloc = self::allocateShippingWaiver($eligible, (float) $ov->discount_amount);
+            $waived += $alloc[$sid] ?? 0;
         }
-        $alloc = self::allocateShippingWaiver($this->shippingGroupIds(), $waived);
-        return round($alloc[(int) $sellerId] ?? 0, 2);
+
+        return round(min(self::SHIPPING_FEE_PER_SELLER, $waived), 2);
     }
 
     public function getFormattedTotalAttribute(): string

@@ -74,6 +74,11 @@ class CartController extends Controller
         if ($available < 1 || $quantity > $available) {
             throw ValidationException::withMessages(['quantity' => "Only {$available} item(s) available in stock. Remove unavailable items or choose another variation."]);
         }
+        $otherUnits = (int) $cart->items()->where('product_id', $product->id)
+            ->when($line, fn ($q) => $q->where('id', '!=', $line->id))->sum('quantity');
+        if ($otherUnits + $quantity > (int) $product->stock) {
+            throw ValidationException::withMessages(['quantity' => 'The total quantity across variations exceeds this product\'s general stock.']);
+        }
         if ((int) $cart->items()->sum('quantity') - (int) ($line?->quantity ?? 0) + $quantity > 200) {
             throw ValidationException::withMessages(['quantity' => 'Cart limit is 200 items.']);
         }

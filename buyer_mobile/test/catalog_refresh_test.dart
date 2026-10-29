@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:invoiz/config.dart';
 import 'package:invoiz/models/product.dart';
 import 'package:invoiz/screens/cart_screen.dart';
+import 'package:invoiz/screens/home_screen.dart';
 import 'package:invoiz/screens/product_detail_screen.dart';
 import 'package:invoiz/services/api_service.dart';
 import 'package:invoiz/services/auth_service.dart';
@@ -101,31 +102,23 @@ void main() {
       expect(p.displayImages, ['products/main.jpg', 'products/side.jpg']);
     },
   );
-  test(
-    'variant stock controls availability even when the base stock is zero',
-    () {
-      final p = Product.fromJson({
-        ...product(1, 'Tote'),
-        'stock': 0,
-        'variants': [
-          {
-            'id': 1,
-            'variant_type': 'Color',
-            'variant_value': 'Blue',
-            'stock': 4,
-          },
-          {
-            'id': 2,
-            'variant_type': 'Color',
-            'variant_value': 'Red',
-            'stock': 10,
-            'status': 'inactive',
-          },
-        ],
-      });
-      expect(p.availableStock, 4);
-    },
-  );
+  test('general stock caps variation availability when it is zero', () {
+    final p = Product.fromJson({
+      ...product(1, 'Tote'),
+      'stock': 0,
+      'variants': [
+        {'id': 1, 'variant_type': 'Color', 'variant_value': 'Blue', 'stock': 4},
+        {
+          'id': 2,
+          'variant_type': 'Color',
+          'variant_value': 'Red',
+          'stock': 10,
+          'status': 'inactive',
+        },
+      ],
+    });
+    expect(p.availableStock, 0);
+  });
   test(
     'recently viewed does not reuse pictures from the legacy backend cache',
     () async {
@@ -189,6 +182,64 @@ void main() {
     expect(query['search'], 'cotton');
     expect(tester.takeException(), isNull);
   });
+  testWidgets(
+    'home navigation search submits and clears without losing filters',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(top: 24, bottom: 24);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPadding);
+      final requests = <Uri>[];
+      final api = ApiService(
+        client: MockClient((request) async {
+          requests.add(request.url);
+          return request.url.path.endsWith('/categories')
+              ? response({
+                  'categories': [
+                    {'id': 1, 'name': 'Bags'},
+                  ],
+                })
+              : products([product(1, 'Cotton tote')]);
+        }),
+      );
+      await tester.pumpWidget(app(HomeScreen(api: api), signedIn: true));
+      await tester.pumpAndSettle();
+      final search = find.byKey(const ValueKey('catalog-search'));
+      final navigation = find.byKey(const ValueKey('catalog-navigation'));
+      expect(find.descendant(of: navigation, matching: search), findsOneWidget);
+      expect(tester.getTopLeft(search).dy, greaterThanOrEqualTo(32));
+      await tester.enterText(search, 'cotton');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bags'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('Sort products'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(CupertinoActionSheetAction, 'Top rated'),
+      );
+      await tester.pumpAndSettle();
+      var query = requests
+          .lastWhere((uri) => uri.path.endsWith('/products'))
+          .queryParameters;
+      expect(query['search'], 'cotton');
+      expect(query['category_id'], '1');
+      expect(query['sort'], 'rating');
+      await tester.tap(find.byIcon(CupertinoIcons.xmark_circle_fill));
+      await tester.pumpAndSettle();
+      query = requests
+          .lastWhere((uri) => uri.path.endsWith('/products'))
+          .queryParameters;
+      expect(query.containsKey('search'), isFalse);
+      expect(query['category_id'], '1');
+      expect(query['sort'], 'rating');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('load more requests the next page and keeps previous products', (
     tester,
   ) async {
@@ -323,7 +374,7 @@ void main() {
           return response({
             'product': {
               ...product(1, 'Tote'),
-              'stock': 0,
+              'stock': 2,
               'variants': [
                 {
                   'id': 4,

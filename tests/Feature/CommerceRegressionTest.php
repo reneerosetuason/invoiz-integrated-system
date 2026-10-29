@@ -39,6 +39,7 @@ class CommerceRegressionTest extends TestCase
             'delivery_status_logs' => 'delivery_id status notes changed_by',
             'pickup_requests' => 'delivery_id center_id status requested_at reviewed_at',
             'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity reason reason_details refund_amount status decision_note resolved_at',
+            'seller_notifications' => 'seller_id order_id product_id type title body is_read',
             'payment_transactions' => 'order_id transaction_ref gateway amount status seller_earning platform_commission rider_fee logistics_fee refunded_amount paid_at',
             'payments' => 'order_id method amount status paid_at',
             'order_vouchers' => 'order_id voucher_id discount_amount',
@@ -149,14 +150,14 @@ class CommerceRegressionTest extends TestCase
         $this->assertSame('partially_refunded', $order->payment()->first()->status);
     }
 
-    public function test_partial_return_restores_the_purchased_variant_only(): void
+    public function test_partial_return_restores_the_purchased_variant_and_general_stock(): void
     {
         [$product, $order, $item] = $this->purchase();
         $variantId = DB::table('product_variants')->insertGetId(['product_id' => $product->id, 'stock' => 3, 'status' => 'active']);
         $item->update(['product_variant_id' => $variantId]);
         Returns::complete($this->approvedReturn($order, $item, 2));
         $this->assertDatabaseHas('product_variants', ['id' => $variantId, 'stock' => 5]);
-        $this->assertSame(10, (int) $product->fresh()->stock);
+        $this->assertSame(12, (int) $product->fresh()->stock);
     }
 
     public function test_refunds_are_capped_and_repeated_dispute_resolution_is_harmless(): void

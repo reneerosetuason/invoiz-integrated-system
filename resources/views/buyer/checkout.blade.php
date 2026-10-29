@@ -85,7 +85,7 @@
                 $voucherValue = $voucher->discount_value ?? $voucher->value;
                 $voucherText = $voucherType === 'free_shipping' ? 'Free shipping' : ($voucherType === 'percent' ? rtrim(rtrim(number_format((float)$voucherValue,2),'0'),'.').'% off' : '₱'.number_format((float)$voucherValue,2).' off');
                 $voucherSeller = $voucher->seller_id ? 'Store' : 'Platform';
-                if($voucher->seller_id){ try { $voucherSeller = \App\Models\Seller::nameFor(\App\Models\Seller::userIdFor((int) $voucher->seller_id)); } catch (\Throwable $e) {} }
+                if($voucher->seller_id){ try { $voucherSeller = \App\Models\Seller::nameFor(\App\Support\Vouchers::sellerUserId($voucher)); } catch (\Throwable $e) {} }
               @endphp
               <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:6px 0;cursor:pointer">
                 <input type="checkbox" name="voucher_claim_ids[]" value="{{ $claim->id }}" @checked(in_array((int)$claim->id, $oldVoucherIds))>
@@ -94,6 +94,9 @@
             @endforeach
           @endif
         @endforeach
+        @if($claimedVouchers->isEmpty())
+          <div style="font-size:12px;color:var(--text2);margin-top:8px">No claimed vouchers apply to the selected items.</div>
+        @endif
         <div style="font-size:11px;color:var(--text2);margin-top:5px">Claim offers from <a href="{{ url('/vouchers') }}" style="color:var(--green);font-weight:700">the vouchers page</a>; no voucher code is needed.</div>
         <div style="font-size:11px;color:var(--text2);margin-top:4px">Discount vouchers cut the item total · free-shipping vouchers waive the ₱50/shop delivery fee. Applied when you place the order.</div>
       </div>

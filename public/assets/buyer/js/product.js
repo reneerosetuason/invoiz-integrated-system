@@ -49,7 +49,7 @@ var invoizData_a4c831fb72 = JSON.parse(document.currentScript.dataset.config);
     btn.setAttribute('aria-pressed', 'true');
     variantId = btn.getAttribute('data-variant');
     variantAdj = Number(btn.getAttribute('data-adj')) || 0;
-    maxQty = Math.min(200, Math.max(0, Number(btn.getAttribute('data-stock')) || 0));
+    maxQty = Math.min(baseMax, Math.max(0, Number(btn.getAttribute('data-stock')) || 0));
     qty = maxQty > 0 ? Math.min(Math.max(1, qty), maxQty) : 0;
     updateOpt();
   };

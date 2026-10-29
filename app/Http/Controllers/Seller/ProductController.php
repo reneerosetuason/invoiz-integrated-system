@@ -76,6 +76,8 @@ class ProductController extends Controller
         $validated['seller_id'] = auth()->id();
         $validated['low_stock_threshold'] ??= 5;
 
+        $this->variantRows($request, (int) $validated['stock']);
+
         if ($request->hasFile('image')) {
             $validated['image'] = $request->file('image')->store('products', 'public');
         }
@@ -128,6 +130,8 @@ class ProductController extends Controller
 
         $validated['low_stock_threshold'] ??= 5;
 
+        $this->variantRows($request, (int) $validated['stock'], $product);
+
         if ($request->hasFile('image')) {
             if ($product->image) {
                 Storage::disk('public')->delete($product->image);
@@ -136,6 +140,7 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($product, $validated, $request) {
+            $product = Product::forSeller(auth()->id())->whereKey($product->id)->lockForUpdate()->firstOrFail();
             $product->update($validated);
             $this->saveVariants($product, $request);
             \App\Support\ProductImages::save($product, $request);
@@ -178,36 +183,79 @@ class ProductController extends Controller
 
     private function saveVariants(Product $product, Request $request): void
     {
-        $types = $request->input('variants.type', []);
-        $values = $request->input('variants.value', []);
-        $adjustments = $request->input('variants.adjustment', []);
-        $stocks = $request->input('variants.stock', []);
-
-        if (empty($types) || empty(array_filter($types))) {
-            return;
-        }
-
-        $product->variants()->delete();
-
-        foreach ($types as $index => $type) {
-            $value = trim($values[$index] ?? '');
-            if ($type === null || trim((string) $type) === '' || $value === '') {
-                continue;
+        $rows = $this->variantRows($request, (int) $product->stock, $product);
+        if ($rows === null) return;
+        $kept = [];
+        foreach ($rows as $row) {
+            $id = $row['id'];
+            unset($row['id']);
+            $variant = $id ? $product->variants()->findOrFail($id)
+                : $product->variants()->where('variant_type', $row['variant_type'])->where('variant_value', $row['variant_value'])->first();
+            if ($variant) {
+                $variant->update($row);
+            } else {
+                $variant = $product->variants()->create($row);
             }
-
-            $product->variants()->create([
-                'variant_type'     => trim($type),
-                'variant_value'    => $value,
-                'price_adjustment' => (float) ($adjustments[$index] ?? 0),
-                'stock'            => (int) ($stocks[$index] ?? 0),
-                'status'           => 'active',
-            ]);
+            $kept[] = $variant->id;
         }
+        $product->variants()->whereNotIn('id', $kept)->delete();
 
         // Keep the product status in sync with variant stock.
         $totalVariantStock = $product->variants()->sum('stock');
         if ($totalVariantStock > 0 && $product->status === 'out_of_stock') {
             $product->update(['status' => 'active']);
         }
+    }
+
+    private function variantRows(Request $request, int $generalStock, ?Product $product = null): ?array
+    {
+        $request->validate([
+            'variants' => ['nullable', 'array'],
+            'variants.type' => ['sometimes', 'array', 'max:100'],
+            'variants.type.*' => ['nullable', 'string', 'max:100'],
+            'variants.value' => ['sometimes', 'array', 'max:100'],
+            'variants.value.*' => ['nullable', 'string', 'max:100'],
+            'variants.adjustment' => ['sometimes', 'array', 'max:100'],
+            'variants.adjustment.*' => ['nullable', 'numeric', 'between:-1000000,1000000'],
+            'variants.stock' => ['sometimes', 'array', 'max:100'],
+            'variants.stock.*' => ['nullable', 'integer', 'between:0,99999'],
+            'variants.id' => ['sometimes', 'array', 'max:100'],
+            'variants.id.*' => ['nullable', 'integer', 'min:1', 'distinct'],
+        ]);
+        if (! $request->has('variants') && ! $request->boolean('variants_present')) {
+            if ($product && (int) $product->variants()->sum('stock') > $generalStock) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['stock' => 'General stock cannot be less than the total stock allocated to variations.']);
+            }
+            return null;
+        }
+        $types = $request->input('variants.type', []);
+        $values = $request->input('variants.value', []);
+        $stocks = $request->input('variants.stock', []);
+        $adjustments = $request->input('variants.adjustment', []);
+        $ids = $request->input('variants.id', []);
+        $rows = [];
+        $labels = [];
+        foreach (array_unique(array_merge(array_keys($types), array_keys($values), array_keys($stocks), array_keys($adjustments), array_keys($ids))) as $index) {
+            $type = trim((string) ($types[$index] ?? ''));
+            $value = trim((string) ($values[$index] ?? ''));
+            $stock = (int) ($stocks[$index] ?? 0);
+            if ($type === '' && $value === '' && $stock === 0 && empty($ids[$index])) continue;
+            if ($type === '' || $value === '') {
+                throw \Illuminate\Validation\ValidationException::withMessages(['variants' => 'Each variation needs both a type and a value.']);
+            }
+            $label = mb_strtolower($type.'\0'.$value);
+            if (isset($labels[$label])) throw \Illuminate\Validation\ValidationException::withMessages(['variants' => 'Each variation must have a unique type and value.']);
+            $labels[$label] = true;
+            $id = ! empty($ids[$index]) ? (int) $ids[$index] : null;
+            if ($id && (! $product || ! $product->variants()->whereKey($id)->exists())) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['variants' => 'A variation does not belong to this product. Reload the product and try again.']);
+            }
+            $rows[] = ['id' => $id, 'variant_type' => $type, 'variant_value' => $value,
+                'price_adjustment' => (float) ($adjustments[$index] ?? 0), 'stock' => $stock, 'status' => 'active'];
+        }
+        if (array_sum(array_column($rows, 'stock')) > $generalStock) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['variants' => 'Total variation stock cannot exceed the product\'s general stock.']);
+        }
+        return $rows;
     }
 }

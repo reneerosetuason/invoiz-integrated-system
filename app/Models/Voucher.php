@@ -104,6 +104,16 @@ class Voucher extends Model
         return $this->belongsTo(Seller::class);
     }
 
+    public function claims()
+    {
+        return $this->hasMany(VoucherClaim::class);
+    }
+
+    public function orderVouchers()
+    {
+        return $this->hasMany(OrderVoucher::class);
+    }
+
     public function getLabelAttribute(): string
     {
         if ($this->type === 'percent') {

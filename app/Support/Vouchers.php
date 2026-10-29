@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Order;
+use App\Models\Seller;
 use App\Models\Voucher;
 use App\Models\VoucherClaim;
 
@@ -20,6 +21,40 @@ use App\Models\VoucherClaim;
  */
 class Vouchers
 {
+    /** Voucher ownership uses sellers.id; cart/order groups use users.id. */
+    public static function sellerUserId(Voucher $voucher): ?int
+    {
+        if (! $voucher->seller_id) {
+            return null;
+        }
+
+        return (int) (Seller::withTrashed()->find($voucher->seller_id)?->user_id ?? $voucher->seller_id);
+    }
+
+    /** Only offers this buyer can use on the selected, server-priced items. */
+    public static function checkoutOffers(int $buyerId, array $sellerSubtotals): \Illuminate\Support\Collection
+    {
+        $subtotal = array_sum($sellerSubtotals);
+        $groups = Shipping::groups(array_keys($sellerSubtotals));
+
+        return Voucher::active()
+            ->whereNotIn('id', VoucherClaim::where('buyer_id', $buyerId)->whereNotNull('used_at')->select('voucher_id'))
+            ->orderBy('min_spend')->get()
+            ->filter(function ($voucher) use ($subtotal, $groups, $sellerSubtotals) {
+                $resolved = Shipping::resolveVoucher($voucher, $subtotal, $groups, $sellerSubtotals);
+                if ($resolved['error']) {
+                    return false;
+                }
+                $voucher->setAttribute('checkout_savings', round($resolved['merch'] + array_sum($resolved['waived']), 2));
+                if ($voucher->name === $voucher->code) {
+                    $voucher->setAttribute('name', 'Store offer');
+                }
+                $voucher->makeHidden('code');
+
+                return true;
+            })->values();
+    }
+
     /**
      * Resolve a set of vouchers that will be stacked on one order.
      *
@@ -66,6 +101,9 @@ class Vouchers
                 return ['merch' => 0.0, 'waived' => [], 'perVoucher' => [], 'error' => $resolved['error']];
             }
 
+            // Persist only the amount actually applied when stacked discounts
+            // reach the merchandise total (store discount is resolved first).
+            $resolved['merch'] = round(min($resolved['merch'], max(0, $subtotal - $merch)), 2);
             $merch += $resolved['merch'];
             foreach ($resolved['waived'] as $sid => $amount) {
                 $waived[$sid] = ($waived[$sid] ?? 0) + $amount;

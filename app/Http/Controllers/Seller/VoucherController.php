@@ -7,17 +7,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Seller;
 use App\Models\Voucher;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class VoucherController extends Controller
 {
     public function index()
     {
         $sellerIds = $this->sellerRecord()->recordIds();
-        $scope = Voucher::where(function ($q) use ($sellerIds) {
-            $q->whereNull('seller_id')->orWhereIn('seller_id', $sellerIds);
-        });
+        $scope = Voucher::withCount(['claims', 'orderVouchers'])->whereIn('seller_id', $sellerIds);
         $vouchers = (clone $scope)->latest()->paginate(10);
-        // Full map for the edit modal (the table only holds one page).
         $voucherMap = (clone $scope)->latest()->get();
 
         return view('seller.vouchers.index', compact('vouchers', 'voucherMap'));
@@ -66,11 +64,11 @@ class VoucherController extends Controller
 
         // Once a buyer has claimed the voucher it is locked: only the
         // active/inactive toggle may change.
-        if (\App\Models\VoucherClaim::where('voucher_id', $voucher->id)->exists()) {
+        if ($voucher->used_count > 0 || $voucher->claims()->exists() || $voucher->orderVouchers()->exists()) {
             $request->validate(['status' => ['required', 'in:active,inactive']]);
             $voucher->update(['status' => $request->input('status')]);
 
-            return back()->with('success', 'This voucher has claims, so only its active status was updated.');
+            return back()->with('success', 'This voucher has been claimed or used, so only its active status was updated.');
         }
 
         $validated = $request->validate([
@@ -106,13 +104,27 @@ class VoucherController extends Controller
     {
         $voucher = Voucher::whereIn('seller_id', $this->sellerRecord()->recordIds())->findOrFail($id);
 
-        if ($voucher->used_count > 0 || \App\Models\VoucherClaim::where('voucher_id', $voucher->id)->exists()) {
+        if ($voucher->used_count > 0 || $voucher->claims()->exists() || $voucher->orderVouchers()->exists()) {
             return back()->with('error', 'This voucher has already been claimed and cannot be deleted.');
         }
 
         $voucher->delete();
 
         return back()->with('success', 'Voucher deleted.');
+    }
+
+    public function updateStatus(Request $request, $id)
+    {
+        $sellerIds = $this->sellerRecord()->recordIds();
+        DB::transaction(function () use ($request, $id, $sellerIds) {
+            // Checkout locks the same row before applying the voucher, so a
+            // status change cannot race its final availability check.
+            $voucher = Voucher::whereIn('seller_id', $sellerIds)->lockForUpdate()->findOrFail($id);
+            $validated = $request->validate(['status' => ['required', 'in:active,inactive']]);
+            $voucher->update(['status' => $validated['status']]);
+        });
+
+        return back()->with('success', $request->input('status') === 'active' ? 'Voucher activated.' : 'Voucher deactivated.');
     }
 
     private function sellerRecord(): Seller

@@ -16,6 +16,7 @@
     <form method="POST" action="{{ route('seller.products.store') }}" enctype="multipart/form-data"
           x-data="productForm()" class="mt-6 space-y-6">
         @csrf
+        <input type="hidden" name="variants_present" value="1">
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Basic Information</h3>
@@ -63,10 +64,11 @@
                 <div>
                     <label class="field-label">Cost Price (₱) <span class="normal-case text-ink-light">— for profit reports</span></label>
                     <input type="number" name="cost_price" step="0.01" min="0" value="{{ old('cost_price') }}" class="input" placeholder="0.00">
+                    <p class="mt-1 text-[11px] text-ink-light">Your cost to source or make one item, used to calculate profit.</p>
                 </div>
                 <div>
-                    <label class="field-label">Stock Quantity</label>
-                    <input type="number" name="stock" min="0" value="{{ old('stock', 0) }}" class="input" required>
+                    <label class="field-label">General Stock Quantity</label>
+                    <input type="number" name="stock" min="0" x-model.number="generalStock" value="{{ old('stock', 0) }}" class="input" required>
                 </div>
                 <div>
                     <label class="field-label">Low Stock Alert At</label>
@@ -75,7 +77,7 @@
                 </div>
             </div>
             <p class="mt-3 text-xs text-ink-light">
-                If your product has color/size variants, set a base price here and add the variations below — their stock is tracked separately.
+                If your product has color/size variants, set a base price here and add the variations below — their combined stock must fit within the general stock quantity.
             </p>
         </div>
 
@@ -103,8 +105,10 @@
                     <x-icon name="plus" class="h-4 w-4" /> Add Variation
                 </button>
             </div>
-            <p class="mb-4 text-xs text-ink-light">Examples: Color (Red, Blue) or Size (Small, Medium, Large) — click <b>Add Variation</b> once per value, as many as you need. <b>Price +₱</b> is added to the base price for that variation (negative = discount). <b>Stock</b> is how many pieces of that variation you have.</p>
+            <p class="mb-4 text-xs text-ink-light">Examples: Color (Red, Blue) or Size (Small, Medium, Large) — click <b>Add Variation</b> once per value, as many as you need. <b>Price +₱</b> is added to the base price for that variation (negative = discount). <b>Stock</b> is how many pieces are allocated to that variation from the general stock.</p>
 
+            <p class="mb-2 text-sm font-semibold" aria-live="polite" x-text="totalVariantStock + ' / ' + generalStock + ' units allocated to variations'"></p>
+            <p x-show="overAllocated" x-cloak class="mb-3 text-sm text-warnc" role="alert">Total variation stock exceeds general stock. Reduce the variation quantities or correct the general stock before saving.</p>
             <div class="space-y-3">
                 <div class="hidden grid-cols-5 items-center gap-3 px-3 text-[11px] font-extrabold uppercase tracking-wider text-ink-light md:grid" x-show="variants.length > 0">
                     <span>Type</span><span>Value</span><span>Price +₱</span><span>Stock (pcs)</span><span></span>
@@ -114,7 +118,8 @@
                         <input type="text" x-model="v.type" :name="`variants[type][${i}]`" class="input !py-2.5" placeholder="Type (Color)">
                         <input type="text" x-model="v.value" :name="`variants[value][${i}]`" class="input !py-2.5" placeholder="Value (Red)">
                         <input type="number" step="0.01" x-model="v.adjustment" :name="`variants[adjustment][${i}]`" class="input !py-2.5" placeholder="+0.00">
-                        <input type="number" min="0" x-model="v.stock" :name="`variants[stock][${i}]`" class="input !py-2.5" placeholder="e.g. 50">
+                        <input type="hidden" x-model="v.id" :name="`variants[id][${i}]`">
+                        <input type="number" min="0" :max="Math.max(0, generalStock - totalVariantStock + Number(v.stock || 0))" x-model.number="v.stock" :name="`variants[stock][${i}]`" class="input !py-2.5" placeholder="e.g. 50">
                         <button type="button" @click="variants.splice(i, 1)" class="btn btn-danger btn-sm justify-self-start">
                             <x-icon name="trash" class="h-4 w-4" />
                         </button>
@@ -141,7 +146,7 @@
         </div>
 
         <div class="flex gap-3">
-            <button type="submit" class="btn btn-primary px-8">Save Product</button>
+            <button type="submit" class="btn btn-primary px-8" :disabled="overAllocated">Save Product</button>
             <a href="{{ route('seller.products.index') }}" class="btn btn-ghost">Cancel</a>
         </div>
     </form>
@@ -149,5 +154,5 @@
 @endsection
 
 @push('scripts')
-<script src="{{ asset('assets/seller/js/products/create.js') }}"></script>
+@include('seller.products._variant-config', ['product' => null, 'script' => 'create'])
 @endpush

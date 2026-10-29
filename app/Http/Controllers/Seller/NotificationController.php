@@ -20,9 +20,14 @@ class NotificationController extends Controller
 
     public function markRead($id)
     {
-        SellerNotification::forSeller(auth()->id())
+        $notification = SellerNotification::forSeller(auth()->id())
             ->where('id', $id)
-            ->update(['is_read' => true]);
+            ->firstOrFail();
+        $notification->update(['is_read' => true]);
+
+        if ($notification->type === 'return_requested') {
+            return redirect()->route('seller.returns.index');
+        }
 
         return back();
     }

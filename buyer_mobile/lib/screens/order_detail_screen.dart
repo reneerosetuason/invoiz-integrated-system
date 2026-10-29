@@ -11,6 +11,7 @@ import '../models/order.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/main_layout.dart';
+import '../widgets/order_return_dialog.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -50,33 +51,117 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   }
 
   Future<void> _cancelOrder() async {
-    final confirm = await showCupertinoDialog<bool>(
-      barrierDismissible: true,
-      context: context,
-      builder: (ctx) => BuyerAlertDialog(
-        title: const Text('Cancel Order'),
-        content: const Text('Are you sure you want to cancel this order?'),
-        actions: [
-          BuyerDialogAction(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('No'),
-          ),
-          BuyerDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Yes, cancel'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true || !mounted || _actionBusy) return;
+    if (_actionBusy) return;
+    setState(() => _actionBusy = true);
+    String? reason;
+    var reasonDetails = '';
+    final form = GlobalKey<FormState>();
     try {
-      setState(() => _actionBusy = true);
+      final confirm = await showCupertinoDialog<bool>(
+        barrierDismissible: true,
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, update) => BuyerAlertDialog(
+            title: const Text('Cancel Order'),
+            content: SingleChildScrollView(
+              child: Form(
+                key: form,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text('Why are you cancelling?'),
+                    const SizedBox(height: 12),
+                    BuyerPicker<String>(
+                      key: const ValueKey('cancellation-reason'),
+                      value: reason,
+                      hint: const Text('Select a reason'),
+                      decoration: const InputDecoration(
+                        labelText: 'Reason (required)',
+                      ),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'changed_mind',
+                          child: Text('Changed my mind'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'ordered_by_mistake',
+                          child: Text('I ordered by mistake'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'found_better_price',
+                          child: Text('I found a better price'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'delivery_too_long',
+                          child: Text('Delivery is taking too long'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'wrong_item',
+                          child: Text('I ordered the wrong item'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'other',
+                          child: Text('Other reason'),
+                        ),
+                      ],
+                      validator: (value) =>
+                          value == null ? 'Please select a reason.' : null,
+                      onChanged: (value) {
+                        update(() => reason = value);
+                        form.currentState?.validate();
+                      },
+                    ),
+                    if (reason == 'other') ...[
+                      const SizedBox(height: 12),
+                      BuyerField.form(
+                        key: const ValueKey('cancellation-details'),
+                        initialValue: reasonDetails,
+                        onChanged: (value) => reasonDetails = value.trim(),
+                        minLines: 2,
+                        maxLines: 3,
+                        maxLength: 300,
+                        decoration: const InputDecoration(
+                          labelText: 'Tell us a little more',
+                          hintText: 'Enter 10–300 characters',
+                        ),
+                        validator: (value) =>
+                            reason == 'other' &&
+                                (value?.trim().length ?? 0) < 10
+                            ? 'Please provide at least 10 characters.'
+                            : null,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              BuyerDialogAction(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Keep order'),
+              ),
+              BuyerDialogAction(
+                isDestructiveAction: true,
+                onPressed: () {
+                  if (form.currentState!.validate()) {
+                    Navigator.pop(ctx, true);
+                  }
+                },
+                child: const Text('Cancel order'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (confirm != true || !mounted) return;
       await _api.post('orders/${widget.orderId}/cancel', {
-        'reason': 'changed_mind',
+        'reason': reason!,
+        if (reason == 'other') 'reason_details': reasonDetails,
       });
       if (!mounted) return;
-      _load();
+      await _load();
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Order cancelled.')));
@@ -97,123 +182,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
 
   Future<void> _requestReturn(OrderItem item) async {
     if (_actionBusy) return;
-    var reason = 'damaged';
-    var quantity = 1;
-    var reasonDetails = '';
-    final form = GlobalKey<FormState>();
-    final confirmed = await showCupertinoDialog<bool>(
-      barrierDismissible: true,
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, update) => BuyerAlertDialog(
-          title: const Text('Request a return'),
-          content: SingleChildScrollView(
-            child: Form(
-              key: form,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(item.productName),
-                  if (item.variantLabel?.isNotEmpty == true)
-                    Text(item.variantLabel!),
-                  const SizedBox(height: 12),
-                  BuyerPicker<String>(
-                    value: reason,
-                    decoration: const InputDecoration(labelText: 'Reason'),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'damaged',
-                        child: Text('Damaged item'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'wrong_item',
-                        child: Text('Wrong item'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'not_as_described',
-                        child: Text('Not as described'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'changed_mind',
-                        child: Text('Changed my mind'),
-                      ),
-                      DropdownMenuItem(value: 'other', child: Text('Other')),
-                    ],
-                    onChanged: (value) => update(() => reason = value!),
-                  ),
-                  const SizedBox(height: 12),
-                  BuyerField.form(
-                    initialValue: '1',
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: 'Quantity (up to ${item.quantity})',
-                    ),
-                    validator: (value) {
-                      final parsed = int.tryParse(value ?? '');
-                      if (parsed == null ||
-                          parsed < 1 ||
-                          parsed > item.quantity)
-                        return 'Enter a valid purchased quantity.';
-                      return null;
-                    },
-                    onSaved: (value) => quantity = int.parse(value!),
-                  ),
-                  const SizedBox(height: 12),
-                  BuyerField.form(
-                    onChanged: (value) => reasonDetails = value.trim(),
-                    maxLength: 300,
-                    maxLines: 3,
-                    decoration: const InputDecoration(labelText: 'Details'),
-                    validator: (value) =>
-                        reason == 'other' && (value?.trim().length ?? 0) < 10
-                        ? 'Please provide at least 10 characters.'
-                        : null,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            BuyerDialogAction(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Keep item'),
-            ),
-            BuyerDialogAction(
-              onPressed: () {
-                if (form.currentState!.validate()) {
-                  form.currentState!.save();
-                  Navigator.pop(ctx, true);
-                }
-              },
-              child: const Text('Send request'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (confirmed != true || !mounted) return;
+    final remaining = _order?.returnableQuantity(item) ?? item.quantity;
+    if (remaining < 1) return;
     setState(() => _actionBusy = true);
     try {
-      await _api.post('orders/${widget.orderId}/returns', {
-        'order_item_id': item.id,
-        'reason': reason,
-        'quantity': quantity,
-        if (reasonDetails.isNotEmpty) 'reason_details': reasonDetails,
-      });
+      final saved = await showCupertinoDialog<Map<String, dynamic>>(
+        barrierDismissible: true,
+        context: context,
+        builder: (_) => OrderReturnDialog(
+          item: item,
+          maxQuantity: remaining,
+          submit: (body) => _api.post('orders/${widget.orderId}/returns', body),
+        ),
+      );
+      if (saved == null || !mounted) return;
+      await _load();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Return requested. The store will review your request.',
+            'Return #${saved['id']} saved. Track it in Orders → Return.',
           ),
         ),
       );
-      await _load();
-    } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
@@ -309,32 +300,55 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   );
 
   Widget _returnAction(Order order, OrderItem item) {
-    final previous = order.returns
-        .where((r) => r['order_item_id'] == item.id)
-        .toList();
-    final open = previous
-        .where(
-          (r) =>
-              ['requested', 'approved', 'item_received'].contains(r['status']),
-        )
-        .firstOrNull;
-    if (open != null)
-      return Text(
-        'Return: ${open['status'].toString().replaceAll('_', ' ')}',
-        style: const TextStyle(color: AppColors.primary),
+    final previous = order.returnsForItem(item)
+      ..sort(
+        (a, b) => (int.tryParse('${b['id']}') ?? 0).compareTo(
+          int.tryParse('${a['id']}') ?? 0,
+        ),
       );
-    final refundedQuantity = previous
-        .where((r) => r['status'] == 'refunded')
-        .fold<int>(
-          0,
-          (sum, r) => sum + (int.tryParse('${r['quantity']}') ?? 0),
-        );
-    if (refundedQuantity >= item.quantity)
-      return const Text('Returned and refunded');
-    return BuyerButton.plain(
-      onPressed: _actionBusy ? null : () => _requestReturn(item),
-      icon: const Icon(Icons.assignment_return_outlined, size: 18),
-      label: const Text('Request return'),
+    final open = previous.any(
+      (r) => ['requested', 'approved', 'item_received'].contains(r['status']),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final record in previous)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Return #${record['id']} · ${Order.returnStatusLabel(record['status'] as String?)}',
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  '${record['quantity']} item(s) · ${_fmt(double.tryParse('${record['refund_amount']}') ?? 0)}',
+                ),
+                if ((record['decision_note'] as String?)?.trim().isNotEmpty ==
+                    true)
+                  Text('Store note: ${record['decision_note']}'),
+                if (record['status'] == 'approved')
+                  const Text(
+                    'Contact the store to arrange sending the item back.',
+                  ),
+                if (record['status'] == 'refunded')
+                  const Text(
+                    'Refund recorded by the store. Contact the store if payment has not arrived.',
+                  ),
+              ],
+            ),
+          ),
+        if (!open && order.returnableQuantity(item) > 0)
+          BuyerButton.plain(
+            onPressed: _actionBusy ? null : () => _requestReturn(item),
+            icon: const Icon(Icons.assignment_return_outlined, size: 18),
+            label: const Text('Request return'),
+          ),
+      ],
     );
   }
 

@@ -7,7 +7,12 @@ import '../theme.dart';
 class BuyerScaffold extends StatelessWidget {
   final String title;
   final Widget child;
-  final Widget? leading, trailing, titleWidget, header, bottomBar;
+  final Widget? leading,
+      trailing,
+      titleWidget,
+      navigationContent,
+      header,
+      bottomBar;
   final bool showNavigationBar;
   final Color backgroundColor;
   const BuyerScaffold({
@@ -17,6 +22,7 @@ class BuyerScaffold extends StatelessWidget {
     this.leading,
     this.trailing,
     this.titleWidget,
+    this.navigationContent,
     this.header,
     this.bottomBar,
     this.showNavigationBar = true,
@@ -30,27 +36,32 @@ class BuyerScaffold extends StatelessWidget {
       backgroundColor: backgroundColor,
       navigationBar: showNavigationBar
           ? _BuyerNavigationBar(
-              child: CupertinoNavigationBar(
-                backgroundColor: AppColors.paper,
-                automaticBackgroundVisibility: false,
-                transitionBetweenRoutes: false,
-                border: null,
-                leading: leading,
-                middle:
-                    titleWidget ??
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: 'Inter',
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryDark,
-                      ),
+              child: navigationContent != null
+                  ? SafeArea(
+                      bottom: false,
+                      child: SizedBox(height: 44, child: navigationContent),
+                    )
+                  : CupertinoNavigationBar(
+                      backgroundColor: AppColors.paper,
+                      automaticBackgroundVisibility: false,
+                      transitionBetweenRoutes: false,
+                      border: null,
+                      leading: leading,
+                      middle:
+                          titleWidget ??
+                          Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryDark,
+                            ),
+                          ),
+                      trailing: trailing,
                     ),
-                trailing: trailing,
-              ),
             )
           : null,
       child: SafeArea(

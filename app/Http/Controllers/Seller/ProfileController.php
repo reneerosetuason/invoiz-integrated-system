@@ -78,6 +78,22 @@ class ProfileController extends Controller
             : 'Vacation mode is OFF. Your store is open for orders again.');
     }
 
+    public function updatePickupAddress(Request $request)
+    {
+        $seller = \App\Models\Seller::where('user_id', Auth::id())->firstOrFail();
+        $validated = $request->validate([
+            'address_line' => ['required', 'string', 'max:255'],
+            'barangay' => ['required', 'string', 'max:100'],
+            'city' => ['required', 'string', 'max:100'],
+            'province' => ['required', 'string', 'max:100'],
+            'region' => ['nullable', 'string', 'max:100'],
+            'postal_code' => ['nullable', 'string', 'max:20'],
+        ]);
+        $seller->update($validated);
+
+        return back()->with('success', 'Pickup address saved. Buyers can now check out items from your store.');
+    }
+
     public function updatePassword(Request $request)
     {
         $user = Auth::user();

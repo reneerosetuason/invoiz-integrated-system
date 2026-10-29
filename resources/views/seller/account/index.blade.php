@@ -110,6 +110,25 @@
                 </form>
             </div>
 
+            <div id="pickup-address" class="card p-6">
+                <h3 class="mb-2 text-base font-bold">Pickup Address</h3>
+                <p class="mb-4 text-sm text-ink-light">Riders collect orders here. Complete the street address, barangay, city and province so buyers can check out.</p>
+                <form method="POST" action="{{ route('seller.account.pickup-address') }}" class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    @csrf
+                    <div class="md:col-span-2">
+                        <label class="field-label" for="pickup-street">Street address</label>
+                        <input id="pickup-street" name="address_line" class="input" value="{{ old('address_line', auth()->user()->seller->address_line) }}" maxlength="255" required>
+                    </div>
+                    @foreach(['barangay' => 'Barangay', 'city' => 'City / Municipality', 'province' => 'Province', 'region' => 'Region (optional)', 'postal_code' => 'Postal code (optional)'] as $field => $label)
+                        <div>
+                            <label class="field-label" for="pickup-{{ $field }}">{{ $label }}</label>
+                            <input id="pickup-{{ $field }}" name="{{ $field }}" class="input" value="{{ old($field, auth()->user()->seller->{$field}) }}" maxlength="{{ $field === 'postal_code' ? 20 : 100 }}" @required(in_array($field, ['barangay', 'city', 'province']))>
+                        </div>
+                    @endforeach
+                    <div class="md:col-span-2"><button type="submit" class="btn btn-primary">Save Pickup Address</button></div>
+                </form>
+            </div>
+
             {{-- Vacation mode --}}
             <div class="card p-6">
                 <div class="mb-4 flex items-center justify-between">
