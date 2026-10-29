@@ -443,6 +443,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                   child: BuyerButton.secondary(
                     onPressed: () => openSellerChat(
                       context,
+                      api: _api,
                       sellerId: sellerId,
                       subject: 'Inquiry to $name',
                       initialBody:

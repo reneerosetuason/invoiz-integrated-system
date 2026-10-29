@@ -21,6 +21,7 @@ Future<void> openSellerChat(
   required int sellerId,
   required String subject,
   required String initialBody,
+  ApiService? api,
 }) async {
   final auth = AuthServiceProvider.of(context);
   if (!auth.isLoggedIn) {
@@ -34,9 +35,9 @@ Future<void> openSellerChat(
     return;
   }
 
-  final api = ApiService();
+  final client = api ?? ApiService();
   try {
-    final r = await api.post('conversations', {
+    final r = await client.post('conversations', {
       'seller_id': sellerId,
       'subject': subject,
       'body': initialBody,
@@ -47,6 +48,7 @@ Future<void> openSellerChat(
       context,
       MaterialPageRoute(
         builder: (_) => ChatThreadScreen(
+          api: client,
           conversationId: conv['id'] as int,
           subject: subject,
         ),

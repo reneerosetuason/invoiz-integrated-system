@@ -224,7 +224,8 @@ void main() {
     final content = tester.getRect(find.byKey(const ValueKey('safe-content')));
     final tabs = tester.getRect(find.byType(CupertinoTabBar));
     expect(content.top, greaterThanOrEqualTo(104));
-    expect(content.bottom, lessThanOrEqualTo(tabs.top));
+    // The pill floats over the page instead of being boxed into its own strip.
+    expect(content.bottom, greaterThan(tabs.top));
     expect(tabs.left, greaterThanOrEqualTo(16));
     expect(tabs.right, lessThanOrEqualTo(304));
     expect(tabs.height, 62);

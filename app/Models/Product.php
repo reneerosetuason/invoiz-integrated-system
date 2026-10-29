@@ -190,26 +190,4 @@ class Product extends Model
     {
         return $this->hasMany(ProductImage::class);
     }
-
-    public function getShopAttribute()
-    {
-        $seller = $this->relationLoaded('seller') ? $this->seller : $this->seller()->first();
-
-        if (! $seller) {
-            return null;
-        }
-
-        $initial = mb_strtoupper(mb_substr($seller->store_name, 0, 1));
-
-        return [
-            'id' => $seller->id,
-            'store_name' => $seller->store_name,
-            'primary_color' => $seller->primary_color,
-            'accent_color' => $seller->accent_color,
-            'logo' => $seller->logoUrl(),
-            'initial' => $initial,
-        ];
-    }
-
-    protected $appends = ['shop'];
 }

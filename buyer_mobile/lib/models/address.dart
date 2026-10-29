@@ -6,6 +6,7 @@ class Address {
   final String barangay;
   final String city;
   final String province;
+  final String? region;
   final String? postalCode;
   final bool isDefault;
 
@@ -17,6 +18,7 @@ class Address {
     required this.barangay,
     required this.city,
     required this.province,
+    this.region,
     this.postalCode,
     this.isDefault = false,
   });
@@ -29,6 +31,9 @@ class Address {
     barangay: json['barangay'] as String,
     city: json['city'] as String,
     province: json['province'] as String,
+    region: (json['region'] as String?)?.trim().isEmpty == true
+        ? null
+        : json['region'] as String?,
     postalCode: json['postal_code'] as String?,
     isDefault: json['is_default'] as bool? ?? false,
   );

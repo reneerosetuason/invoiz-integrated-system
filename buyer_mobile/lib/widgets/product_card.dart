@@ -5,6 +5,7 @@ import '../models/product.dart';
 import '../screens/login_screen.dart';
 import '../screens/product_detail_screen.dart';
 import '../services/api_service.dart';
+import '../services/buyer_updates.dart';
 import '../theme.dart';
 import 'auth_service_provider.dart';
 import 'product_photo.dart';
@@ -59,6 +60,7 @@ class _ProductCardState extends State<ProductCard> {
           _favorite = response['is_favorited'] == true;
           widget.data['is_favorited'] = _favorite;
         });
+      BuyerUpdates.wishlistChanged();
     } catch (error) {
       if (mounted)
         ScaffoldMessenger.of(

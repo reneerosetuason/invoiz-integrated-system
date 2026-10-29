@@ -78,15 +78,19 @@ class SellerShop {
     this.followers = 0,
   });
 
-  factory SellerShop.fromJson(Map<String, dynamic> json) => SellerShop(
-    sellerId: json['seller_id'] as int? ?? 0,
-    businessName: json['business_name'] as String? ?? 'Invoiz Store',
+  factory SellerShop.fromJson(
+    Map<String, dynamic> json, {
+    int? fallbackSellerId,
+  }) => SellerShop(
+    sellerId: (json['seller_id'] as num?)?.toInt() ?? fallbackSellerId ?? 0,
+    businessName:
+        '${json['business_name'] ?? json['store_name'] ?? 'Invoiz Store'}',
     lineOfBusiness: json['line_of_business'] as String? ?? '',
     rating: json['rating'] != null
         ? double.tryParse('${json['rating']}') ?? 0
         : 0,
-    productCount: (json['product_count'] as int?) ?? 0,
-    followers: (json['followers'] as int?) ?? 0,
+    productCount: (json['product_count'] as num?)?.toInt() ?? 0,
+    followers: (json['followers'] as num?)?.toInt() ?? 0,
   );
 
   String get initial => businessName.trim().isEmpty
@@ -203,7 +207,12 @@ class Product {
                 .toList()
           : const [],
       isFavorited: json['is_favorited'] as bool? ?? false,
-      shop: shop is Map<String, dynamic> ? SellerShop.fromJson(shop) : null,
+      shop: shop is Map<String, dynamic>
+          ? SellerShop.fromJson(
+              shop,
+              fallbackSellerId: (json['seller_id'] as num?)?.toInt(),
+            )
+          : null,
     );
   }
 

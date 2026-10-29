@@ -142,6 +142,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       });
       if (!mounted) return;
       setState(() => _isFavorited = r['is_favorited'] as bool);
+      BuyerUpdates.wishlistChanged();
     } catch (e) {
       _show(e.toString());
     }
@@ -306,16 +307,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             BuyerButton.plain(
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AuthServiceProvider.of(context).isLoggedIn
-                      ? const ChatScreen()
-                      : const LoginScreen(),
-                ),
-              ),
+              onPressed: () {
+                final sellerId = p.sellerId ?? p.shop?.sellerId;
+                if (sellerId == null || sellerId <= 0) {
+                  _show('This product has no store to message yet.');
+                  return;
+                }
+                openSellerChat(
+                  context,
+                  api: _api,
+                  sellerId: sellerId,
+                  subject: _inquirySubject(p),
+                  initialBody: _inquiryBody(p),
+                );
+              },
               icon: const Icon(CupertinoIcons.chat_bubble, size: 20),
-              label: const Text('Chat'),
+              label: const Text('Message seller'),
             ),
           ],
         ),
@@ -517,12 +524,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
           const SizedBox(height: 12),
           BuyerButton.secondary(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SellerStoreScreen(sellerId: shop.sellerId),
-              ),
-            ),
+            onPressed: () {
+              final sellerId = p.sellerId ?? shop.sellerId;
+              if (sellerId <= 0) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      SellerStoreScreen(sellerId: sellerId, api: _api),
+                ),
+              );
+            },
             child: const Text('Visit Store'),
           ),
         ],
@@ -531,6 +543,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   String _fmt(double value) => shoppingMoney(value);
+
+  /// The first message a buyer sends from a product page names the product,
+  /// its selected option and its price so the seller knows what is being asked
+  /// about without leaving the thread.
+  String _inquirySubject(Product p) {
+    final subject = 'Inquiry about ${p.name}'.trim();
+    return subject.length <= 150 ? subject : '${subject.substring(0, 148)}…';
+  }
+
+  String _inquiryBody(Product p) {
+    ProductVariant? option;
+    if (_selectedVariant != null) {
+      for (final variant in p.variants) {
+        if (variant.id == _selectedVariant) option = variant;
+      }
+    }
+    final store = p.shop?.businessName.trim() ?? '';
+    return [
+      'Hi${store.isEmpty ? '' : ' $store'}! I’m interested in “${p.name}” '
+          '(${_fmt(_unitPrice)}).',
+      if (option != null) 'Option: ${option.label}',
+      'Is it still available?',
+    ].join('\n');
+  }
 
   Widget _reviewsSection() {
     final reviews = _product!.reviews;

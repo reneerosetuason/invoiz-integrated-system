@@ -31,6 +31,33 @@ class AppColors {
   static const surfaceSoft = surfaceTint;
 }
 
+/// Shared geometry for the buyer shell.
+class AppSizes {
+  AppSizes._();
+
+  /// Height of the floating tab pill itself.
+  static const floatingNavHeight = 62.0;
+
+  /// Space the pill keeps above the content it floats over.
+  static const floatingNavGap = 8.0;
+
+  /// Smallest gap between the pill and the device edge.
+  static const floatingNavBottomGap = 12.0;
+
+  /// Breathing room between the last row of a page and the pill.
+  static const floatingNavBreathingRoom = 16.0;
+
+  /// Bottom padding a tab-root scroll view needs so its last row can clear
+  /// the floating pill instead of resting underneath it.
+  static double bottomNavClearance(BuildContext context) {
+    final inset = MediaQuery.viewPaddingOf(context).bottom;
+    return floatingNavHeight +
+        floatingNavGap +
+        (inset > floatingNavBottomGap ? inset : floatingNavBottomGap) +
+        floatingNavBreathingRoom;
+  }
+}
+
 class AppTheme {
   AppTheme._();
   static const cupertino = CupertinoThemeData(

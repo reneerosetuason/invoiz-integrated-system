@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:invoiz/screens/home_screen.dart';
-import 'package:invoiz/screens/favorites_screen.dart';
+import 'package:invoiz/screens/wishlist_screen.dart';
 import 'package:invoiz/screens/chat_screen.dart';
 import 'package:invoiz/screens/notifications_screen.dart';
 import 'package:invoiz/screens/order_detail_screen.dart';
@@ -548,7 +548,7 @@ void main() {
           });
         }),
       );
-      await tester.pumpWidget(app(FavoritesScreen(api: api)));
+      await tester.pumpWidget(app(WishlistScreen(api: api)));
       await tester.pumpAndSettle();
       expect(find.text('Favorite fixture'), findsOneWidget);
       final heart = find.byIcon(CupertinoIcons.heart_fill);
@@ -557,7 +557,7 @@ void main() {
       expect(writes, 1);
       pending.complete(json({'is_favorited': false}));
       await tester.pumpAndSettle();
-      expect(find.text('No favorites yet.'), findsOneWidget);
+      expect(find.text('Your wishlist is empty'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

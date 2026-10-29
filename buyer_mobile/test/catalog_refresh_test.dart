@@ -431,6 +431,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<CupertinoCheckbox>(second).value, false);
   });
+  testWidgets('search and categories stay pinned while products scroll', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final api = ApiService(
+      client: MockClient(
+        (request) async => request.url.path.endsWith('/categories')
+            ? response({
+                'categories': [
+                  {'id': 1, 'name': 'Bags'},
+                  {'id': 2, 'name': 'Home'},
+                ],
+              })
+            : products([
+                for (var i = 1; i <= 12; i++) product(i, 'Product $i'),
+              ]),
+      ),
+    );
+    await tester.pumpWidget(app(CatalogBrowser(api: api)));
+    await tester.pumpAndSettle();
+    final search = tester.getRect(find.byKey(const ValueKey('catalog-search')));
+    final categories = tester.getRect(
+      find.byKey(const ValueKey('catalog-categories')),
+    );
+    expect(find.text('Curated for you'), findsNothing);
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -420));
+    await tester.pumpAndSettle();
+    expect(
+      tester.getRect(find.byKey(const ValueKey('catalog-search'))),
+      search,
+    );
+    expect(
+      tester.getRect(find.byKey(const ValueKey('catalog-categories'))),
+      categories,
+    );
+    expect(find.text('Bags'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   for (final width in [320.0, 390.0, 768.0]) {
     testWidgets('catalog fits a $width pixel viewport', (tester) async {
       tester.view.physicalSize = Size(width, 900);

@@ -23,6 +23,9 @@ Route::middleware(OptionalBuyerAuthentication::class)->group(function () {
     Route::get('/products/{id}', [App\Http\Controllers\Buyer\Api\ProductController::class, 'show']);
     Route::get('/stores/{seller}', [App\Http\Controllers\Buyer\Api\StoreController::class, 'show']);
     Route::get('/stores/{seller}/reviews', [App\Http\Controllers\Buyer\Api\StoreController::class, 'reviews']);
+    // Cascading Region -> Barangay address options (PSGC), cached server-side.
+    Route::get('/psgc/{path}', [App\Http\Controllers\Buyer\Api\PsgcController::class, 'show'])
+        ->where('path', '.*');
 });
 Route::post('/register', [App\Http\Controllers\Buyer\Api\AuthController::class, 'register'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 Route::post('/login', [App\Http\Controllers\Buyer\Api\AuthController::class, 'login'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);

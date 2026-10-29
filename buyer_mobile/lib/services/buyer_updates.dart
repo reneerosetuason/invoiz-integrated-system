@@ -6,4 +6,9 @@ class BuyerUpdates {
   static void inboxChanged() => inbox.value++;
   static final cart = ValueNotifier<int>(0);
   static void cartChanged() => cart.value++;
+
+  /// Fires whenever a product is saved to or removed from the wishlist so the
+  /// header heart badge stays in step with the product cards.
+  static final wishlist = ValueNotifier<int>(0);
+  static void wishlistChanged() => wishlist.value++;
 }

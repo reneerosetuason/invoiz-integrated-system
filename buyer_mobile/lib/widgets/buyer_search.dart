@@ -7,6 +7,10 @@ class BuyerSearch extends StatelessWidget {
   final String hint;
   final ValueChanged<String>? onChanged, onSubmitted;
   final VoidCallback? onSearch, onClear;
+
+  /// Drops the filled capsule so the field sits straight on the page: only
+  /// the icon, placeholder and action remain.
+  final bool bare;
   const BuyerSearch({
     super.key,
     required this.controller,
@@ -15,11 +19,12 @@ class BuyerSearch extends StatelessWidget {
     this.onSubmitted,
     this.onSearch,
     this.onClear,
+    this.bare = false,
   });
   @override
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
-      color: AppColors.cream,
+      color: bare ? CupertinoColors.transparent : AppColors.cream,
       borderRadius: BorderRadius.circular(999),
     ),
     child: Row(

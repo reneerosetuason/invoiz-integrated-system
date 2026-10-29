@@ -3,7 +3,6 @@ import 'buyer_controls.dart';
 import 'buyer_search.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../screens/product_list_screen.dart';
 import '../services/api_service.dart';
 import '../services/recently_viewed_service.dart';
 import '../theme.dart';
@@ -15,6 +14,7 @@ class CatalogBrowser extends StatefulWidget {
   final bool showIntro;
   final int? categoryId;
   final String? initialSearch;
+  final double bottomPadding;
   const CatalogBrowser({
     super.key,
     this.api,
@@ -22,6 +22,7 @@ class CatalogBrowser extends StatefulWidget {
     this.showIntro = false,
     this.categoryId,
     this.initialSearch,
+    this.bottomPadding = 24,
   });
   @override
   State<CatalogBrowser> createState() => _CatalogBrowserState();
@@ -161,362 +162,370 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
   }
 
   @override
-  Widget build(BuildContext context) => RefreshIndicator.adaptive(
-    onRefresh: () => _load(),
-    child: CustomScrollView(
-      controller: _scroll,
-      physics: const AlwaysScrollableScrollPhysics(),
-      slivers: [
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                BuyerSearch(
-                  key: const ValueKey('catalog-search'),
-                  controller: _search,
-                  onSubmitted: (_) => _load(),
-                  hint: 'Search products',
-                  onSearch: () => _load(),
-                ),
-                if (widget.showIntro) ...[const SizedBox(height: 8), _intro()],
-                if (widget.onSale)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'A little more, for less',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Current offers from the INVOIZ collection.',
-                        ),
-                      ],
-                    ),
-                  ),
-                if (_vouchers.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: SizedBox(
-                      height: 56,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _vouchers.length,
-                        separatorBuilder: (_, i) => const SizedBox(width: 8),
-                        itemBuilder: (_, i) => BuyerButton.secondary(
-                          onPressed: () => _claim(_vouchers[i]),
-                          icon: const Icon(Icons.confirmation_number_outlined),
-                          label: Text(
-                            '${_vouchers[i]['name'] ?? 'Store voucher'} · Collect',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 8),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
+  Widget build(BuildContext context) => Column(
+    children: [
+      // Search and categories are chrome, not content: they stay put while
+      // the products scroll and float above the page like the tab pill.
+      _floatingHeader(context),
+      Expanded(
+        child: RefreshIndicator.adaptive(
+          onRefresh: () => _load(),
+          child: CustomScrollView(
+            controller: _scroll,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                sliver: SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _categoryChip(null, 'All'),
-                      ..._categories.map(
-                        (category) => _categoryChip(
-                          category['id'] as int,
-                          '${category['name']}',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 2,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          Text(
-                            _category == null
-                                ? (widget.onSale ? 'On sale' : 'The collection')
-                                : '${_categories.where((c) => c['id'] == _category).firstOrNull?['name'] ?? 'Products'}',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleLarge?.copyWith(fontSize: 18),
-                          ),
-                          Text(
-                            '$_total ${_total == 1 ? 'product' : 'products'}',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    BuyerActionMenu<String>(
-                      tooltip: 'Sort products',
-                      initialValue: _sort,
-                      onSelected: (value) {
-                        _sort = value;
-                        _load();
-                      },
-                      itemBuilder: (_) => _sorts.entries
-                          .where((e) => widget.onSale || e.key != 'discount')
-                          .map(
-                            (e) => CheckedPopupMenuItem(
-                              value: e.key,
-                              checked: e.key == _sort,
-                              child: Text(e.value),
-                            ),
-                          )
-                          .toList(),
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          minHeight: 44,
-                          maxWidth: 124,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                      if (widget.onSale)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(CupertinoIcons.sort_down, size: 20),
-                              const SizedBox(width: 5),
-                              Flexible(
-                                child: Text(
-                                  MediaQuery.textScalerOf(context).scale(1) >
-                                          1.2
-                                      ? 'Sort'
-                                      : _compactSorts[_sort] ??
-                                            _sorts[_sort] ??
-                                            'Sort',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.primaryDark,
-                                  ),
-                                ),
+                              Text(
+                                'A little more, for less',
+                                style: Theme.of(
+                                  context,
+                                ).textTheme.headlineSmall,
+                              ),
+                              const SizedBox(height: 4),
+                              const Text(
+                                'Current offers from the INVOIZ collection.',
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_loading)
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(40),
-              child: Center(child: CupertinoActivityIndicator()),
-            ),
-          )
-        else if (_error != null)
-          SliverToBoxAdapter(
-            child: _message(
-              CupertinoIcons.cloud,
-              'Unable to load products',
-              _error!,
-              'Try again',
-              () => _load(),
-            ),
-          )
-        else if (_products.isEmpty)
-          SliverToBoxAdapter(
-            child: _message(
-              CupertinoIcons.search,
-              'No products found',
-              'Try another search or category.',
-              'Clear filters',
-              () {
-                _search.clear();
-                _category = null;
-                _load();
-              },
-            ),
-          )
-        else
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            sliver: SliverLayoutBuilder(
-              builder: (_, constraints) {
-                var columns = constraints.crossAxisExtent >= 900
-                    ? 4
-                    : constraints.crossAxisExtent >= 600
-                    ? 3
-                    : 2;
-                final textScale = MediaQuery.textScalerOf(context).scale(1);
-                if (constraints.crossAxisExtent / columns < 120 * textScale) {
-                  columns = (constraints.crossAxisExtent / (120 * textScale))
-                      .floor()
-                      .clamp(1, columns);
-                }
-                final width =
-                    (constraints.crossAxisExtent - (columns - 1) * 12) /
-                    columns;
-                return SliverGrid(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, i) => ProductCard(
-                      key: ValueKey(_products[i]['id']),
-                      data: _products[i],
-                      api: _api,
-                      onReturned: _returned,
-                    ),
-                    childCount: _products.length,
-                  ),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: columns,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    mainAxisExtent:
-                        width *
-                            (constraints.crossAxisExtent < 600 ? .72 : .95) +
-                        110 * textScale,
-                  ),
-                );
-              },
-            ),
-          ),
-        if (!_loading && _error == null && _page < _lastPage)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: BuyerButton.secondary(
-                onPressed: _more ? null : () => _load(append: true),
-                child: _more
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CupertinoActivityIndicator(),
-                      )
-                    : const Text('Load more products'),
-              ),
-            ),
-          ),
-        if (widget.showIntro && _recent.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'Recently viewed',
-                          style: Theme.of(context).textTheme.titleLarge,
+                      if (_vouchers.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: SizedBox(
+                            height: 56,
+                            child: ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _vouchers.length,
+                              separatorBuilder: (_, i) =>
+                                  const SizedBox(width: 8),
+                              itemBuilder: (_, i) => BuyerButton.secondary(
+                                onPressed: () => _claim(_vouchers[i]),
+                                icon: const Icon(
+                                  Icons.confirmation_number_outlined,
+                                ),
+                                label: Text(
+                                  '${_vouchers[i]['name'] ?? 'Store voucher'} · Collect',
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      BuyerButton.plain(
-                        onPressed: () async {
-                          await RecentlyViewedService.clear();
-                          if (mounted) setState(() => _recent = []);
-                        },
-                        child: const Text('Clear'),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 2,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  _category == null
+                                      ? (widget.onSale
+                                            ? 'On sale'
+                                            : 'The collection')
+                                      : '${_categories.where((c) => c['id'] == _category).firstOrNull?['name'] ?? 'Products'}',
+                                  style: Theme.of(context).textTheme.titleLarge
+                                      ?.copyWith(fontSize: 18),
+                                ),
+                                Text(
+                                  '$_total ${_total == 1 ? 'product' : 'products'}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          BuyerActionMenu<String>(
+                            tooltip: 'Sort products',
+                            initialValue: _sort,
+                            onSelected: (value) {
+                              _sort = value;
+                              _load();
+                            },
+                            itemBuilder: (_) => _sorts.entries
+                                .where(
+                                  (e) => widget.onSale || e.key != 'discount',
+                                )
+                                .map(
+                                  (e) => CheckedPopupMenuItem(
+                                    value: e.key,
+                                    checked: e.key == _sort,
+                                    child: Text(e.value),
+                                  ),
+                                )
+                                .toList(),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                minHeight: 44,
+                                maxWidth: 124,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      CupertinoIcons.sort_down,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Flexible(
+                                      child: Text(
+                                        MediaQuery.textScalerOf(
+                                                  context,
+                                                ).scale(1) >
+                                                1.2
+                                            ? 'Sort'
+                                            : _compactSorts[_sort] ??
+                                                  _sorts[_sort] ??
+                                                  'Sort',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.primaryDark,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  SizedBox(
-                    height:
-                        146 * .72 +
-                        MediaQuery.textScalerOf(context).scale(1) * 110,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _recent.length,
-                      separatorBuilder: (_, i) => const SizedBox(width: 12),
-                      itemBuilder: (_, i) => SizedBox(
-                        width: 146,
-                        child: ProductCard(
-                          data: _recent[i],
-                          api: _api,
-                          onReturned: _returned,
+                ),
+              ),
+              if (_loading)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Center(child: CupertinoActivityIndicator()),
+                  ),
+                )
+              else if (_error != null)
+                SliverToBoxAdapter(
+                  child: _message(
+                    CupertinoIcons.cloud,
+                    'Unable to load products',
+                    _error!,
+                    'Try again',
+                    () => _load(),
+                  ),
+                )
+              else if (_products.isEmpty)
+                SliverToBoxAdapter(
+                  child: _message(
+                    CupertinoIcons.search,
+                    'No products found',
+                    'Try another search or category.',
+                    'Clear filters',
+                    () {
+                      _search.clear();
+                      _category = null;
+                      _load();
+                    },
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverLayoutBuilder(
+                    builder: (_, constraints) {
+                      var columns = constraints.crossAxisExtent >= 900
+                          ? 4
+                          : constraints.crossAxisExtent >= 600
+                          ? 3
+                          : 2;
+                      final textScale = MediaQuery.textScalerOf(
+                        context,
+                      ).scale(1);
+                      if (constraints.crossAxisExtent / columns <
+                          120 * textScale) {
+                        columns =
+                            (constraints.crossAxisExtent / (120 * textScale))
+                                .floor()
+                                .clamp(1, columns);
+                      }
+                      final width =
+                          (constraints.crossAxisExtent - (columns - 1) * 12) /
+                          columns;
+                      return SliverGrid(
+                        delegate: SliverChildBuilderDelegate(
+                          (_, i) => ProductCard(
+                            key: ValueKey(_products[i]['id']),
+                            data: _products[i],
+                            api: _api,
+                            onReturned: _returned,
+                          ),
+                          childCount: _products.length,
                         ),
-                      ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent:
+                              width *
+                                  (constraints.crossAxisExtent < 600
+                                      ? .72
+                                      : .95) +
+                              110 * textScale,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              if (!_loading && _error == null && _page < _lastPage)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: BuyerButton.secondary(
+                      onPressed: _more ? null : () => _load(append: true),
+                      child: _more
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CupertinoActivityIndicator(),
+                            )
+                          : const Text('Load more products'),
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              if (widget.showIntro && _recent.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Recently viewed',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                            ),
+                            BuyerButton.plain(
+                              onPressed: () async {
+                                await RecentlyViewedService.clear();
+                                if (mounted) setState(() => _recent = []);
+                              },
+                              child: const Text('Clear'),
+                            ),
+                          ],
+                        ),
+                        SizedBox(
+                          height:
+                              146 * .72 +
+                              MediaQuery.textScalerOf(context).scale(1) * 110,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _recent.length,
+                            separatorBuilder: (_, i) =>
+                                const SizedBox(width: 12),
+                            itemBuilder: (_, i) => SizedBox(
+                              width: 146,
+                              child: ProductCard(
+                                data: _recent[i],
+                                api: _api,
+                                onReturned: _returned,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              SliverToBoxAdapter(child: SizedBox(height: widget.bottomPadding)),
+            ],
           ),
-        const SliverToBoxAdapter(child: SizedBox(height: 24)),
+        ),
+      ),
+    ],
+  );
+  Widget _floatingHeader(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(16, 2, 16, 2),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // No capsule: the field sits straight on the page.
+        BuyerSearch(
+          key: const ValueKey('catalog-search'),
+          controller: _search,
+          onSubmitted: (_) => _load(),
+          hint: 'Search products',
+          onSearch: () => _load(),
+          bare: true,
+        ),
+        const SizedBox(height: 2),
+        // Each category is its own pill; nothing wraps the row.
+        SingleChildScrollView(
+          key: const ValueKey('catalog-categories'),
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.only(bottom: 2),
+          child: Row(
+            children: [
+              _categoryChip(null, 'All'),
+              ..._categories.map(
+                (category) =>
+                    _categoryChip(category['id'] as int, '${category['name']}'),
+              ),
+            ],
+          ),
+        ),
       ],
     ),
   );
-  Widget _categoryChip(int? id, String name) => Padding(
-    padding: const EdgeInsets.only(right: 8),
-    child: ChoiceChip(
-      label: Text(name),
-      selected: _category == id,
-      showCheckmark: false,
-      onSelected: (_) {
-        _category = id;
-        _load();
-      },
-    ),
-  );
-  Widget _intro() => Container(
-    key: const ValueKey('catalog-intro'),
-    width: double.infinity,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    decoration: BoxDecoration(
-      color: AppColors.surfaceTint,
-      borderRadius: BorderRadius.circular(14),
-    ),
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final message = Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Curated for you',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontSize: 18),
-            ),
-            const Text(
-              'Cash on delivery.',
-              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-            ),
-          ],
-        );
-        final action = BuyerButton.plain(
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ProductListScreen()),
-          ),
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            alignment: Alignment.centerLeft,
-          ),
-          label: const Text('Explore sale'),
-          icon: const Icon(CupertinoIcons.arrow_right, size: 18),
-        );
-        if (constraints.maxWidth <
-            250 * MediaQuery.textScalerOf(context).scale(1)) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [message, action],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: message),
-            const SizedBox(width: 8),
-            action,
-          ],
-        );
-      },
-    ),
-  );
+
+  Widget _categoryChip(int? id, String name) {
+    final selected = _category == id;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(name),
+        selected: selected,
+        showCheckmark: false,
+        backgroundColor: AppColors.surface,
+        selectedColor: AppColors.primaryDark,
+        side: BorderSide(
+          color: selected
+              ? AppColors.primaryDark
+              : AppColors.border.withValues(alpha: .9),
+          width: .5,
+        ),
+        shape: const StadiumBorder(),
+        labelStyle: TextStyle(
+          fontFamily: 'Inter',
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: selected ? Colors.white : AppColors.primaryDark,
+        ),
+        onSelected: (_) {
+          _category = id;
+          _load();
+        },
+      ),
+    );
+  }
+
   Widget _message(
     IconData icon,
     String title,

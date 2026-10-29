@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../theme.dart';
 import '../widgets/catalog_browser.dart';
 import '../widgets/main_layout.dart';
 
@@ -28,6 +29,7 @@ class ProductListScreen extends StatelessWidget {
       onSale: !showAll,
       categoryId: categoryId,
       initialSearch: search,
+      bottomPadding: AppSizes.bottomNavClearance(context),
     ),
   );
 }

@@ -7,7 +7,7 @@ import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
 import 'addresses_screen.dart';
-import 'favorites_screen.dart';
+import 'wishlist_screen.dart';
 import 'login_screen.dart';
 import 'orders_screen.dart';
 import 'profile_screen.dart';
@@ -48,7 +48,12 @@ class _AccountScreenState extends State<AccountScreen> {
       showSettingsIcon: false,
       title: 'Account',
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          AppSizes.bottomNavClearance(context),
+        ),
         children: [
           const BuyerPageHeading(
             title: 'Your account',
@@ -146,10 +151,10 @@ class _AccountScreenState extends State<AccountScreen> {
                   _loadAddressCount();
                 },
               ),
-              _menuTile(CupertinoIcons.heart, 'My Favorites', () async {
+              _menuTile(CupertinoIcons.heart, 'My Wishlist', () async {
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const FavoritesScreen()),
+                  MaterialPageRoute(builder: (_) => const WishlistScreen()),
                 );
               }),
             ],

@@ -209,7 +209,14 @@ class _CartScreenState extends State<CartScreen> {
           if (signedIn && !_loading && _cart?.items.isNotEmpty == true)
             Offstage(
               offstage: MediaQuery.viewInsetsOf(context).bottom > 0,
-              child: _checkoutBar(context),
+              // Keep the checkout dock above the floating tab pill instead of
+              // letting the pill sit on top of it.
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: AppSizes.bottomNavClearance(context),
+                ),
+                child: _checkoutBar(context),
+              ),
             ),
         ],
       ),

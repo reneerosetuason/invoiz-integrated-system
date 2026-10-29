@@ -10,6 +10,7 @@ import '../screens/login_screen.dart';
 import '../screens/notifications_screen.dart';
 import '../screens/orders_screen.dart';
 import '../screens/product_list_screen.dart';
+import '../screens/wishlist_screen.dart';
 import '../services/api_service.dart';
 import '../services/buyer_updates.dart';
 import '../theme.dart';
@@ -24,7 +25,8 @@ class MainLayout extends StatelessWidget {
       showTopActions,
       showMessageIcon,
       showSettingsIcon,
-      showNotificationIcon;
+      showNotificationIcon,
+      showWishlistIcon;
   static const destinationCount = 5;
   final int currentIndex;
   final ApiService? api;
@@ -39,6 +41,7 @@ class MainLayout extends StatelessWidget {
     this.showMessageIcon = true,
     this.showSettingsIcon = true,
     this.showNotificationIcon = true,
+    this.showWishlistIcon = true,
     this.currentIndex = 0,
     this.api,
     this.actions = const [],
@@ -64,6 +67,12 @@ class MainLayout extends StatelessWidget {
         ),
       if (showNotificationIcon)
         AppNotificationBell(
+          api: api,
+          iconSize: 23,
+          background: AppColors.surfaceTint,
+        ),
+      if (showWishlistIcon)
+        AppWishlistBadge(
           api: api,
           iconSize: 23,
           background: AppColors.surfaceTint,
@@ -205,9 +214,9 @@ class _BottomNavState extends State<_BottomNav> {
             borderRadius: BorderRadius.circular(999),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primaryDark.withValues(alpha: .12),
-                blurRadius: 24,
-                offset: const Offset(0, 6),
+                color: AppColors.primaryDark.withValues(alpha: .16),
+                blurRadius: 28,
+                offset: const Offset(0, 8),
               ),
             ],
             border: Border.all(
@@ -458,6 +467,109 @@ class _AppMessageBadgeState extends State<AppMessageBadge> {
               ),
               child: Text(
                 _unread > 99 ? '99+' : '$_unread',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Header heart with the number of saved products. Mirrors the wishlist
+/// counter shown in the website sidebar and refreshes whenever a product is
+/// saved or removed anywhere in the app.
+class AppWishlistBadge extends StatefulWidget {
+  final Color iconColor;
+  final double iconSize;
+  final Color? background;
+  final ApiService? api;
+  const AppWishlistBadge({
+    super.key,
+    this.iconColor = AppColors.primaryDark,
+    this.iconSize = 22,
+    this.background,
+    this.api,
+  });
+
+  @override
+  State<AppWishlistBadge> createState() => _AppWishlistBadgeState();
+}
+
+class _AppWishlistBadgeState extends State<AppWishlistBadge> {
+  late final ApiService _api;
+  int _count = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _api = widget.api ?? ApiService();
+    BuyerUpdates.wishlist.addListener(_load);
+    _load();
+  }
+
+  @override
+  void dispose() {
+    BuyerUpdates.wishlist.removeListener(_load);
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    final token = ApiService.token;
+    if (token == null) {
+      if (_count != 0) setState(() => _count = 0);
+      return;
+    }
+    try {
+      final data = await _api.get('favorites');
+      if (!mounted || token != ApiService.token) return;
+      setState(() => _count = (data['favorites'] as List?)?.length ?? 0);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!AuthServiceProvider.of(context).isLoggedIn) {
+      return const SizedBox.shrink();
+    }
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        BuyerButton.icon(
+          tooltip: 'Wishlist',
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => WishlistScreen(api: widget.api),
+              ),
+            );
+            _load();
+          },
+          icon: Icon(
+            CupertinoIcons.heart,
+            size: widget.iconSize,
+            color: widget.iconColor,
+          ),
+        ),
+        if (_count > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: AppColors.danger,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                _count > 99 ? '99+' : '$_count',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,

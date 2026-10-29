@@ -26,7 +26,7 @@ import 'package:invoiz/screens/addresses_screen.dart';
 import 'package:invoiz/screens/add_address_screen.dart';
 import 'package:invoiz/screens/notifications_screen.dart';
 import 'package:invoiz/screens/chat_screen.dart';
-import 'package:invoiz/screens/favorites_screen.dart';
+import 'package:invoiz/screens/wishlist_screen.dart';
 import 'package:invoiz/screens/seller_store_screen.dart';
 import 'package:invoiz/widgets/product_card.dart';
 import 'package:invoiz/widgets/product_gallery.dart';
@@ -480,9 +480,16 @@ void main() {
         if (width == 360) {
           expect(tester.getTopLeft(first).dy, lessThanOrEqualTo(300));
           expect(tester.getSize(first).height, lessThanOrEqualTo(232));
+          final searchPill = tester.getRect(
+            find.byKey(const ValueKey('catalog-search')),
+          );
+          final categoryPill = tester.getRect(
+            find.byKey(const ValueKey('catalog-categories')),
+          );
+          expect(searchPill.bottom, lessThan(categoryPill.top));
           expect(
-            tester.getSize(find.byKey(const ValueKey('catalog-intro'))).height,
-            lessThanOrEqualTo(64),
+            categoryPill.bottom,
+            lessThanOrEqualTo(tester.getTopLeft(first).dy),
           );
           final photo = find.descendant(
             of: first,
@@ -529,7 +536,7 @@ void main() {
     'messages': (api) => ChatScreen(api: api),
     'conversation': (api) =>
         ChatThreadScreen(conversationId: 9, subject: 'Fixture store', api: api),
-    'favorites': (api) => FavoritesScreen(api: api),
+    'favorites': (api) => WishlistScreen(api: api),
     'store': (api) => SellerStoreScreen(sellerId: 8, api: api),
   };
   _phoneLayoutTest('home adapts its grid to large text on a small phone', (
@@ -546,14 +553,9 @@ void main() {
       greaterThan(250),
     );
     expect(tester.takeException(), isNull);
-    expect(
-      tester.getSize(find.byKey(const ValueKey('catalog-intro'))).height,
-      lessThanOrEqualTo(140),
-    );
-    expect(
-      tester.getSize(find.text('Curated for you')).height,
-      lessThanOrEqualTo(40),
-    );
+    expect(find.byKey(const ValueKey('catalog-search')), findsOneWidget);
+    expect(find.byKey(const ValueKey('catalog-categories')), findsOneWidget);
+    expect(find.text('Curated for you'), findsNothing);
     await _capture(tester, 'home-large-text');
     await tester.pumpWidget(const SizedBox());
   });

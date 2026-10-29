@@ -206,7 +206,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         )
                       : ListView.separated(
                           physics: const AlwaysScrollableScrollPhysics(),
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            0,
+                            16,
+                            AppSizes.bottomNavClearance(context),
+                          ),
                           itemCount: _orders.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 10),

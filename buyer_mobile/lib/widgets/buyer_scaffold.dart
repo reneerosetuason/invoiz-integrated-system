@@ -55,21 +55,32 @@ class BuyerScaffold extends StatelessWidget {
           : null,
       child: SafeArea(
         bottom: bottomBar == null,
-        child: Column(
-          children: [
-            if (header != null) header!,
-            Expanded(
-              child: MediaQuery.removePadding(
-                context: context,
-                removeBottom: bottomBar != null,
-                child: Material(type: MaterialType.transparency, child: child),
+        child: bottomBar == null
+            ? _content(context)
+            : Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(child: _content(context)),
+                  // The pill floats above the page: everything around it stays
+                  // transparent so the page behind it remains visible.
+                  Positioned(left: 0, right: 0, bottom: 0, child: bottomBar!),
+                ],
               ),
-            ),
-            if (bottomBar != null) bottomBar!,
-          ],
-        ),
       ),
     ),
+  );
+
+  Widget _content(BuildContext context) => Column(
+    children: [
+      if (header != null) header!,
+      Expanded(
+        child: MediaQuery.removePadding(
+          context: context,
+          removeBottom: bottomBar != null,
+          child: Material(type: MaterialType.transparency, child: child),
+        ),
+      ),
+    ],
   );
 }
 
