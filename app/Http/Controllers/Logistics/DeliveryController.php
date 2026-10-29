@@ -1511,6 +1511,9 @@ class DeliveryController extends Controller
 
     public function scanByTracking(Request $request): JsonResponse
     {
+        $rawTracking = strtoupper(trim((string) $request->input('tracking_number', '')));
+        $request->merge(['tracking_number' => $rawTracking]);
+
         $validated = $request->validate([
             'tracking_number' => ['required', 'string', 'max:40', 'regex:/^TRK-\d{8}-[A-Z0-9]{4}$/i'],
         ]);
@@ -1606,7 +1609,7 @@ class DeliveryController extends Controller
             'recipient_name' => $delivery->recipient_name,
             'parcel_status' => $delivery->parcel_status,
             'scanned_at' => $delivery->scanned_at?->toIso8601String(),
-            'show_url' => route('deliveries.show', $delivery),
+            'show_url' => route('deliveries.show', $delivery, false),
         ];
     }
 

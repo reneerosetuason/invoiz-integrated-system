@@ -28,6 +28,8 @@
 
     <div class="delivery-scan-grid grid gap-6"
          x-data="scanParcel()"
+         data-expect="{{ $expect }}"
+         data-submit-url="{{ route('deliveries.scan-verify', [], false) }}"
          x-cloak>
 
         {{-- Camera / Scanner --}}
@@ -195,7 +197,7 @@
     @push('scripts')
         <script src="{{ asset('vendor/jsqr/jsQR.js') }}"></script>
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/deliveries/scan.css') }}">
-        <script src="{{ asset('assets/logistics/js/deliveries/scan.js') }}" data-config="{{ json_encode([($expect), (route('deliveries.scan-verify'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+        <script src="{{ asset('assets/logistics/js/deliveries/scan.js') }}" data-config="{{ json_encode([($expect), (route('deliveries.scan-verify', [], false))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
     @endpush
     </div>
 </x-app-layout>

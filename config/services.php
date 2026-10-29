@@ -37,4 +37,9 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'rider_app' => [
+        'android_apk_url' => env('RIDER_APP_ANDROID_APK_URL'),
+        'android_apk_verified' => env('RIDER_APP_ANDROID_APK_VERIFIED', false),
+    ],
+
 ];

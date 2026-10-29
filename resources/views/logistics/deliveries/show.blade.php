@@ -431,68 +431,68 @@
                 for the waybill, barcode and QR. Uses only real data ("—" fallback). --}}
             <div class="delivery-waybill-preview mb-6 flex justify-center">
                 <div id="shipping-label" role="img" aria-label="Shipping label for parcel {{ $delivery->tracking_number }}"
-                     class="w-full bg-[#ffffff] text-[#111111]" style="max-width: 4in;">
-                    <div class="border-2 border-[#111111]">
+                     class="w-full bg-[#ffffff] text-[#111111]" style="max-width: 105mm;">
+                    <div class="waybill-card">
                         {{-- Header --}}
-                        <div class="px-3 pt-2.5 pb-2 border-b-2 border-[#111111] flex items-center gap-2.5">
+                        <div class="waybill-header px-3 pt-2.5 pb-2 flex items-center gap-2.5">
                             <img src="{{ asset('assets/shared/images/logo.png') }}" alt="INVOIZ logo" class="h-12 w-auto flex-shrink-0">
-                            <p class="text-lg font-extrabold tracking-tight leading-none whitespace-nowrap text-[#0E4A57]">SHIPPING WAYBILL</p>
+                            <p class="waybill-title text-lg font-extrabold tracking-tight leading-none whitespace-nowrap text-[#0E4A57]">SHIPPING WAYBILL</p>
                         </div>
 
                         {{-- Waybill / tracking number --}}
-                        <div class="px-3 py-2 border-b-2 border-[#111111] text-center">
-                            <p class="text-[10px] font-bold tracking-widest">WAYBILL / TRACKING</p>
-                            <p class="font-mono font-extrabold text-xl leading-tight break-all">{{ $delivery->tracking_number }}</p>
+                        <div class="waybill-tracking px-3 py-2 border-b-2 border-[#111111] text-center">
+                            <p class="waybill-tracking-label text-[10px] font-bold tracking-widest">WAYBILL / TRACKING</p>
+                            <p class="waybill-tracking-number font-mono font-extrabold text-xl leading-tight break-all">{{ $delivery->tracking_number }}</p>
                             @if($wbOrder)
                                 <p class="text-[10px] font-bold tracking-wide mt-1">ORDER #: {{ $wbOrder->id }} · {{ $wbOrder->created_at?->format('F d, Y') ?? '—' }}</p>
                             @endif
                         </div>
 
                         {{-- Barcode (CODE128 of the tracking number, rendered by script below) --}}
-                        <div class="px-3 py-2 border-b-2 border-[#111111] text-center bg-white">
+                        <div class="waybill-barcode px-3 py-2 border-b-2 border-[#111111] text-center bg-white">
                             <svg id="parcel-barcode" class="w-full" role="img" aria-label="Barcode for {{ $delivery->tracking_number }}"></svg>
                             <p class="font-mono text-[11px] font-bold tracking-widest mt-0.5">{{ $delivery->tracking_number }}</p>
                         </div>
 
                         {{-- Shipped by / Deliver to --}}
-                        <div class="grid grid-cols-2 border-b-2 border-[#111111]">
-                            <div class="px-3 py-2 border-r-2 border-[#111111]">
-                                <p class="text-[10px] font-extrabold tracking-widest text-[#16697A]">SHIPPED BY / SELLER</p>
-                                <p class="text-xs font-bold mt-1 break-words">{{ $wbShipName }}</p>
-                                <p class="text-[11px] mt-0.5 break-words">{{ $wbShipPhone }}</p>
-                                <p class="text-[11px] mt-0.5 break-words">{{ $wbShipAddress }}</p>
+                        <div class="waybill-parties grid grid-cols-2 border-b-2 border-[#111111]">
+                            <div class="waybill-party px-3 py-2">
+                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">SHIPPED BY / SELLER</p>
+                                <p class="waybill-party-value text-xs font-bold mt-1 break-words">{{ $wbShipName }}</p>
+                                <p class="waybill-party-value text-[11px] mt-0.5 break-words">{{ $wbShipPhone }}</p>
+                                <p class="waybill-party-value text-[11px] mt-0.5 break-words">{{ $wbShipAddress }}</p>
                                 @if($wbSellers->count() > 1)
-                                    <p class="text-[10px] mt-0.5 break-words">+ {{ $wbSellers->count() - 1 }} more: {{ $wbSellers->skip(1)->pluck('name')->filter()->implode(', ') }}</p>
+                                    <p class="waybill-party-value text-[10px] mt-0.5 break-words">+ {{ $wbSellers->count() - 1 }} more: {{ $wbSellers->skip(1)->pluck('name')->filter()->implode(', ') }}</p>
                                 @endif
                             </div>
-                            <div class="px-3 py-2 bg-[#F8FAF9]">
-                                <p class="text-[10px] font-extrabold tracking-widest text-[#16697A]">DELIVER TO / BUYER</p>
-                                <p class="text-sm font-extrabold mt-1 break-words">{{ $wbBuyName }}</p>
-                                <p class="text-xs font-bold mt-0.5 break-words">{{ $wbBuyAddress }}</p>
-                                <p class="text-xs font-bold mt-0.5 break-words">{{ $wbBuyPhone }}</p>
+                            <div class="waybill-party px-3 py-2 bg-[#F8FAF9]">
+                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">DELIVER TO / BUYER</p>
+                                <p class="waybill-party-value text-sm font-extrabold mt-1 break-words">{{ $wbBuyName }}</p>
+                                <p class="waybill-party-value text-xs font-bold mt-0.5 break-words">{{ $wbBuyAddress }}</p>
+                                <p class="waybill-party-value text-xs font-bold mt-0.5 break-words">{{ $wbBuyPhone }}</p>
                             </div>
                         </div>
 
                         {{-- Delivery / logistics --}}
-                        <div class="px-3 py-2 border-b-2 border-[#111111]">
-                            <p class="text-[10px] font-extrabold tracking-widest text-[#16697A]">DELIVERY / LOGISTICS</p>
+                        <div class="waybill-logistics px-3 py-2 border-b-2 border-[#111111]">
+                            <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">DELIVERY / LOGISTICS</p>
                             <dl class="mt-1 space-y-0.5 text-[11px]">
-                                <div class="flex gap-1.5"><dt class="font-bold shrink-0">Courier:</dt><dd class="break-words">{{ $delivery->rider ? $delivery->rider->name . ($delivery->rider->phone ? ' · ' . $delivery->rider->phone : '') : '—' }}</dd></div>
-                                <div class="flex gap-1.5"><dt class="font-bold shrink-0">Pickup:</dt><dd class="break-words">{{ $wbPickup }}</dd></div>
-                                <div class="flex gap-1.5"><dt class="font-bold shrink-0">Tracking:</dt><dd class="font-mono break-all">{{ $delivery->tracking_number }}</dd></div>
-                                <div class="flex gap-1.5"><dt class="font-bold shrink-0">Origin:</dt><dd class="break-words">{{ $delivery->logisticsCenter->name ?? '—' }}</dd></div>
-                                <div class="flex gap-1.5"><dt class="font-bold shrink-0">Destination:</dt><dd class="break-words">{{ $delivery->destinationCenter->name ?? '—' }}</dd></div>
-                                <div class="flex gap-1.5"><dt class="font-bold shrink-0">Service Area:</dt><dd class="break-words">{{ $delivery->serviceArea->name ?? '—' }}</dd></div>
+                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Courier:</dt><dd class="break-words">{{ $delivery->rider ? $delivery->rider->name . ($delivery->rider->phone ? ' · ' . $delivery->rider->phone : '') : '—' }}</dd></div>
+                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Pickup:</dt><dd class="break-words">{{ $wbPickup }}</dd></div>
+                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Tracking:</dt><dd class="font-mono break-all">{{ $delivery->tracking_number }}</dd></div>
+                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Origin:</dt><dd class="break-words">{{ $delivery->logisticsCenter->name ?? '—' }}</dd></div>
+                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Destination:</dt><dd class="break-words">{{ $delivery->destinationCenter->name ?? '—' }}</dd></div>
+                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Service Area:</dt><dd class="break-words">{{ $delivery->serviceArea->name ?? '—' }}</dd></div>
                             </dl>
                         </div>
 
                         {{-- Payment + parcel (left) beside QR verification (right) --}}
-                        <div class="grid grid-cols-2 border-b-2 border-[#111111]">
-                            <div class="border-r-2 border-[#111111]">
-                                <div class="px-3 py-2 border-b-2 border-[#111111]">
-                                    <p class="text-[10px] font-extrabold tracking-widest text-[#16697A]">PAYMENT</p>
+                        <div class="waybill-payment-parcel grid grid-cols-2 border-b-2 border-[#111111]">
+                            <div class="waybill-payment-details border-r-2 border-[#111111]">
+                                <div class="waybill-payment px-3 py-2 border-b-2 border-[#111111]">
+                                    <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">PAYMENT</p>
                                     @if($labelCod > 0)
-                                        <p class="text-xl font-extrabold mt-1 text-[#0E4A57]">{{ '₱' . number_format($labelCod, 2) }}</p>
+                                        <p class="waybill-payment-amount text-xl font-extrabold mt-1 text-[#0E4A57]">{{ '₱' . number_format($labelCod, 2) }}</p>
                                         <p class="text-[10px] font-bold tracking-widest mt-0.5">{{ $wbMethodLabel ?? 'CASH ON DELIVERY' }} — COLLECT ON DELIVERY</p>
                                     @elseif($wbMethodLabel)
                                         <p class="text-sm font-extrabold mt-1 break-words">{{ $wbMethodLabel }}</p>
@@ -505,12 +505,12 @@
                                         <p class="text-[10px] mt-0.5 break-words">REF: {{ $wbPayment->reference_number }}</p>
                                     @endif
                                 </div>
-                                <div class="px-3 py-2">
-                                    <p class="text-[10px] font-extrabold tracking-widest text-[#16697A]">PARCEL INFORMATION</p>
+                                <div class="waybill-parcel-details px-3 py-2">
+                                    <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">PARCEL INFORMATION</p>
                                     @if($wbParcelRows !== [])
                                         <dl class="mt-1 space-y-0.5 text-[11px]">
                                             @foreach($wbParcelRows as $wbParcelRow)
-                                                <div class="flex gap-1.5"><dt class="font-bold shrink-0">{{ $wbParcelRow[0] }}:</dt><dd class="break-words">{{ $wbParcelRow[1] }}</dd></div>
+                                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">{{ $wbParcelRow[0] }}:</dt><dd class="break-words">{{ $wbParcelRow[1] }}</dd></div>
                                             @endforeach
                                         </dl>
                                     @else
@@ -518,8 +518,8 @@
                                     @endif
                                 </div>
                             </div>
-                            <div class="px-3 py-2 flex flex-col items-center justify-center text-center">
-                                <p class="text-[10px] font-extrabold tracking-widest text-[#16697A]">QR VERIFICATION</p>
+                            <div class="waybill-qr-panel px-3 py-2 flex flex-col items-center justify-center text-center">
+                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">QR VERIFICATION</p>
                                 <div id="parcel-qr" class="bg-white p-1.5 mt-1"
                                      role="img" aria-label="QR code for parcel {{ $delivery->tracking_number }}"></div>
                                 <p class="text-[10px] font-extrabold tracking-widest mt-1">SCAN TO VERIFY PARCEL</p>
@@ -528,8 +528,8 @@
 
                         {{-- Order items + summary --}}
                         @if($wbRows->isNotEmpty())
-                            <div class="px-3 py-2 border-b-2 border-[#111111]">
-                                <p class="text-[10px] font-extrabold tracking-widest text-[#16697A]">ORDER ITEMS</p>
+                            <div class="waybill-items px-3 py-2 border-b-2 border-[#111111]">
+                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">ORDER ITEMS</p>
                                 <table class="w-full mt-1 text-[11px]">
                                     <thead>
                                         <tr class="text-left">
@@ -550,7 +550,7 @@
                                         @endforeach
                                     </tbody>
                                 </table>
-                                <dl class="mt-1.5 space-y-0.5 text-[11px]">
+                                <dl class="waybill-totals mt-1.5 space-y-0.5 text-[11px]">
                                     <div class="flex justify-between gap-2"><dt>Subtotal:</dt><dd class="font-bold whitespace-nowrap">₱{{ number_format($wbItemsSubtotal, 2) }}</dd></div>
                                     @if($wbFee !== null)
                                         <div class="flex justify-between gap-2"><dt>Delivery Fee:</dt><dd class="font-bold whitespace-nowrap">₱{{ number_format($wbFee, 2) }}</dd></div>
@@ -559,14 +559,14 @@
                                         <div class="flex justify-between gap-2"><dt>Discount:</dt><dd class="font-bold whitespace-nowrap">−₱{{ number_format($wbDiscount, 2) }}</dd></div>
                                     @endif
                                     @if($wbTotal !== null)
-                                        <div class="flex justify-between gap-2 text-[13px]"><dt class="font-extrabold">TOTAL:</dt><dd class="font-extrabold whitespace-nowrap">₱{{ number_format($wbTotal, 2) }}</dd></div>
+                                        <div class="waybill-total-row flex justify-between gap-2 text-[13px]"><dt class="font-extrabold">TOTAL:</dt><dd class="font-extrabold whitespace-nowrap">₱{{ number_format($wbTotal, 2) }}</dd></div>
                                     @endif
                                 </dl>
                             </div>
                         @endif
 
                         {{-- Footer --}}
-                        <div class="px-3 py-2">
+                        <div class="waybill-footer px-3 py-2">
                             @if($delivery->destinationCenter)
                                 <p class="text-[11px] font-extrabold tracking-wide break-words">DESTINATION: {{ strtoupper($delivery->destinationCenter->name) }}</p>
                             @endif
@@ -1224,11 +1224,14 @@
         </div>
     </div>
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/logistics/css/deliveries/show.css') }}">
+@endpush
+
 @push('scripts')
     <script src="{{ asset('vendor/qrcodejs/qrcode.min.js') }}"></script>
     <script src="{{ asset('vendor/jsbarcode/JsBarcode.all.min.js') }}"></script>
     <script src="{{ asset('assets/logistics/js/deliveries/show.js') }}" data-config="{{ json_encode([($delivery->tracking_number)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
-    <link rel="stylesheet" href="{{ asset('assets/logistics/css/deliveries/show.css') }}">
 @endpush
 
     </div>

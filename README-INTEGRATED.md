@@ -1,13 +1,21 @@
 # INVOIZ Integrated System
 
 Single Laravel backend for the marketplace (buyer, seller, admin) and the
-logistics/rider operations center.
+logistics/rider operations center, with the separate Flutter rider client in
+`mobile/rider`.
 
 This document is the authoritative account/role and authorization reference as
 of the Phase 15 audit. The application code remains the source of truth. Phase
 15 added active-account enforcement to protected buyer APIs, hardened the
 logistics admin middleware, and rejected inactive or blocked legacy API logins.
 No schema, migration, or database state was changed.
+
+## Flutter rider client
+
+The Flutter app is kept as a separate frontend under `mobile/rider`; it uses
+the existing `/api/logistics` endpoints and does not connect directly to
+MySQL. Setup, API configuration, supported flows, and Flutter verification
+commands are documented in [`mobile/rider/README.md`](mobile/rider/README.md).
 
 ## Scope and sources
 

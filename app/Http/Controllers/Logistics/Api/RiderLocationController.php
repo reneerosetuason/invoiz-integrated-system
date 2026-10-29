@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\RiderLocation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class RiderLocationController extends Controller
 {
@@ -25,7 +26,12 @@ class RiderLocationController extends Controller
         $validated = $request->validate([
             'latitude' => 'required|numeric|between:-90,90',
             'longitude' => 'required|numeric|between:-180,180',
-            'delivery_id' => 'sometimes|integer|exists:deliveries,id',
+            'delivery_id' => [
+                'sometimes',
+                'integer',
+                Rule::exists('deliveries', 'id')
+                    ->where(fn ($query) => $query->where('rider_id', $rider->id)),
+            ],
             'recorded_at' => 'sometimes|date',
         ]);
 
@@ -42,7 +48,6 @@ class RiderLocationController extends Controller
         ], 201);
     }
 }
-
 
 
 

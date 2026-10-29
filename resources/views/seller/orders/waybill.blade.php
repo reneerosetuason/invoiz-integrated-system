@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 @php($shippingAddress = (object) ($order->shipping_address ?: ($order->address?->toShippingSnapshot() ?? [])))
+@php($trackingCode = $order->delivery?->tracking_number ?? $order->courierPickup?->tracking_number)
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -10,101 +11,133 @@
     <script src="{{ asset('vendor/jsbarcode/JsBarcode.all.min.js') }}"></script>
     <link rel="stylesheet" href="{{ asset('assets/seller/css/orders/waybill.css') }}">
 </head>
-<body class="p-6">
-    <div class="mx-auto max-w-2xl">
-        <div class="mb-4 flex items-center justify-between no-print">
-            <h1 class="text-lg font-extrabold">Shipping Waybill</h1>
-            <button onclick="window.print()" class="btn btn-primary"><x-icon name="printer" class="h-4 w-4" /> Print / Save PDF</button>
+<body>
+    <div class="waybill-screen-container">
+        <div class="mb-3 flex items-center justify-between no-print">
+            <h1 class="text-sm font-extrabold text-gray-900">Shipping Waybill Preview</h1>
+            <button onclick="window.print()" class="btn btn-primary inline-flex items-center gap-1.5 text-xs py-1.5 px-3">
+                <x-icon name="printer" class="h-3.5 w-3.5" /> Print / Save PDF
+            </button>
         </div>
 
-        <div id="print-area" class="waybill bg-white p-8">
-            <div class="flex items-start justify-between border-b-2 border-dashed border-borderline pb-5">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Invoiz" class="h-9 w-auto object-contain">
-                        <div class="text-[10px] font-bold uppercase tracking-widest text-ink-light">Shipping Waybill</div>
+        <div class="waybill-wrapper">
+            <div id="print-area" class="waybill">
+                {{-- 1. Header: Logo, Title, Sender, and Order Info --}}
+                <div class="border-b border-gray-300 pb-1.5 flex items-start justify-between">
+                    <div>
+                        <div class="flex items-center gap-1.5">
+                            <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Invoiz" class="h-5 w-auto object-contain">
+                            <span class="text-[9.5px] font-extrabold uppercase tracking-widest text-[#0E4A57]">SHIPPING WAYBILL</span>
+                        </div>
+                        <div class="mt-1">
+                            <div class="text-[7px] font-bold uppercase tracking-wider text-gray-500">Shipped by</div>
+                            <div class="text-[9.5px] font-extrabold text-gray-900 leading-tight">{{ auth()->user()->seller->business_name }}</div>
+                            <div class="text-[7.5px] text-gray-600 leading-tight">{{ auth()->user()->full_name }} · {{ auth()->user()->phone }}</div>
+                        </div>
                     </div>
-                    <div class="mt-3">
-                        <div class="text-xs font-bold uppercase tracking-wider text-ink-light">Shipped by</div>
-                        <div class="text-sm font-extrabold">{{ auth()->user()->seller->business_name }}</div>
-                        <div class="text-xs text-ink-light">{{ auth()->user()->full_name }} · {{ auth()->user()->phone }}</div>
+                    <div class="text-right">
+                        <div class="text-[7px] font-bold uppercase tracking-wider text-gray-500">Order</div>
+                        <div class="text-xs font-extrabold font-mono text-gray-900 leading-none">#{{ $order->id }}</div>
+                        <div class="mt-0.5 text-[7.5px] text-gray-600">{{ $order->created_at->format('M j, Y') }}</div>
+                        <span class="inline-block mt-0.5 px-1 py-0.2 text-[7px] font-bold uppercase rounded badge badge-{{ $order->status }}">{{ order_status_label($order->status) }}</span>
                     </div>
                 </div>
-                <div class="text-right">
-                    <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Order</div>
-                    <div class="text-2xl font-extrabold">#{{ $order->id }}</div>
-                    <div class="mt-1 text-xs text-ink-light">{{ $order->created_at->format('F j, Y') }}</div>
-                    <span class="badge badge-{{ $order->status }} mt-1">{{ order_status_label($order->status) }}</span>
-                </div>
-            </div>
 
-            <div class="grid grid-cols-2 gap-6 border-b-2 border-dashed border-borderline py-5">
-                <div>
-                    <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Deliver to</div>
-                    <div class="mt-1 text-sm font-extrabold">{{ $shippingAddress->recipient_name ?? '' }}</div>
-                    <div class="text-xs leading-relaxed text-ink-light">
-                        {{ $shippingAddress->address_line ?? '' }},<br>
-                        {{ $shippingAddress->barangay ?? '' }}, {{ $shippingAddress->city ?? '' }},<br>
-                        {{ $shippingAddress->province ?? '' }} {{ $shippingAddress->region ?? '' }} {{ $shippingAddress->postal_code ?? '' }}
-                    </div>
-                    <div class="mt-1 text-xs font-semibold">{{ $shippingAddress->phone ?? '' }}</div>
-                </div>
-                <div>
-                    <div class="text-[10px] font-bold uppercase tracking-wider text-ink-light">Delivery</div>
-                    <div class="mt-1 space-y-1 text-xs">
-                        <div><span class="text-ink-light">Courier:</span> <span class="font-bold">{{ $order->courierPickup?->courier ?? '—' }}</span></div>
-                        <div><span class="text-ink-light">Pickup:</span> {{ $order->courierPickup?->pickup_at?->format('M j, g:i A') ?? '—' }}</div>
-                        <div><span class="text-ink-light">Tracking:</span> <span class="font-bold">{{ $order->delivery?->tracking_number ?? $order->courierPickup?->tracking_number ?? '—' }}</span></div>
-                        <div><span class="text-ink-light">Payment:</span> Cash on Delivery</div>
-                    </div>
-                </div>
-            </div>
-
-            <table class="w-full border-b-2 border-dashed border-borderline py-3 text-sm">
-                <thead>
-                    <tr class="text-left text-[10px] font-bold uppercase tracking-wider text-ink-light">
-                        <th class="py-2">Item</th>
-                        <th class="py-2 text-center">Qty</th>
-                        <th class="py-2 text-right">Price</th>
-                        <th class="py-2 text-right">Subtotal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($order->seller_items as $item)
-                        <tr>
-                            <td class="py-2">
-                                <div class="font-semibold">{{ $item->product_name }}</div>
-                                @if($item->variant_label)<div class="text-[11px] text-ink-light">{{ $item->variant_label }}</div>@endif
-                            </td>
-                            <td class="py-2 text-center font-semibold">{{ $item->quantity }}</td>
-                            <td class="py-2 text-right">{{ peso($item->price) }}</td>
-                            <td class="py-2 text-right font-semibold">{{ peso($item->subtotal) }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-
-            <div class="flex items-end justify-between gap-6 pt-4">
-                <div>
-                    @if($order->delivery?->tracking_number)
-                        <svg id="seller-barcode"></svg>
-                        <div class="mt-1 text-center font-mono text-sm font-bold tracking-widest">{{ $order->delivery->tracking_number }}</div>
-                        <div class="mt-2 flex justify-center"><div id="seller-qr"></div></div>
+                {{-- 2. Barcode Section --}}
+                <div class="border-b border-gray-300 py-1 text-center bg-white">
+                    @if($trackingCode)
+                        <svg id="seller-barcode" data-tracking="{{ $trackingCode }}" class="w-full mx-auto" style="max-height: 28px;"></svg>
+                        <div class="font-mono text-[9.5px] font-extrabold tracking-widest text-gray-900 mt-0.5">{{ $trackingCode }}</div>
                     @else
-                        <div class="text-xs text-ink-light">Tracking pending — created when logistics books the parcel.</div>
+                        <div class="text-[8px] text-gray-500 py-1">Tracking pending — created when logistics books the parcel.</div>
                     @endif
-                    <div class="mt-2 font-mono text-[11px] text-ink-light">{{ 'INV-'.$order->id }}</div>
                 </div>
-                <div class="text-right">
-                    <div class="text-xs text-ink-light">Order total (COD)</div>
-                    <div class="text-2xl font-extrabold">{{ peso($order->total_amount) }}</div>
-                    <div class="text-[10px] uppercase tracking-wider text-ink-light">Thank you for shopping with Invoiz</div>
+
+                {{-- 3. Deliver to & Delivery Details (2 columns) --}}
+                <div class="grid grid-cols-2 gap-2 border-b border-gray-300 py-1.5 text-left">
+                    <div class="pr-1 border-r border-gray-200">
+                        <div class="text-[7px] font-extrabold uppercase tracking-wider text-[#16697A]">Deliver to</div>
+                        <div class="mt-0.5 text-[9.5px] font-extrabold text-gray-900 leading-tight">{{ $shippingAddress->recipient_name ?? '—' }}</div>
+                        <div class="text-[7.5px] leading-tight text-gray-700 mt-0.5">
+                            {{ $shippingAddress->address_line ?? '' }}@if(!empty($shippingAddress->address_line)),<br>@endif
+                            {{ $shippingAddress->barangay ?? '' }}@if(!empty($shippingAddress->barangay)), @endif{{ $shippingAddress->city ?? '' }}@if(!empty($shippingAddress->city)),<br>@endif
+                            {{ $shippingAddress->province ?? '' }} {{ $shippingAddress->region ?? '' }} {{ $shippingAddress->postal_code ?? '' }}
+                        </div>
+                        <div class="mt-0.5 text-[8px] font-bold text-gray-900">{{ $shippingAddress->phone ?? '' }}</div>
+                    </div>
+                    <div class="pl-1">
+                        <div class="text-[7px] font-extrabold uppercase tracking-wider text-[#16697A]">Delivery</div>
+                        <div class="mt-0.5 space-y-0.5 text-[7.5px] leading-tight">
+                            <div><span class="text-gray-500">Courier:</span> <span class="font-bold text-gray-900">{{ $order->courierPickup?->courier ?? 'INVOIZ Express' }}</span></div>
+                            <div><span class="text-gray-500">Pickup:</span> {{ $order->courierPickup?->pickup_at?->format('M j, g:i A') ?? '—' }}</div>
+                            <div><span class="text-gray-500">Tracking:</span> <span class="font-mono font-bold">{{ $trackingCode ?? '—' }}</span></div>
+                            <div><span class="text-gray-500">Payment:</span> <span class="font-bold text-teal-800">Cash on Delivery</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- 4. Compact Package Items Table --}}
+                <div class="flex-1 min-h-0 border-b border-gray-300 py-1 overflow-hidden">
+                    <div class="text-[7px] font-extrabold uppercase tracking-wider text-[#16697A] mb-0.5">Package Items</div>
+                    <table class="w-full text-left" style="font-size: 7.5px; line-height: 1.2;">
+                        <thead>
+                            <tr class="text-[6.5px] font-bold uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                                <th class="py-0.5 pr-1">Item</th>
+                                <th class="py-0.5 text-center px-1">Qty</th>
+                                <th class="py-0.5 text-right px-1">Price</th>
+                                <th class="py-0.5 text-right pl-1">Subtotal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            @php($itemLimit = 3)
+                            @foreach($order->seller_items->take($itemLimit) as $item)
+                                <tr>
+                                    <td class="py-0.5 pr-1 font-medium text-gray-800 truncate" style="max-width: 44mm;">
+                                        <div>{{ $item->product_name }}</div>
+                                        @if($item->variant_label)<div class="text-[6.5px] text-gray-500">{{ $item->variant_label }}</div>@endif
+                                    </td>
+                                    <td class="py-0.5 text-center px-1 font-semibold">{{ $item->quantity }}</td>
+                                    <td class="py-0.5 text-right px-1 whitespace-nowrap">{{ peso($item->price) }}</td>
+                                    <td class="py-0.5 text-right pl-1 font-semibold whitespace-nowrap">{{ peso($item->subtotal) }}</td>
+                                </tr>
+                            @endforeach
+                            @if($order->seller_items->count() > $itemLimit)
+                                <tr>
+                                    <td colspan="4" class="py-0.5 text-[6.5px] text-gray-500 italic">
+                                        + {{ $order->seller_items->count() - $itemLimit }} more item(s) on order invoice
+                                    </td>
+                                </tr>
+                            @endif
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- 5. Bottom Section: QR Code + Order Total --}}
+                <div class="flex items-center justify-between gap-2 pt-1.5">
+                    <div class="flex items-center gap-1.5">
+                        @if($trackingCode)
+                            <div id="seller-qr" class="bg-white p-0.5 border border-gray-300 rounded" style="width: 44px; height: 44px;"></div>
+                            <div>
+                                <div class="text-[6.5px] font-extrabold uppercase tracking-widest text-[#16697A]">QR Verification</div>
+                                <div class="text-[6px] text-gray-500">Scan at sorting center</div>
+                                <div class="font-mono text-[7px] font-semibold text-gray-600 mt-0.5">{{ 'INV-'.$order->id }}</div>
+                            </div>
+                        @else
+                            <div class="font-mono text-[7.5px] font-semibold text-gray-600">{{ 'INV-'.$order->id }}</div>
+                        @endif
+                    </div>
+                    <div class="text-right">
+                        <div class="text-[7px] font-bold uppercase tracking-wider text-gray-500">Order total (COD)</div>
+                        <div class="text-sm font-extrabold text-[#0E4A57] leading-none my-0.5">{{ peso($order->total_amount) }}</div>
+                        <div class="text-[6.5px] uppercase tracking-wider text-gray-400">Thank you for shopping with Invoiz</div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-    @if($order->delivery?->tracking_number)
-    <script src="{{ asset('assets/seller/js/orders/waybill.js') }}" data-config="{{ json_encode([($order->delivery->tracking_number)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+
+    @if($trackingCode)
+    <script src="{{ asset('assets/seller/js/orders/waybill.js') }}" data-config="{{ json_encode([($trackingCode)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
     @endif
 </body>
 </html>

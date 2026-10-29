@@ -208,28 +208,107 @@
 </section>
 <section id="join">
 <div class="mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-24" style="max-width:1200px">
-<div class="grid gap-4 md:grid-cols-2">
-<div class="rv relative overflow-hidden rounded-3xl p-8 md:p-10" style="background:linear-gradient(160deg,#FDFCF8,#F1ECE1);border:1px solid rgba(15,76,92,.12)">
-<div class="orb-drift pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,rgba(190,170,140,.28),transparent 65%);filter:blur(50px)" aria-hidden="true"></div>
-<div class="relative">
-<p class="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal/10"><i data-lucide="store" class="h-5 w-5 text-teal"></i></p>
-<p class="eyebrow mt-4">Sell</p>
-<h2 class="font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.5rem,2.6vw,2rem);line-height:1.1">Sell on INVOIZ</h2>
-<p class="mt-2 max-w-sm text-[15px] text-teal-dark">Register as a buyer and apply as a seller</p>
-<a href="{{ url('/sell') }}" class="press group mt-6 inline-flex items-center gap-2 rounded-full bg-teal-dark px-6 text-sm font-bold text-white" style="height:44px">Become a seller <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1">→</span></a>
+<div class="mb-8 max-w-2xl rv">
+<h2 class="font-display tracking-[-0.02em] text-2xl leading-tight md:text-3xl">More ways to work with INVOIZ</h2>
+<p class="mt-3 text-base text-teal-dark">Local shopping depends on sellers and delivery teams working together.</p>
+</div>
+<div class="platform-grid grid gap-5 md:grid-cols-2">
+<article class="platform-card platform-card--seller rv">
+<div class="platform-card__inner">
+<span class="platform-card__icon" aria-hidden="true"><i data-lucide="store" class="h-5 w-5"></i></span>
+<p class="platform-card__label">SELL</p>
+<h3 class="platform-card__title font-display">Sell on INVOIZ</h3>
+<p class="platform-card__description">Register as a buyer and apply as a seller</p>
+<a href="{{ route('sell') }}" class="platform-card__action press group bg-teal-dark text-white">Become a seller <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true">→</span></a>
+</div>
+</article>
+<article class="platform-card platform-card--logistics rv">
+<div class="platform-card__inner">
+<span class="platform-card__icon" aria-hidden="true"><i data-lucide="boxes" class="h-5 w-5"></i></span>
+<p class="platform-card__label">DELIVER</p>
+<h3 class="platform-card__title font-display">Ride with us</h3>
+<p class="platform-card__description">Earn for every parcel you deliver.</p>
+<a href="{{ route('logistics.login') }}" class="platform-card__action press group bg-teal-dark text-white">Open logistics <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1" aria-hidden="true">→</span></a>
+</div>
+</article>
+</div>
+@php
+    $riderApkUrl = config('services.rider_app.android_apk_url');
+    $riderApkParts = is_string($riderApkUrl) ? parse_url($riderApkUrl) : false;
+    $riderApkPath = storage_path('app/rider-downloads/invoiz-rider.apk');
+    $riderStorageRoot = realpath(storage_path('app'));
+    $riderDownloadDirectory = realpath(storage_path('app/rider-downloads'));
+    $riderResolvedApkPath = realpath($riderApkPath);
+    $riderDownloadRoute = route('rider-app.download');
+    $riderApkAvailable = filter_var(config('services.rider_app.android_apk_verified'), FILTER_VALIDATE_BOOLEAN) === true
+        && is_string($riderApkUrl)
+        && $riderApkUrl === $riderDownloadRoute
+        && is_array($riderApkParts)
+        && strtolower($riderApkParts['scheme'] ?? '') === 'https'
+        && !isset($riderApkParts['user'])
+        && !isset($riderApkParts['pass'])
+        && !isset($riderApkParts['query'])
+        && !isset($riderApkParts['fragment'])
+        && $riderStorageRoot !== false
+        && $riderDownloadDirectory !== false
+        && $riderResolvedApkPath !== false
+        && is_file($riderResolvedApkPath)
+        && is_readable($riderResolvedApkPath)
+        && str_starts_with($riderDownloadDirectory, $riderStorageRoot . DIRECTORY_SEPARATOR)
+        && realpath(dirname($riderResolvedApkPath)) === $riderDownloadDirectory;
+@endphp
+<section class="rider-download rv" aria-labelledby="rider-download-title">
+<div class="rider-download__copy">
+<span class="rider-download__icon" aria-hidden="true"><i data-lucide="bike" class="h-5 w-5"></i></span>
+<p class="rider-download__label">ANDROID APP</p>
+<h2 id="rider-download-title" class="font-display text-2xl leading-tight">Get the INVOIZ Rider App</h2>
+<p class="rider-download__description">Manage your deliveries, view assigned parcels, update delivery statuses, and stay connected with your logistics team using the INVOIZ Rider App.</p>
+<div class="rider-download__actions">
+@if ($riderApkAvailable)
+<a id="rider-app-download-link" class="rider-download__button" href="{{ $riderApkUrl }}" download="invoiz-rider.apk">Download for Android <span aria-hidden="true">→</span></a>
+@else
+<button class="rider-download__button" type="button" disabled aria-describedby="rider-app-download-status">Download for Android</button>
+<p id="rider-app-download-status" class="rider-download__status" role="status">The Android installer is not yet available.</p>
+@endif
+</div>
+<div class="rider-download__instructions">
+<p class="font-semibold">Install on Android</p>
+<ol class="mt-2 list-decimal space-y-1 pl-5">
+<li>Download the APK file to your Android device.</li>
+<li>Open the downloaded file.</li>
+<li>If Android requests permission to install apps from that source, allow it only if you trust the file and its source.</li>
+<li>Follow the on-screen instructions to complete installation.</li>
+</ol>
+<p class="mt-2">Android installation steps may vary by device and Android version.</p>
 </div>
 </div>
-<div class="rv relative overflow-hidden rounded-3xl p-8 md:p-10" style="background:linear-gradient(160deg,#F2F8F7,#E2EFEC);border:1px solid rgba(15,76,92,.12)">
-<div class="orb-drift pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,rgba(22,105,122,.22),transparent 65%);filter:blur(50px)" aria-hidden="true"></div>
-<div class="relative">
-<p class="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal/10"><i data-lucide="bike" class="h-5 w-5 text-teal"></i></p>
-<p class="eyebrow mt-4">Deliver</p>
-<h2 class="font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.5rem,2.6vw,2rem);line-height:1.1">Ride with us</h2>
-<p class="mt-2 max-w-sm text-[15px] text-teal-dark">Earn for every parcel you deliver.</p>
-<a href="{{ url('/logistics') }}" class="press group mt-6 inline-flex items-center gap-2 rounded-full bg-teal px-6 text-sm font-bold text-white" style="height:44px;border:1px solid rgba(15,76,92,.12)">Open logistics <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1">→</span></a>
+<div class="rider-download__qr-panel">
+@if ($riderApkAvailable)
+<div id="rider-app-download-qr" class="rider-download__qr" role="img" aria-label="QR code linking to the INVOIZ Rider App Android download"></div>
+<p class="rider-download__qr-caption">Scan the QR code with your phone to access the Rider App download.</p>
+@else
+<div class="rider-download__qr-placeholder" role="status">QR code will be available after the APK hosting is verified.</div>
+@endif
 </div>
-</div>
-</div>
+</section>
+@if ($riderApkAvailable)
+<script src="{{ asset('vendor/qrcodejs/qrcode.min.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var qrTarget = document.getElementById('rider-app-download-qr');
+    var downloadLink = document.getElementById('rider-app-download-link');
+    if (!qrTarget || !downloadLink || typeof QRCode === 'undefined') return;
+    new QRCode(qrTarget, {
+        text: downloadLink.href,
+        width: 192,
+        height: 192,
+        colorDark: '#0E4A57',
+        colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.M
+    });
+});
+</script>
+@endif
 </div>
 </section>
 </main>
