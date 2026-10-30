@@ -133,26 +133,60 @@
                     @endforeach
                 </tbody>
             </table>
+            @php
+                $calc = \App\Support\EscrowEarnings::calculateForSeller($order, auth()->id(), $order->delivery);
+            @endphp
             <div class="space-y-1.5 border-t border-borderline px-6 py-4 text-sm">
-                <div class="flex justify-between"><span class="text-ink-light">Subtotal (your items)</span><span class="font-semibold">{{ peso($order->seller_subtotal) }}</span></div>
-                <div class="flex justify-between"><span class="text-ink-light">Shipping (your shop)</span><span class="font-semibold">{{ peso(\App\Models\Order::SHIPPING_FEE_PER_SELLER) }}</span></div>
-                @if(($order->seller_discount ?? 0) > 0)
+                <div class="flex justify-between"><span class="text-ink-light">Subtotal (your items)</span><span class="font-semibold">{{ peso($calc['gross_merch']) }}</span></div>
+                <div class="flex justify-between">
+                    <span class="text-ink-light">Buyer Shipping Fee</span>
+                    <span class="font-semibold">{{ peso($calc['buyer_shipping_base']) }}</span>
+                </div>
+                @if($calc['merch_discount'] > 0)
                     <div class="flex justify-between">
                         <span class="text-ink-light">Voucher discount absorbed by you</span>
-                        <span class="font-semibold text-successc">− {{ peso($order->seller_discount) }}</span>
+                        <span class="font-semibold text-rose-600">− {{ peso($calc['merch_discount']) }}</span>
                     </div>
                 @endif
-                @if(($order->seller_shipping_waived ?? 0) > 0)
+                @if($calc['shipping_waived'] > 0)
                     <div class="flex justify-between">
-                        <span class="text-ink-light">Free-shipping absorbed by you</span>
-                        <span class="font-semibold text-successc">− {{ peso($order->seller_shipping_waived) }}</span>
+                        <span class="text-ink-light">Free-shipping voucher absorbed by you</span>
+                        <span class="font-semibold text-rose-600">− {{ peso($calc['shipping_waived']) }}</span>
                     </div>
                 @endif
-                <div class="flex justify-between border-t border-borderline pt-2 text-base">
-                    <span class="font-bold">Your Net Earnings</span>
-                    <span class="font-extrabold">{{ peso($order->seller_net ?? $order->seller_subtotal) }}</span>
+                <div class="flex justify-between">
+                    <span class="text-ink-light">Last-Mile Delivery Rider</span>
+                    <span class="font-semibold text-rose-600">− {{ peso($calc['last_mile_rider_fee']) }}</span>
                 </div>
-                <p class="mt-1 text-right text-[11px] text-ink-light">Buyer paid {{ peso($order->total_amount) }} in total · rider pay is unaffected by vouchers.</p>
+                <div class="flex justify-between">
+                    <span class="text-ink-light">Origin Logistics Hub Fee</span>
+                    <span class="font-semibold text-rose-600">− {{ peso($calc['origin_hub_fee']) }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-ink-light">Pickup Rider Fee ({{ $calc['item_quantity'] }} item{{ $calc['item_quantity'] === 1 ? '' : 's' }} × ₱{{ number_format($calc['pickup_rider_rate'], 2) }})</span>
+                    <span class="font-semibold text-rose-600">− {{ peso($calc['pickup_rider_fee']) }}</span>
+                </div>
+                @if($calc['is_inter_hub'])
+                    <div class="flex justify-between">
+                        <span class="text-ink-light">Inter-Hub Transport Driver (Shared)</span>
+                        <span class="font-semibold text-rose-600">− {{ peso($calc['inter_hub_driver_fee']) }}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-ink-light">Destination Logistics Hub</span>
+                        <span class="font-semibold text-rose-600">− {{ peso($calc['destination_hub_fee']) }}</span>
+                    </div>
+                @endif
+                <div class="flex justify-between">
+                    <span class="text-ink-light">Admin Platform Commission ({{ number_format($calc['commission_rate'], 2) }}%)</span>
+                    <span class="font-semibold text-rose-600">− {{ peso($calc['admin_commission']) }}</span>
+                </div>
+                <div class="flex justify-between border-t border-borderline pt-2 text-base">
+                    <span class="font-bold">Your Net Withdrawable Earnings</span>
+                    <span class="font-extrabold text-emerald-700">{{ peso($calc['seller_earning']) }}</span>
+                </div>
+                <p class="mt-1 text-right text-[11px] text-ink-light">
+                    Buyer paid {{ peso($calc['buyer_total_payable']) }} in total. Last-mile rider always deducts {{ peso($calc['last_mile_rider_fee']) }} from COD; all deductions are settled cleanly through Escrow.
+                </p>
                 @if($order->status === 'delivered' && $order->payment_status !== 'paid')
                     <p class="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-right text-[11px] font-semibold text-amber-800">Awaiting your cash confirmation — not counted in earnings yet. Confirm it under Remittances.</p>
                 @endif

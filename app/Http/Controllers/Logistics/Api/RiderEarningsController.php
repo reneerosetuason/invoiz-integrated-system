@@ -41,6 +41,12 @@ class RiderEarningsController extends Controller
                     'date' => $date,
                     'amount' => (float) $earnings->sum('amount'),
                     'deliveries' => $earnings->count(),
+                    'breakdown' => $earnings->map(fn ($e) => [
+                        'type' => $e->type,
+                        'amount' => (float) $e->amount,
+                        'description' => $e->description,
+                        'delivery_id' => $e->delivery_id,
+                    ])->values(),
                 ];
             })
             ->sortKeysDesc()

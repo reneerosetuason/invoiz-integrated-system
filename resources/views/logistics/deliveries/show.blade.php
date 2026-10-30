@@ -588,6 +588,22 @@
             @endif
             <p class="delivery-actions-note">Available actions follow this delivery?s current status. Review the details before updating a record.</p>
             <div class="flex flex-wrap gap-3">
+                @if($delivery->order_id && ($delivery->isInterHubRoute() || $delivery->originCenter))
+                    <div class="w-full rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm">
+                        <p class="font-semibold text-indigo-900">
+                            Route: {{ ($delivery->originCenter ?? $delivery->logisticsCenter)?->name ?? '—' }}
+                            &rarr; {{ $delivery->destinationCenter?->name ?? 'not sorted yet' }}
+                            <span class="ml-2 rounded bg-white px-2 py-0.5 text-xs font-bold {{ $delivery->isInterHubRoute() ? 'text-indigo-700' : 'text-emerald-700' }}">{{ $delivery->isInterHubRoute() ? 'Inter-hub transfer' : 'Same hub' }}</span>
+                        </p>
+                        @if($delivery->isInterHubRoute())
+                            <p class="mt-1 text-xs text-indigo-800">
+                                Transfer driver: <strong>{{ $delivery->interHubRider?->name ?? ($delivery->parcel_status === 'sorted' && (int) $delivery->center_id === (int) $delivery->routeOriginId() ? 'not dispatched yet' : 'Shared hub van') }}</strong>
+                                @if($delivery->inter_hub_dispatched_at) · dispatched {{ $delivery->inter_hub_dispatched_at->format('M d, Y h:i A') }}@endif
+                                · Now at: <strong>{{ $delivery->logisticsCenter?->name ?? '—' }}</strong>
+                            </p>
+                        @endif
+                    </div>
+                @endif
                 @if(in_array($delivery->parcel_status, ['pending_arrival', null]) || $delivery->isIncomingTransfer())
                     <form action="{{ route('deliveries.receive', $delivery) }}" method="POST" class="w-full max-w-xl">
                         @csrf
@@ -617,6 +633,11 @@
                 @endif
 
                 @if($delivery->parcel_status === 'scanned')
+                    @php
+                        $suggested = $delivery->suggestedDestination($destinationAreas);
+                        $preCenter = (int) ($delivery->destination_center_id ?: $suggested['center_id']);
+                        $preArea = (int) ($delivery->service_area_id ?: $suggested['service_area_id']);
+                    @endphp
                     <form action="{{ route('deliveries.sort', $delivery) }}" method="POST" class="w-full">
                         @csrf
                         <fieldset class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
@@ -627,7 +648,7 @@
                                         class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                     <option value="">— Select destination —</option>
                                     @foreach($destinationCenters as $center)
-                                        <option value="{{ $center->id }}" @selected((int) $delivery->destination_center_id === (int) $center->id)>{{ $center->name }}</option>
+                                        <option value="{{ $center->id }}" @selected($preCenter === (int) $center->id)>{{ $center->name }}{{ (int) $center->id === (int) $delivery->center_id ? ' (this hub)' : ' (inter-hub transfer)' }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -637,7 +658,7 @@
                                         class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                     <option value="">— Select service area —</option>
                                     @foreach($destinationAreas as $area)
-                                        <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) $delivery->service_area_id === (int) $area->id)>{{ $area->name }}</option>
+                                        <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected($preArea === (int) $area->id)>{{ $area->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -649,12 +670,30 @@
                 @endif
 
                 @if($delivery->parcel_status === 'sorted')
+                    @php
+                        $isInterHub = $delivery->destination_center_id && (int) $delivery->destination_center_id !== (int) $delivery->center_id;
+                    @endphp
                     <form action="{{ route('deliveries.dispatch', $delivery) }}" method="POST" class="w-full max-w-xl">
                         @csrf
                         <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-sky-50 rounded-xl px-4 py-3 border border-sky-100">
-                            <p class="text-sm text-sky-800 flex-1">Parcel is sorted and ready. Confirm it has left the center toward its delivery assignment. Rider assignment remains a separate step.</p>
-                            <button type="submit" class="bg-sky-500 hover:bg-sky-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                                Dispatch Parcel
+                            <div class="flex-1">
+                                <p class="text-sm text-sky-800 font-semibold">
+                                    {{ $isInterHub ? 'Dispatch Inter-Hub Transfer to Destination Hub' : 'Parcel is sorted and ready for final delivery.' }}
+                                </p>
+                                @if($isInterHub)
+                                    <div class="mt-2">
+                                        <label for="inter_hub_driver_select" class="block text-xs font-bold text-gray-700 uppercase">Transfer Driver (earns ₱{{ number_format(\App\Support\EscrowEarnings::interHubDriverFee(), 2) }} · Optional)</label>
+                                        <select name="inter_hub_rider_id" id="inter_hub_driver_select" class="mt-1 block w-full rounded-lg border-gray-300 text-xs focus:ring-teal focus:border-teal">
+                                            <option value="">Shared Van / Hub Fleet Transport</option>
+                                            @foreach(\App\Models\Rider::where('status', '!=', 'inactive')->where('center_id', $delivery->center_id)->orderBy('name')->get() as $driver)
+                                                <option value="{{ $driver->id }}">{{ $driver->name }} ({{ ucfirst((string) $driver->vehicle_type) }})</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                @endif
+                            </div>
+                            <button type="submit" class="bg-sky-500 hover:bg-sky-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm whitespace-nowrap self-end sm:self-center">
+                                {{ $isInterHub ? 'Dispatch Transfer' : 'Dispatch Parcel' }}
                             </button>
                         </div>
                     </form>
@@ -832,9 +871,9 @@
                         @if($riderEligibility->where('eligible', true)->isEmpty())
                             <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination center and service area.</p>
                         @endif
-                        @if($errors->has('rider_id'))
-                            <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
-                        @endif
+                        @error('rider_id')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
                     </form>
 
                     @if($riderEligibility->where('eligible', true)->isNotEmpty())
@@ -890,9 +929,9 @@
                         @if($riderEligibility->where('eligible', true)->isEmpty())
                             <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination center and service area.</p>
                         @endif
-                        @if($errors->has('rider_id'))
-                            <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
-                        @endif
+                        @error('rider_id')
+                            <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                        @enderror
                     </form>
                 @endif
 
@@ -990,7 +1029,7 @@
             </div>
         @endif
 
-        @if($errors->any())
+        @if(isset($errors) && $errors->any())
             <div class="mt-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
                 {{ $errors->first() }}
             </div>

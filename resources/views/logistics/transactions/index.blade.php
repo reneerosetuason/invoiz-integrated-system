@@ -2,7 +2,7 @@
     <div class="space-y-5">
         <div>
             <h1 class="text-2xl font-bold text-[#1B1B1E]">Transactions</h1>
-            <p class="text-xs text-[#6E6E73] mt-0.5">Review delivery payments, rider fees (₱15 per parcel), and management commissions (10%).</p>
+            <p class="text-xs text-[#6E6E73] mt-0.5">Review delivery revenues, last-mile rider earnings (₱50), origin/destination hub fees (₱30), pickup rider fees (₱30/item), and inter-hub driver fees (₱20).</p>
         </div>
 
         @php
@@ -98,8 +98,12 @@
                                     ['label' => 'Status', 'value' => ucfirst($tx->status)],
                                     ['label' => 'Rider', 'value' => $tx->rider?->name ?? '—'],
                                     ['label' => 'Center', 'value' => $tx->logisticsCenter?->name ?? '—'],
-                                    ['label' => 'Amount', 'value' => '₱' . number_format((float) $tx->amount, 2)],
-                                    ['label' => 'Rider Fee', 'value' => '₱' . number_format((float) $tx->rider_fee, 2)],
+                                    ['label' => 'Total Amount', 'value' => '₱' . number_format((float) $tx->amount, 2)],
+                                    ['label' => 'Last-Mile Rider', 'value' => '₱' . number_format((float) ($tx->last_mile_rider_fee ?: $tx->rider_fee), 2)],
+                                    ['label' => 'Origin Hub', 'value' => '₱' . number_format((float) ($tx->origin_hub_fee ?: 0), 2)],
+                                    ['label' => 'Pickup Rider', 'value' => '₱' . number_format((float) ($tx->pickup_rider_fee ?: 0), 2)],
+                                    ['label' => 'Inter-Hub Driver', 'value' => '₱' . number_format((float) ($tx->inter_hub_driver_fee ?: 0), 2)],
+                                    ['label' => 'Destination Hub', 'value' => '₱' . number_format((float) ($tx->destination_hub_fee ?: 0), 2)],
                                     ['label' => 'Commission', 'value' => '₱' . number_format((float) $tx->admin_commission, 2)],
                                     ['label' => 'Date', 'value' => $tx->created_at?->format('M d, Y h:i A') ?? '—'],
                                 ],

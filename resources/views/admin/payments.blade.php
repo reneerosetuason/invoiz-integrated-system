@@ -73,8 +73,106 @@
 
     <aside class="money-flow" aria-label="Money flow note">
         <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2"/><path d="M10 9v4M10 6.5v.1"/></svg>
-        <p><strong>Money flow:</strong> Order → Payment → Seller Earnings → Platform Commission → Rider Fee → Refund. Every transaction below shows the complete breakdown.</p>
+        <p><strong>Escrow &amp; Stakeholder Remittances:</strong> COD Cash Collected → Last-Mile Rider Fee (₱50 retained) → Escrow Settlement → Origin Hub (₱30) + Pickup Rider (₱30/item) + Inter-Hub Driver (₱20) + Destination Hub (₱30) + Platform Commission (10%) + Seller Net Remittance.</p>
     </aside>
+
+    @if(isset($escrowRemittances) && $escrowRemittances)
+    {{-- Escrow Bank Remittances Table --}}
+    <div class="transactions-header" style="margin-top: 2rem;">
+        <div class="flex flex-wrap items-center justify-between gap-3 w-full" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+            <div>
+                <h2 id="escrow-remittances" style="margin:0;">Stakeholder Bank Remittances (Platform Escrow)</h2>
+                <p style="font-size:0.8rem; color:#6B7280; margin:0.25rem 0 0;">Auditable remittances released directly to each worker's, hub's, and seller's bank account.</p>
+            </div>
+            @if(($escrowTotals['pending'] ?? 0) > 0)
+            <form method="POST" action="{{ route('admin.escrow.remit-all') }}" onsubmit="return confirm('Release all pending escrow bank remittances?');">
+                @csrf
+                <button type="submit" class="btn btn-primary" style="background:#16697A; color:#fff; padding:0.4rem 0.85rem; border-radius:0.5rem; font-weight:700; font-size:0.8rem; border:none; cursor:pointer;">
+                    Release All Pending (₱{{ number_format($escrowTotals['pending'], 2) }})
+                </button>
+            </form>
+            @endif
+        </div>
+    </div>
+
+    <div class="admin-list-panel payments-panel" style="margin-top: 0.75rem; margin-bottom: 2rem;">
+      <div class="admin-list-table-wrap payments-table-wrap">
+        <table class="admin-list-table payments-table" role="table" aria-label="Escrow remittances">
+            <thead role="rowgroup">
+                <tr role="row">
+                    <th scope="col">Recipient / Role</th>
+                    <th scope="col">Order / Tracking</th>
+                    <th scope="col">Rule Applied</th>
+                    <th scope="col" style="text-align:right;">Amount</th>
+                    <th scope="col">Settlement Mode</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" style="text-align:right;">Action</th>
+                </tr>
+            </thead>
+            <tbody role="rowgroup">
+                @forelse($escrowRemittances as $er)
+                <tr class="list-record" role="row">
+                    <td data-label="Recipient">
+                        <strong>{{ $er->recipient_name }}</strong>
+                        <div style="font-size:0.75rem; color:#6B7280;">{{ $er->roleLabel() }}</div>
+                    </td>
+                    <td data-label="Order / Tracking">
+                        <a href="{{ url('/admin/orders/'.$er->order_id) }}" style="font-weight:700; color:#16697A;">#{{ $er->order_id }}</a>
+                        @if($er->delivery?->tracking_number)
+                            <div style="font-size:0.75rem; color:#6B7280; font-family:monospace;">{{ $er->delivery->tracking_number }}</div>
+                        @endif
+                    </td>
+                    <td data-label="Rule Applied" style="font-size:0.8rem; color:#4B5563;">
+                        {{ $er->rule_applied }}
+                    </td>
+                    <td data-label="Amount" style="text-align:right; font-weight:700;">
+                        ₱{{ number_format($er->amount, 2) }}
+                    </td>
+                    <td data-label="Settlement Mode" style="font-size:0.75rem;">
+                        <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#F3F4F6; color:#374151; font-weight:600;">
+                            {{ $er->settlementModeLabel() }}
+                        </span>
+                        @if($er->bank_reference)
+                            <div style="font-size:0.7rem; color:#9CA3AF; margin-top:2px;">Ref: {{ $er->bank_reference }}</div>
+                        @endif
+                    </td>
+                    <td data-label="Status">
+                        @if($er->status === 'remitted')
+                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#DEF7EC; color:#03543F; font-size:0.75rem; font-weight:700;">Remitted</span>
+                        @elseif($er->status === 'pending_remittance')
+                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#FEF08A; color:#854D0E; font-size:0.75rem; font-weight:700;">Ready to Remit</span>
+                        @elseif($er->status === 'voided')
+                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#FEE2E2; color:#991B1B; font-size:0.75rem; font-weight:700;">Voided</span>
+                        @else
+                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#F3F4F6; color:#4B5563; font-size:0.75rem; font-weight:600;">Held in Escrow</span>
+                        @endif
+                    </td>
+                    <td data-label="Action" style="text-align:right;">
+                        @if($er->status === 'pending_remittance')
+                            <form method="POST" action="{{ route('admin.escrow.remit', $er->id) }}" style="display:inline-block;" onsubmit="return confirm('Remit ₱{{ number_format($er->amount, 2) }} to {{ $er->recipient_name }}?');">
+                                @csrf
+                                <button type="submit" class="btn" style="background:#059669; color:#fff; font-size:0.75rem; font-weight:700; padding:0.25rem 0.6rem; border-radius:0.375rem; border:none; cursor:pointer;">
+                                    Remit Bank
+                                </button>
+                            </form>
+                        @elseif($er->status === 'remitted')
+                            <span style="font-size:0.75rem; color:#059669; font-weight:600;">Settled</span>
+                        @else
+                            <span style="font-size:0.75rem; color:#9CA3AF;">In Transit</span>
+                        @endif
+                    </td>
+                </tr>
+                @empty
+                <tr><td colspan="7" style="text-align:center; padding:2rem; color:#6B7280;">No escrow remittance records found.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+      </div>
+      @if($escrowRemittances->hasPages())
+        <div style="padding:1rem;">@include('admin.partials.pager', ['paginator' => $escrowRemittances])</div>
+      @endif
+    </div>
+    @endif
 
     <div class="transactions-header">
         <h2 id="transactions">All Transactions</h2>

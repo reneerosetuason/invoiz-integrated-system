@@ -23,12 +23,9 @@ class Remittances
     /** Cash the rider owes this seller's group: group buyer total minus rider keep. */
     public static function amountForGroup(Order $order, int $sellerId): float
     {
-        $order->loadMissing(['items', 'orderVouchers.voucher']);
-        $groupTotal = $order->sellerSubtotal($sellerId)
-            - $order->voucherDiscountForSeller($sellerId)
-            + Order::SHIPPING_FEE_PER_SELLER
-            - $order->shippingWaivedForSeller($sellerId);
-        return round(max(0, $groupTotal - Order::SHIPPING_FEE_PER_SELLER), 2);
+        $calc = \App\Support\EscrowEarnings::calculateForSeller($order, $sellerId);
+
+        return $calc['cod_escrow_remittance'];
     }
 
     /** Seller identity flavours that may own a remittance row. */
@@ -73,7 +70,7 @@ class Remittances
         if (! $delivery->seller_id) {
             $delivery->update(['seller_id' => $sid]);
         }
-        return Remittance::firstOrCreate(
+        $remittance = Remittance::firstOrCreate(
             ['delivery_id' => $delivery->id],
             [
                 'order_id'  => $order->id,
@@ -83,6 +80,10 @@ class Remittances
                 'status'    => 'pending',
             ]
         );
+
+        \App\Support\EscrowEarnings::syncRemittancesForOrder($order);
+
+        return $remittance;
     }
 
     /** Ensure handoffs for every delivery row of an order. */

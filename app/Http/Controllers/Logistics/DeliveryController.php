@@ -1754,11 +1754,22 @@ class DeliveryController extends Controller
         return redirect()->back()->with('success', 'Parcel sorted successfully.');
     }
 
-    public function dispatch(Delivery $delivery): RedirectResponse
+    public function dispatch(Request $request, Delivery $delivery): RedirectResponse
     {
         $user = Auth::user();
         $isCenterStaff = $user->isLogisticsStaff() && ! $user->isLogisticsAdmin() && ! $user->is_admin;
-        $dispatched = DB::transaction(function () use ($delivery, $user, $isCenterStaff): bool {
+        $validatedDispatch = $request->validate([
+            // Optional linehaul driver; must be a real, non-inactive rider.
+            'inter_hub_rider_id' => ['nullable', 'integer', Rule::exists('riders', 'id')->where(fn ($q) => $q->where('status', '!=', 'inactive'))],
+        ]);
+        $interHubRiderId = $validatedDispatch['inter_hub_rider_id'] ?? null;
+        if ($interHubRiderId) {
+            // The transfer driver must belong to the hub releasing the parcel.
+            $driverCenterId = \App\Models\Rider::whereKey($interHubRiderId)->value('center_id');
+            abort_if($delivery->center_id && $driverCenterId && (int) $driverCenterId !== (int) $delivery->center_id, 422, 'The transfer driver must belong to the dispatching hub.');
+        }
+
+        $dispatched = DB::transaction(function () use ($delivery, $user, $isCenterStaff, $interHubRiderId): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             if ($isCenterStaff && (! $user->center_id || ! $lockedDelivery->center_id || $lockedDelivery->center_id != $user->center_id)) {
                 abort(403, 'You can only dispatch parcels at your assigned logistics center.');
@@ -1780,16 +1791,30 @@ class DeliveryController extends Controller
                 return false;
             }
 
-            $lockedDelivery->update([
+            $isTransfer = $lockedDelivery->destination_center_id && (int) $lockedDelivery->destination_center_id !== (int) $lockedDelivery->center_id;
+            $updates = [
                 'parcel_status' => 'dispatched',
                 'dispatched_at' => now(),
-            ]);
+            ];
+
+            if ($isTransfer) {
+                $updates['origin_center_id'] = $lockedDelivery->origin_center_id ?? $lockedDelivery->center_id;
+                if ($interHubRiderId) {
+                    $updates['inter_hub_rider_id'] = (int) $interHubRiderId;
+                    $updates['inter_hub_dispatched_at'] = now();
+                }
+            }
+
+            $lockedDelivery->update($updates);
 
             DeliveryStatusLog::create([
                 'delivery_id' => $lockedDelivery->id,
                 'status' => 'dispatched',
-                'notes' => $lockedDelivery->destination_center_id && (int) $lockedDelivery->destination_center_id !== (int) $lockedDelivery->center_id
-                    ? 'Transfer released to destination center #'.$lockedDelivery->destination_center_id.'. Destination staff must confirm receipt.'
+                'notes' => $isTransfer
+                    ? 'Inter-hub transfer released from ' . (LogisticsCenter::whereKey($lockedDelivery->center_id)->value('name') ?? 'origin hub')
+                        . ' to ' . (LogisticsCenter::whereKey($lockedDelivery->destination_center_id)->value('name') ?? 'destination hub')
+                        . ($interHubRiderId ? ' with driver ' . (\App\Models\Rider::whereKey($interHubRiderId)->value('name') ?? '#'.$interHubRiderId) : ' via shared hub van')
+                        . '. Destination staff must confirm receipt.'
                     : 'Parcel released to the assigned delivery rider; waiting for rider collection acknowledgement.',
                 'changed_by' => Auth::id(),
             ]);

@@ -245,8 +245,15 @@ class Order extends Model
         $hasGroup = $this->relationLoaded('items')
             ? $this->items->whereIn('seller_id', $sellerId instanceof Seller ? $sellerId->catalogIds() : [(int) $sellerId])->isNotEmpty()
             : $this->itemsForSeller($sellerId)->exists();
-        $logistics = $hasGroup ? self::LOGISTICS_FEE_PER_DELIVERY : 0.0;
-        return round(max(0, $this->sellerSubtotal($sellerId) - $this->voucherDiscountForSeller($sellerId) - $this->shippingWaivedForSeller($sellerId) - $logistics), 2);
+
+        if (! $hasGroup) {
+            return 0.0;
+        }
+
+        $sid = $sellerId instanceof Seller ? (int) $sellerId->user_id : (int) $sellerId;
+        $calc = \App\Support\EscrowEarnings::calculateForSeller($this, $sid);
+
+        return $calc['seller_earning'];
     }
 
     /** Logistics fee attributable to this seller on this order (per group). */
@@ -255,7 +262,15 @@ class Order extends Model
         $hasGroup = $this->relationLoaded('items')
             ? $this->items->whereIn('seller_id', $sellerId instanceof Seller ? $sellerId->catalogIds() : [(int) $sellerId])->isNotEmpty()
             : $this->itemsForSeller($sellerId)->exists();
-        return $hasGroup ? self::LOGISTICS_FEE_PER_DELIVERY : 0.0;
+
+        if (! $hasGroup) {
+            return 0.0;
+        }
+
+        $sid = $sellerId instanceof Seller ? (int) $sellerId->user_id : (int) $sellerId;
+        $calc = \App\Support\EscrowEarnings::calculateForSeller($this, $sid);
+
+        return $calc['merch_logistics_deducted'];
     }
 
     /** Cash the buyer must hand the rider for this seller group. */
@@ -269,12 +284,10 @@ class Order extends Model
             return 0.0;
         }
 
-        return round(max(0,
-            $this->sellerSubtotal($sellerId)
-            - $this->voucherDiscountForSeller($sellerId)
-            + self::SHIPPING_FEE_PER_SELLER
-            - $this->shippingWaivedForSeller($sellerId)
-        ), 2);
+        $sid = $sellerId instanceof Seller ? (int) $sellerId->user_id : (int) $sellerId;
+        $calc = \App\Support\EscrowEarnings::calculateForSeller($this, $sid);
+
+        return $calc['buyer_total_payable'];
     }
 
     /** Net shipping the buyer pays on this order (after free-shipping waivers). */
@@ -359,5 +372,52 @@ class Order extends Model
     public function getFormattedTotalAttribute(): string
     {
         return '₱' . number_format((float) ($this->total_amount ?? $this->total ?? 0), 2);
+    }
+
+    /**
+     * Store name(s) for display in admin and logistics tables.
+     * Safely resolves across multi-seller and single-seller checkouts.
+     */
+    public function getStoreNameDisplayAttribute(): string
+    {
+        if ($this->relationLoaded('seller') && $this->seller) {
+            $name = $this->seller->store_name ?? $this->seller->business_name;
+            if (! empty($name)) {
+                return $name;
+            }
+        }
+
+        if ($this->relationLoaded('items')) {
+            $names = $this->items->map(function ($it) {
+                if ($it->relationLoaded('seller') && $it->seller) {
+                    return $it->seller->store_name ?? $it->seller->business_name;
+                }
+                return Seller::nameFor($it->seller_id);
+            })->filter()->unique()->values();
+
+            if ($names->isNotEmpty()) {
+                return $names->join(', ');
+            }
+        }
+
+        if ($this->seller_id) {
+            $s = Seller::find($this->seller_id);
+            if ($s) {
+                return $s->store_name ?? $s->business_name ?? 'Store #' . $s->id;
+            }
+        }
+
+        $itemSellerIds = $this->items()->pluck('seller_id')->filter()->unique();
+        if ($itemSellerIds->isNotEmpty()) {
+            $sellers = Seller::whereIn('id', $itemSellerIds)
+                ->orWhereIn('user_id', $itemSellerIds)
+                ->get();
+            $names = $sellers->map(fn ($s) => $s->store_name ?? $s->business_name)->filter()->unique();
+            if ($names->isNotEmpty()) {
+                return $names->join(', ');
+            }
+        }
+
+        return 'N/A';
     }
 }

@@ -41,7 +41,7 @@ class OrderShipmentService
                 'status' => 'waiting_for_rider', 'parcel_status' => 'pending_arrival',
                 'payment_method' => $order->payment?->method === 'cod' ? 'cash_on_delivery' : ($order->payment?->method ?? 'cash_on_delivery'),
                 'amount_to_collect' => $order->cashToCollectForSeller($sellerId),
-                'delivery_fee' => Order::SHIPPING_FEE_PER_SELLER,
+                'delivery_fee' => \App\Support\EscrowEarnings::lastMileRiderFee(),
             ]);
             // Never replace a courier's existing snapshot during a repair.
             foreach ([

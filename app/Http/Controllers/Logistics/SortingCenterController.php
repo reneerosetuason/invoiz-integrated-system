@@ -52,7 +52,7 @@ class SortingCenterController extends Controller
         }
 
         $query = $this->baseQuery($context)
-            ->with(['rider', 'logisticsCenter', 'destinationCenter', 'serviceArea', 'statusLogs']);
+            ->with(['rider', 'logisticsCenter', 'destinationCenter', 'originCenter', 'interHubRider', 'serviceArea', 'statusLogs']);
         $this->applyFilters($query, $context);
 
         $centers = LogisticsCenter::where('is_active', true)->orderBy('name');
@@ -81,6 +81,7 @@ class SortingCenterController extends Controller
             'serviceAreas' => $serviceAreas->get(),
             'destinationCenters' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
             'destinationAreas' => ServiceArea::where('is_active', true)->orderBy('name')->get(),
+            'transferDrivers' => \App\Models\Rider::where('status', '!=', 'inactive')->orderBy('name')->get()->groupBy('center_id'),
             'staffCenterId' => $context['staffCenterId'],
         ]);
     }

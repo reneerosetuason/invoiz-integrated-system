@@ -96,6 +96,8 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::get('orders/{order}', [OrderController::class, 'show'])->name('admin.order.show');
     Route::post('orders/{order}/update', [OrderController::class, 'update'])->name('admin.order.update');
         Route::get('payments', [PaymentController::class, 'index'])->name('admin.payments');
+        Route::post('payments/escrow-remittances/{id}/remit', [\App\Http\Controllers\Admin\PaymentActionController::class, 'remitEscrow'])->name('admin.escrow.remit');
+        Route::post('payments/escrow-remittances/remit-all', [\App\Http\Controllers\Admin\PaymentActionController::class, 'remitAllPendingEscrow'])->name('admin.escrow.remit-all');
         Route::post('payments/payouts/{id}/mark-paid', [\App\Http\Controllers\Admin\PaymentActionController::class, 'markPayoutPaid'])->name('admin.payouts.mark-paid');
         Route::post('payments/withdrawals/{id}/approve', [\App\Http\Controllers\Admin\PaymentActionController::class, 'approveWithdrawal'])->name('admin.withdrawals.approve');
         Route::post('payments/withdrawals/{id}/reject', [\App\Http\Controllers\Admin\PaymentActionController::class, 'rejectWithdrawal'])->name('admin.withdrawals.reject');
@@ -107,6 +109,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::post('complaints/{complaint}/resolve', [ComplaintController::class, 'resolve'])->name('admin.complaint.resolve');
     Route::get('commission', [CommissionController::class, 'index'])->name('admin.commission');
     Route::post('commission/rates', [CommissionController::class, 'updateRate'])->name('admin.commission.rates.update');
+    Route::post('commission/earnings', [CommissionController::class, 'updateEarnings'])->name('admin.commission.rates.earnings');
     Route::post('commission/rates/add', [CommissionController::class, 'storeRate'])->name('admin.commission.rates.store');
     Route::get('reports', [ReportController::class, 'index'])->name('admin.reports');
     Route::get('reports/export', [ReportController::class, 'export'])->name('admin.reports.export');

@@ -14,6 +14,112 @@
   <div class="admin-list-flash" role="status">{{ session('status') }}</div>
   @endif
 
+  @php
+      $escrowRates = \App\Support\EscrowEarnings::rates();
+  @endphp
+
+  {{-- Configurable Escrow & Earnings Distribution --}}
+  <section class="commission-section">
+    <div class="commission-section-head">
+      <div>
+        <h2>Configurable Escrow &amp; Stakeholder Earnings Distribution</h2>
+        <p>Fixed rate schedule applied to every seller shipment. Free-shipping and merchandise vouchers never reduce logistics or rider earnings — the last-mile rider deducts pay from COD cash, and the seller absorbs all deductions.</p>
+      </div>
+    </div>
+    <div class="escrow-rates-panel">
+      <form method="POST" action="{{ route('admin.commission.rates.earnings') }}">
+        @csrf
+        <div class="escrow-rates-grid">
+          <div class="escrow-rate-card">
+            <div>
+              <div class="escrow-rate-head">
+                <label class="escrow-rate-label">Origin Logistics Hub</label>
+                <span class="escrow-rate-badge escrow-badge--shipment">Per shipment</span>
+              </div>
+              <div class="escrow-rate-input-wrap">
+                <span class="escrow-rate-prefix">₱</span>
+                <input type="number" step="0.01" min="0" name="origin_hub_fee" value="{{ number_format($escrowRates['origin_hub_fee'], 2, '.', '') }}" class="escrow-rate-field" required>
+              </div>
+            </div>
+            <p class="escrow-rate-hint">Paid for parcel intake, QR scan, handling and dispatching at origin hub.</p>
+          </div>
+
+          <div class="escrow-rate-card">
+            <div>
+              <div class="escrow-rate-head">
+                <label class="escrow-rate-label">Pickup Rider</label>
+                <span class="escrow-rate-badge escrow-badge--item">Per item</span>
+              </div>
+              <div class="escrow-rate-input-wrap">
+                <span class="escrow-rate-prefix">₱</span>
+                <input type="number" step="0.01" min="0" name="pickup_rider_per_item" value="{{ number_format($escrowRates['pickup_rider_per_item'], 2, '.', '') }}" class="escrow-rate-field" required>
+              </div>
+            </div>
+            <p class="escrow-rate-hint">Earned per item picked up from seller (e.g. 2 items = 2 × ₱{{ number_format($escrowRates['pickup_rider_per_item'], 2) }}).</p>
+          </div>
+
+          <div class="escrow-rate-card">
+            <div>
+              <div class="escrow-rate-head">
+                <label class="escrow-rate-label">Inter-Hub Transport Driver</label>
+                <span class="escrow-rate-badge escrow-badge--interhub">Inter-hub only</span>
+              </div>
+              <div class="escrow-rate-input-wrap">
+                <span class="escrow-rate-prefix">₱</span>
+                <input type="number" step="0.01" min="0" name="inter_hub_driver_fee" value="{{ number_format($escrowRates['inter_hub_driver_fee'], 2, '.', '') }}" class="escrow-rate-field" required>
+              </div>
+            </div>
+            <p class="escrow-rate-hint">Paid for shared linehaul transport between origin and destination hubs.</p>
+          </div>
+
+          <div class="escrow-rate-card">
+            <div>
+              <div class="escrow-rate-head">
+                <label class="escrow-rate-label">Destination Logistics Hub</label>
+                <span class="escrow-rate-badge escrow-badge--interhub">Inter-hub only</span>
+              </div>
+              <div class="escrow-rate-input-wrap">
+                <span class="escrow-rate-prefix">₱</span>
+                <input type="number" step="0.01" min="0" name="destination_hub_fee" value="{{ number_format($escrowRates['destination_hub_fee'], 2, '.', '') }}" class="escrow-rate-field" required>
+              </div>
+            </div>
+            <p class="escrow-rate-hint">Intake &amp; sorting at destination hub (₱0 when origin = destination).</p>
+          </div>
+
+          <div class="escrow-rate-card">
+            <div>
+              <div class="escrow-rate-head">
+                <label class="escrow-rate-label">Last-Mile Delivery Rider</label>
+                <span class="escrow-rate-badge escrow-badge--lastmile">Per shipment</span>
+              </div>
+              <div class="escrow-rate-input-wrap">
+                <span class="escrow-rate-prefix">₱</span>
+                <input type="number" step="0.01" min="0" name="last_mile_rider_fee" value="{{ number_format($escrowRates['last_mile_rider_fee'], 2, '.', '') }}" class="escrow-rate-field" required>
+              </div>
+            </div>
+            <p class="escrow-rate-hint">Directly deducted by rider from COD cash; seller absorbs any free shipping.</p>
+          </div>
+
+          <div class="escrow-rate-card">
+            <div>
+              <div class="escrow-rate-head">
+                <label class="escrow-rate-label">Seller &amp; Admin</label>
+                <span class="escrow-rate-badge escrow-badge--automated">Automated</span>
+              </div>
+              <div class="escrow-summary-text">
+                <strong>Admin:</strong> {{ number_format($defaultRate, 2) }}% commission on net merchandise.<br>
+                <strong>Seller:</strong> Net product earnings after all deductions.
+              </div>
+            </div>
+            <div>
+              <button type="submit" class="escrow-save-btn">Save Earnings Schedule</button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
   <section class="admin-list-stats admin-list-stats--4" aria-label="Commission overview">
     <div class="admin-list-stat">
       <span class="admin-list-stat-label">Total Commission</span>
@@ -48,7 +154,7 @@
       <table class="commission-table rates-table">
         <thead><tr><th>Category</th><th>Rate</th><th>Actions</th></tr></thead>
         <tbody>
-          @foreach($rates as $r)
+          @forelse($rates as $r)
           <tr class="commission-record">
             <td class="rate-category" data-label="Category">{{ $r->category->name ?? 'Default (all other categories)' }}</td>
             <td class="rate-value" data-label="Rate">
@@ -62,9 +168,33 @@
             </td>
             <td class="rate-action" data-label="Actions">{{ $r->category ? 'Custom' : 'Fallback' }}</td>
           </tr>
-          @endforeach
+          @empty
+          <tr class="list-empty-row"><td colspan="3" class="list-empty">No category rates configured. Default fallback applies to all products.</td></tr>
+          @endforelse
         </tbody>
       </table>
+      @if(isset($availableCategories) && $availableCategories->isNotEmpty())
+      <div class="category-rate-add-bar">
+        <div>
+          <strong style="font-size:13px; color:var(--commission-ink);">Add Category Custom Rate</strong>
+          <p style="margin:2px 0 0; font-size:12px; color:var(--commission-muted);">Assign an override commission rate for specific product categories.</p>
+        </div>
+        <form method="POST" action="{{ route('admin.commission.rates.store') }}" class="category-rate-add-form">
+          @csrf
+          <select name="category_id" required>
+            <option value="" disabled selected>Select category...</option>
+            @foreach($availableCategories as $cat)
+              <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+            @endforeach
+          </select>
+          <div style="display:inline-flex; align-items:center; gap:4px;">
+            <input type="number" name="rate" min="0" max="100" step="0.01" placeholder="Rate %" style="width:90px;" required>
+            <span style="font-size:13px; font-weight:600; color:var(--commission-muted);">%</span>
+          </div>
+          <button type="submit">+ Add Rate</button>
+        </form>
+      </div>
+      @endif
     </div>
   </section>
 
@@ -131,7 +261,7 @@
           @forelse($orderCommissions as $o)
           <tr class="commission-record">
             <td class="order-cell" data-label="Order #"><a class="commission-order-link" href="{{ url('/admin/orders/'.$o->id) }}">{{ $o->order_number }}</a></td>
-            <td class="store-cell" data-label="Store">{{ $o->seller->store_name ?? 'N/A' }}</td>
+            <td class="store-cell" data-label="Store">{{ $o->store_name_display }}</td>
             <td class="buyer-cell" data-label="Buyer">{{ $o->buyer->name ?? 'N/A' }}</td>
             <td class="total-cell commission-number" data-label="Total">₱{{ number_format($o->total, 2) }}</td>
             <td class="commission-cell commission-number" data-label="Commission">₱{{ number_format($o->commission_amount, 2) }}</td>

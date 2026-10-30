@@ -16,6 +16,12 @@ class PaymentTransaction extends Model
         'platform_commission',
         'rider_fee',
         'logistics_fee',
+        'origin_hub_fee',
+        'pickup_rider_fee',
+        'inter_hub_driver_fee',
+        'destination_hub_fee',
+        'last_mile_rider_fee',
+        'seller_deficit',
         'refunded_amount',
         'paid_at',
     ];

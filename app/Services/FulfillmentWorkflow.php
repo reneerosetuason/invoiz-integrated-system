@@ -91,15 +91,20 @@ class FulfillmentWorkflow
     {
         self::assertActiveOrder($delivery);
         if ($delivery->isIncomingTransfer()) {
-            $originId = $delivery->center_id;
+            $originId = $delivery->origin_center_id ?? $delivery->center_id;
             $delivery->update([
+                'origin_center_id' => $originId,
                 'center_id' => $delivery->destination_center_id, 'parcel_status' => 'received', 'received_at' => now(),
                 'scanned_at' => null, 'sorted_at' => null, 'dispatched_at' => null,
             ]);
+            $originName = \App\Models\LogisticsCenter::whereKey($originId)->value('name') ?? "center #{$originId}";
+            $destName = \App\Models\LogisticsCenter::whereKey($delivery->center_id)->value('name') ?? "center #{$delivery->center_id}";
             DeliveryStatusLog::create([
                 'delivery_id' => $delivery->id, 'status' => 'received', 'changed_by' => $actorId,
-                'notes' => "Transfer received from center #{$originId} at destination center #{$delivery->center_id}. Scan and sort before final dispatch.",
+                'notes' => "Inter-hub transfer received from {$originName} at {$destName}. Scan and sort before final dispatch.",
             ]);
+
+            \App\Support\EscrowEarnings::creditInterHubDriverOnTransferReceipt($delivery);
 
             return;
         }
@@ -107,12 +112,17 @@ class FulfillmentWorkflow
             abort_unless($delivery->status === 'picked_up' && $delivery->sorting_center_handoff_at && $delivery->sorting_center_handoff_rider_id, 409, 'The pickup rider must record the center handoff before staff can receive this parcel.');
         }
         $riderId = $delivery->rider_id;
-        $updates = ['parcel_status' => 'received', 'received_at' => now()];
+        $updates = [
+            'parcel_status' => 'received',
+            'received_at' => now(),
+            'origin_center_id' => $delivery->origin_center_id ?? $delivery->center_id,
+        ];
         if ($delivery->sorting_center_handoff_at) {
             $updates += ['rider_id' => null, 'status' => 'waiting_for_rider', 'assigned_at' => null, 'accepted_at' => null];
         }
         $delivery->update($updates);
         DeliveryStatusLog::create(['delivery_id' => $delivery->id, 'status' => 'received', 'changed_by' => $actorId, 'notes' => 'Center receipt confirmed; pickup custody closed.']);
+        \App\Support\EscrowEarnings::creditPickupRiderOnHubReceipt($delivery);
         self::releaseRider($riderId);
     }
 }

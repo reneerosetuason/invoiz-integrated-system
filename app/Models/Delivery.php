@@ -68,7 +68,10 @@ class Delivery extends Model
         'seller_id',
         'rider_id',
         'center_id',
+        'origin_center_id',
         'destination_center_id',
+        'inter_hub_rider_id',
+        'inter_hub_dispatched_at',
         'service_area_id',
         'sender_name',
         'sender_phone',
@@ -153,6 +156,7 @@ class Delivery extends Model
             'reattempt_requested_at' => 'datetime',
             'returned_at' => 'datetime',
             'estimated_delivery_at' => 'datetime',
+            'inter_hub_dispatched_at' => 'datetime',
             'archived_at' => 'datetime',
             'received_at' => 'datetime',
             'scanned_at' => 'datetime',
@@ -299,8 +303,59 @@ class Delivery extends Model
         return $this->belongsTo(Rider::class, 'sorting_center_pickup_rider_id');
     }
 
+    public function interHubRider(): BelongsTo
+    {
+        return $this->belongsTo(Rider::class, 'inter_hub_rider_id');
+    }
+
+    public function originCenter(): BelongsTo
+    {
+        return $this->belongsTo(LogisticsCenter::class, 'origin_center_id');
+    }
+
+    public function escrowRemittances(): HasMany
+    {
+        return $this->hasMany(EscrowRemittance::class);
+    }
+
     public function scopeNotArchived($query)
     {
         return $query->whereNull('deliveries.archived_at');
+    }
+
+    /**
+     * Suggest the hub that serves the buyer: the first active service area
+     * whose name appears in the recipient address. Returns
+     * ['center_id' => ?int, 'service_area_id' => ?int].
+     */
+    public function suggestedDestination(?\Illuminate\Support\Collection $areas = null): array
+    {
+        $address = mb_strtolower((string) $this->recipient_address);
+        if ($address === '') {
+            return ['center_id' => null, 'service_area_id' => null];
+        }
+        $areas ??= ServiceArea::where('is_active', true)->get();
+        $match = $areas
+            ->sortByDesc(fn ($a) => mb_strlen((string) $a->name))
+            ->first(fn ($a) => $a->name && str_contains($address, mb_strtolower($a->name)));
+
+        return [
+            'center_id' => $match?->logistics_center_id ? (int) $match->logistics_center_id : null,
+            'service_area_id' => $match ? (int) $match->id : null,
+        ];
+    }
+
+    /** Origin hub (where the seller's parcel entered the network). */
+    public function routeOriginId(): ?int
+    {
+        $id = $this->origin_center_id ?: $this->center_id;
+        return $id ? (int) $id : null;
+    }
+
+    /** True when the parcel must move between two different hubs. */
+    public function isInterHubRoute(): bool
+    {
+        $origin = $this->routeOriginId();
+        return $origin !== null && $this->destination_center_id && (int) $this->destination_center_id !== $origin;
     }
 }

@@ -11,16 +11,25 @@ class Transaction extends Model
     use HasFactory;
 
     protected $fillable = [
-        'delivery_id', 'tracking_number', 'rider_id', 'logistics_center_id',
-        'service_area_id', 'amount', 'rider_fee', 'logistics_fee', 'admin_commission', 'status',
+        'delivery_id', 'tracking_number', 'rider_id', 'pickup_rider_id', 'inter_hub_rider_id',
+        'logistics_center_id', 'origin_center_id', 'destination_center_id',
+        'service_area_id', 'amount', 'rider_fee', 'logistics_fee',
+        'origin_hub_fee', 'pickup_rider_fee', 'inter_hub_driver_fee', 'destination_hub_fee', 'last_mile_rider_fee',
+        'admin_commission', 'status',
     ];
 
     protected function casts(): array
     {
         return [
-            'amount' => 'decimal:2',
-            'rider_fee' => 'decimal:2',
-            'admin_commission' => 'decimal:2',
+            'amount'               => 'decimal:2',
+            'rider_fee'            => 'decimal:2',
+            'logistics_fee'        => 'decimal:2',
+            'origin_hub_fee'       => 'decimal:2',
+            'pickup_rider_fee'     => 'decimal:2',
+            'inter_hub_driver_fee' => 'decimal:2',
+            'destination_hub_fee'  => 'decimal:2',
+            'last_mile_rider_fee'  => 'decimal:2',
+            'admin_commission'     => 'decimal:2',
         ];
     }
 
@@ -45,5 +54,25 @@ class Transaction extends Model
     public function serviceArea(): BelongsTo
     {
         return $this->belongsTo(ServiceArea::class);
+    }
+
+    public function pickupRider(): BelongsTo
+    {
+        return $this->belongsTo(Rider::class, 'pickup_rider_id');
+    }
+
+    public function interHubRider(): BelongsTo
+    {
+        return $this->belongsTo(Rider::class, 'inter_hub_rider_id');
+    }
+
+    public function originCenter(): BelongsTo
+    {
+        return $this->belongsTo(LogisticsCenter::class, 'origin_center_id');
+    }
+
+    public function destinationCenter(): BelongsTo
+    {
+        return $this->belongsTo(LogisticsCenter::class, 'destination_center_id');
     }
 }

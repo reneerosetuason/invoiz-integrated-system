@@ -27,6 +27,44 @@ class PaymentActionController extends Controller
         return back()->with('status', 'Payout marked as paid.');
     }
 
+    public function remitEscrow(Request $request, $id)
+    {
+        $remittance = \App\Models\EscrowRemittance::findOrFail($id);
+        if ($remittance->status === 'remitted') {
+            return back()->with('status', 'This remittance has already been released.');
+        }
+
+        $ref = $request->input('bank_reference') ?: ('REMIT-' . strtoupper(\Illuminate\Support\Str::random(8)));
+        $remittance->update([
+            'status'         => 'remitted',
+            'bank_reference' => $ref,
+            'remitted_at'    => now(),
+            'remitted_by'    => auth()->id(),
+        ]);
+
+        return back()->with('status', "Remittance of ₱" . number_format((float) $remittance->amount, 2) . " released to {$remittance->recipient_name} (Ref: {$ref}).");
+    }
+
+    public function remitAllPendingEscrow(Request $request)
+    {
+        $pending = \App\Models\EscrowRemittance::where('status', 'pending_remittance')->get();
+        $count = 0;
+        $total = 0.0;
+        foreach ($pending as $r) {
+            $ref = 'BATCH-REMIT-' . strtoupper(\Illuminate\Support\Str::random(8));
+            $r->update([
+                'status'         => 'remitted',
+                'bank_reference' => $ref,
+                'remitted_at'    => now(),
+                'remitted_by'    => auth()->id(),
+            ]);
+            $count++;
+            $total += (float) $r->amount;
+        }
+
+        return back()->with('status', "Successfully remitted {$count} pending payouts totalling ₱" . number_format($total, 2) . " to recipient bank accounts.");
+    }
+
     public function approveWithdrawal($id)
     {
         $created = DB::transaction(function () use ($id): bool {

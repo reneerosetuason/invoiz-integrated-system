@@ -9,6 +9,7 @@ use App\Models\Rider;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class TransactionController extends Controller
@@ -104,13 +105,31 @@ class TransactionController extends Controller
                 return;
             }
 
-            // Approved money rule per delivery: flat ₱50 rider payout +
-            // flat ₱15 logistics operations fee. The platform's 10% lives
-            // ONLY on payment_transactions (merchandise-based) so the
-            // seller is never double-charged.
-            $amount = (float) ($delivery->delivery_fee ?? \App\Models\Order::SHIPPING_FEE_PER_SELLER);
+            // Configurable 7-recipient money breakdown per delivery.
+            $order = $delivery->order_id ? $delivery->order()->with('items')->first() : null;
+            $sellerId = (int) ($delivery->seller_id ?? $order?->items->pluck('seller_id')->filter()->first() ?? 0);
 
-            Transaction::create([
+            $calc = ($order && $sellerId > 0)
+                ? \App\Support\EscrowEarnings::calculateForSeller($order, $sellerId, $delivery)
+                : null;
+
+            $amount = (float) ($calc['last_mile_rider_fee'] ?? ($delivery->delivery_fee ?? \App\Support\EscrowEarnings::lastMileRiderFee()));
+            $originHubFee = (float) ($calc['origin_hub_fee'] ?? \App\Support\EscrowEarnings::originHubFee());
+            $pickupRiderFee = (float) ($calc['pickup_rider_fee'] ?? \App\Support\EscrowEarnings::pickupRiderPerItemFee());
+            $interHubDriverFee = (float) ($calc['inter_hub_driver_fee'] ?? 0.0);
+            $destinationHubFee = (float) ($calc['destination_hub_fee'] ?? 0.0);
+            $lastMileRiderFee = $amount;
+            $logisticsFee = round($originHubFee + $pickupRiderFee + $interHubDriverFee + $destinationHubFee, 2);
+
+            $pickupRiderId = $delivery->sorting_center_handoff_rider_id
+                ?: ($delivery->picked_up_at ? $delivery->rider_id : null);
+            $interHubRiderId = Schema::hasColumn('deliveries', 'inter_hub_rider_id')
+                ? $delivery->inter_hub_rider_id
+                : null;
+            $originCenterId = $delivery->origin_center_id ?? $delivery->center_id;
+            $destCenterId = $delivery->destination_center_id ?? $delivery->center_id;
+
+            $record = [
                 'delivery_id' => $delivery->id,
                 'tracking_number' => $delivery->tracking_number,
                 'rider_id' => $delivery->rider_id,
@@ -118,10 +137,26 @@ class TransactionController extends Controller
                 'service_area_id' => $delivery->service_area_id,
                 'amount' => $amount,
                 'rider_fee' => $amount,
-                'logistics_fee' => \App\Models\Order::LOGISTICS_FEE_PER_DELIVERY,
+                'logistics_fee' => $logisticsFee,
                 'admin_commission' => 0,
                 'status' => 'completed',
-            ]);
+            ];
+
+            if (Schema::hasColumn('transactions', 'origin_hub_fee')) {
+                $record += [
+                    'origin_center_id'      => $originCenterId,
+                    'destination_center_id' => $destCenterId,
+                    'pickup_rider_id'       => $pickupRiderId,
+                    'inter_hub_rider_id'    => $interHubRiderId,
+                    'origin_hub_fee'        => $originHubFee,
+                    'pickup_rider_fee'      => $pickupRiderFee,
+                    'inter_hub_driver_fee'  => $interHubDriverFee,
+                    'destination_hub_fee'   => $destinationHubFee,
+                    'last_mile_rider_fee'   => $lastMileRiderFee,
+                ];
+            }
+
+            Transaction::create($record);
         });
     }
 }
