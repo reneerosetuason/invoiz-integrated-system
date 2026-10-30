@@ -219,7 +219,10 @@ class PickupRequestController extends Controller
             }
 
             if ($delivery->center_id === null && $lockedPickup->center_id !== null) {
-                $delivery->update(['center_id' => $lockedPickup->center_id]);
+                $delivery->update([
+                    'center_id' => $lockedPickup->center_id,
+                    'origin_center_id' => $delivery->origin_center_id ?? $lockedPickup->center_id,
+                ]);
             }
 
             $lockedPickup->update([

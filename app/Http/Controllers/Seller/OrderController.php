@@ -300,6 +300,7 @@ class OrderController extends Controller
 
             if ($center && $delivery->received_at === null) {
                 $delivery->center_id = $center->id;
+                $delivery->origin_center_id = $delivery->origin_center_id ?? $center->id;
             }
             $delivery->save();
 
