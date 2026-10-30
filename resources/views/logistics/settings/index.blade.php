@@ -405,8 +405,8 @@
                                 </div>
                             </div>
                             <div class="text-right flex-shrink-0">
-                                <p class="text-xs font-medium text-gray-700">{{ $entry->logged_in_at->format('M j, Y') }}</p>
-                                <p class="text-xs text-gray-400">{{ $entry->logged_in_at->format('g:i A') }}</p>
+                                <p class="text-xs font-medium text-gray-700">{{ $entry->logged_in_at?->format('M j, Y') ?? '—' }}</p>
+                                <p class="text-xs text-gray-400">{{ $entry->logged_in_at?->format('g:i A') ?? '' }}</p>
                             </div>
                         </li>
                         @endforeach

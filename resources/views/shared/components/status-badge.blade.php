@@ -20,42 +20,29 @@
         // rider statuses
         'available'            => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Available'],
         'delivering'           => ['bg-blue-50 text-blue-700 ring-blue-200', 'Delivering'],
+        'on_delivery'          => ['bg-blue-50 text-blue-700 ring-blue-200', 'On Delivery'],
+        'offline'              => ['bg-gray-100 text-gray-600 ring-gray-200', 'Offline'],
+        'active'               => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Active'],
+        'suspended'            => ['bg-red-50 text-red-700 ring-red-200', 'Suspended'],
         'inactive'             => ['bg-gray-100 text-gray-600 ring-gray-200', 'Inactive'],
+        // parcel / sorting / finance statuses
+        'received_at_center'   => ['bg-sky-50 text-sky-700 ring-sky-200', 'Received at Center'],
+        'sorted'               => ['bg-indigo-50 text-indigo-700 ring-indigo-200', 'Sorted'],
+        'dispatched'           => ['bg-purple-50 text-purple-700 ring-purple-200', 'Dispatched'],
+        'confirmed'            => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Confirmed'],
+        'disputed'             => ['bg-red-50 text-red-700 ring-red-200', 'Disputed'],
+        'completed'            => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Completed'],
         // application statuses
         'pending'              => ['bg-amber-50 text-amber-700 ring-amber-200', 'Pending'],
         'approved'             => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Approved'],
         'rejected'             => ['bg-red-50 text-red-700 ring-red-200', 'Rejected'],
     ];
 
-    [$classes, $defaultLabel] = $map[$status] ?? ['bg-gray-100 text-gray-600 ring-gray-200', ucwords(str_replace('_', ' ', $status))];
+    [$classes, $defaultLabel] = $map[$status] ?? ['bg-gray-100 text-gray-600 ring-gray-200', ucwords(str_replace('_', ' ', (string) $status))];
     $text = $label ?? $defaultLabel;
 @endphp
 
-@if(request()->is('logistics', 'logistics/*'))
-    @php
-        $statusIcon = match ($status) {
-            'waiting_for_rider' => 'clock',
-            'assigned', 'accepted' => 'user',
-            'picked_up' => 'box',
-            'out_for_delivery', 'going_to_pickup', 'delivering' => 'truck',
-            'delivered', 'approved', 'available' => 'check',
-            'delivery_failed', 'exceptions', 'lost', 'damaged' => 'alert-triangle',
-            'returned_to_seller' => 'arrow-left',
-            'cancelled', 'rejected' => 'x',
-            default => 'info',
-        };
-        $statusTone = match ($status) {
-            'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop', 'picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered', 'approved', 'available', 'delivering' => 'teal',
-            'delivery_failed', 'exceptions', 'lost', 'damaged' => 'exception',
-            default => 'neutral',
-        };
-    @endphp
-    <span class="logistics-status logistics-status--{{ $statusTone }}" title="{{ $text }}">
-        <x-icon :name="$statusIcon" class="logistics-status-icon" />
-        <span class="logistics-status-label">{{ $text }}</span>
-    </span>
-@else
 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full ring-1 ring-inset {{ $classes }}">
     <span class="h-1.5 w-1.5 rounded-full bg-current"></span>
     {{ $text }}
-</span>@endif
+</span>

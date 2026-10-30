@@ -60,7 +60,7 @@
                     <div>
                         <p class="text-sm text-gray-500 mb-1">Tracking Number</p>
                         <h4 class="font-mono text-3xl font-bold text-gray-900">{{ $delivery->tracking_number }}</h4>
-                        <p class="mt-2 text-xs text-gray-400">Order #{{ $delivery->order_id ?? $delivery->id }} · Last updated {{ $delivery->updated_at->format('M d, Y \a\t g:i A') }}</p>
+                        <p class="mt-2 text-xs text-gray-400">Order #{{ $delivery->order_id ?? $delivery->id }} · Last updated {{ $delivery->updated_at?->format('M d, Y \a\t g:i A') ?? $delivery->created_at?->format('M d, Y \a\t g:i A') ?? '—' }}</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         @if($delivery->archived_at)
@@ -292,7 +292,7 @@
                 <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
                     <div>
                         <dt class="text-xs text-gray-400">Created At</dt>
-                        <dd class="text-sm font-medium text-gray-800 mt-0.5">{{ $delivery->created_at->format('M d, Y h:i A') }}</dd>
+                        <dd class="text-sm font-medium text-gray-800 mt-0.5">{{ $delivery->created_at?->format('M d, Y h:i A') ?? '—' }}</dd>
                     </div>
                     <div>
                         <dt class="text-xs text-gray-400">Estimated Delivery</dt>
@@ -325,7 +325,7 @@
                                 @elseif($proof->file_path && file_exists(public_path('storage/' . $proof->file_path)))
                                     <img src="{{ asset('storage/' . $proof->file_path) }}" alt="Proof" class="mt-1 rounded-lg max-h-40 object-cover w-full">
                                 @endif
-                                <p class="text-xs text-gray-400 mt-2">{{ $proof->created_at->format('M d, Y h:i A') }}</p>
+                                <p class="text-xs text-gray-400 mt-2">{{ $proof->created_at?->format('M d, Y h:i A') ?? '—' }}</p>
                             </div>
                         @endforeach
                     </div>
@@ -366,7 +366,7 @@
                                     @if(in_array($log->status, $parcelEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark">Parcel</span>@endif
                                     @if(in_array($log->status, $centerEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Sorting Center</span>@endif
                                     @if(in_array($log->status, $recordEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
-                                    <span class="text-xs text-gray-400">{{ $log->created_at->format('M d, Y \a\t g:i A') }}</span>
+                                    <span class="text-xs text-gray-400">{{ $log->created_at?->format('M d, Y \a\t g:i A') ?? '—' }}</span>
                                 </div>
                                 @if ($log->notes)
                                     <p class="text-sm text-gray-600 mt-2">{{ $log->notes }}</p>

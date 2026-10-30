@@ -288,7 +288,7 @@ class DashboardController extends Controller
             ->map(fn($d) => [
                 'id' => $d->id,
                 'tracking' => $d->tracking_number,
-                'recipient' => $d->recipient_name ?? '???',
+                'recipient' => $d->recipient_name ?? '—',
                 'center' => $d->logisticsCenter?->name ?? ($d->center_id ? 'Center #'.$d->center_id : 'Unassigned'),
                 'center_id' => $d->center_id,
                 'status' => ucwords(str_replace('_',' ', $d->status)),

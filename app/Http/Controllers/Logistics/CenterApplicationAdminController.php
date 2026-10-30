@@ -304,10 +304,12 @@ class CenterApplicationAdminController extends Controller
         }
 
         abort_unless($document->fileExists(), 404, 'Document is missing or was deleted.');
+        $safeName = preg_replace('/[\x00-\x1F\x7F"]/', '', basename((string) ($document->original_filename ?: $document->stored_path))) ?: 'document';
 
         return response()->file($document->absolutePath(), [
             'Content-Type' => $document->contentMime(),
-            'Content-Disposition' => $disposition . '; filename="' . basename($document->original_filename) . '"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Content-Disposition' => $disposition . '; filename="' . $safeName . '"',
         ]);
     }
 

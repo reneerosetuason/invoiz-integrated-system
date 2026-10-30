@@ -20,7 +20,7 @@ class RiderHistoryController extends Controller
             'search' => 'sometimes|string|max:255',
             'from' => 'sometimes|date',
             'to' => 'sometimes|date',
-            'status' => 'sometimes|string|in:delivered,failed,lost,damaged',
+            'status' => 'sometimes|string|in:delivered,failed,lost,damaged,pickup_completed',
         ]);
 
         $query = Delivery::with(['items'])
@@ -53,6 +53,9 @@ class RiderHistoryController extends Controller
             }
         }
 
+        if (! empty($validated['status']) && $validated['status'] !== 'pickup_completed') {
+            $query->where('rider_id', $rider->id);
+        }
         $items = $query->latest()->paginate(15);
 
         return response()->json([
@@ -63,8 +66,9 @@ class RiderHistoryController extends Controller
                     'shop_name' => $d->sender_name,
                     'customer_name' => $d->recipient_name,
                     'delivered_at' => $d->delivered_at?->toIso8601String(),
-                    'status' => (int) $d->rider_id !== (int) $rider->id ? 'pickup_completed' : $d->status,
-                    'status_label' => (int) $d->rider_id !== (int) $rider->id ? 'Pickup completed' : ($d->status === 'delivered' ? 'Delivered' : ($d->status === 'lost' ? 'Lost' : ($d->status === 'damaged' ? 'Damaged' : 'Failed'))),
+                    'completed_at' => ((int) $d->rider_id !== (int) $rider->id || ! in_array($d->status, ['delivered', 'delivery_failed', 'lost', 'damaged'], true)) ? (optional($d->statusLogs()->where('status', 'received')->oldest('id')->first())->created_at ?? $d->received_at)?->toIso8601String() : $d->delivered_at?->toIso8601String(),
+                    'status' => ((int) $d->rider_id !== (int) $rider->id || ! in_array($d->status, ['delivered', 'delivery_failed', 'lost', 'damaged'], true)) ? 'pickup_completed' : $d->status,
+                    'status_label' => ((int) $d->rider_id !== (int) $rider->id || ! in_array($d->status, ['delivered', 'delivery_failed', 'lost', 'damaged'], true)) ? 'Pickup completed' : ($d->status === 'delivered' ? 'Delivered' : ($d->status === 'lost' ? 'Lost' : ($d->status === 'damaged' ? 'Damaged' : 'Failed'))),
                     'payment_method' => $d->payment_method,
                     'total' => $d->amount_to_collect,
                     'earned' => $d->earnings()->where('rider_id', $rider->id)->sum('amount'),

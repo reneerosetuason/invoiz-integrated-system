@@ -1,3 +1,5 @@
+This is the original, before-change review. See [the implemented repairs and verification](order-fulfillment-flow-fixes.md) for the current state.
+
 The ordering and delivery modules exist, but the current application does not consistently enforce the complete seller -> pickup rider -> logistics center -> delivery rider -> buyer flow. This review reproduced nine integration gaps without changing application behavior or production records.
 
 Current intended sequence

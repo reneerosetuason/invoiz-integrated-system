@@ -36,6 +36,7 @@
         $maxAttempts = (int) ($attemptPrefs['max_attempts'] ?? 2);
         $failedAttempts = $delivery->statusLogs->where('status', 'delivery_failed')->count();
         $isCodDelivery = \App\Support\Cod::isCod($delivery);
+        $canOverride = auth()->user()->canManageRiders() && auth()->user()->isLogisticsAdmin();
         $codExpected = $isCodDelivery ? \App\Support\Cod::expected($delivery) : null;
     @endphp
 
@@ -83,7 +84,7 @@
                 <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Tracking Number</p>
                 <p class="delivery-tracking">{{ $delivery->tracking_number }}</p>
                 <p class="text-sm text-gray-500 mt-2">
-                    Created {{ $delivery->created_at->format('M d, Y h:i A') }}
+                    Created {{ $delivery->created_at?->format('M d, Y h:i A') ?? '—' }}
                     @if($delivery->creator) · by {{ $delivery->creator->name }}@endif
                 </p>
             </div>
@@ -254,7 +255,7 @@
                 <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Timestamps</h3>
             </div>
             <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div><dt class="text-xs text-gray-500">Created At</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->created_at->format('M d, Y h:i A') }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Created At</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->created_at?->format('M d, Y h:i A') ?? '—' }}</dd></div>
                 <div><dt class="text-xs text-gray-500">Estimated Delivery</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->estimated_delivery_at ? $delivery->estimated_delivery_at->format('M d, Y h:i A') : '—' }}</dd></div>
                 <div><dt class="text-xs text-gray-500">Actual Pickup</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->picked_up_at ? $delivery->picked_up_at->format('M d, Y h:i A') : '—' }}</dd></div>
                 <div><dt class="text-xs text-gray-500">Actual Delivery</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->delivered_at ? $delivery->delivered_at->format('M d, Y h:i A') : '—' }}</dd></div>
@@ -282,7 +283,7 @@
                 'sorted'          => ['label' => 'Sorted', 'index' => 3],
                 'dispatched'      => ['label' => 'Dispatched', 'index' => 4],
             ];
-            $currentParcelIndex = $parcelSteps[$delivery->parcel_status ?? 'pending_arrival']['index'];
+            $currentParcelIndex = $parcelSteps[$delivery->parcel_status ?: 'pending_arrival']['index'] ?? 0;
         @endphp
 
         <div class="delivery-parcel-progress relative mb-6">
@@ -582,9 +583,12 @@
         @endif
 
         @if(!$delivery->archived_at)
+            @if($delivery->order_id && ! in_array($delivery->status, ['delivered', 'cancelled'], true))
+                <p class="delivery-actions-note">Seller preparation &rarr; approved pickup &rarr; rider collection &rarr; center processing &rarr; delivery rider &rarr; buyer OTP and COD. Rider milestones are confirmed in the rider app.</p>
+            @endif
             <p class="delivery-actions-note">Available actions follow this delivery?s current status. Review the details before updating a record.</p>
             <div class="flex flex-wrap gap-3">
-                @if(in_array($delivery->parcel_status, ['pending_arrival', null]))
+                @if(in_array($delivery->parcel_status, ['pending_arrival', null]) || $delivery->isIncomingTransfer())
                     <form action="{{ route('deliveries.receive', $delivery) }}" method="POST" class="w-full max-w-xl">
                         @csrf
                         <label for="receive_center_id" class="block text-sm font-medium text-gray-700 mb-1">Receive at Logistics Center</label>
@@ -593,7 +597,7 @@
                                     class="flex-1 min-w-0 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                 <option value="">— Select center —</option>
                                 @foreach($centers as $center)
-                                    <option value="{{ $center->id }}" @selected((int) $delivery->center_id === (int) $center->id)>{{ $center->name }}</option>
+                                    <option value="{{ $center->id }}" @selected((int) ($delivery->isIncomingTransfer() ? $delivery->destination_center_id : $delivery->center_id) === (int) $center->id)>{{ $center->name }}</option>
                                 @endforeach
                             </select>
                             <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold py-2 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
@@ -622,7 +626,7 @@
                                 <select name="destination_center_id" id="destination_center" required
                                         class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                     <option value="">— Select destination —</option>
-                                    @foreach($centers as $center)
+                                    @foreach($destinationCenters as $center)
                                         <option value="{{ $center->id }}" @selected((int) $delivery->destination_center_id === (int) $center->id)>{{ $center->name }}</option>
                                     @endforeach
                                 </select>
@@ -632,7 +636,7 @@
                                 <select name="service_area_id" id="service_area" required
                                         class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                                     <option value="">— Select service area —</option>
-                                    @foreach($serviceAreas as $area)
+                                    @foreach($destinationAreas as $area)
                                         <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) $delivery->service_area_id === (int) $area->id)>{{ $area->name }}</option>
                                     @endforeach
                                 </select>
@@ -697,7 +701,7 @@
                         @if($proof->rider)
                             <p class="text-xs text-gray-500 mt-2">Uploaded by {{ $proof->rider->name }}</p>
                         @endif
-                        <p class="text-xs text-gray-400 mt-1">{{ $proof->created_at->format('M d, Y h:i A') }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ $proof->created_at?->format('M d, Y h:i A') ?? '—' }}</p>
                     </div>
                 @endforeach
             </div>
@@ -743,7 +747,7 @@
                                         @if(in_array($log->status, $centerEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Sorting Center</span>@endif
                                         @if(in_array($log->status, $recordEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
                                     </span>
-                                    <span class="text-xs text-gray-500">{{ $log->created_at->format('M d, Y · h:i A') }}</span>
+                                    <span class="text-xs text-gray-500">{{ $log->created_at?->format('M d, Y · h:i A') ?? '—' }}</span>
                                 </div>
                                 @if($log->notes)
                                     <p class="text-sm text-gray-600">{{ $log->notes }}</p>
@@ -892,7 +896,7 @@
                     </form>
                 @endif
 
-                @if($delivery->status === 'assigned')
+                @if($delivery->status === 'assigned' && ! $delivery->order_id)
                     <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
                         @csrf
                         @method('PATCH')
@@ -907,7 +911,7 @@
                     </button>
                 @endif
 
-                @if($delivery->status === 'picked_up')
+                @if($delivery->status === 'picked_up' && ! $delivery->order_id)
                     <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
                         @csrf
                         @method('PATCH')
@@ -922,7 +926,7 @@
                     </button>
                 @endif
 
-                @if($delivery->status === 'out_for_delivery')
+                @if($delivery->status === 'out_for_delivery' && ! $delivery->order_id)
                     <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST" class="flex flex-wrap items-end gap-2">
                         @csrf
                         @method('PATCH')
@@ -955,7 +959,7 @@
                     </button>
                 @endif
 
-                @if(in_array($delivery->status, ['delivered', 'delivery_failed', 'cancelled']))
+                @if($canOverride)
                     <button type="button" @click="overrideOpen = true"
                             class="inline-flex items-center gap-2 bg-white border border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -1065,6 +1069,15 @@
                 @csrf
                 @method('PATCH')
                 <input type="hidden" name="override" value="1">
+                @if($isCodDelivery)
+                    <div class="px-6 pt-4">
+                        <label for="override_amount_received" class="block text-sm font-medium text-gray-700">Cash Received (COD)</label>
+                        <input type="number" name="amount_received" id="override_amount_received" min="0" step="0.01" inputmode="decimal"
+                               class="mt-1 w-full rounded-xl border-gray-300 text-sm" value="{{ old('amount_received') }}">
+                        <p class="mt-1 text-xs text-gray-500">Required when completing a COD delivery. Uploaded proof and a delivery rider are also required.</p>
+                    </div>
+                @endif
+
                 <div class="px-6 py-4 border-b border-gray-100">
                     <h4 class="font-bold text-gray-900">Override Delivery Status?</h4>
                     <p class="text-sm text-gray-500 mt-0.5">
@@ -1077,7 +1090,7 @@
                         <label for="delivery-action-field-5" class="block text-sm font-medium text-gray-700 mb-1">New Status <span class="text-red-500">*</span></label>
                         <select id="delivery-action-field-5" name="status" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                             <option value="">— Select target status —</option>
-                            @foreach(['waiting_for_rider', 'assigned', 'picked_up', 'out_for_delivery'] as $target)
+                            @foreach(($delivery->order_id ? ['picked_up', 'out_for_delivery', 'delivered'] : ['waiting_for_rider', 'assigned', 'picked_up', 'out_for_delivery', 'delivered']) as $target)
                                 @if($target !== $delivery->status)
                                     <option value="{{ $target }}">{{ ucfirst(str_replace('_', ' ', $target)) }}</option>
                                 @endif
@@ -1086,7 +1099,7 @@
                     </div>
                     <div>
                         <label for="delivery-action-field-6" class="block text-sm font-medium text-gray-700 mb-1">Override Reason <span class="text-red-500">*</span></label>
-                        <textarea id="delivery-action-field-6" name="override_reason" required minlength="3" rows="3" placeholder="Explain why this override is necessary..."
+                        <textarea id="delivery-action-field-6" name="override_reason" required minlength="10" maxlength="300" rows="3" placeholder="Explain why this override is necessary..."
                                   class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
                     </div>
                 </div>

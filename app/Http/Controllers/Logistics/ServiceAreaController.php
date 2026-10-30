@@ -137,7 +137,12 @@ class ServiceAreaController extends Controller
     public function destroy(ServiceArea $serviceArea, AuditLogger $audit): RedirectResponse
     {
         $values = $this->auditValues($serviceArea);
-        $serviceArea->delete();
+
+        try {
+            $serviceArea->delete();
+        } catch (\Illuminate\Database\QueryException $e) {
+            return redirect()->back()->with('error', 'Cannot delete this service area while deliveries or riders are linked to it. Deactivate it instead.');
+        }
 
         $audit->record(
             Auth::user(),

@@ -241,7 +241,7 @@ class OrderController extends Controller
                 $allocations = Vouchers::allocateForOrders($lockedClaims->map(fn ($claim) => $lockedVouchers->get($claim->voucher_id)), [
                     'perVoucher' => $perVoucher, 'waived' => $waived,
                 ], $sellerSubtotals);
-                $orders = collect();
+                $orders = new \Illuminate\Database\Eloquent\Collection;
                 $redemptions = [];
                 foreach ($groupIds as $sid) {
                     $storeDiscount = round(array_sum($allocations[$sid] ?? []), 2);

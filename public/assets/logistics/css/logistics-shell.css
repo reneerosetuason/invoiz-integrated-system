@@ -1,16 +1,147 @@
-/* Shared logistics foundation, extracted from the dashboard and workspace themes. */
-body.logistics-shell{--ls-paper:#FBF9F6;--ls-surface:#FFFFFF;--ls-wash:#F1F2ED;--ls-mist:#EAF3F2;--ls-ink:#253C40;--ls-muted:#52676A;--ls-teal:#0E4A57;--ls-rule:#CCDAD6;--ls-brick:#904F46;background:var(--ls-paper);font-family:'Inter',system-ui,sans-serif} /* taste-skill-ignore: Existing INVOIZ ivory palette and reading face. */
-.logistics-shell .app-content>header{background:var(--ls-paper);border:0;backdrop-filter:none} /* taste-skill-ignore: Remove legacy topbar glass; the sidebar is out of scope. */
-.logistics-shell .app-content>header .text-lg{font-family:'Fraunces',Georgia,serif;font-weight:560;color:var(--ls-teal)}
-.logistics-status{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;padding:4px 7px;border-radius:7px;background:var(--ls-wash,#F1F2ED);color:var(--ls-ink,#253C40);font:500 13px/18px 'Inter',system-ui,sans-serif;vertical-align:middle;white-space:nowrap}
-.logistics-status--teal{background:var(--ls-mist,#EAF3F2);color:var(--ls-teal,#0E4A57)}
-.logistics-status--exception{background:var(--ls-wash,#F1F2ED);color:var(--ls-brick,#904F46)}
-.logistics-status-icon{width:14px;height:14px;flex:none}
-.logistics-status-label{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.dark body.logistics-shell{--ls-paper:#122126;--ls-surface:#1C3036;--ls-wash:#233B3F;--ls-mist:#28474C;--ls-ink:#F0F4F1;--ls-muted:#B8CCCA;--ls-teal:#D2EAE4;--ls-rule:#68868A;--ls-brick:#F0B8AB}
+/* =====================================================================
+   Logistics Shell — Clean Seller-matched design tokens & shell layout
+   ===================================================================== */
+:root {
+    --primary: #16697A;
+    --primary-dark: #0E4A57;
+    --secondary: #F0A202;
+    --accent: #EAF4F3;
+    --background: #F7F6F2;
+    --card: #FFFFFF;
+    --text-primary: #1B1B1E;
+    --text-secondary: #6E6E73;
+    --success: #2E8B57;
+    --warning: #E05A33;
+    --gold: #F5A623;
+    --border: #E8E6E0;
+    --surface-soft: #F0EEE9;
 
-.dark .logistics-shell .app-content>header .text-lg{color:#DFEFEB}
+    --ls-canvas: #F7F6F2;
+    --ls-surface: #FFFFFF;
+    --ls-surface-soft: #F0EEE9;
+    --ls-ink: #1B1B1E;
+    --ls-muted: #6E6E73;
+    --ls-rule: #E8E6E0;
+    --ls-accent: #16697A;
+    --ls-accent-strong: #0E4A57;
+    --ls-accent-wash: #EAF4F3;
+    --ls-danger: #E05A33;
+    --ls-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
 
-/* Keep account labels and native-style select indicators readable in dark mode. */
-.dark .logistics-shell .app-content>header [class~="text-[#1F2933]"]{color:var(--ls-ink)}
-.dark .logistics-shell select{--form-select-chevron:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23B8CCCA' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E") no-repeat right .75rem center / 1rem}
+body.logistics-shell {
+    background-color: var(--background);
+    color: var(--text-primary);
+    font-family: var(--ls-sans);
+    -webkit-font-smoothing: antialiased;
+}
+
+body.logistics-shell * {
+    font-family: var(--ls-sans);
+}
+
+/* Topbar & Navigation */
+.logistics-topbar {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border) !important;
+}
+
+.logistics-sidebar {
+    background: #FFFFFF !important;
+    border-right: 1px solid var(--border) !important;
+}
+
+.logistics-sidebar .sidebar-brand,
+.logistics-sidebar .sidebar-footer {
+    border-color: var(--border) !important;
+}
+
+.logistics-sidebar .nav-section {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.logistics-sidebar .sidebar-item {
+    border-radius: 9px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.15s ease;
+}
+
+.logistics-sidebar .sidebar-item:hover {
+    background: var(--surface-soft);
+    color: var(--text-primary);
+}
+
+.logistics-sidebar .sidebar-item.active {
+    background: var(--accent) !important;
+    color: var(--primary) !important;
+    font-weight: 700;
+}
+
+.logistics-sidebar .sidebar-sublink {
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: var(--text-secondary);
+}
+
+.logistics-sidebar .sidebar-sublink.active,
+.logistics-sidebar .sidebar-sublink:hover {
+    color: var(--primary);
+    background: var(--accent);
+}
+
+.logistics-icon-action {
+    border-radius: 10px !important;
+    color: var(--text-secondary) !important;
+}
+
+.logistics-icon-action:hover {
+    background: var(--surface-soft) !important;
+    color: var(--text-primary) !important;
+}
+
+.logistics-UnreadDot {
+    background: var(--warning);
+    color: #fff;
+    border-radius: 999px;
+}
+
+.logistics-popover {
+    background: #FFFFFF !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 10px 30px rgba(27, 27, 30, 0.08) !important;
+}
+
+.logistics-account-trigger {
+    border-radius: 10px !important;
+    border: 1px solid transparent !important;
+}
+
+.logistics-account-trigger:hover {
+    background: var(--surface-soft) !important;
+}
+
+.logistics-avatar {
+    border-radius: 999px !important;
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark)) !important;
+    color: #fff !important;
+    font-weight: 700;
+}
+
+/* Page header */
+.logistics-page-header h1,
+.logistics-page-header h2 {
+    font-family: var(--ls-sans);
+    font-size: 1.5rem;
+    line-height: 1.25;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+}

@@ -1,90 +1,77 @@
-// Presentation only: preserve routes, form fields, Alpine actions and permissions.
-(() => {
-    const init = () => {
-        const root = document.querySelector('.logistics-shell main');
-        if (!root) return;
-        root.querySelectorAll('.lw-get-form > span').forEach((span) => {
-            if (span.textContent.trim().toLowerCase() === 'to'
-                && span.parentElement.querySelectorAll('input[type=date]').length === 2) {
-                span.classList.add('ops-date-separator');
-            }
-        });
-        const wrappers = new Set();
-        const updateOverflow = (wrap) => {
-            const overflow = wrap.scrollWidth > wrap.clientWidth + 2;
-            wrap.style.setProperty('--ops-table-viewport-width', `${wrap.clientWidth}px`);
-            if (wrap._opsHint) wrap._opsHint.hidden = !overflow;
-            if (overflow) wrap.setAttribute('tabindex', '0');
-            else wrap.removeAttribute('tabindex');
-        };
-        const resize = window.ResizeObserver ? new ResizeObserver((entries) => {
-            entries.forEach(({ target }) => {
-                const wrap = target.closest('.ops-table-scroll');
-                if (wrap) updateOverflow(wrap);
-            });
-        }) : null;
-        const prepare = () => root.querySelectorAll('table').forEach((table) => {
-            if (!table.tHead || table.closest('#shipping-label, .shipping-label, [data-print-only]')) return;
-            table.classList.add('ops-table');
-            for (const body of table.tBodies) {
-                if (body.rows.length !== 1 || body.rows[0].cells.length !== 1) continue;
-                const cell = body.rows[0].cells[0];
-                if (cell.colSpan <= 1 || cell.querySelector(':scope > .ops-empty-state')) continue;
-                const empty = document.createElement('div');
-                empty.className = 'ops-empty-state';
-                empty.append(...cell.childNodes);
-                cell.append(empty);
-            }
-            const headers = Array.from(table.tHead.rows[0]?.cells || []);
-            headers.forEach((header) => { if (!header.hasAttribute('scope')) header.scope = 'col'; });
-            const actions = headers.findIndex((header) => /^(actions?|manage|options)$/i.test(header.textContent.trim()));
-            if (actions >= 0) {
-                headers[actions].classList.add('ops-action-heading');
-                for (const body of table.tBodies) for (const row of body.rows) {
-                    if (Array.from(row.cells).some((cell) => cell.colSpan > 1)) continue;
-                    row.cells[actions]?.classList.add('ops-action-cell');
-                }
-            }
-            if (table.dataset.opsPrepared) return;
-            table.dataset.opsPrepared = 'true';
-            let wrap = table.parentElement;
-            if (!wrap.matches('.overflow-x-auto, .lw-table-wrap, .ld-table-wrap, .delivery-table-wrap, .overflow-auto')) {
-                wrap = document.createElement('div');
-                table.before(wrap);
-                wrap.append(table);
-            }
-            wrap.classList.add('ops-table-scroll');
-            wrap.setAttribute('role', 'region');
-            wrap.setAttribute('aria-label', table.caption?.textContent.trim() || wrap.getAttribute('aria-label') || 'Records table');
-            const hint = document.createElement('p');
-            hint.className = 'ops-scroll-hint';
-            hint.textContent = 'Swipe or scroll to see all columns.';
-            hint.hidden = true;
-            wrap.before(hint);
-            wrap._opsHint = hint;
-            wrappers.add(wrap);
-            resize?.observe(wrap);
-            resize?.observe(table);
-            // A table can grow while its viewport stays the same size.
-            requestAnimationFrame(() => updateOverflow(wrap));
-        });
-        prepare();
-        let scheduled = false;
-        new MutationObserver((records) => {
-            if (scheduled || !records.some((record) => record.addedNodes.length)) return;
-            scheduled = true;
-            requestAnimationFrame(() => {
-                scheduled = false;
-                prepare();
-                wrappers.forEach((wrap) => {
-                    if (!wrap.isConnected) { resize?.unobserve(wrap); wrappers.delete(wrap); }
-                    else updateOverflow(wrap);
-                });
-            });
-        }).observe(root, { childList: true, subtree: true });
-        window.addEventListener('resize', () => wrappers.forEach(updateOverflow), { passive: true });
-        document.fonts?.ready.then(() => wrappers.forEach(updateOverflow));
+document.addEventListener('DOMContentLoaded', () => {
+    const closeRecordModal = () => {
+        document.querySelector('.logistics-record-modal-backdrop')?.remove();
     };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
-    else init();
-})();
+
+    const openRecordModal = (payload) => {
+        closeRecordModal();
+        const title = payload.title || 'Record Details';
+        const kicker = payload.kicker || 'Record Overview';
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        const url = payload.url || '';
+        const urlLabel = payload.urlLabel || 'Open Full Page';
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'logistics-record-modal-backdrop';
+        backdrop.innerHTML = `
+            <div class="logistics-record-modal" role="dialog" aria-modal="true" aria-label="${title.replace(/"/g, '&quot;')}">
+                <div class="logistics-record-modal-head">
+                    <div>
+                        <p class="logistics-record-modal-kicker"></p>
+                        <h3 class="logistics-record-modal-title"></h3>
+                    </div>
+                    <button type="button" class="logistics-record-modal-close" aria-label="Close details">&times;</button>
+                </div>
+                <dl class="logistics-record-modal-grid"></dl>
+                <div class="logistics-record-modal-foot">
+                    ${url ? `<a class="btn btn-outline btn-sm" href="${url}"></a>` : ''}
+                    <button type="button" class="btn btn-primary btn-sm logistics-record-modal-done">Close</button>
+                </div>
+            </div>
+        `;
+
+        backdrop.querySelector('.logistics-record-modal-kicker').textContent = kicker;
+        backdrop.querySelector('.logistics-record-modal-title').textContent = title;
+        if (url) {
+            backdrop.querySelector('.logistics-record-modal-foot a').textContent = urlLabel;
+        }
+
+        const list = backdrop.querySelector('.logistics-record-modal-grid');
+        items.forEach(({ label, value, wide }) => {
+            const item = document.createElement('div');
+            item.className = 'logistics-record-modal-item' + (wide ? ' logistics-record-modal-item--wide' : '');
+            const dt = document.createElement('dt');
+            dt.textContent = label || 'Field';
+            const dd = document.createElement('dd');
+            dd.textContent = (value !== null && value !== undefined && String(value).trim() !== '') ? String(value) : '—';
+            item.append(dt, dd);
+            list.appendChild(item);
+        });
+
+        backdrop.addEventListener('click', (event) => {
+            if (event.target === backdrop) closeRecordModal();
+        });
+        backdrop.querySelector('.logistics-record-modal-close')?.addEventListener('click', closeRecordModal);
+        backdrop.querySelector('.logistics-record-modal-done')?.addEventListener('click', closeRecordModal);
+        document.body.appendChild(backdrop);
+        backdrop.querySelector('.logistics-record-modal-close')?.focus();
+    };
+
+    window.openLogisticsRecordModal = openRecordModal;
+
+    document.addEventListener('click', (event) => {
+        const trigger = event.target.closest('[data-view-record]');
+        if (!trigger) return;
+        event.preventDefault();
+        try {
+            const payload = JSON.parse(trigger.getAttribute('data-view-record') || '{}');
+            openRecordModal(payload);
+        } catch (err) {
+            console.error('Invalid data-view-record payload', err);
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeRecordModal();
+    });
+});

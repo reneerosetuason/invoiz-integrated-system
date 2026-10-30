@@ -306,6 +306,6 @@
         @endif
     </div>
     @push('scripts')
-        <script src="{{ asset('assets/logistics/js/rider-applications/review.js') }}?v={{ filemtime(public_path('assets/logistics/js/rider-applications/review.js')) }}" defer></script>
+        <script src="{{ asset('assets/logistics/js/rider-applications/review.js') }}?v={{ @filemtime(public_path('assets/logistics/js/rider-applications/review.js')) ?: 1 }}" defer></script>
     @endpush
 </x-app-layout>

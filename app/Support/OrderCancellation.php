@@ -13,19 +13,25 @@ class OrderCancellation
     public static function byBuyer(Order $order, string $reason, int $buyerId): bool
     {
         abort_unless((int) $order->buyer_id === $buyerId, 403);
-        return self::cancel($order, $reason, $buyerId, false);
+        return self::cancel($order, $reason, $buyerId, false, 'buyer');
     }
 
     public static function bySeller(Order $order, string $reason, int $sellerId): bool
     {
         abort_unless($order->items()->where('seller_id', $sellerId)->exists(), 403);
         abort_if($order->items()->where('seller_id', '!=', $sellerId)->exists(), 409, 'A shared legacy order needs logistics review before cancellation.');
-        return self::cancel($order, $reason, $sellerId, true);
+        return self::cancel($order, $reason, $sellerId, true, 'seller');
     }
 
-    private static function cancel(Order $order, string $reason, int $buyerId, bool $seller): bool
+    public static function byLogistics(Order $order, string $reason, int $actorId): bool
     {
-        return DB::transaction(function () use ($order, $reason, $buyerId, $seller): bool {
+        abort_unless(\App\Models\User::findOrFail($actorId)->isLogisticsStaff(), 403);
+        return self::cancel($order, $reason, $actorId, true, 'logistics');
+    }
+
+    private static function cancel(Order $order, string $reason, int $buyerId, bool $seller, string $actor): bool
+    {
+        return DB::transaction(function () use ($order, $reason, $buyerId, $seller, $actor): bool {
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             if ($locked->status === 'cancelled') {
                 return false;
@@ -53,7 +59,7 @@ class OrderCancellation
                 DeliveryStatusLog::create([
                     'delivery_id' => $delivery->id,
                     'status' => 'cancelled',
-                    'notes' => ($seller ? 'Cancelled by seller: ' : 'Cancelled by buyer: ') . $reason,
+                    'notes' => "Cancelled by {$actor}: ".$reason,
                     'changed_by' => $buyerId,
                 ]);
             }
@@ -64,7 +70,7 @@ class OrderCancellation
                 'order_id' => $locked->id,
                 'from_status' => $from,
                 'to_status' => 'cancelled',
-                'note' => ($seller ? 'Cancelled by seller: ' : 'Cancelled by buyer: ') . $reason,
+                'note' => "Cancelled by {$actor}: ".$reason,
             ]);
             Stock::restoreOrder($locked->load('items'));
             Payments::voidForCancel($locked, strict: true);

@@ -29,7 +29,7 @@ class LogisticsCenter extends Model
 
     public function staff(): HasMany
     {
-        return $this->hasMany(User::class, 'center_id')->where('role', 'staff');
+        return $this->hasMany(User::class, 'center_id')->whereIn('role', ['staff', 'logistics_staff']);
     }
 
     public function deliveries(): HasMany

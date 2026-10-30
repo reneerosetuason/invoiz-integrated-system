@@ -38,7 +38,7 @@ class TrackingController extends Controller
             ])->where('tracking_number', $validated['tracking_number']);
 
             if ($centerId !== null) {
-                $query->where('center_id', $centerId);
+                $query->atOrIncomingTo($centerId);
             }
 
             $delivery = $query->first();

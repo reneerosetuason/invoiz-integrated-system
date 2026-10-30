@@ -93,7 +93,12 @@ class LogisticsCenterController extends Controller
 
     public function destroy(LogisticsCenter $center): RedirectResponse
     {
-        $center->delete();
+        try {
+            $center->delete();
+        } catch (\Illuminate\Database\QueryException $e) {
+            return redirect()->back()->with('error', 'Cannot delete this logistics center while deliveries, riders, staff, or service areas are linked to it. Deactivate it instead.');
+        }
+
         return redirect()->route('centers.index')->with('success', 'Logistics center deleted.');
     }
 }

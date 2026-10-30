@@ -132,14 +132,14 @@ class CheckoutVoucherScopeTest extends TestCase
         $this->assertEquals(180, $savings[$merch->voucher_id]);
         $this->assertEquals(50, $savings[$shipping->voucher_id]);
         $id = $this->postJson('/api/orders/checkout', $this->checkoutData($data))->assertCreated()->json('order.id');
-        $order = Order::findOrFail($id);
+        $order = Order::where('seller_id', $this->b->seller_id)->firstOrFail();
         $this->assertEquals(0, $order->voucherDiscountForSeller($this->a->seller_id));
         $this->assertEquals(180, $order->voucherDiscountForSeller($this->b->seller_id));
         $this->assertEquals(0, $order->shippingWaivedForSeller($this->a->seller_id));
         $this->assertEquals(50, $order->shippingWaivedForSeller($this->b->seller_id));
         $this->assertDatabaseHas('deliveries', ['seller_id' => $this->a->seller_id, 'amount_to_collect' => 150]);
         $this->assertDatabaseHas('deliveries', ['seller_id' => $this->b->seller_id, 'amount_to_collect' => 720]);
-        $this->assertEquals($order->total_amount, Delivery::where('order_id', $id)->sum('amount_to_collect'));
+        $this->assertEquals($order->total_amount, Delivery::where('order_id', $order->id)->sum('amount_to_collect'));
     }
 
     public function test_stacked_discounts_are_capped_and_platform_money_balances_after_store_discount(): void
@@ -150,11 +150,11 @@ class CheckoutVoucherScopeTest extends TestCase
         $data = ['voucher_claim_ids' => [$store->id, $platform->id]];
         $this->postJson('/api/orders/preview', $data)->assertOk()->assertJsonPath('quote.discount', 1000)->assertJsonPath('quote.total', 100);
         $id = $this->postJson('/api/orders/checkout', $this->checkoutData($data))->assertCreated()->json('order.id');
-        $order = Order::findOrFail($id);
-        $this->assertEquals(1000, $order->voucherDiscountTotal());
-        $this->assertEquals(100, $order->voucherDiscountForSeller($this->a->seller_id));
-        $this->assertEquals(900, $order->voucherDiscountForSeller($this->b->seller_id));
-        $this->assertEquals(100, Delivery::where('order_id', $id)->sum('amount_to_collect'));
+        $orders = Order::where('buyer_id', $this->buyer->id)->get();
+        $this->assertEquals(1000, $orders->sum(fn ($order) => $order->voucherDiscountTotal()));
+        $this->assertEquals(100, $orders->firstWhere('seller_id', $this->a->seller_id)->voucherDiscountForSeller($this->a->seller_id));
+        $this->assertEquals(900, $orders->firstWhere('seller_id', $this->b->seller_id)->voucherDiscountForSeller($this->b->seller_id));
+        $this->assertEquals(100, Delivery::whereIn('order_id', $orders->modelKeys())->sum('amount_to_collect'));
     }
 
     public function test_seller_record_and_user_id_collisions_cannot_apply_another_stores_voucher(): void
@@ -222,4 +222,42 @@ class CheckoutVoucherScopeTest extends TestCase
         $foreign = CartItem::create(['cart_id' => Cart::headerFor($this->account('foreign')->id)->id, 'product_id' => $this->a->id, 'quantity' => 1]);
         $this->postJson('/api/vouchers/validate', ['code' => $voucher->code, 'cart_item_ids' => [$foreign->id]])->assertUnprocessable();
     }
+    public function test_platform_redemption_stays_locked_until_all_discounted_store_orders_are_cancelled(): void
+    {
+        $claim = $this->claim($this->voucher(null, ['discount_value' => 99.99]));
+        Sanctum::actingAs($this->buyer);
+        $data = $this->checkoutData(['voucher_claim_id' => $claim->id]);
+        $preview = $this->postJson('/api/orders/preview', $data)->assertOk()->json('quote');
+        $result = $this->postJson('/api/orders/checkout', $data)->assertCreated()->assertJsonCount(2, 'orders');
+        $this->assertEquals($preview['total'], collect($result->json('orders'))->sum('total_amount'));
+        $orders = Order::where('buyer_id', $this->buyer->id)->orderBy('id')->get();
+        $this->assertEquals(99.99, $orders->sum(fn ($order) => $order->voucherDiscountTotal()));
+        \App\Support\OrderCancellation::byBuyer($orders[0], 'Changed my mind', $this->buyer->id);
+        $this->assertNotNull($claim->fresh()->used_at);
+        $this->assertEquals(1, $claim->voucher->fresh()->used_count);
+        \App\Support\OrderCancellation::byBuyer($orders[1], 'Changed my mind', $this->buyer->id);
+        $this->assertNull($claim->fresh()->used_at);
+        $this->assertEquals(0, $claim->voucher->fresh()->used_count);
+        $cart = Cart::headerFor($this->buyer->id);
+        foreach ([$this->a, $this->b] as $product) {
+            $cart->items()->create(['product_id' => $product->id, 'quantity' => 1]);
+        }
+        $this->postJson('/api/orders/checkout', $data)->assertCreated();
+        \App\Support\Vouchers::restoreForOrder($orders[0]->fresh(), strict: true);
+        $this->assertNotNull($claim->fresh()->used_at);
+        $this->assertEquals(1, $claim->voucher->fresh()->used_count);
+    }
+
+    public function test_website_and_mobile_quote_match_for_a_platform_voucher_across_stores(): void
+    {
+        $claim = $this->claim($this->voucher(null, ['discount_value' => 200, 'min_spend' => 500]));
+        Sanctum::actingAs($this->buyer);
+        $preview = $this->postJson('/api/orders/preview', ['voucher_claim_id' => $claim->id])->assertOk()->json('quote');
+        $this->actingAs($this->buyer, 'web')->post('/checkout', [
+            'checkout_mode' => 'all', 'address_id' => $this->address->id, 'payment_method' => 'cod', 'voucher_claim_id' => $claim->id,
+        ])->assertRedirect('/orders')->assertSessionMissing('error');
+        $this->assertEquals($preview['total'], Order::where('buyer_id', $this->buyer->id)->sum('total_amount'));
+        $this->assertEquals(1, $claim->voucher->fresh()->used_count);
+    }
+
 }

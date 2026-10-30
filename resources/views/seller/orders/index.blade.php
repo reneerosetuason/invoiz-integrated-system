@@ -43,6 +43,10 @@
             </thead>
             <tbody>
                 @forelse($orders as $order)
+                    @php
+                        $hubName = $order->delivery?->logisticsCenter?->name ?? $order->delivery?->pickupRequest?->center?->name;
+                        $riderName = $order->delivery?->rider?->name;
+                    @endphp
                     <tr>
                         <td>
                             <a href="{{ route('seller.orders.show', $order->id) }}" class="font-bold text-primary hover:underline">#{{ $order->id }}</a>
@@ -57,7 +61,15 @@
                             <div class="text-[11px] text-ink-light">{{ $order->seller_items->count() }} line(s)</div>
                         </td>
                         <td class="font-bold">{{ peso($order->seller_net ?? $order->seller_subtotal) }}@if((($order->seller_discount ?? 0) + ($order->seller_shipping_waived ?? 0)) > 0)<div class="text-[11px] font-semibold text-successc">−{{ peso(($order->seller_discount ?? 0) + ($order->seller_shipping_waived ?? 0)) }} voucher</div>@endif</td>
-                        <td><span class="badge badge-{{ $order->status }}">{{ order_status_label($order->status) }}</span></td>
+                        <td>
+                            <span class="badge badge-{{ $order->status }}">{{ order_status_label($order->status) }}</span>
+                            @if($hubName)
+                                <div class="mt-1 text-[11px] font-medium text-ink-light">Hub: {{ $hubName }}</div>
+                            @endif
+                            @if($riderName)
+                                <div class="text-[11px] font-semibold text-[#16697A]">Rider: {{ $riderName }}</div>
+                            @endif
+                        </td>
                         <td class="text-ink-light">{{ $order->created_at->format('M j, g:i A') }}</td>
                         <td class="text-right">
                             <a href="{{ route('seller.orders.show', $order->id) }}" class="btn btn-outline btn-sm">

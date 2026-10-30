@@ -62,4 +62,37 @@ void main() {
     expect(delivery.handlingCenterName, 'San Pablo Sorting');
     expect(delivery.hasSortingHandoff, isTrue);
   });
+  test('center leg uses center pickup and waits for staff release', () {
+    final sorted = Delivery.fromJson({
+      ..._base(),
+      'fulfillment_leg': 'delivery',
+      'parcel_status': 'sorted',
+      'pickup_location': {'name': 'Handling Center', 'address': 'Center Street'},
+      'sorting_center_handoff_at': '2026-10-30T10:00:00Z',
+    });
+    expect(sorted.pickup.name, 'Handling Center');
+    expect(sorted.pickup.address, 'Center Street');
+    expect(sorted.canCollectFromCenter, isFalse);
+    expect(sorted.canStartFinalDelivery, isFalse);
+    expect(sorted.copyWith(status: 'accepted').pickup.name, 'Handling Center');
+  });
+
+  test('staff dispatch permits collection; acknowledgement permits departure', () {
+    final released = Delivery.fromJson({
+      ..._base(),
+      'fulfillment_leg': 'delivery',
+      'parcel_status': 'dispatched',
+      'sorting_center_handoff_at': '2026-10-30T10:00:00Z',
+    });
+    expect(released.canCollectFromCenter, isTrue);
+    final collected = Delivery.fromJson({
+      ..._base(),
+      'fulfillment_leg': 'delivery',
+      'parcel_status': 'dispatched',
+      'sorting_center_pickup_at': '2026-10-30T11:00:00Z',
+    });
+    expect(collected.canCollectFromCenter, isFalse);
+    expect(collected.canStartFinalDelivery, isTrue);
+  });
+
 }

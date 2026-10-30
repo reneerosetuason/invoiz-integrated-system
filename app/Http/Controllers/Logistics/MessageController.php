@@ -219,10 +219,10 @@ class MessageController extends Controller
             'body' => $deleted ? '' : $m->body,
             'is_read' => $m->is_read,
             'edited_at' => $m->edited_at?->toISOString(),
-            'created_at' => $m->created_at->toISOString(),
-            'time' => $m->created_at->format('g:i A'),
-            'day' => $m->created_at->format('Y-m-d'),
-            'dayLabel' => $m->created_at->isToday() ? 'Today' : ($m->created_at->isYesterday() ? 'Yesterday' : $m->created_at->format('F j, Y')),
+            'created_at' => $m->created_at?->toISOString() ?? '',
+            'time' => $m->created_at?->format('g:i A') ?? '',
+            'day' => $m->created_at?->format('Y-m-d') ?? '',
+            'dayLabel' => $m->created_at ? ($m->created_at->isToday() ? 'Today' : ($m->created_at->isYesterday() ? 'Yesterday' : $m->created_at->format('F j, Y'))) : '',
             'attachments' => $deleted ? [] : $m->attachments->map(fn ($a) => [
                 'id' => $a->id,
                 'name' => $a->original_filename,
@@ -602,6 +602,7 @@ class MessageController extends Controller
     public function update(Request $request, Message $message): JsonResponse
     {
         $user = $request->user();
+        abort_if(! $message->conversation, 404);
         $this->authorizeConversation($user, $message->conversation);
         abort_unless($message->canBeEditedBy($user), 403, 'You can only edit your own messages.');
 
@@ -624,6 +625,7 @@ class MessageController extends Controller
     public function destroy(Request $request, Message $message): JsonResponse
     {
         $user = $request->user();
+        abort_if(! $message->conversation, 404);
         $this->authorizeConversation($user, $message->conversation);
         abort_unless($message->canBeEditedBy($user), 403, 'You can only delete your own messages.');
 
@@ -661,6 +663,7 @@ class MessageController extends Controller
     {
         $user = auth()->user();
         abort_unless($user instanceof User, 403);
+        abort_if(! $attachment->message || ! $attachment->message->conversation, 404);
         $this->authorizeConversation($user, $attachment->message->conversation);
         abort_unless($attachment->fileExists(), 404, 'Attachment is missing or was deleted.');
         abort_if($attachment->fileSizeOnDisk() === 0, 422, 'Attachment file is empty and cannot be opened.');

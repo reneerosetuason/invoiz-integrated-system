@@ -208,10 +208,12 @@ class Rider extends Model
      */
     public function matchesDestinationCenter(Delivery $delivery): bool
     {
-        // Sorted parcels are matched against their destination. Before sorting,
-        // the handling center is the only known scope, so use it as the fallback
-        // instead of treating an unset destination as a wildcard.
-        $targetCenterId = $delivery->destination_center_id ?? $delivery->center_id;
+        // Sorted parcels are matched against their destination. Before sorting
+        // (or during first-mile seller pickup before hub receipt), the handling
+        // center is the active scope.
+        $targetCenterId = ($delivery->order_id !== null && $delivery->received_at === null)
+            ? ($delivery->center_id ?? $delivery->destination_center_id)
+            : ($delivery->destination_center_id ?? $delivery->center_id);
 
         if ($targetCenterId === null) {
             // A completely unrouted parcel must remain assignable during

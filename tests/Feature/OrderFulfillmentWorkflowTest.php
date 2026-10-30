@@ -118,8 +118,8 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         }
         $manager = $this->identity('logistics_admin');
         $this->assertSame(1, PickupRequest::pendingReview($manager)->count());
-        $delivery->update(['center_id' => $center->id]);
-        $delivery->pickupRequest->update(['center_id' => $center->id, 'status' => 'approved', 'reviewed_at' => now()]);
+        $this->actingAs($manager, 'web')->post(route('pickup-requests.route', $delivery->pickupRequest), ['center_id' => $center->id])->assertRedirect()->assertSessionHas('success');
+        $this->post(route('pickup-requests.approve', $delivery->pickupRequest))->assertRedirect()->assertSessionHas('success');
         $this->actingAs($manager, 'web')->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $pickup->id])
             ->assertRedirect()->assertSessionHas('success');
         Sanctum::actingAs($pickup->user);
@@ -136,7 +136,7 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $this->assertSame('available', $pickup->fresh()->status);
         $this->assertSame('waiting_for_rider', $delivery->fresh()->status);
         $this->actingAs($manager, 'web')->patch(route('deliveries.scan', $delivery))->assertRedirect()->assertSessionHas('success');
-        $area = \App\Models\ServiceArea::create(['center_id' => $center->id, 'name' => 'Audit Area', 'is_active' => true]);
+        $area = \App\Models\ServiceArea::create(['logistics_center_id' => $center->id, 'name' => 'Audit Area', 'is_active' => true]);
         $this->post(route('deliveries.sort', $delivery), ['destination_center_id' => $center->id, 'service_area_id' => $area->id])->assertRedirect()->assertSessionHas('success');
         $this->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $lastMile->id])->assertRedirect()->assertSessionHas('success');
         Sanctum::actingAs($lastMile->user);
@@ -155,9 +155,12 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $this->assertSame($lastMile->id, $delivery->fresh()->sorting_center_pickup_rider_id);
         $this->assertDatabaseHas('rider_earnings', ['delivery_id' => $delivery->id, 'rider_id' => $lastMile->id, 'amount' => 50]);
         $this->assertDatabaseHas('remittances', ['delivery_id' => $delivery->id]);
+        $this->assertDatabaseHas('delivery_proofs', ['delivery_id' => $delivery->id, 'type' => 'otp']);
         $this->assertSame(1, $order->statusHistories()->where('to_status', 'delivered')->count());
         Sanctum::actingAs($pickup->user);
         $this->getJson('/api/logistics/rider/history')->assertOk()->assertJsonPath('history.0.status', 'pickup_completed')->assertJsonPath('history.0.earned', 0);
+        $this->getJson($base)->assertOk()->assertJsonPath('delivery.read_only', true);
+        $this->getJson('/api/logistics/rider/history?status=delivered')->assertOk()->assertJsonCount(0, 'history');
     }
 
     public function test_pending_and_rejected_pickups_cannot_be_assigned_or_accepted(): void
@@ -183,6 +186,7 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $order->update(['status' => 'out_for_delivery']);
         $this->post(route('seller.orders.status', $order), ['action' => 'deliver'])->assertRedirect()->assertSessionHas('error');
         $this->assertSame('out_for_delivery', $order->fresh()->status);
+        $this->get(route('seller.orders.show', $order))->assertOk()->assertDontSee('value="deliver"', false)->assertDontSee('value="handover"', false);
     }
 
     public function test_seller_cancellation_cancels_work_releases_rider_and_cannot_repeat_stock_restoration(): void
@@ -220,6 +224,132 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
             $this->assertCount(1, $order->items);
             $this->assertCount(1, $order->deliveries);
             $this->assertSame((int) $order->seller_id, (int) $order->delivery->seller_id);
+        }
+    }
+
+    public function test_cross_center_transfer_requires_destination_receipt_before_final_assignment(): void
+    {
+        $origin = $this->center();
+        $destination = LogisticsCenter::create(['name' => 'Destination', 'address' => '4 Audit Street', 'city' => 'Audit City', 'is_active' => true]);
+        $other = LogisticsCenter::create(['name' => 'Unrelated', 'address' => '5 Audit Street', 'city' => 'Audit City', 'is_active' => true]);
+        $rider = $this->rider($destination);
+        [$order] = $this->order('out_for_delivery');
+        $delivery = Delivery::create([
+            'order_id' => $order->id, 'seller_id' => $order->seller_id, 'center_id' => $origin->id,
+            'destination_center_id' => $destination->id, 'status' => 'waiting_for_rider', 'parcel_status' => 'sorted',
+            'received_at' => now(), 'scanned_at' => now(), 'sorted_at' => now(), 'sorting_center_handoff_at' => now(),
+        ]);
+        $manager = $this->identity('logistics_admin');
+        $this->actingAs($manager, 'web')->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $rider->id])->assertStatus(409);
+        $this->post(route('deliveries.dispatch', $delivery))->assertRedirect()->assertSessionHas('success');
+        $staff = $this->identity('logistics_staff');
+        $staff->update(['center_id' => $destination->id]);
+        $this->actingAs($staff, 'web')->get(route('sorting-center.index', ['tab' => 'incoming']))->assertOk()->assertSee($delivery->tracking_number);
+        $this->post(route('deliveries.receive', $delivery), ['center_id' => $destination->id])->assertRedirect()->assertSessionHas('success');
+        $this->assertSame($destination->id, $delivery->fresh()->center_id);
+        $this->assertSame('received', $delivery->fresh()->parcel_status);
+        $this->assertNull($delivery->fresh()->sorted_at);
+        $this->assertDatabaseHas('delivery_status_logs', ['delivery_id' => $delivery->id, 'status' => 'dispatched']);
+        $staff->update(['center_id' => $other->id]);
+        $this->actingAs($staff->fresh(), 'web')->patch(route('deliveries.scan', $delivery))->assertForbidden();
+    }
+
+    public function test_valid_delivery_completion_rolls_back_order_proof_and_cash_when_ledger_fails(): void
+    {
+        $rider = $this->rider($this->center());
+        [$order] = $this->order('out_for_delivery');
+        $delivery = $this->shipment($order, $rider, 'out_for_delivery');
+        $this->mock(\App\Http\Controllers\Logistics\TransactionController::class, function ($mock) {
+            $mock->shouldReceive('storeForDelivery')->once()->andThrow(new \RuntimeException('Simulated ledger outage'));
+        });
+        Sanctum::actingAs($rider->user);
+        $otp = app(DeliveryOtpService::class)->ensureFor($delivery);
+        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", ['otp' => $otp, 'amount_received' => 150])->assertStatus(500);
+        $this->assertSame('out_for_delivery', $order->fresh()->status);
+        $this->assertSame('out_for_delivery', $delivery->fresh()->status);
+        $this->assertNull($delivery->fresh()->cod_amount_received);
+        $this->assertDatabaseMissing('order_status_histories', ['order_id' => $order->id, 'to_status' => 'delivered']);
+        $this->assertDatabaseMissing('delivery_proofs', ['delivery_id' => $delivery->id]);
+        $this->assertDatabaseMissing('rider_earnings', ['delivery_id' => $delivery->id]);
+    }
+
+    public function test_physical_pickup_prevents_cancellation_even_with_a_stale_order_status(): void
+    {
+        $rider = $this->rider($this->center());
+        [$order, $seller] = $this->order('processing');
+        $delivery = $this->shipment($order, $rider, 'picked_up', ['picked_up_at' => now()]);
+        $this->actingAs($seller, 'web')->withSession(['active_role' => 'seller'])
+            ->post(route('seller.orders.status', $order), ['action' => 'cancel'])->assertSessionHasErrors('order');
+        $this->assertSame('processing', $order->fresh()->status);
+        $this->assertSame('picked_up', $delivery->fresh()->status);
+    }
+
+    public function test_repair_is_previewed_by_default_and_never_restores_stock_twice(): void
+    {
+        $rider = $this->rider($this->center());
+        [$order, , $buyer] = $this->order('cancelled');
+        $address = $this->buyerAddress($buyer);
+        $order->update(['address_id' => $address->id, 'shipping_address' => $address->toShippingSnapshot()]);
+        $delivery = $this->shipment($order, $rider, 'assigned', ['sender_address' => null, 'recipient_address' => null]);
+        $product = $order->items->first()->product;
+        $stock = $product->stock;
+        $this->artisan('orders:repair-fulfillment', ['--order' => $order->id])->assertSuccessful();
+        $this->assertSame('assigned', $delivery->fresh()->status);
+        $this->assertSame(0, $delivery->items()->count());
+        $this->artisan('orders:repair-fulfillment', ['--order' => $order->id, '--apply' => true])->assertSuccessful();
+        $this->assertSame('cancelled', $delivery->fresh()->status);
+        $this->assertSame(1, $delivery->items()->count());
+        $this->assertStringContainsString('Audit Street', $delivery->fresh()->recipient_address);
+        $this->artisan('orders:repair-fulfillment', ['--order' => $order->id, '--apply' => true])->assertSuccessful();
+        $this->assertSame($stock, $product->fresh()->stock);
+        $this->assertSame(1, $delivery->statusLogs()->where('status', 'cancelled')->count());
+    }
+
+    public function test_rescheduling_a_rejected_pickup_requires_another_logistics_review(): void
+    {
+        [$order, $seller] = $this->order('ready_for_delivery');
+        $delivery = app(\App\Services\OrderShipmentService::class)->ensure($order);
+        $delivery->pickupRequest->update(['status' => 'rejected', 'rejection_reason' => 'Choose a later pickup date.']);
+        $tracking = $delivery->tracking_number;
+        $this->actingAs($seller, 'web')->withSession(['active_role' => 'seller'])->post(route('seller.orders.pickup', $order), [
+            'courier' => 'INVOIZ Logistics', 'pickup_at' => now()->addDay()->toDateString(), 'notes' => 'Rescheduled pickup',
+        ])->assertRedirect()->assertSessionHas('success');
+        $this->assertSame('pending', $delivery->pickupRequest->fresh()->status);
+        $this->assertSame(1, $delivery->pickupRequest()->count());
+        $this->assertSame($tracking, $delivery->fresh()->tracking_number);
+        $this->assertSame('ready_for_delivery', $order->fresh()->status);
+        $this->assertDatabaseHas('delivery_status_logs', ['delivery_id' => $delivery->id, 'status' => 'pickup_resubmitted']);
+    }
+
+    public function test_failed_final_leg_can_retry_with_the_same_rider_but_cannot_swap_custody_without_return(): void
+    {
+        $center = $this->center();
+        $rider = $this->rider($center);
+        $other = $this->rider($center);
+        [$order] = $this->order('out_for_delivery');
+        $delivery = $this->shipment($order, $rider, 'delivery_failed', [
+            'parcel_status' => 'dispatched', 'received_at' => now()->subHours(3),
+            'sorted_at' => now()->subHours(2), 'sorting_center_pickup_at' => now()->subHour(),
+            'sorting_center_pickup_rider_id' => $rider->id, 'reattempt_requested_at' => now(),
+        ]);
+        $this->actingAs($this->identity('logistics_admin'), 'web')->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $other->id])->assertStatus(409);
+        $this->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $rider->id])->assertRedirect()->assertSessionHas('success');
+        $this->assertNotNull($delivery->fresh()->sorting_center_pickup_at);
+        $this->assertNull($delivery->fresh()->reattempt_requested_at);
+        Sanctum::actingAs($rider->user);
+        $this->patchJson("/api/logistics/rider/deliveries/{$delivery->id}/status", ['status' => 'out_for_delivery'])->assertOk();
+    }
+
+    public function test_workload_release_keeps_offline_and_inactive_account_settings(): void
+    {
+        foreach (['delivering' => 'available', 'inactive' => 'inactive'] as $before => $after) {
+            $rider = $this->rider($this->center());
+            $rider->update(['status' => $before, 'is_online' => false]);
+            [$order, $seller] = $this->order('processing');
+            $this->shipment($order, $rider, 'assigned');
+            \App\Support\OrderCancellation::bySeller($order, 'Store cancelled', $seller->id);
+            $this->assertSame($after, $rider->fresh()->status);
+            $this->assertFalse($rider->fresh()->is_online);
         }
     }
 }

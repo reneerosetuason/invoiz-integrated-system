@@ -83,8 +83,8 @@ class HistoryEntry {
       trackingNumber: json['tracking_number'] as String? ?? '',
       shopName: json['shop_name'] as String? ?? '',
       customerName: json['customer_name'] as String? ?? '',
-      deliveredAt: json['delivered_at'] != null
-          ? DateTime.tryParse(json['delivered_at'].toString())?.toLocal()
+      deliveredAt: (json['completed_at'] ?? json['delivered_at']) != null
+          ? DateTime.tryParse((json['completed_at'] ?? json['delivered_at']).toString())?.toLocal()
           : null,
       status: json['status'] as String? ?? '',
       statusLabel: json['status_label'] as String? ?? '',

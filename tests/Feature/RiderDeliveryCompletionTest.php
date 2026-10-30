@@ -276,8 +276,8 @@ class RiderDeliveryCompletionTest extends TestCase
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
             'proof_type' => 'signature',
         ])
-            ->assertStatus(500)
-            ->assertJsonPath('message', 'Delivery completion failed. No changes were saved.');
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'This order is cancelled or unavailable.');
 
         $this->assertSame('out_for_delivery', $delivery->fresh()->status);
         $this->assertNull($delivery->fresh()->delivered_at);
@@ -576,8 +576,8 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_received' => 170,
             'proof_type' => 'signature',
         ])
-            ->assertStatus(500)
-            ->assertJsonPath('message', 'Delivery completion failed. No changes were saved.');
+            ->assertStatus(409)
+            ->assertJsonPath('message', 'This order is cancelled or unavailable.');
 
         $fresh = $delivery->fresh();
         $this->assertSame('out_for_delivery', $fresh->status);
@@ -664,7 +664,7 @@ class RiderDeliveryCompletionTest extends TestCase
 
         $this->actingAs($this->admin())
             ->patch("/logistics/deliveries/{$delivery->id}/update-status", [
-                'status' => 'delivered',
+                'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
             ])
             ->assertRedirect();
 
@@ -709,10 +709,9 @@ class RiderDeliveryCompletionTest extends TestCase
 
         $this->actingAs($this->admin())
             ->patch("/logistics/deliveries/{$delivery->id}/update-status", [
-                'status' => 'delivered',
+                'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
             ])
-            ->assertRedirect()
-            ->assertSessionHas('error');
+            ->assertStatus(409);
 
         $this->assertSame('out_for_delivery', $delivery->fresh()->status);
         $this->assertNull($delivery->fresh()->delivered_at);
@@ -764,7 +763,7 @@ class RiderDeliveryCompletionTest extends TestCase
 
         $this->actingAs($this->admin())
             ->patch("/logistics/deliveries/{$delivery->id}/update-status", [
-                'status' => 'delivered',
+                'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
                 'amount_received' => 170,
             ])
             ->assertRedirect()
@@ -810,7 +809,7 @@ class RiderDeliveryCompletionTest extends TestCase
 
         $this->actingAs($this->admin())
             ->patch("/logistics/deliveries/{$delivery->id}/update-status", [
-                'status' => 'delivered',
+                'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
             ])
             ->assertRedirect()
             ->assertSessionHasErrors('amount_received');
@@ -843,7 +842,7 @@ class RiderDeliveryCompletionTest extends TestCase
         foreach (['-1', 'not-a-number'] as $invalidAmount) {
             $this->actingAs($admin)
                 ->patch("/logistics/deliveries/{$delivery->id}/update-status", [
-                    'status' => 'delivered',
+                    'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
                     'amount_received' => $invalidAmount,
                 ])
                 ->assertRedirect()
@@ -871,7 +870,7 @@ class RiderDeliveryCompletionTest extends TestCase
 
         $this->actingAs($this->admin())
             ->patch("/logistics/deliveries/{$delivery->id}/update-status", [
-                'status' => 'delivered',
+                'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
                 'amount_received' => 165,
             ])
             ->assertRedirect()
@@ -902,7 +901,7 @@ class RiderDeliveryCompletionTest extends TestCase
         $this->proof($delivery, $rider);
 
         $admin = $this->admin();
-        $payload = ['status' => 'delivered', 'amount_received' => 170];
+        $payload = ['status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.', 'amount_received' => 170];
 
         $this->actingAs($admin)
             ->patch("/logistics/deliveries/{$delivery->id}/update-status", $payload)
@@ -941,7 +940,7 @@ class RiderDeliveryCompletionTest extends TestCase
         $delivery->forceFill(['status' => 'delivered', 'delivered_at' => now()])->save();
 
         $request = Request::create(route('deliveries.update-status', $stale), 'PATCH', [
-            'status' => 'delivered',
+            'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
         ]);
         $request->setLaravelSession(app('session')->driver());
         app()->instance('request', $request);
@@ -986,7 +985,7 @@ class RiderDeliveryCompletionTest extends TestCase
 
         $this->actingAs($this->staff($homeCenter->id))
             ->patch("/logistics/deliveries/{$delivery->id}/update-status", [
-                'status' => 'delivered',
+                'status' => 'delivered', 'override' => 1, 'override_reason' => 'Verified exceptional delivery completion with staff proof.',
                 'amount_received' => 170,
             ])
             ->assertForbidden();

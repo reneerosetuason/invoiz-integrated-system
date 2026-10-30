@@ -8,6 +8,9 @@ class Delivery {
     required this.id,
     required this.trackingNumber,
     this.orderId,
+    this.pickupLocation,
+    this.fulfillmentLeg,
+    this.readOnly = false,
     required this.status,
     required this.statusLabel,
     required this.shop,
@@ -45,6 +48,14 @@ class Delivery {
   final int id;
   final String trackingNumber;
   final int? orderId;
+  final Shop? pickupLocation;
+  final String? fulfillmentLeg;
+  final bool readOnly;
+
+  Shop get pickup => pickupLocation ?? shop;
+  bool get isCenterLeg => fulfillmentLeg == 'delivery' || sortingCenterHandoffAt != null && const ['assigned', 'accepted'].contains(status);
+  bool get canCollectFromCenter => isCenterLeg && parcelStatus == 'dispatched' && !hasSortingPickup && const ['assigned', 'accepted'].contains(status);
+  bool get canStartFinalDelivery => isCenterLeg && hasSortingPickup && const ['assigned', 'accepted'].contains(status);
   final String status;
   final String statusLabel;
   final Shop shop;
@@ -90,7 +101,7 @@ class Delivery {
 
   bool get isCashOnDelivery => paymentMethod == 'cash_on_delivery';
 
-  bool get isActive => const [
+  bool get isActive => !readOnly && const [
     'assigned',
     'accepted',
     'going_to_pickup',
@@ -164,6 +175,9 @@ class Delivery {
       id: (json['id'] as num?)?.toInt() ?? 0,
       trackingNumber: json['tracking_number'] as String? ?? '',
       orderId: (json['order_id'] as num?)?.toInt(),
+      fulfillmentLeg: json['fulfillment_leg'] as String?,
+      readOnly: json['read_only'] as bool? ?? false,
+      pickupLocation: json['pickup_location'] is Map<String, dynamic> ? Shop.fromJson(json['pickup_location'] as Map<String, dynamic>) : null,
       status: json['status'] as String? ?? 'waiting_for_rider',
       statusLabel: json['status_label'] as String? ?? '',
       shop: Shop.fromJson((json['shop'] as Map<String, dynamic>?) ?? const {}),
@@ -220,6 +234,9 @@ class Delivery {
       id: id,
       trackingNumber: trackingNumber,
       orderId: orderId,
+      pickupLocation: pickupLocation,
+      fulfillmentLeg: fulfillmentLeg,
+      readOnly: readOnly,
       status: status ?? this.status,
       statusLabel: statusLabel ?? this.statusLabel,
       shop: shop,

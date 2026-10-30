@@ -37,7 +37,7 @@ class SortingCenterController extends Controller
         $base = $this->baseQuery($context);
 
         $counts = [
-            'incoming' => (clone $base)->where('parcel_status', 'pending_arrival')->count(),
+            'incoming' => (clone $base)->incoming($context['staffCenterId'])->count(),
             'received' => (clone $base)->where('parcel_status', 'received')->count(),
             'scanned' => (clone $base)->where('parcel_status', 'scanned')->count(),
             'sorted' => (clone $base)->where('parcel_status', 'sorted')->count(),
@@ -79,6 +79,8 @@ class SortingCenterController extends Controller
             'serviceAreaId' => $context['serviceAreaId'],
             'centers' => $centers->get(),
             'serviceAreas' => $serviceAreas->get(),
+            'destinationCenters' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
+            'destinationAreas' => ServiceArea::where('is_active', true)->orderBy('name')->get(),
             'staffCenterId' => $context['staffCenterId'],
         ]);
     }
@@ -192,7 +194,7 @@ class SortingCenterController extends Controller
             if ($context['staffCenterId'] === 0) {
                 $query->whereRaw('1 = 0');
             } else {
-                $query->where('center_id', $context['staffCenterId']);
+                $query->atOrIncomingTo($context['staffCenterId']);
             }
         }
 
@@ -211,7 +213,7 @@ class SortingCenterController extends Controller
         }
 
         match ($context['tab']) {
-            'incoming' => $query->where('parcel_status', 'pending_arrival'),
+            'incoming' => $query->incoming($context['staffCenterId']),
             'received' => $query->where('parcel_status', 'received'),
             'scanned' => $query->where('parcel_status', 'scanned'),
             'sorted' => $query->where('parcel_status', 'sorted'),

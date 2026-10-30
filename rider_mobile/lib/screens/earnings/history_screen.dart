@@ -128,6 +128,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 ),
                 const SizedBox(width: 8),
                 _FilterChip(
+                  label: 'Pickups',
+                  selected: _status == 'pickup_completed',
+                  onPressed: () {
+                    setState(() => _status = 'pickup_completed');
+                    _reload(provider);
+                  },
+                ),
+                const SizedBox(width: 8),
+                _FilterChip(
                   label: 'Failed',
                   selected: _status == 'failed',
                   onPressed: () {
@@ -272,7 +281,7 @@ class _HistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDelivered = entry.status == 'delivered';
+    final isDelivered = entry.status == 'delivered' || entry.status == 'pickup_completed';
     final isLostOrDamaged =
         entry.status == 'lost' || entry.status == 'damaged';
     final color = isDelivered

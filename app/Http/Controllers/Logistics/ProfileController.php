@@ -56,7 +56,12 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = $request->user();
-        $user->fill($request->validated());
+        $data = collect($request->validated())->except('photo')->all();
+        if (array_key_exists('phone', $data) && $data['phone'] === null) {
+            $data['phone'] = $user->phone ?? '';
+        }
+
+        $user->fill($data);
         $user->save();
 
         if ($request->hasFile('photo')) {

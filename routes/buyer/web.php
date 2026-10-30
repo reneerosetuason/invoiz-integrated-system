@@ -303,6 +303,8 @@ Route::post('/checkout', function(Request $request){
       $sellerSubtotals = collect($bySeller)->map(fn($sLines) => (float) $sLines->sum('line'))->all();
       $checkoutStack = \App\Support\Vouchers::resolveStack($allVouchers, array_sum($sellerSubtotals), array_keys($sellerSubtotals), $sellerSubtotals);
       if ($checkoutStack['error']) throw new \Exception($checkoutStack['error']);
+      $allocations = \App\Support\Vouchers::allocateForOrders($allVouchers, $checkoutStack, $sellerSubtotals);
+      $redemptions = [];
       foreach($bySeller as $groupSid => $sLines){
         if ($pickupProblem = \App\Support\DeliveryServiceability::pickupAddressProblem((int) $groupSid)) {
           throw new \Exception($pickupProblem);
@@ -313,19 +315,8 @@ Route::post('/checkout', function(Request $request){
         }
         $subtotal = $sLines->sum('line');
         $sellerIds = $sLines->map(fn($l) => (int) $l['product']->seller_id)->unique()->values()->all();
-        $isFirstGroup = ($groupIndex === 0);
-        $groupVouchers = $allVouchers->filter(function($v) use ($groupSid, $isFirstGroup, $consumedClaimIds){
-          if (isset($consumedClaimIds[$v->id])) return false;
-          if ($v->seller_id) return \App\Support\Vouchers::sellerUserId($v) === (int) $groupSid;
-          return $isFirstGroup;
-        })->values();
-        $merch = 0.0; $waived = 0.0; $stack = ['perVoucher' => []];
-        if ($groupVouchers->isNotEmpty()) {
-          $stack = \App\Support\Vouchers::resolveStack($groupVouchers, $subtotal, $sellerIds);
-          if ($stack['error']) throw new \Exception($stack['error']);
-          $merch = $stack['merch'];
-          $waived = round(array_sum($stack['waived']), 2);
-        }
+        $waived = (float) ($checkoutStack['waived'][$groupSid] ?? 0);
+        $merch = round(array_sum($allocations[$groupSid] ?? []) - $waived, 2);
         $shipping = \App\Models\Order::SHIPPING_FEE_PER_SELLER;
         $total = round($subtotal - $merch + $shipping - $waived, 2);
         $order = \App\Models\Order::create(['seller_id'=>(int) $groupSid,'buyer_id'=>$buyer['id'],'address_id'=>$addr->id,'shipping_address'=>$addr->toShippingSnapshot(),'total_amount'=>$total,'total'=>$total,'sub_total'=>$subtotal,'discount_total'=>round($merch + $waived, 2),'shipping_fee'=>round($shipping - $waived, 2),'status'=>'pending']);
@@ -335,11 +326,15 @@ Route::post('/checkout', function(Request $request){
           \App\Models\OrderItem::create(['order_id'=>$order->id,'product_id'=>$l['product']->id,'product_variant_id'=>$l['variant']?->id,'seller_id'=>$l['product']->seller_id,'product_name'=>$l['product']->name,'variant_label'=>$l['label'],'quantity'=>$l['qty'],'price'=>$l['unit'],'unit_price'=>$l['unit'],'total_price'=>$l['line']]);
           $l['item']->delete();
         }
-        foreach ($stack['perVoucher'] ?? [] as $vid => $amt) {
-          \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$vid,'discount_amount'=>round(($amt['merch'] ?? 0) + ($amt['waived'] ?? 0), 2)]);
-          \App\Models\Voucher::whereKey($vid)->increment('used_count');
-          $consumedClaimIds[$vid] = true;
-          if (isset($claimsByVoucher[$vid])) $claimsByVoucher[$vid]->update(['order_id' => $order->id, 'used_at' => now()]);
+        foreach ($allocations[$groupSid] ?? [] as $vid => $amount) {
+          if ($amount <= 0) continue;
+          $redemptions[$vid] ??= $order->id;
+          \App\Models\OrderVoucher::create(['order_id'=>$order->id,'voucher_id'=>$vid,'redemption_order_id'=>$redemptions[$vid],'discount_amount'=>$amount]);
+          if (! isset($consumedClaimIds[$vid])) {
+            \App\Models\Voucher::whereKey($vid)->increment('used_count');
+            $consumedClaimIds[$vid] = true;
+            if (isset($claimsByVoucher[$vid])) $claimsByVoucher[$vid]->update(['order_id' => $order->id, 'used_at' => now()]);
+          }
         }
         $groupIndex++;
         if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);

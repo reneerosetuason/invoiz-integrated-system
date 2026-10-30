@@ -36,7 +36,6 @@ class OrderShipmentService
             if ($delivery && (int) $delivery->seller_id !== $sellerId) {
                 throw ValidationException::withMessages(['order' => 'Shipment ownership does not match the order. Please ask logistics to review it.']);
             }
-            $new = ! $delivery;
             $delivery ??= new Delivery([
                 'order_id' => $order->id, 'seller_id' => $sellerId,
                 'status' => 'waiting_for_rider', 'parcel_status' => 'pending_arrival',
@@ -46,7 +45,7 @@ class OrderShipmentService
             ]);
             // Never replace a courier's existing snapshot during a repair.
             foreach ([
-                'sender_name' => $store?->business_name ?: $store?->user?->name,
+                'sender_name' => $store?->display_name ?: $store?->user?->name,
                 'sender_phone' => $store?->user?->phone,
                 'sender_address' => $store?->fullAddress(),
                 'recipient_name' => $address['recipient_name'] ?? $order->buyer?->name,
@@ -67,9 +66,11 @@ class OrderShipmentService
                     ]);
                 }
             }
-            if (! in_array($order->status, ['cancelled', 'delivered'], true) && ! $delivery->picked_up_at) {
+            if (! in_array($order->status, ['cancelled', 'delivered'], true) && ! $delivery->picked_up_at
+                && in_array($delivery->status, ['waiting_for_rider', 'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop'], true)) {
                 PickupRequest::openForDelivery($delivery, $notify && $order->status === 'ready_for_delivery');
             }
+
             return $delivery;
         }, 3);
     }

@@ -18,6 +18,10 @@ class BuyerSecurityRegressionTest extends TestCase
     {
         parent::setUp();
         $this->createMobileDatabase();
+        Schema::create('seller_notifications', function (Blueprint $t) {
+            $t->id(); $t->integer('seller_id'); $t->integer('order_id')->nullable(); $t->integer('product_id')->nullable();
+            $t->string('type'); $t->string('title'); $t->text('body')->nullable(); $t->boolean('is_read')->default(false); $t->timestamps();
+        });
         Schema::create('remittances', function (Blueprint $t) {
             $t->id(); $t->integer('order_id'); $t->integer('delivery_id')->nullable();
             $t->integer('seller_id'); $t->integer('rider_id')->nullable();

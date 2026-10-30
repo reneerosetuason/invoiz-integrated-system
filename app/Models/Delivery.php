@@ -41,6 +41,27 @@ class Delivery extends Model
         return self::STATUS_GROUPS[$key] ?? null;
     }
 
+    public function isIncomingTransfer(?int $centerId = null): bool
+    {
+        return $this->status === 'waiting_for_rider' && $this->parcel_status === 'dispatched' && $this->rider_id === null
+            && $this->destination_center_id && (int) $this->destination_center_id !== (int) $this->center_id
+            && ($centerId === null || (int) $this->destination_center_id === $centerId);
+    }
+
+    public function scopeAtOrIncomingTo($query, int $centerId)
+    {
+        return $query->where(fn ($q) => $q->where('deliveries.center_id', $centerId)->orWhere(fn ($incoming) => $incoming
+            ->where('deliveries.destination_center_id', $centerId)->whereColumn('deliveries.destination_center_id', '!=', 'deliveries.center_id')
+            ->where('deliveries.status', 'waiting_for_rider')->where('deliveries.parcel_status', 'dispatched')->whereNull('deliveries.rider_id')));
+    }
+
+    public function scopeIncoming($query, ?int $centerId = null)
+    {
+        return $query->where(fn ($q) => $q->where('deliveries.parcel_status', 'pending_arrival')->orWhere(fn ($transfer) => $transfer
+            ->where('deliveries.status', 'waiting_for_rider')->where('deliveries.parcel_status', 'dispatched')->whereNull('deliveries.rider_id')->whereColumn('deliveries.destination_center_id', '!=', 'deliveries.center_id')
+            ->when($centerId !== null, fn ($dest) => $dest->where('deliveries.destination_center_id', $centerId))));
+    }
+
     protected $fillable = [
         'tracking_number',
         'order_id',
@@ -280,6 +301,6 @@ class Delivery extends Model
 
     public function scopeNotArchived($query)
     {
-        return $query->whereNull('archived_at');
+        return $query->whereNull('deliveries.archived_at');
     }
 }

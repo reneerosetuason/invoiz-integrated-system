@@ -209,7 +209,7 @@ class BuyerMobileIntegrationTest extends TestCase
         $this->assertEquals(200, $quote['subtotal']);
         $this->assertEquals(Order::SHIPPING_FEE_PER_SELLER, $quote['shipping_fee']);
         $response = $this->postJson('/api/orders/checkout', $selection + ['address_id' => $address->id, 'payment_method' => 'cash_on_delivery'])->assertCreated();
-        $this->assertEquals($quote['total'], $response->json('order.total_amount'));
+        $this->assertEquals($quote['total'], collect($response->json('orders'))->sum('total_amount'));
         $id = $response->json('order.id');
         $this->assertSame($id, Delivery::firstOrFail()->order_id);
         $this->assertDatabaseHas('order_items', ['order_id' => $id, 'seller_id' => $product->seller_id]);
@@ -232,7 +232,7 @@ class BuyerMobileIntegrationTest extends TestCase
         $quote = $this->postJson('/api/orders/preview', ['voucher_claim_id' => $claim])->assertOk()->json('quote');
         $this->assertEquals(10, $quote['discount']);
         $response = $this->postJson('/api/orders/checkout', ['address_id' => $address->id, 'payment_method' => 'cash_on_delivery', 'voucher_claim_id' => $claim])->assertCreated();
-        $this->assertEquals($quote['total'], $response->json('order.total_amount'));
+        $this->assertEquals($quote['total'], collect($response->json('orders'))->sum('total_amount'));
         $this->assertNotNull(VoucherClaim::findOrFail($claim)->used_at);
     }
 
@@ -419,7 +419,7 @@ class BuyerMobileIntegrationTest extends TestCase
         $quote = $this->postJson('/api/orders/preview', ['voucher_claim_id' => $id])->assertOk()->json('quote');
         $this->assertEquals(Order::SHIPPING_FEE_PER_SELLER, $quote['shipping_discount']);
         $response = $this->postJson('/api/orders/checkout', ['address_id' => $address->id, 'payment_method' => 'cash_on_delivery', 'voucher_claim_id' => $id])->assertCreated();
-        $this->assertEquals($quote['total'], $response->json('order.total_amount'));
+        $this->assertEquals($quote['total'], collect($response->json('orders'))->sum('total_amount'));
         $this->assertDatabaseCount('deliveries', 2);
     }
 

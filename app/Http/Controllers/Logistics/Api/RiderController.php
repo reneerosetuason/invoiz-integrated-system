@@ -262,6 +262,7 @@ class RiderController extends Controller
             'id' => $delivery->id,
             'tracking_number' => $delivery->tracking_number,
             'order_id' => $delivery->order_id,
+            'read_only' => auth()->user()?->rider && (int) $delivery->rider_id !== (int) auth()->user()->rider->id,
             'status' => $delivery->status,
             'status_label' => $this->statusLabel($delivery->status),
             'parcel_status' => $delivery->parcel_status,

@@ -23,12 +23,13 @@
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app.css') }}">
         <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-        <link rel="stylesheet" href="{{ asset('assets/shared/css/app-sidebar.css') }}?v={{ filemtime(public_path('assets/shared/css/app-sidebar.css')) }}">
-        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-shell.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-shell.css')) }}">
+        <link rel="stylesheet" href="{{ asset('assets/shared/css/app.css') }}?v={{ @filemtime(public_path('assets/shared/css/app.css')) ?: 1 }}">
+        <link rel="stylesheet" href="{{ asset('assets/shared/css/app-sidebar.css') }}?v={{ @filemtime(public_path('assets/shared/css/app-sidebar.css')) ?: 1 }}">
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-shell.css') }}?v={{ @filemtime(public_path('assets/logistics/css/logistics-shell.css')) ?: 1 }}">
         @if(!request()->routeIs('dashboard', 'deliveries.*'))
             @include('logistics.partials.workspace-theme')
         @endif
-        <script src="{{ asset('assets/shared/js/app-sidebar.js') }}?v={{ filemtime(public_path('assets/shared/js/app-sidebar.js')) }}" defer></script>
+        <script src="{{ asset('assets/shared/js/app-sidebar.js') }}?v={{ @filemtime(public_path('assets/shared/js/app-sidebar.js')) ?: 1 }}" defer></script>
         @stack('styles')
     </head>
     <body class="logistics-shell font-sans bg-[#F7F6F2] text-[#1B1B1E] antialiased">
@@ -128,8 +129,8 @@
         </div>
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app-2.css') }}">
         @include('logistics.layouts.partials.form-controls')
-        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-density.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-density.css')) }}">
-        <script src="{{ asset('assets/logistics/js/logistics-density.js') }}?v={{ filemtime(public_path('assets/logistics/js/logistics-density.js')) }}" defer></script>
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-density.css') }}?v={{ @filemtime(public_path('assets/logistics/css/logistics-density.css')) ?: 1 }}">
+        <script src="{{ asset('assets/logistics/js/logistics-density.js') }}?v={{ @filemtime(public_path('assets/logistics/js/logistics-density.js')) ?: 1 }}" defer></script>
         @stack('scripts')
     </body>
 </html>

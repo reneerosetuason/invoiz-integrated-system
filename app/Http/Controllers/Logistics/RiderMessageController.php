@@ -201,6 +201,7 @@ class RiderMessageController extends Controller
         abort_unless($user && $user->role === 'rider', 403);
 
         $conversation = $this->conversationFor($user);
+        abort_if(! $attachment->message, 404);
         abort_unless($attachment->message->conversation_id === $conversation->id, 403);
         abort_unless($attachment->fileExists(), 404, 'Attachment is missing or was deleted.');
         abort_if($attachment->fileSizeOnDisk() === 0, 422, 'Attachment file is empty and cannot be opened.');
@@ -239,10 +240,10 @@ class RiderMessageController extends Controller
             'body' => $deleted ? '' : $m->body,
             'is_read' => $m->is_read,
             'edited_at' => $m->edited_at?->toISOString(),
-            'created_at' => $m->created_at->toISOString(),
-            'time' => $m->created_at->format('g:i A'),
-            'day' => $m->created_at->format('Y-m-d'),
-            'dayLabel' => $m->created_at->isToday() ? 'Today' : ($m->created_at->isYesterday() ? 'Yesterday' : $m->created_at->format('F j, Y')),
+            'created_at' => $m->created_at?->toISOString() ?? '',
+            'time' => $m->created_at?->format('g:i A') ?? '',
+            'day' => $m->created_at?->format('Y-m-d') ?? '',
+            'dayLabel' => $m->created_at ? ($m->created_at->isToday() ? 'Today' : ($m->created_at->isYesterday() ? 'Yesterday' : $m->created_at->format('F j, Y'))) : '',
             'attachments' => $deleted ? [] : $m->attachments->map(fn ($a) => [
                 'id' => $a->id,
                 'name' => $a->original_filename,

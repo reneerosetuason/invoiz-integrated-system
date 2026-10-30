@@ -165,30 +165,30 @@ class RiderDeliveryController extends Controller
     {
         return DB::transaction(function () use ($request, $delivery) {
             $delivery = FulfillmentWorkflow::lock($delivery);
-        $this->authorizeDelivery($request, $delivery);
+            $this->authorizeDelivery($request, $delivery);
 
-        FulfillmentWorkflow::assertReady($delivery);
+            FulfillmentWorkflow::assertReady($delivery);
 
-        if ($blocked = $this->prePickupBlock($request->user()->rider)) {
-            return $blocked;
-        }
+            if ($blocked = $this->prePickupBlock($request->user()->rider)) {
+                return $blocked;
+            }
 
-        if (! in_array('accepted', self::TRANSITIONS[$delivery->status] ?? [])) {
-            return $this->invalidTransition($delivery);
-        }
+            if (! in_array('accepted', self::TRANSITIONS[$delivery->status] ?? [])) {
+                return $this->invalidTransition($delivery);
+            }
 
-        $delivery->update([
-            'status' => 'accepted',
-            'accepted_at' => now(),
-        ]);
+            $delivery->update([
+                'status' => 'accepted',
+                'accepted_at' => now(),
+            ]);
 
-        $this->logStatus($delivery, 'accepted', 'Delivery accepted by rider.');
-        $this->markRiderDelivering($delivery->rider);
+            $this->logStatus($delivery, 'accepted', 'Delivery accepted by rider.');
+            $this->markRiderDelivering($delivery->rider);
 
-        return response()->json([
-            'message' => 'Delivery accepted.',
-            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
-        ]);
+            return response()->json([
+                'message' => 'Delivery accepted.',
+                'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+            ]);
         }, 3);
     }
 
@@ -199,54 +199,54 @@ class RiderDeliveryController extends Controller
     {
         return DB::transaction(function () use ($request, $delivery) {
             $delivery = FulfillmentWorkflow::lock($delivery);
-        $this->authorizeDelivery($request, $delivery);
+            $this->authorizeDelivery($request, $delivery);
 
-        $validated = $request->validate([
-            'status' => 'required|string|in:going_to_pickup,arrived_at_shop,out_for_delivery,arrived_at_customer',
-        ]);
+            $validated = $request->validate([
+                'status' => 'required|string|in:going_to_pickup,arrived_at_shop,out_for_delivery,arrived_at_customer',
+            ]);
 
-        $next = $validated['status'];
-        if ($delivery->order_id) {
-            if (in_array($next, ['going_to_pickup', 'arrived_at_shop'], true)) {
-                abort_if($delivery->received_at !== null, 409, 'Collect this parcel from the logistics center, not the seller.');
-                FulfillmentWorkflow::assertReady($delivery);
+            $next = $validated['status'];
+            if ($delivery->order_id) {
+                if (in_array($next, ['going_to_pickup', 'arrived_at_shop'], true)) {
+                    abort_if($delivery->received_at !== null, 409, 'Collect this parcel from the logistics center, not the seller.');
+                    FulfillmentWorkflow::assertReady($delivery);
+                }
+                if (in_array($next, ['out_for_delivery', 'arrived_at_customer'], true)) {
+                    abort_unless($delivery->sorting_center_pickup_at && (int) $delivery->sorting_center_pickup_rider_id === (int) $delivery->rider_id, 409, 'Staff must dispatch the parcel and the assigned delivery rider must confirm center collection first.');
+                }
             }
-            if (in_array($next, ['out_for_delivery', 'arrived_at_customer'], true)) {
-                abort_unless($delivery->sorting_center_pickup_at && (int) $delivery->sorting_center_pickup_rider_id === (int) $delivery->rider_id, 409, 'Staff must dispatch the parcel and the assigned delivery rider must confirm center collection first.');
+
+
+            if (in_array($delivery->status, self::PRE_PICKUP_STATUSES, true)) {
+                if ($blocked = $this->prePickupBlock($request->user()->rider)) {
+                    return $blocked;
+                }
             }
-        }
 
-
-        if (in_array($delivery->status, self::PRE_PICKUP_STATUSES, true)) {
-            if ($blocked = $this->prePickupBlock($request->user()->rider)) {
-                return $blocked;
+            $allowed = self::TRANSITIONS[$delivery->status] ?? [];
+            // Sorting-center pickup flow: after the delivery rider has collected the
+            // parcel from the center, the next step is out_for_delivery even
+            // though the generic seller-pickup graph only allows assigned->accepted.
+            if ($next === 'out_for_delivery' && in_array($delivery->status, ['assigned', 'accepted'], true) && $delivery->sorting_center_pickup_at !== null) {
+                $allowed[] = 'out_for_delivery';
             }
-        }
 
-        $allowed = self::TRANSITIONS[$delivery->status] ?? [];
-        // Sorting-center pickup flow: after the delivery rider has collected the
-        // parcel from the center, the next step is out_for_delivery even
-        // though the generic seller-pickup graph only allows assigned->accepted.
-        if ($next === 'out_for_delivery' && in_array($delivery->status, ['assigned', 'accepted'], true) && $delivery->sorting_center_pickup_at !== null) {
-            $allowed[] = 'out_for_delivery';
-        }
+            if (! in_array($next, $allowed)) {
+                return $this->invalidTransition($delivery);
+            }
 
-        if (! in_array($next, $allowed)) {
-            return $this->invalidTransition($delivery);
-        }
+            $delivery->update(['status' => $next]);
 
-        $delivery->update(['status' => $next]);
+            if (in_array($next, DeliveryOtpService::ELIGIBLE_STATUSES, true)) {
+                app(DeliveryOtpService::class)->ensureFor($delivery);
+            }
 
-        if (in_array($next, DeliveryOtpService::ELIGIBLE_STATUSES, true)) {
-            app(DeliveryOtpService::class)->ensureFor($delivery);
-        }
+            $this->logStatus($delivery, $next, $this->transitionNote($next));
 
-        $this->logStatus($delivery, $next, $this->transitionNote($next));
-
-        return response()->json([
-            'message' => 'Delivery status updated.',
-            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
-        ]);
+            return response()->json([
+                'message' => 'Delivery status updated.',
+                'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+            ]);
         }, 3);
     }
 
@@ -258,44 +258,44 @@ class RiderDeliveryController extends Controller
     {
         return DB::transaction(function () use ($request, $delivery) {
             $delivery = FulfillmentWorkflow::lock($delivery);
-        $this->authorizeDelivery($request, $delivery);
+            $this->authorizeDelivery($request, $delivery);
 
-        FulfillmentWorkflow::assertReady($delivery);
-        abort_if($delivery->received_at !== null, 409, 'Use sorting-center collection for this delivery.');
+            FulfillmentWorkflow::assertReady($delivery);
+            abort_if($delivery->received_at !== null, 409, 'Use sorting-center collection for this delivery.');
 
-        if ($blocked = $this->prePickupBlock($request->user()->rider)) {
-            return $blocked;
-        }
-
-        if (! in_array($delivery->status, ['going_to_pickup', 'arrived_at_shop'])) {
-            return $this->invalidTransition($delivery);
-        }
-
-        $validated = $request->validate([
-            'pickup_pin' => 'sometimes|string|max:10',
-        ]);
-
-        if (! empty($delivery->pickup_pin)) {
-            if (empty($validated['pickup_pin']) || $validated['pickup_pin'] !== $delivery->pickup_pin) {
-                return response()->json([
-                    'message' => 'Invalid pickup PIN. Please verify the PIN with the shop.',
-                    'errors' => ['pickup_pin' => ['The pickup PIN is incorrect.']],
-                ], 422);
+            if ($blocked = $this->prePickupBlock($request->user()->rider)) {
+                return $blocked;
             }
-        }
 
-        $delivery->update([
-            'status' => 'picked_up',
-            'picked_up_at' => now(),
-        ]);
-        FulfillmentWorkflow::syncOrder($delivery, 'out_for_delivery', 'Parcel picked up from the seller by the assigned pickup rider.');
+            if (! in_array($delivery->status, ['going_to_pickup', 'arrived_at_shop'])) {
+                return $this->invalidTransition($delivery);
+            }
 
-        $this->logStatus($delivery, 'picked_up', 'Package picked up from shop.');
+            $validated = $request->validate([
+                'pickup_pin' => 'sometimes|string|max:10',
+            ]);
 
-        return response()->json([
-            'message' => 'Pickup confirmed.',
-            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
-        ]);
+            if (! empty($delivery->pickup_pin)) {
+                if (empty($validated['pickup_pin']) || $validated['pickup_pin'] !== $delivery->pickup_pin) {
+                    return response()->json([
+                        'message' => 'Invalid pickup PIN. Please verify the PIN with the shop.',
+                        'errors' => ['pickup_pin' => ['The pickup PIN is incorrect.']],
+                    ], 422);
+                }
+            }
+
+            $delivery->update([
+                'status' => 'picked_up',
+                'picked_up_at' => now(),
+            ]);
+            FulfillmentWorkflow::syncOrder($delivery, 'out_for_delivery', 'Parcel picked up from the seller by the assigned pickup rider.');
+
+            $this->logStatus($delivery, 'picked_up', 'Package picked up from shop.');
+
+            return response()->json([
+                'message' => 'Pickup confirmed.',
+                'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+            ]);
         }, 3);
     }
 
@@ -374,11 +374,11 @@ class RiderDeliveryController extends Controller
                     $proofPath = $request->file('photo')->store('delivery-proofs', 'public');
                 }
 
-                if (! empty($validated['proof_type']) || ! empty($validated['photo']) || $locked->payment_method === 'cash_on_delivery') {
+                if ($otpRequired || ! empty($validated['proof_type']) || ! empty($validated['photo']) || $locked->payment_method === 'cash_on_delivery') {
                     DeliveryProof::create([
                         'delivery_id' => $locked->id,
                         'rider_id' => $locked->rider_id,
-                        'type' => $validated['proof_type'] ?? ($proofPath ? 'photo' : ($locked->payment_method === 'cash_on_delivery' ? 'signature' : 'photo')),
+                        'type' => $validated['proof_type'] ?? ($proofPath ? 'photo' : (! empty($validated['signature_name']) ? 'signature' : ($otpRequired ? 'otp' : 'signature'))),
                         'file_path' => $proofPath,
                         'signature_name' => $validated['signature_name'] ?? $locked->recipient_name,
                         'otp' => $otpRequired ? null : ($validated['otp'] ?? null),
@@ -419,7 +419,9 @@ class RiderDeliveryController extends Controller
                 // Logistics owns the ledger and remittance records. Any failure
                 // here must roll back the delivery transition and status log.
                 app(TransactionController::class)->storeForDelivery($locked);
-                \App\Support\Remittances::ensureForDeliveryOrFail($locked->fresh());
+                if ($locked->order_id !== null || $isCod) {
+                    \App\Support\Remittances::ensureForDeliveryOrFail($locked->fresh());
+                }
 
                 RiderEarning::firstOrCreate(
                     ['delivery_id' => $locked->id, 'type' => 'delivery'],
@@ -508,52 +510,52 @@ class RiderDeliveryController extends Controller
     {
         return DB::transaction(function () use ($request, $delivery) {
             $delivery = FulfillmentWorkflow::lock($delivery);
-        $this->authorizeDelivery($request, $delivery);
+            $this->authorizeDelivery($request, $delivery);
 
-        // Must have already picked up from seller; preserves seller-pickup history.
-        if ($delivery->status !== 'picked_up') {
+            // Must have already picked up from seller; preserves seller-pickup history.
+            if ($delivery->status !== 'picked_up') {
+                return response()->json([
+                    'message' => 'Parcel must be picked up from the seller before it can be handed over to the sorting center.',
+                    'errors' => ['status' => ["Invalid status transition from '{$delivery->status}'."]],
+                ], 409);
+            }
+
+            if ($delivery->sorting_center_handoff_at !== null) {
+                return response()->json(['message' => 'Center handoff already recorded.', 'delivery' => $this->detailPayload($delivery)]);
+            }
+
+            if (in_array($delivery->status, ['delivered', 'delivery_failed', 'cancelled'], true)) {
+                return $this->invalidTransition($delivery);
+            }
+
+            // Center scoping: if delivery already has a handling center, rider must belong to it.
+            $rider = $request->user()->rider;
+            if ($delivery->center_id !== null && $rider->center_id !== null && (int) $delivery->center_id !== (int) $rider->center_id) {
+                return response()->json([
+                    'message' => 'This parcel belongs to a different logistics center.',
+                    'errors' => ['center_id' => ['Wrong logistics center.']],
+                ], 403);
+            }
+
+            DB::transaction(function () use ($delivery, $rider) {
+                $delivery->update([
+                    'sorting_center_handoff_at' => now(),
+                    'sorting_center_handoff_rider_id' => $rider->id,
+                    // Make parcel visible to the rider's center if handling center not yet set.
+                    'center_id' => $delivery->center_id ?? $rider->center_id,
+                ]);
+
+                DeliveryStatusLog::create([
+                    'delivery_id' => $delivery->id,
+                    'status' => 'sorting_center_handoff',
+                    'notes' => 'Parcel handed over to sorting center by ' . $rider->name . '.',
+                ]);
+            });
+
             return response()->json([
-                'message' => 'Parcel must be picked up from the seller before it can be handed over to the sorting center.',
-                'errors' => ['status' => ["Invalid status transition from '{$delivery->status}'."]],
-            ], 409);
-        }
-
-        if ($delivery->sorting_center_handoff_at !== null) {
-            return response()->json(['message' => 'Center handoff already recorded.', 'delivery' => $this->detailPayload($delivery)]);
-        }
-
-        if (in_array($delivery->status, ['delivered', 'delivery_failed', 'cancelled'], true)) {
-            return $this->invalidTransition($delivery);
-        }
-
-        // Center scoping: if delivery already has a handling center, rider must belong to it.
-        $rider = $request->user()->rider;
-        if ($delivery->center_id !== null && $rider->center_id !== null && (int) $delivery->center_id !== (int) $rider->center_id) {
-            return response()->json([
-                'message' => 'This parcel belongs to a different logistics center.',
-                'errors' => ['center_id' => ['Wrong logistics center.']],
-            ], 403);
-        }
-
-        DB::transaction(function () use ($delivery, $rider) {
-            $delivery->update([
-                'sorting_center_handoff_at' => now(),
-                'sorting_center_handoff_rider_id' => $rider->id,
-                // Make parcel visible to the rider's center if handling center not yet set.
-                'center_id' => $delivery->center_id ?? $rider->center_id,
+                'message' => 'Parcel handed over to sorting center.',
+                'delivery' => $this->detailPayload($delivery->fresh()->load(['items', 'statusLogs', 'proof', 'failure'])),
             ]);
-
-            DeliveryStatusLog::create([
-                'delivery_id' => $delivery->id,
-                'status' => 'sorting_center_handoff',
-                'notes' => 'Parcel handed over to sorting center by ' . $rider->name . '.',
-            ]);
-        });
-
-        return response()->json([
-            'message' => 'Parcel handed over to sorting center.',
-            'delivery' => $this->detailPayload($delivery->fresh()->load(['items', 'statusLogs', 'proof', 'failure'])),
-        ]);
         }, 3);
     }
 
@@ -578,7 +580,7 @@ class RiderDeliveryController extends Controller
             abort_unless($delivery->parcel_status === 'dispatched', 409, 'Wait for staff to dispatch this sorted parcel before collecting it.');
             abort_unless(in_array($delivery->status, ['assigned', 'accepted'], true), 409, 'Parcel must be assigned to you before center collection.');
             abort_unless((int) $rider->center_id === (int) $delivery->center_id, 403, 'This parcel belongs to a different center.');
-            $delivery->update(['sorting_center_pickup_at' => now(), 'sorting_center_pickup_rider_id' => $rider->id]);
+            $delivery->update(['sorting_center_pickup_at' => now(), 'sorting_center_pickup_rider_id' => $rider->id, 'returned_at' => null, 'return_reason' => null]);
             $this->logStatus($delivery, 'sorting_center_pickup', 'Assigned delivery rider confirmed collection from the center.');
             return response()->json(['message' => 'Parcel collected from the center.', 'delivery' => $this->detailPayload($delivery)]);
         }, 3);
@@ -591,42 +593,42 @@ class RiderDeliveryController extends Controller
     {
         return DB::transaction(function () use ($request, $delivery) {
             $delivery = FulfillmentWorkflow::lock($delivery);
-        $this->authorizeDelivery($request, $delivery);
+            $this->authorizeDelivery($request, $delivery);
 
-        if (! in_array($delivery->status, ['picked_up', 'out_for_delivery', 'arrived_at_customer'])) {
-            return $this->invalidTransition($delivery);
-        }
+            if (! in_array($delivery->status, ['picked_up', 'out_for_delivery', 'arrived_at_customer'])) {
+                return $this->invalidTransition($delivery);
+            }
 
-        $validated = $request->validate([
-            'reason' => 'required|string|max:255',
-            'notes' => 'nullable|string|max:2000',
-        ]);
+            $validated = $request->validate([
+                'reason' => 'required|string|max:255',
+                'notes' => 'nullable|string|max:2000',
+            ]);
 
-        $delivery->update([
-            'status' => 'delivery_failed',
-            'failed_at' => now(),
-            'failure_reason' => $validated['reason'],
-            // A fresh failure starts a fresh next-step cycle.
-            'reattempt_requested_at' => null,
-            'returned_at' => null,
-        ]);
+            $delivery->update([
+                'status' => 'delivery_failed',
+                'failed_at' => now(),
+                'failure_reason' => $validated['reason'],
+                // A fresh failure starts a fresh next-step cycle.
+                'reattempt_requested_at' => null,
+                'returned_at' => null,
+            ]);
 
-        DeliveryFailure::create([
-            'delivery_id' => $delivery->id,
-            'rider_id' => $delivery->rider_id,
-            'reason' => $validated['reason'],
-            'notes' => $validated['notes'] ?? null,
-            'reported_at' => now(),
-        ]);
+            DeliveryFailure::create([
+                'delivery_id' => $delivery->id,
+                'rider_id' => $delivery->rider_id,
+                'reason' => $validated['reason'],
+                'notes' => $validated['notes'] ?? null,
+                'reported_at' => now(),
+            ]);
 
-        $this->logStatus($delivery, 'delivery_failed', 'Delivery failed: ' . $validated['reason']);
+            $this->logStatus($delivery, 'delivery_failed', 'Delivery failed: ' . $validated['reason']);
 
-        $this->markRiderAvailableIfIdle($delivery->rider);
+            $this->markRiderAvailableIfIdle($delivery->rider);
 
-        return response()->json([
-            'message' => 'Failed delivery reported.',
-            'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
-        ]);
+            return response()->json([
+                'message' => 'Failed delivery reported.',
+                'delivery' => $this->detailPayload($delivery->load(['items', 'statusLogs', 'proof', 'failure'])),
+            ]);
         }, 3);
     }
 
@@ -685,61 +687,61 @@ class RiderDeliveryController extends Controller
     {
         return DB::transaction(function () use ($request, $delivery) {
             $delivery = FulfillmentWorkflow::lock($delivery);
-        $this->authorizeDelivery($request, $delivery);
+            $this->authorizeDelivery($request, $delivery);
 
-        $result = DB::transaction(function () use ($request, $delivery) {
-            // Re-read under a row lock so concurrent requests serialise: the
-            // loser observes the committed flag and is rejected instead of
-            // writing a duplicate status log and notification. Guard order
-            // (state, then this-cycle duplicates) is unchanged.
-            $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $result = DB::transaction(function () use ($request, $delivery) {
+                // Re-read under a row lock so concurrent requests serialise: the
+                // loser observes the committed flag and is rejected instead of
+                // writing a duplicate status log and notification. Guard order
+                // (state, then this-cycle duplicates) is unchanged.
+                $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
 
-            // Re-check ownership against the locked row: a concurrent
-            // reassignment must not let a stale request still write.
-            $this->authorizeDelivery($request, $locked);
+                // Re-check ownership against the locked row: a concurrent
+                // reassignment must not let a stale request still write.
+                $this->authorizeDelivery($request, $locked);
 
-            if ($locked->status !== 'delivery_failed') {
-                return ['conflict' => $this->invalidTransition($locked)];
+                if ($locked->status !== 'delivery_failed') {
+                    return ['conflict' => $this->invalidTransition($locked)];
+                }
+                if ($locked->reattempt_requested_at !== null) {
+                    return ['conflict' => response()->json([
+                        'message' => 'A re-attempt has already been requested for this delivery.',
+                        'errors' => ['reattempt' => ['A re-attempt has already been requested for this delivery.']],
+                    ], 409)];
+                }
+                if ($locked->returned_at !== null) {
+                    return ['conflict' => response()->json([
+                        'message' => 'This parcel was already returned to the sorting center.',
+                        'errors' => ['reattempt' => ['This parcel was already returned to the sorting center.']],
+                    ], 409)];
+                }
+
+                $locked->update(['reattempt_requested_at' => now()]);
+
+                $this->logStatus($locked, 'reattempt_requested', 'Rider requested a delivery re-attempt.');
+
+                Notification::create([
+                    'type' => 'reattempt_requested',
+                    'title' => 'Re-attempt Requested',
+                    'message' => "Rider requested a re-attempt for {$locked->tracking_number}.",
+                    'icon' => '🔁',
+                    'priority' => 'normal',
+                    'center_id' => $locked->center_id,
+                    'audience' => $locked->center_id ? 'center' : 'admin',
+                    'link' => route('deliveries.show', $locked),
+                ]);
+
+                return ['delivery' => $locked];
+            });
+
+            if (isset($result['conflict'])) {
+                return $result['conflict'];
             }
-            if ($locked->reattempt_requested_at !== null) {
-                return ['conflict' => response()->json([
-                    'message' => 'A re-attempt has already been requested for this delivery.',
-                    'errors' => ['reattempt' => ['A re-attempt has already been requested for this delivery.']],
-                ], 409)];
-            }
-            if ($locked->returned_at !== null) {
-                return ['conflict' => response()->json([
-                    'message' => 'This parcel was already returned to the sorting center.',
-                    'errors' => ['reattempt' => ['This parcel was already returned to the sorting center.']],
-                ], 409)];
-            }
 
-            $locked->update(['reattempt_requested_at' => now()]);
-
-            $this->logStatus($locked, 'reattempt_requested', 'Rider requested a delivery re-attempt.');
-
-            Notification::create([
-                'type' => 'reattempt_requested',
-                'title' => 'Re-attempt Requested',
-                'message' => "Rider requested a re-attempt for {$locked->tracking_number}.",
-                'icon' => '🔁',
-                'priority' => 'normal',
-                'center_id' => $locked->center_id,
-                'audience' => $locked->center_id ? 'center' : 'admin',
-                'link' => route('deliveries.show', $locked),
+            return response()->json([
+                'message' => 'Re-attempt requested. Logistics will review and reassign the delivery.',
+                'delivery' => $this->detailPayload($result['delivery']->load(['items', 'statusLogs', 'proof', 'failure'])),
             ]);
-
-            return ['delivery' => $locked];
-        });
-
-        if (isset($result['conflict'])) {
-            return $result['conflict'];
-        }
-
-        return response()->json([
-            'message' => 'Re-attempt requested. Logistics will review and reassign the delivery.',
-            'delivery' => $this->detailPayload($result['delivery']->load(['items', 'statusLogs', 'proof', 'failure'])),
-        ]);
         }, 3);
     }
 
@@ -755,56 +757,56 @@ class RiderDeliveryController extends Controller
     {
         return DB::transaction(function () use ($request, $delivery) {
             $delivery = FulfillmentWorkflow::lock($delivery);
-        $this->authorizeDelivery($request, $delivery);
+            $this->authorizeDelivery($request, $delivery);
 
-        $result = DB::transaction(function () use ($request, $delivery) {
-            // Row lock serialises concurrent returns; see requestReattempt().
-            $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $result = DB::transaction(function () use ($request, $delivery) {
+                // Row lock serialises concurrent returns; see requestReattempt().
+                $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
 
-            $this->authorizeDelivery($request, $locked);
+                $this->authorizeDelivery($request, $locked);
 
-            if (! in_array($locked->status, ['delivery_failed', 'damaged'], true)) {
-                return ['conflict' => $this->invalidTransition($locked)];
+                if (! in_array($locked->status, ['delivery_failed', 'damaged'], true)) {
+                    return ['conflict' => $this->invalidTransition($locked)];
+                }
+                if ($locked->returned_at !== null) {
+                    return ['conflict' => response()->json([
+                        'message' => 'This parcel was already returned to the sorting center.',
+                        'errors' => ['return' => ['This parcel was already returned to the sorting center.']],
+                    ], 409)];
+                }
+
+                $locked->update([
+                    'returned_at' => now(),
+                    // The failure reason is preserved verbatim as the return reason.
+                    'return_reason' => $locked->failure_reason,
+                    // Returning supersedes any pending re-attempt request.
+                    'reattempt_requested_at' => null,
+                ]);
+
+                $this->logStatus($locked, 'returned_to_center', 'Parcel returned to the sorting center.');
+
+                Notification::create([
+                    'type' => 'parcel_returned_to_center',
+                    'title' => 'Parcel Returned to Center',
+                    'message' => "{$locked->tracking_number} was returned to the sorting center.",
+                    'icon' => '🏢',
+                    'priority' => 'normal',
+                    'center_id' => $locked->center_id,
+                    'audience' => $locked->center_id ? 'center' : 'admin',
+                    'link' => route('deliveries.show', $locked),
+                ]);
+
+                return ['delivery' => $locked];
+            });
+
+            if (isset($result['conflict'])) {
+                return $result['conflict'];
             }
-            if ($locked->returned_at !== null) {
-                return ['conflict' => response()->json([
-                    'message' => 'This parcel was already returned to the sorting center.',
-                    'errors' => ['return' => ['This parcel was already returned to the sorting center.']],
-                ], 409)];
-            }
 
-            $locked->update([
-                'returned_at' => now(),
-                // The failure reason is preserved verbatim as the return reason.
-                'return_reason' => $locked->failure_reason,
-                // Returning supersedes any pending re-attempt request.
-                'reattempt_requested_at' => null,
+            return response()->json([
+                'message' => 'Parcel marked as returned to the sorting center.',
+                'delivery' => $this->detailPayload($result['delivery']->load(['items', 'statusLogs', 'proof', 'failure'])),
             ]);
-
-            $this->logStatus($locked, 'returned_to_center', 'Parcel returned to the sorting center.');
-
-            Notification::create([
-                'type' => 'parcel_returned_to_center',
-                'title' => 'Parcel Returned to Center',
-                'message' => "{$locked->tracking_number} was returned to the sorting center.",
-                'icon' => '🏢',
-                'priority' => 'normal',
-                'center_id' => $locked->center_id,
-                'audience' => $locked->center_id ? 'center' : 'admin',
-                'link' => route('deliveries.show', $locked),
-            ]);
-
-            return ['delivery' => $locked];
-        });
-
-        if (isset($result['conflict'])) {
-            return $result['conflict'];
-        }
-
-        return response()->json([
-            'message' => 'Parcel marked as returned to the sorting center.',
-            'delivery' => $this->detailPayload($result['delivery']->load(['items', 'statusLogs', 'proof', 'failure'])),
-        ]);
         }, 3);
     }
 
@@ -889,13 +891,7 @@ class RiderDeliveryController extends Controller
 
     private function markRiderAvailableIfIdle(Rider $rider): void
     {
-        $active = Delivery::where('rider_id', $rider->id)
-            ->whereIn('status', self::ACTIVE_STATUSES)
-            ->count();
-
-        if ($active === 0) {
-            $rider->update(['status' => 'available']);
-        }
+        DB::transaction(fn () => FulfillmentWorkflow::releaseRider((int) $rider->id), 3);
     }
 
     private function label(string $status): string

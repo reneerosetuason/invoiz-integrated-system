@@ -17,11 +17,13 @@ class FulfillmentWorkflow
         if ($delivery->order_id) {
             Order::whereKey($delivery->order_id)->lockForUpdate()->firstOrFail();
         }
+
         return Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
     }
 
     public static function assertActiveOrder(Delivery $delivery): void
     {
+        abort_if($delivery->archived_at, 409, 'Restore this archived shipment before continuing its workflow.');
         if ($delivery->order_id) {
             $order = $delivery->order()->first();
             abort_if(! $order || $order->status === 'cancelled', 409, 'This order is cancelled or unavailable.');
@@ -35,9 +37,11 @@ class FulfillmentWorkflow
         if (! $delivery->order_id) {
             return; // Standalone logistics shipments retain their existing workflow.
         }
+        abort_unless($delivery->logisticsCenter()->where('is_active', true)->exists(), 409, 'Route this parcel to an active handling center first.');
         if ($delivery->received_at !== null) {
             abort_unless($delivery->parcel_status === 'sorted' || $delivery->parcel_status === 'dispatched', 409, 'The center must scan and sort this parcel first.');
             abort_if($delivery->destination_center_id && (int) $delivery->destination_center_id !== (int) $delivery->center_id, 409, 'Transfer this parcel to its destination center before assigning the delivery rider.');
+
             return;
         }
         abort_unless($delivery->order()->value('status') === 'ready_for_delivery', 409, 'The seller must mark this order as packed before pickup.');
@@ -58,6 +62,9 @@ class FulfillmentWorkflow
         }
         $from = $order->status;
         $order->update(['status' => $status]);
+        if ($status === 'out_for_delivery' && $delivery->picked_up_at) {
+            $order->courierPickup?->update(['status' => 'picked_up']);
+        }
         OrderStatusHistory::create(['order_id' => $order->id, 'from_status' => $from, 'to_status' => $status, 'note' => $note]);
         SellerNotification::create([
             'seller_id' => $delivery->seller_id, 'order_id' => $order->id,
@@ -71,14 +78,31 @@ class FulfillmentWorkflow
             return;
         }
         $rider = Rider::whereKey($riderId)->lockForUpdate()->first();
-        if ($rider && ! Delivery::where('rider_id', $riderId)->whereIn('status', Delivery::ACTIVE_STATUSES)->exists()) {
-            $rider->update(['status' => $rider->is_online ? 'available' : 'offline']);
+        if ($rider && $rider->status !== 'inactive' && ! Delivery::where('rider_id', $riderId)->whereIn('status', Delivery::ACTIVE_STATUSES)->exists()) {
+            // Online/offline is a separate flag; "offline" is not a valid
+            // riders.status value in the shared MySQL schema.
+            $eligible = $rider->isEligibilityApproved() && $rider->vehicle_verification === 'verified'
+                && $rider->vehicleTypeIsActive() && ! $rider->licenseExpired();
+            $rider->update(['status' => $eligible ? 'available' : 'inactive']);
         }
     }
 
     public static function receive(Delivery $delivery, int $actorId): void
     {
         self::assertActiveOrder($delivery);
+        if ($delivery->isIncomingTransfer()) {
+            $originId = $delivery->center_id;
+            $delivery->update([
+                'center_id' => $delivery->destination_center_id, 'parcel_status' => 'received', 'received_at' => now(),
+                'scanned_at' => null, 'sorted_at' => null, 'dispatched_at' => null,
+            ]);
+            DeliveryStatusLog::create([
+                'delivery_id' => $delivery->id, 'status' => 'received', 'changed_by' => $actorId,
+                'notes' => "Transfer received from center #{$originId} at destination center #{$delivery->center_id}. Scan and sort before final dispatch.",
+            ]);
+
+            return;
+        }
         if ($delivery->order_id) {
             abort_unless($delivery->status === 'picked_up' && $delivery->sorting_center_handoff_at && $delivery->sorting_center_handoff_rider_id, 409, 'The pickup rider must record the center handoff before staff can receive this parcel.');
         }

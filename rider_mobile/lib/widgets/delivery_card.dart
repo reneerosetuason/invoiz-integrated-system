@@ -134,8 +134,8 @@ class _RouteTimeline extends StatelessWidget {
         _Stop(
           icon: Icons.storefront_outlined,
           eyebrow: 'Pickup',
-          name: delivery.shop.name,
-          address: delivery.shop.address,
+          name: delivery.pickup.name,
+          address: delivery.pickup.address,
         ),
         const _Connector(),
         _Stop(

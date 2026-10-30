@@ -63,15 +63,15 @@ class TransactionController extends Controller
             $query->where('logistics_center_id', $centerId);
         }
 
-        $transactions = $query->orderByDesc('created_at')->paginate($perPage)->withQueryString();
-
-        $totals = $query->toBase()->selectRaw('
+        $totals = (clone $query)->reorder()->toBase()->selectRaw('
             COUNT(*) as total_count,
             COALESCE(SUM(amount), 0) as total_amount,
             COALESCE(SUM(rider_fee), 0) as total_rider_fee,
             COALESCE(SUM(logistics_fee), 0) as total_logistics_fee,
             COALESCE(SUM(admin_commission), 0) as total_commission
         ')->first();
+
+        $transactions = $query->orderByDesc('created_at')->paginate($perPage)->withQueryString();
 
         $centersQuery = LogisticsCenter::query();
 
