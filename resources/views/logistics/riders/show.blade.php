@@ -185,6 +185,102 @@
         </div>
     @endif
 
+    {{-- Rider Remittance Payouts & Earnings --}}
+    <div class="card overflow-hidden mb-5">
+        <div class="px-6 py-4 border-b border-[#E8E6E0] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+                <h3 class="text-sm font-bold text-[#1B1B1E]">Rider Earnings &amp; Remittance Payouts</h3>
+                <p class="mt-0.5 text-xs text-[#6E6E73]">Last-mile rider deducts ₱50 automatically from COD cash. Pickup rider earnings (₱30/item) are remitted by Admin and accepted here.</p>
+            </div>
+            @php
+                $riderEarnedTotal = (float) $payouts->sum('amount');
+                $riderPendingAccept = (float) $payouts->where('status', 'remitted')->sum('amount');
+            @endphp
+            <div class="flex items-center gap-3">
+                <div class="text-right">
+                    <span class="text-[11px] text-[#6E6E73]">Total Payouts:</span>
+                    <strong class="text-sm text-[#0E4A57] block">₱{{ number_format($riderEarnedTotal, 2) }}</strong>
+                </div>
+            </div>
+        </div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Role &amp; Task</th>
+                    <th>Order / Tracking #</th>
+                    <th>Amount</th>
+                    <th>Remittance Status</th>
+                    <th class="text-right">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($payouts as $payout)
+                    <tr>
+                        <td>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold {{ $payout->recipient_role === 'last_mile_rider' ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800' }}">
+                                {{ $payout->roleLabel() }}
+                            </span>
+                            <div class="text-[11px] text-[#6E6E73] mt-0.5">{{ $payout->rule_applied }}</div>
+                        </td>
+                        <td>
+                            @if($payout->delivery)
+                                <a href="{{ route('deliveries.show', $payout->delivery_id) }}" class="font-bold text-[#16697A] hover:underline">{{ $payout->delivery->tracking_number }}</a>
+                            @else
+                                <span class="font-bold text-[#1B1B1E]">Order #{{ $payout->order_id }}</span>
+                            @endif
+                        </td>
+                        <td class="font-extrabold text-[#1B1B1E]">
+                            ₱{{ number_format((float) $payout->amount, 2) }}
+                        </td>
+                        <td>
+                            @if($payout->status === 'accepted')
+                                <span class="badge badge-completed inline-flex items-center gap-1">
+                                    <svg class="w-3 h-3 text-emerald-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    Accepted by Rider
+                                </span>
+                            @elseif($payout->status === 'remitted')
+                                <span class="badge badge-confirmed inline-flex items-center gap-1">
+                                    <svg class="w-3 h-3 text-blue-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    Sent by Admin (Ready to Accept)
+                                </span>
+                            @elseif($payout->status === 'pending_remittance')
+                                <span class="badge badge-pending inline-flex items-center gap-1">
+                                    <svg class="w-3 h-3 text-amber-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    Awaiting Admin Approval
+                                </span>
+                            @else
+                                <span class="badge badge-cancelled">Held in Escrow</span>
+                            @endif
+                        </td>
+                        <td class="text-right">
+                            @if($payout->status === 'remitted')
+                                <form method="POST" action="{{ route('riders.payouts.accept', $payout->id) }}" class="inline" onsubmit="return confirm('Confirm receipt of ₱{{ number_format($payout->amount, 2) }} remittance?');">
+                                    @csrf
+                                    <button type="submit" class="btn btn-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm">
+                                        Accept Remittance
+                                    </button>
+                                </form>
+                            @elseif($payout->status === 'accepted')
+                                <span class="text-xs text-emerald-700 font-bold inline-flex items-center gap-1">
+                                    <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                    Confirmed
+                                </span>
+                            @elseif($payout->recipient_role === 'last_mile_rider')
+                                <span class="text-xs text-gray-500">Deducted from COD</span>
+                            @else
+                                <span class="text-xs text-amber-700">Awaiting Admin</span>
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="5" class="py-6 text-center text-xs text-[#6E6E73]">No remittance records for this rider yet.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
     {{-- Recent Deliveries --}}
     <div class="card overflow-hidden">
         <div class="px-6 py-4 border-b border-[#E8E6E0]">

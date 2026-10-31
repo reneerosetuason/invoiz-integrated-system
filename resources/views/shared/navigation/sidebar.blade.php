@@ -274,6 +274,12 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $isAdmin = in_array($user->role, ['admin', 'logistics_admin'], true);
     $isStaff = in_array($user->role, ['staff', 'logistics_staff'], true);
     $isRider = $user->role === 'rider';
+    $logisticsCenter = null;
+    try {
+        if ($user && $user->center_id) {
+            $logisticsCenter = $user->logisticsCenter;
+        }
+    } catch (\Throwable $e) {}
     $userName = $user->name ?? 'User';
     $userEmail = $user->email ?? '';
     $userInitial = substr($userName, 0, 1);
@@ -320,6 +326,17 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
                 <span class="min-w-0">
                     <span class="block text-xl font-extrabold tracking-tight text-[#0E4A57]">INVOIZ</span>
                     <span class="sb-eyebrow block mt-0.5">Logistics</span>
+                    @if($logisticsCenter)
+                        <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#E6F4F1] text-[#0E4A57] border border-[#16697A]/20 truncate max-w-[170px]" title="{{ $logisticsCenter->name }}">
+                            <svg class="w-3 h-3 text-[#16697A] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <span class="truncate">{{ $logisticsCenter->name }}</span>
+                        </span>
+                    @elseif($isAdmin)
+                        <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-700 truncate max-w-[170px]" title="HQ Admin · All Centers">
+                            <svg class="w-3 h-3 text-gray-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            <span>HQ Admin (All Hubs)</span>
+                        </span>
+                    @endif
                 </span>
             </a>
             <button type="button" @click="toggleSidebar()" class="sb-hamb"
@@ -504,6 +521,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             </svg>
             <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeAreas ? 'text-teal-dark' : 'text-[#1F2933]' }}">Service Areas</span>
         </a>
+        @endif
 
         <div x-show="sidebarHover" x-cloak class="border-t border-teal/10 my-0.5 w-full"></div>
 
@@ -573,7 +591,6 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeArchived ? 'text-teal-dark' : 'text-[#1F2933]' }}">Archived</span>
         </a>
         @endif
-        @endif
     </nav>
     <div class="sb-foot">
         <div class="sb-pillwrap">
@@ -587,6 +604,12 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
                     <span class="sb-fade">
                         <span class="sb-name">{{ $accountTitle }}</span>
                         <span class="sb-role">{{ $user->roleLabel() }}</span>
+                        @if($logisticsCenter)
+                            <span class="inline-flex items-center gap-1 text-[11px] text-[#16697A] font-semibold truncate max-w-[140px]" title="{{ $logisticsCenter->name }}">
+                                <svg class="w-3 h-3 text-[#16697A] shrink-0 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <span class="truncate">{{ $logisticsCenter->name }}</span>
+                            </span>
+                        @endif
                     </span>
                 </a>
                 <form method="POST" action="{{ route('logout') }}" class="shrink-0">
@@ -669,6 +692,10 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
           <a class="nav-link" href="/admin/payments" title="Manage Payments">
             <x-icon name="card" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Payments</span>
+          </a>
+          <a class="nav-link {{ request()->is('logistics/remittances*') ? 'active' : '' }}" href="{{ route('remittances.index') }}" title="COD Remittances">
+            <x-icon name="dollar" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">COD Remittances</span>
           </a>
           <a class="nav-link" href="/admin/reports" title="Reports">
             <x-icon name="chart" class="nav-icon" aria-hidden="true" />

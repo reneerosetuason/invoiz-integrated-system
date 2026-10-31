@@ -19,8 +19,59 @@
     </x-slot>
 
     <div class="space-y-4">
+        {{-- Inter-Hub Flow Guide Card --}}
+        <div class="card p-4 bg-gradient-to-r from-[#F0FDF4] via-[#F8FAFC] to-[#EFF6FF] border border-[#CBD5E1]" x-data="{ expanded: false }">
+            <div class="flex items-center justify-between cursor-pointer" @click="expanded = !expanded">
+                <div class="flex items-center gap-2.5">
+                    <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#16697A] text-white shadow-sm">
+                        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17a2 2 0 11-4 0 2 2 0 014 0zM19 17a2 2 0 11-4 0 2 2 0 014 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1"/></svg>
+                    </span>
+                    <div>
+                        <h2 class="text-sm font-bold text-[#0E4A57]">Understanding the Inter-Hub Transfer Flow</h2>
+                        <p class="text-xs text-[#64748B]">How parcels travel across hubs: Origin Hub → Linehaul Transit → Destination Hub → Delivery Rider</p>
+                    </div>
+                </div>
+                <button type="button" class="text-xs font-semibold text-[#16697A] hover:underline flex items-center gap-1">
+                    <span x-text="expanded ? 'Hide Guide' : 'Show 4-Stage Flow'">Show 4-Stage Flow</span>
+                    <svg class="w-4 h-4 transition-transform duration-200" :class="{ 'rotate-180': expanded }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+            </div>
+            <div x-show="expanded" x-collapse x-cloak class="mt-4 pt-3 border-t border-slate-200/80">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="font-bold text-[#16697A] mb-1 flex items-center gap-1">
+                            <span class="w-4 h-4 rounded-full bg-[#16697A] text-white inline-flex items-center justify-center text-[10px]">1</span>
+                            Origin Hub Intake
+                        </div>
+                        <p class="text-gray-600">Pickup rider brings seller's parcel to their local hub. Staff clicks <strong>Mark as Received</strong>, then <strong>Scan Parcel</strong>.</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="font-bold text-indigo-700 mb-1 flex items-center gap-1">
+                            <span class="w-4 h-4 rounded-full bg-indigo-600 text-white inline-flex items-center justify-center text-[10px]">2</span>
+                            Inter-Hub Dispatch
+                        </div>
+                        <p class="text-gray-600">Staff selects a <strong>Destination Hub</strong> in another area. Parcel is sorted and dispatched with a <strong>Transfer Driver</strong> (earns ₱20).</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="font-bold text-amber-700 mb-1 flex items-center gap-1">
+                            <span class="w-4 h-4 rounded-full bg-amber-600 text-white inline-flex items-center justify-center text-[10px]">3</span>
+                            Destination Hub Intake
+                        </div>
+                        <p class="text-gray-600">Arrives under <strong>Incoming Transfers</strong> tab. Destination hub staff clicks <strong>Mark as Received</strong>, transferring custody to this hub.</p>
+                    </div>
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                        <div class="font-bold text-emerald-700 mb-1 flex items-center gap-1">
+                            <span class="w-4 h-4 rounded-full bg-emerald-600 text-white inline-flex items-center justify-center text-[10px]">4</span>
+                            Last-Mile Delivery
+                        </div>
+                        <p class="text-gray-600">Sorted to local service area & dispatched to a <strong>Delivery Rider</strong> (earns ₱50) for final buyer handover and COD cash collection.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         @php
-            $allTabs = ['all' => 'All', 'incoming' => 'Incoming', 'received' => 'Received', 'scanned' => 'Scanned', 'sorted' => 'Sorted', 'dispatched' => 'Dispatched', 'returned' => 'Returned', 'reattempt' => 'Re-attempt'];
+            $allTabs = ['all' => 'All', 'incoming' => 'Incoming Transfers', 'received' => 'Received', 'scanned' => 'Scanned', 'sorted' => 'Sorted', 'dispatched' => 'Dispatched', 'returned' => 'Returned', 'reattempt' => 'Re-attempt'];
             $tabs = array_intersect_key($allTabs, array_flip($availableTabs));
         @endphp
 

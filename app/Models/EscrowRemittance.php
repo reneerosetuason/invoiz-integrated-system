@@ -15,6 +15,12 @@ class EscrowRemittance extends Model
     public const ROLE_ADMIN            = 'admin';
     public const ROLE_SELLER           = 'seller';
 
+    public const STATUS_HELD_IN_ESCROW    = 'held_in_escrow';
+    public const STATUS_PENDING_REMITTANCE = 'pending_remittance';
+    public const STATUS_REMITTED          = 'remitted';
+    public const STATUS_ACCEPTED          = 'accepted';
+    public const STATUS_VOIDED            = 'voided';
+
     protected $fillable = [
         'order_id',
         'delivery_id',
@@ -101,6 +107,28 @@ class EscrowRemittance extends Model
             'seller_wallet_credit'   => 'Seller Payout / Bank Remittance',
             default                  => ucwords(str_replace('_', ' ', (string) $this->settlement_mode)),
         };
+    }
+
+    /**
+     * Worker (e.g. pickup rider) accepts the remittance sent by admin.
+     */
+    public function accept(User $user, ?string $note = null): bool
+    {
+        if ($this->status !== self::STATUS_REMITTED) {
+            return false;
+        }
+
+        $noteText = "Confirmed received by {$user->name} (#{$user->id}) on " . now()->format('Y-m-d H:i:s');
+        if ($note) {
+            $noteText .= " — Note: " . trim($note);
+        }
+
+        $this->update([
+            'status' => self::STATUS_ACCEPTED,
+            'notes'  => $this->notes ? ($this->notes . "\n" . $noteText) : $noteText,
+        ]);
+
+        return true;
     }
 }
 

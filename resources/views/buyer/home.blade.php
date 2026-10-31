@@ -92,14 +92,20 @@
           </div>
           <div class="pmeta">
             <span>{{ $p->stock }} left</span>
-            @if((float)($p->visible_rating ?? $p->rating ?? 0) > 0)<span style="color:#A16207;font-weight:700">★ {{ number_format((float)($p->visible_rating ?? $p->rating),1) }} <span style="color:var(--muted);font-weight:500">{{ (int)($p->visible_reviews_count ?? 0) > 0 ? '('.$p->visible_reviews_count.')' : '(rating)' }}</span></span>@endif
+            @if((float)($p->visible_rating ?? $p->rating ?? 0) > 0)<span style="color:#A16207;font-weight:700;display:inline-flex;align-items:center;gap:3px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> {{ number_format((float)($p->visible_rating ?? $p->rating),1) }} <span style="color:var(--muted);font-weight:500">{{ (int)($p->visible_reviews_count ?? 0) > 0 ? '('.$p->visible_reviews_count.')' : '(rating)' }}</span></span>@endif
             <span class="codpill"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>COD</span>
           </div>
         </div>
       </a>
       <form method="POST" action="{{ url('/wishlist/'.$p->id.'/toggle') }}" style="position:absolute;right:10px;top:10px;z-index:2;margin:0">
         @csrf
-        <button type="submit" aria-label="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" title="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" style="width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.14);font-size:19px;line-height:1;color:{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '#dc2626' : '#475569' }};cursor:pointer">{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '♥' : '♡' }}</button>
+        <button type="submit" aria-label="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" title="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" style="width:36px;height:36px;border:0;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.14);display:flex;align-items:center;justify-content:center;color:{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '#dc2626' : '#64748B' }};cursor:pointer">
+          @if(in_array((int)$p->id, $favoriteIds ?? [], true))
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#dc2626" stroke="#dc2626" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          @else
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+          @endif
+        </button>
       </form>
       </div>
     @endforeach

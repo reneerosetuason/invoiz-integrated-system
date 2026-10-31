@@ -42,7 +42,21 @@ class PaymentActionController extends Controller
             'remitted_by'    => auth()->id(),
         ]);
 
-        return back()->with('status', "Remittance of ₱" . number_format((float) $remittance->amount, 2) . " released to {$remittance->recipient_name} (Ref: {$ref}).");
+        // Auto-approve and collect the admin's 10% commission for this order
+        if ($remittance->order_id) {
+            \App\Models\EscrowRemittance::where('order_id', $remittance->order_id)
+                ->where('recipient_role', \App\Models\EscrowRemittance::ROLE_ADMIN)
+                ->where('status', '!=', 'remitted')
+                ->update([
+                    'status'         => 'remitted',
+                    'bank_reference' => 'ADMIN-COMM-' . $remittance->order_id,
+                    'remitted_at'    => now(),
+                    'remitted_by'    => auth()->id(),
+                    'notes'          => 'Automatically collected 10% platform commission upon payout release.',
+                ]);
+        }
+
+        return back()->with('status', "Remittance of ₱" . number_format((float) $remittance->amount, 2) . " released to {$remittance->recipient_name} (Ref: {$ref}). Admin 10% commission booked.");
     }
 
     public function remitAllPendingEscrow(Request $request)
@@ -62,7 +76,22 @@ class PaymentActionController extends Controller
             $total += (float) $r->amount;
         }
 
-        return back()->with('status', "Successfully remitted {$count} pending payouts totalling ₱" . number_format($total, 2) . " to recipient bank accounts.");
+        // Auto-approve and collect platform commission for all orders in this batch
+        $orderIds = $pending->pluck('order_id')->filter()->unique();
+        if ($orderIds->isNotEmpty()) {
+            \App\Models\EscrowRemittance::whereIn('order_id', $orderIds)
+                ->where('recipient_role', \App\Models\EscrowRemittance::ROLE_ADMIN)
+                ->where('status', '!=', 'remitted')
+                ->update([
+                    'status'         => 'remitted',
+                    'bank_reference' => 'ADMIN-COMM-BATCH',
+                    'remitted_at'    => now(),
+                    'remitted_by'    => auth()->id(),
+                    'notes'          => 'Automatically collected 10% platform commission upon batch payout release.',
+                ]);
+        }
+
+        return back()->with('status', "Successfully remitted {$count} pending payouts totalling ₱" . number_format($total, 2) . " to recipient accounts. Admin 10% commissions booked.");
     }
 
     public function approveWithdrawal($id)

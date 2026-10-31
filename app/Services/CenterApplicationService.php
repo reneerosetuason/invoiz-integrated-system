@@ -308,7 +308,7 @@ class CenterApplicationService
             'type' => 'new_center_application',
             'title' => 'New Center Application',
             'message' => "A new Logistics Center application from {$application->business_name} is waiting for review.",
-            'icon' => '🏬',
+            'icon' => 'building',
             'priority' => 'high',
             'audience' => 'admin',
             'link' => route('center-applications.show', $application),

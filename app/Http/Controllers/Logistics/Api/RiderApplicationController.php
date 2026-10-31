@@ -160,7 +160,7 @@ class RiderApplicationController extends Controller
             'type' => 'new_rider_application',
             'title' => 'New Rider Application (Mobile)',
             'message' => "A new rider application from {$application->name} via mobile is waiting for review.",
-            'icon' => '🛵',
+            'icon' => 'truck',
             'priority' => 'high',
             'audience' => 'admin',
             'link' => route('rider-applications.show', $application),

@@ -2,6 +2,10 @@
     <!-- Camera is used only by the Scan Parcel screen to read the QR code
          printed on INVOIZ shipping labels. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- The rider must share their position to go online and receive
+         delivery offers, so location is requested while the app is in use. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <application

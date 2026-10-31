@@ -563,7 +563,7 @@ class MessageController extends Controller
                     'type' => 'new_message',
                     'title' => 'New Message',
                     'message' => str($validated['body'])->limit(120)->toString(),
-                    'icon' => '💬',
+                    'icon' => 'message',
                     'priority' => 'normal',
                     'center_id' => $centerId,
                     'audience' => $centerId ? 'center' : 'global',

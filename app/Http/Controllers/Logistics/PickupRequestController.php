@@ -323,7 +323,7 @@ class PickupRequestController extends Controller
                 'type' => 'pickup_failed',
                 'title' => 'Pickup Failed',
                 'message' => "Pickup request #{$pickupRequest->id} was rejected. Reason: {$validated['rejection_reason']}",
-                'icon' => '⚠️',
+                'icon' => 'alert-triangle',
                 'priority' => 'high',
                 'center_id' => $pickupRequest->center_id,
                 'audience' => 'center',

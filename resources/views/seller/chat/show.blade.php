@@ -33,7 +33,17 @@
                     </div>
                     <div class="mt-1 flex items-center gap-2 px-1 text-[11px] text-ink-light">
                         <span>{{ $message->created_at->format('M j, g:i A') }}</span>
-                        @if($mine)<span class="text-ink-light">{{ $message->is_read ? '✓✓ read' : '✓ sent' }}</span>@endif
+                        @if($mine)
+                            <span class="inline-flex items-center gap-0.5 text-ink-light">
+                                @if($message->is_read)
+                                    <svg class="w-3 h-3 text-[#16697A] inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13l4 4L17 7"/><path stroke-linecap="round" stroke-linejoin="round" d="M7 13l4 4L21 7"/></svg>
+                                    <span>read</span>
+                                @else
+                                    <svg class="w-3 h-3 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                    <span>sent</span>
+                                @endif
+                            </span>
+                        @endif
                     </div>
                 </div>
             </div>

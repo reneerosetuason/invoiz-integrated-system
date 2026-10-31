@@ -41,7 +41,10 @@
 @if(session('success'))<div style="background:#ecfdf5;color:#065f46;padding:10px;border-radius:8px;border:1px solid #a7f3d0;margin-top:12px;font-size:13px;font-weight:600">{{ session('success') }}</div>@endif
 
 @if(!empty($vacation))
-<div style="background:#FFFBEB;color:#92400e;padding:11px 14px;border-radius:10px;border:1px solid #FDE68A;margin-top:12px;font-size:13px;font-weight:600">🌴 {{ $vacation }}</div>
+<div style="background:#FFFBEB;color:#92400e;padding:11px 14px;border-radius:10px;border:1px solid #FDE68A;margin-top:12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" style="flex-shrink:0;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+  <span>{{ $vacation }}</span>
+</div>
 @endif
 
 <div class="st-tabs">
@@ -102,14 +105,28 @@
             @endif
             <div class="st-body">
               <div class="st-name">{{ $p->name }}</div>
-              @if((float)($p->visible_rating ?? $p->rating ?? 0) > 0)<div class="st-rating">★ {{ number_format((float)($p->visible_rating ?? $p->rating),1) }} <span style="color:var(--text3);font-weight:500">{{ (int)($p->visible_reviews_count ?? 0) > 0 ? '('.$p->visible_reviews_count.')' : '(rating)' }}</span></div>@else<div class="st-rating" style="color:var(--text3);font-weight:500">No ratings yet</div>@endif
+              @if((float)($p->visible_rating ?? $p->rating ?? 0) > 0)
+                <div class="st-rating" style="display:flex;align-items:center;gap:3px;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  <span>{{ number_format((float)($p->visible_rating ?? $p->rating),1) }}</span>
+                  <span style="color:var(--text3);font-weight:500">{{ (int)($p->visible_reviews_count ?? 0) > 0 ? '('.$p->visible_reviews_count.')' : '(rating)' }}</span>
+                </div>
+              @else
+                <div class="st-rating" style="color:var(--text3);font-weight:500">No ratings yet</div>
+              @endif
               <div class="st-price">₱{{ number_format($p->price,2) }}</div>
             </div>
           </div>
         </a>
         <form method="POST" action="{{ url('/wishlist/'.$p->id.'/toggle') }}" style="position:absolute;right:10px;top:10px;z-index:2;margin:0">
           @csrf
-          <button type="submit" aria-label="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" style="width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.14);font-size:18px;line-height:1;color:{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '#dc2626' : '#475569' }};cursor:pointer">{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '♥' : '♡' }}</button>
+          <button type="submit" aria-label="{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? 'Remove from wishlist' : 'Add to wishlist' }}" style="width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.95);box-shadow:0 2px 8px rgba(0,0,0,.14);display:flex;align-items:center;justify-content:center;color:{{ in_array((int)$p->id, $favoriteIds ?? [], true) ? '#dc2626' : '#64748B' }};cursor:pointer">
+            @if(in_array((int)$p->id, $favoriteIds ?? [], true))
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="#dc2626" stroke="#dc2626" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            @else
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            @endif
+          </button>
         </form>
         </div>
       @endforeach

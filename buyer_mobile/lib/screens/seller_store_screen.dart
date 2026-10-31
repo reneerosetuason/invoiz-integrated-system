@@ -322,6 +322,11 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                           name: name,
                           path: s['logo'] as String?,
                           size: 40,
+                          onTap: () => openStorePhoto(
+                            context,
+                            name: name,
+                            path: s['logo'] as String?,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),

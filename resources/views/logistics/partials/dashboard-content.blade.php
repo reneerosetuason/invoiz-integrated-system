@@ -7,10 +7,35 @@
     {{-- Page Header --}}
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h1 class="text-2xl font-bold text-[#1B1B1E]">Logistics Dashboard</h1>
-            <p class="text-xs text-[#6E6E73] mt-0.5">
+            <div class="flex items-center gap-2">
+                <h1 class="text-2xl font-bold text-[#1B1B1E]">Logistics Dashboard</h1>
+                @if(isset($staffCenter) && $staffCenter)
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#E6F4F1] text-[#0E4A57] border border-[#16697A]/20">
+                        <span class="w-2 h-2 rounded-full bg-[#16697A]"></span>
+                        {{ $staffCenter->name }} ({{ $staffCenter->code ?? 'HUB' }})
+                    </span>
+                @elseif($staffCenterId === null)
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                        HQ Admin · All Logistics Centers
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Awaiting Center Assignment
+                    </span>
+                @endif
+            </div>
+            <p class="text-xs text-[#6E6E73] mt-1">
                 {{ now()->format('l, F j, Y') }} &middot;
-                {{ $staffCenterId !== null ? ($staffCenterId ? 'Your Logistics Center' : 'Awaiting Center Assignment') : 'All Logistics Centers' }}
+                @if(isset($staffCenter) && $staffCenter)
+                    Assigned Center: <strong class="text-[#1B1B1E]">{{ $staffCenter->name }}</strong>
+                    @if($staffCenter->city) &middot; {{ $staffCenter->city }} @endif
+                @elseif($staffCenterId === null)
+                    All Logistics Centers (Global Admin Oversight)
+                @else
+                    Awaiting Center Assignment
+                @endif
             </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">

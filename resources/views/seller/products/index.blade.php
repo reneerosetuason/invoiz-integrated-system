@@ -103,7 +103,7 @@
                         <td class="text-center text-ink-light">{{ $product->variants_count }}</td>
                         <td class="text-center">
                             @if($product->rating)
-                                <span class="font-bold">{{ $product->rating }}</span> <span class="rating-stars text-xs">★</span>
+                                <span class="font-bold">{{ $product->rating }}</span> <svg class="w-3.5 h-3.5 text-amber-500 inline-block align-middle" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
                             @else
                                 <span class="text-ink-light">—</span>
                             @endif

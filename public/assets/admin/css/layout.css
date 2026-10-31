@@ -3,7 +3,7 @@
       --primary-dark: #0E4A57;
       --secondary: #F0A202;
       --accent: #EAF4F3;
-      --background: #FBF9F6;
+      --background: #F7F6F2;
       --card: #FFFFFF;
       --text-primary: #1B1B1E;
       --text-secondary: #6E6E73;
@@ -24,10 +24,10 @@
     h1, h2, h3 { margin: 0; line-height: 1.3; }
     p { line-height: 1.65; }
     .shell { display: flex; min-height: 100vh; }
-    .sb2--admin.sidebar { width: 256px; min-width: 256px; flex: 0 0 256px; background: #FBF9F6; border-right: 0; padding: 0; position: sticky; top: 0; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; transition: none; }
+    .sb2--admin.sidebar { width: 256px; min-width: 256px; flex: 0 0 256px; background: #F7F6F2; border-right: 0; padding: 0; position: sticky; top: 0; height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; transition: none; }
     .sb2--admin.sidebar.collapsed { width: 72px; min-width: 72px; flex-basis: 72px; }
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-    .topbar { height: 64px; background: #FBF9F6; border-bottom: 0; box-shadow: none; display: flex; align-items: center; gap: 14px; padding: 0 20px; position: sticky; top: 0; z-index: 10; font-family: 'Inter', system-ui, sans-serif; }
+    .topbar { height: 64px; background: #F7F6F2; border-bottom: 0; box-shadow: none; display: flex; align-items: center; gap: 14px; padding: 0 20px; position: sticky; top: 0; z-index: 10; font-family: 'Inter', system-ui, sans-serif; }
     .hamburger { width: 40px; height: 40px; border: 0; background: transparent; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary-dark); cursor: pointer; flex-shrink: 0; }
     .hamburger:hover { background: #EDF3F1; }
     .hamburger svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; }
@@ -35,8 +35,8 @@
     @media (max-width: 1023.98px) { .hamburger { width: 44px; height: 44px; } }
     .topbar-title { font-size: 15px; font-weight: 600; color: var(--text-primary); letter-spacing: -.2px; line-height: 1.2; }
     .topbar-sub { font-size: 12.5px; color: #56696B; }
-    .content { flex: 1; padding: 28px 32px; max-width: 1280px; }
-    .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 24px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -14px rgba(16,24,40,.10); }
+    .content { flex: 1; padding: 22px 24px; width: 100%; max-width: 1440px; box-sizing: border-box; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 24px -14px rgba(16,24,40,.10); }
     .page-title { margin-top: 0; margin-bottom: 16px; font-size: 22px; font-weight: 700; letter-spacing: -0.4px; line-height: 1.25; color: var(--text-primary); }
     .grid { display: grid; gap: 20px; }
     .grid-3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
@@ -73,6 +73,22 @@
     .pagination { margin-top: 16px; }
     .pagination .page-link, .pagination a { color: var(--primary); text-decoration: none; margin-right: 6px; font-weight: 600; }
     .pagination .disabled, .pagination .disabled span { color: var(--text-secondary); }
+    /* Defensive constraints on any default Laravel / Tailwind pagination SVGs */
+    .pagination svg, nav[role="navigation"] svg, svg.w-5, svg.h-5 {
+      width: 14px !important;
+      height: 14px !important;
+      max-width: 14px !important;
+      max-height: 14px !important;
+      display: inline-block !important;
+      vertical-align: middle !important;
+    }
+    nav[role="navigation"] {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      flex-wrap: wrap;
+    }
     .confirm-overlay { position: fixed; inset: 0; background: rgba(16,24,40,.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); display: none; align-items: center; justify-content: center; z-index: 9999; padding: 20px; }
     .confirm-overlay.open { display: flex; }
     .confirm-card { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 28px 24px; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 20px 60px rgba(16,24,40,.18), 0 1px 2px rgba(16,24,40,.06); animation: confirmPop .2s ease; }
@@ -87,7 +103,7 @@
     .confirm-actions .btn { min-width: 110px; border-radius: 12px; padding: 10px 20px; font-weight: 700; }
 
     /* Admin adopts the shared Seller/Buyer/Logistics sidebar primitives. */
-    .sb2--admin { background: #FBF9F6; border-right: 0; }
+    .sb2--admin { background: #F7F6F2; border-right: 0; }
     .sb2--admin .sb-brand-header { height: 72px; flex: 0 0 72px; display: flex; align-items: center; padding: 0 16px; }
     .sb2--admin .sb-logo-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
     .sb2--admin .sb-logo { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }

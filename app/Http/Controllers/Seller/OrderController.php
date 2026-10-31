@@ -407,7 +407,11 @@ class OrderController extends Controller
             $order->delivery->refresh();
         }
 
-        return view('seller.orders.waybill', compact('order'));
+        // Same data + same partial as the logistics parcel label.
+        $delivery = $order->delivery;
+        $waybill = $delivery ? \App\Support\Waybill::context($delivery) : [];
+
+        return view('seller.orders.waybill', array_merge(compact('order', 'delivery'), $waybill));
     }
 
     private function defaultNote(string $action): string

@@ -157,6 +157,53 @@ class Remittances
         });
     }
 
+    /**
+     * Logistics staff/admin confirms COD cash remittance was received from the rider at the hub.
+     * Settles the whole order once every delivered parcel is confirmed.
+     */
+    public static function confirmByLogistics(Remittance $remittance, \App\Models\User $user, ?string $reference = null): bool
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($remittance, $user, $reference) {
+            $order = Order::whereKey($remittance->order_id)->lockForUpdate()->firstOrFail();
+            $locked = Remittance::whereKey($remittance->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->status === 'confirmed') {
+                return false;
+            }
+
+            $refText = $reference ? trim($reference) : null;
+            $note = "Confirmed received by hub staff {$user->name} (#{$user->id})";
+            if ($refText) {
+                $note .= " [Ref: {$refText}]";
+            }
+
+            $locked->update([
+                'status' => 'confirmed',
+                'reference' => $refText ?? $locked->reference,
+                'confirmed_at' => now(),
+                'note' => $locked->note ? ($locked->note . "\n" . $note) : $note,
+            ]);
+
+            // Notify seller that remittance cash was verified at the hub
+            try {
+                SellerNotification::create([
+                    'seller_id'  => $locked->seller_id,
+                    'order_id'   => $locked->order_id,
+                    'product_id' => null,
+                    'type'       => 'remittance',
+                    'title'      => 'COD Remittance Confirmed: ₱' . number_format((float) $locked->amount, 2),
+                    'body'       => "Logistics Hub ({$user->name}) has confirmed receipt of COD cash for Order #{$order->order_number}. Funds settled to your earnings.",
+                ]);
+            } catch (\Throwable $e) {}
+
+            if (self::allDeliveredConfirmed((int) $order->id)) {
+                Payments::settleForDelivery($order);
+                return true;
+            }
+            return false;
+        });
+    }
+
     /** True when every DELIVERED parcel of the order is seller-confirmed. */
     public static function allDeliveredConfirmed(int $orderId): bool
     {

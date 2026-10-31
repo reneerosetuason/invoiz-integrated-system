@@ -417,36 +417,14 @@ class DeliveryController extends Controller
             'transaction',
         ]);
 
-        // Read-only order-side context for the unified shipping waybill.
-        // No writes; the Buyer/Seller/Order systems are never modified here.
-        $waybillOrder = $delivery->order;
-        $waybillAddress = null;
-        $waybillPayment = null;
-        $waybillDiscount = 0.0;
-        $waybillStores = collect();
-        if ($waybillOrder) {
-            $shippingSnapshot = $waybillOrder->shipping_address;
-            $waybillAddress = is_array($shippingSnapshot) && $shippingSnapshot !== []
-                ? (object) $shippingSnapshot
-                : DB::table('addresses')->where('id', $waybillOrder->address_id)->first();
-            $waybillPayment = DB::table('payments')
-                ->where('order_id', $waybillOrder->id)
-                ->first();
-            $waybillDiscount = (float) DB::table('order_vouchers')
-                ->where('order_id', $waybillOrder->id)
-                ->sum('discount_amount');
-            $sellerIds = $waybillOrder->items
-                ->pluck('seller_id')
-                ->filter()
-                ->unique()
-                ->values();
-            if ($sellerIds->isNotEmpty()) {
-                $waybillStores = DB::table('sellers')
-                    ->whereIn('user_id', $sellerIds)
-                    ->get()
-                    ->keyBy('user_id');
-            }
-        }
+        // Read-only order-side context for the unified shipping waybill
+        // (shared with the seller "Print Waybill" page).
+        $waybill = \App\Support\Waybill::context($delivery);
+        $waybillOrder = $waybill['waybillOrder'];
+        $waybillAddress = $waybill['waybillAddress'];
+        $waybillPayment = $waybill['waybillPayment'];
+        $waybillDiscount = $waybill['waybillDiscount'];
+        $waybillStores = $waybill['waybillStores'];
 
         $riderEligibility = $this->riderEligibilityFor($delivery);
 
@@ -678,7 +656,7 @@ class DeliveryController extends Controller
             'type' => 'new_delivery_request',
             'title' => 'New Delivery Request',
             'message' => "Order #{$delivery->id} is ready for pickup and needs a rider.",
-            'icon' => '📦',
+            'icon' => 'package',
             'priority' => 'high',
             'center_id' => $delivery->center_id,
             'audience' => $delivery->center_id ? 'center' : 'admin',
@@ -1019,7 +997,7 @@ class DeliveryController extends Controller
             'type' => 'rider_accepted_delivery',
             'title' => 'Rider Assigned to Delivery',
             'message' => "Rider {$rider->name} was assigned to Order #{$delivery->id}.",
-            'icon' => '🛵',
+            'icon' => 'truck',
             'priority' => 'normal',
             'center_id' => $delivery->center_id,
             'audience' => $delivery->center_id ? 'center' : 'admin',
@@ -1284,11 +1262,11 @@ class DeliveryController extends Controller
 
         $riderName = $rider->name ?? 'Rider';
         $statusMessages = [
-            'picked_up' => ['Rider Picked Up Order', "{$riderName} has picked up Order #{$delivery->id} from sender.", '📦', 'normal'],
-            'out_for_delivery' => ['Out for Delivery', "Order #{$delivery->id} is now out for delivery.", '🚚', 'normal'],
-            'delivered' => ['Delivery Completed', "Order #{$delivery->id} was successfully delivered.", '✅', 'normal'],
-            'delivery_failed' => ['Delivery Failed', "Order #{$delivery->id} failed. Reason: {$reasonText}", '⚠️', 'high'],
-            'cancelled' => ['Delivery Cancelled', "Order #{$delivery->id} was cancelled. Reason: {$reasonText}", '❌', 'high'],
+            'picked_up' => ['Rider Picked Up Order', "{$riderName} has picked up Order #{$delivery->id} from sender.", 'package', 'normal'],
+            'out_for_delivery' => ['Out for Delivery', "Order #{$delivery->id} is now out for delivery.", 'truck', 'normal'],
+            'delivered' => ['Delivery Completed', "Order #{$delivery->id} was successfully delivered.", 'check-circle', 'normal'],
+            'delivery_failed' => ['Delivery Failed', "Order #{$delivery->id} failed. Reason: {$reasonText}", 'alert-triangle', 'high'],
+            'cancelled' => ['Delivery Cancelled', "Order #{$delivery->id} was cancelled. Reason: {$reasonText}", 'x-circle', 'high'],
         ];
 
         if (isset($statusMessages[$target])) {

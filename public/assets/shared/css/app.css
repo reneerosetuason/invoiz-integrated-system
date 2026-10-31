@@ -330,3 +330,21 @@ label.field-label {
     }
     .no-print { display: none !important; }
 }
+
+
+/* Universal Pagination Guard: prevents raw SVGs from blowing up */
+.pagination svg, nav[role="navigation"] svg, svg.w-5, svg.h-5, .lw-pagination svg {
+    width: 14px !important;
+    height: 14px !important;
+    max-width: 14px !important;
+    max-height: 14px !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+nav[role="navigation"] {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    flex-wrap: wrap;
+}

@@ -499,7 +499,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              StoreAvatar(name: shop.businessName, path: shop.logo),
+              StoreAvatar(
+                name: shop.businessName,
+                path: shop.logo,
+                onTap: () => openStorePhoto(
+                  context,
+                  name: shop.businessName,
+                  path: shop.logo,
+                ),
+              ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(

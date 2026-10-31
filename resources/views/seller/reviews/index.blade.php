@@ -27,7 +27,7 @@
         @foreach(['five' => 5, 'four' => 4, 'three' => 3, 'two' => 2, 'one' => 1] as $key => $stars)
             @php $pct = $stats['total'] > 0 ? round($stats[$key] / $stats['total'] * 100) : 0; @endphp
             <div class="mb-1.5 flex items-center gap-3 text-sm">
-                <span class="w-8 font-semibold">{{ $stars }} ★</span>
+                <span class="w-8 font-semibold flex items-center gap-1">{{ $stars }} <svg class="w-3.5 h-3.5 text-amber-500 inline-block" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg></span>
                 <div class="h-2 flex-1 overflow-hidden rounded-full" style="background:#F0EEE9;">
                     <div class="h-full rounded-full" style="background:#F5A623;width:{{ $pct }}%"></div>
                 </div>

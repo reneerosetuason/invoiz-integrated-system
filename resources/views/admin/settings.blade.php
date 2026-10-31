@@ -1,4 +1,4 @@
-@extends('admin.layout')
+﻿@extends('admin.layout')
 
 @section('content')
 @php
@@ -15,10 +15,9 @@ $sections = [
     'content' => ['mega', 'Announcements & Policies'],
 ];
 @endphp
-<link rel="stylesheet" href="{{ asset('assets/admin/css/settings.css') }}">
-<main class="card admin-settings">
+<div class="card">
     <h1 class="page-title">System Settings</h1>
-    <p class="settings-intro">Main configuration center for the Invoiz platform.</p>
+    <p style="color:#6E6E73;margin-top:-8px;">Main configuration center for the Invoiz platform.</p>
 
     @if(session('status'))
     <div class="alert alert-success">{{ session('status') }}</div>
@@ -27,17 +26,17 @@ $sections = [
     <div class="alert alert-warn">{{ $errors->first() }}</div>
     @endif
 
-    <nav class="settings-nav" aria-label="Settings sections">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;">
         @foreach ($sections as $id => [$icon, $label])
-        <a href="#section-{{ $id }}" class="settings-nav-link"><x-ui-icon :name="$icon" :size="14" />{{ $label }}</a>
+        <a href="#section-{{ $id }}" style="padding:7px 15px;border-radius:999px;background:#F0EEE9;color:#374151;font-size:12.5px;font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:6px;"><x-ui-icon :name="$icon" :size="14" />{{ $label }}</a>
         @endforeach
-    </nav>
+    </div>
 
     @php
-    $inputStyle = 'width:100%;min-height:42px;padding:9px 12px;border:1px solid rgba(15,76,92,.18);border-radius:9px;box-sizing:border-box;background:#fff;color:#19383E;';
-    $labelStyle = 'display:block;margin-bottom:5px;font-weight:600;font-size:13px;color:#36555B;';
-    $cardStyle = 'background:#fff;padding:20px 22px;border-radius:14px;border:1px solid rgba(15,76,92,.13);';
-    $saveBtn = 'min-height:40px;padding:9px 18px;background:#0E4A57;color:white;border:none;border-radius:9px;cursor:pointer;font-weight:650;';
+    $inputStyle = 'width:100%;padding:9px 14px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;background:#fff;';
+    $labelStyle = 'display:block;margin-bottom:4px;font-weight:600;font-size:13px;';
+    $cardStyle = 'background:#F7F6F2;padding:22px;border-radius:14px;border:1px solid #E8E6E0;';
+    $saveBtn = 'padding:10px 26px;background:#16697A;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;';
     @endphp
 
     {{-- ============================ GENERAL ============================ --}}
@@ -91,22 +90,20 @@ $sections = [
                 </select>
             </div>
         </div>
-            <div class="settings-logo-row">
-                <div class="settings-logo-preview" data-photo-preview-target-key="admin-store-logo-preview">
+        <div style="margin-top:16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div style="width:64px;height:64px;border-radius:50%;border:2px solid #E8E6E0;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
                 @if ($settings->get('store_logo'))
                 <img src="{{ url('storage/'.$settings->get('store_logo')) }}" alt="logo" style="width:100%;height:100%;object-fit:cover;" />
                 @else
-                <img src="{{ asset('assets/shared/images/logo.png') }}" alt="logo" style="width:100%;height:100%;object-fit:cover;" />
+                <img src="{{ asset('images/logo.png') }}" alt="logo" style="width:100%;height:100%;object-fit:cover;" />
                 @endif
             </div>
-            <div class="settings-logo-control">
-                <label for="settings-store-logo">Store Logo (PNG/JPG/SVG, max 2MB)</label>
-                <input id="settings-store-logo" type="file" name="store_logo" accept="image/*"
-                       data-photo-editor data-photo-aspect="1" data-photo-max-bytes="2097152" data-photo-output-format="png"
-                       data-photo-preview-key="admin-store-logo-preview" />
+            <div>
+                <label style="{{ $labelStyle }}">Store Logo (PNG/JPG/SVG, max 2MB)</label>
+                <input type="file" name="store_logo" accept="image/*" style="padding:6px;" />
             </div>
         </div>
-        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save General Settings</button></div>
+        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save General Settings</button></div>
     </form>
 
     {{-- ============================ MARKETPLACE ============================ --}}
@@ -139,7 +136,7 @@ $sections = [
                 </select>
             </div>
         </div>
-        <div class="settings-checks">
+        <div style="margin-top:16px;display:grid;gap:10px;">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="auto_approve_sellers" value="1" {{ $checked('auto_approve_sellers') }} style="width:16px;height:16px;" />
                 Auto-approve new seller registrations (skip manual review)
@@ -149,7 +146,7 @@ $sections = [
                 Require admin approval before new products go live
             </label>
         </div>
-        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Marketplace Settings</button></div>
+        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Marketplace Settings</button></div>
     </form>
 
     {{-- ============================ ORDERS ============================ --}}
@@ -167,7 +164,7 @@ $sections = [
                 <input type="number" name="return_window_days" value="{{ $s('return_window_days', '7') }}" min="0" style="{{ $inputStyle }}" />
             </div>
         </div>
-        <div class="settings-checks">
+        <div style="margin-top:16px;display:grid;gap:10px;">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="allow_cancellations" value="1" {{ $checked('allow_cancellations', '1') }} style="width:16px;height:16px;" />
                 Allow buyers to cancel orders
@@ -177,7 +174,7 @@ $sections = [
                 Allow product returns
             </label>
         </div>
-        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Order Settings</button></div>
+        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Order Settings</button></div>
     </form>
 
     {{-- ============================ PAYMENTS ============================ --}}
@@ -186,9 +183,9 @@ $sections = [
         @csrf
         <input type="hidden" name="section" value="payments" />
         <label style="{{ $labelStyle }}">Enabled Payment Methods</label>
-        <div class="settings-check-options">
+        <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:16px;">
             @foreach (['pm_gcash' => 'GCash', 'pm_maya' => 'Maya', 'pm_card' => 'Credit / Debit Card', 'pm_cod' => 'Cash on Delivery'] as $key => $label)
-            <label class="settings-check-option" style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
+            <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;background:#fff;border:1px solid #E8E6E0;border-radius:10px;padding:10px 14px;">
                 <input type="checkbox" name="{{ $key }}" value="1" {{ $checked($key, '1') }} style="width:16px;height:16px;" />
                 {{ $label }}
             </label>
@@ -207,13 +204,13 @@ $sections = [
                 <input type="number" name="refund_window_days" value="{{ $s('refund_window_days', '14') }}" min="0" style="{{ $inputStyle }}" />
             </div>
         </div>
-        <div class="settings-checks settings-checks--single">
+        <div style="margin-top:16px;">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="auto_refund" value="1" {{ $checked('auto_refund') }} style="width:16px;height:16px;" />
                 Automatically refund approved disputes
             </label>
         </div>
-        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Payment Settings</button></div>
+        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Payment Settings</button></div>
     </form>
 
     {{-- ============================ DELIVERY ============================ --}}
@@ -240,13 +237,13 @@ $sections = [
             </div>
             @endforeach
         </div>
-        <div class="settings-checks settings-checks--single">
+        <div style="margin-top:16px;">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="auto_assign_rider" value="1" {{ $checked('auto_assign_rider', '1') }} style="width:16px;height:16px;" />
                 Auto-assign available riders to paid orders
             </label>
         </div>
-        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Delivery Settings</button></div>
+        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Delivery Settings</button></div>
     </form>
 
     {{-- ============================ NOTIFICATIONS ============================ --}}
@@ -254,7 +251,7 @@ $sections = [
     <form method="POST" action="{{ url('/admin/settings/update') }}" style="{{ $cardStyle }}">
         @csrf
         <input type="hidden" name="section" value="notifications" />
-        <div class="settings-checks">
+        <div style="display:grid;gap:10px;max-width:520px;margin-bottom:16px;">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="notif_email" value="1" {{ $checked('notif_email', '1') }} style="width:16px;height:16px;" />
                 <x-ui-icon name="mail" :size="15" /> Email Notifications (order updates, approvals)
@@ -276,7 +273,7 @@ $sections = [
                 @endforeach
             </select>
         </div>
-        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Notification Settings</button></div>
+        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Notification Settings</button></div>
     </form>
 
     {{-- ============================ SECURITY ============================ --}}
@@ -298,7 +295,7 @@ $sections = [
                 <input type="number" name="max_login_attempts" value="{{ $s('max_login_attempts', '5') }}" min="1" style="{{ $inputStyle }}" />
             </div>
         </div>
-        <div class="settings-checks">
+        <div style="margin-top:16px;display:grid;gap:10px;">
             <label style="display:flex;align-items:center;gap:10px;font-weight:600;font-size:13.5px;">
                 <input type="checkbox" name="password_require_symbols" value="1" {{ $checked('password_require_symbols', '1') }} style="width:16px;height:16px;" />
                 Require symbols & numbers in passwords
@@ -308,14 +305,14 @@ $sections = [
                 Require Two-Factor Authentication (2FA) for admins
             </label>
         </div>
-        <div class="settings-save"><button type="submit" style="{{ $saveBtn }}">Save Security Settings</button></div>
+        <div style="margin-top:18px;"><button type="submit" style="{{ $saveBtn }}">Save Security Settings</button></div>
     </form>
 
     {{-- ============================ ANNOUNCEMENTS & POLICIES ============================ --}}
     <h2 id="section-content" style="font-size:18px;margin:28px 0 12px;display:flex;align-items:center;gap:8px;"><x-ui-icon name="mega" :size="18" /> Announcements & Policies</h2>
-    <div class="settings-content-grid">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
         <div>
-            <form method="POST" action="{{ url('/admin/settings/announcement') }}" class="settings-content-form">
+            <form method="POST" action="{{ url('/admin/settings/announcement') }}" style="background:#F0EEE9;padding:20px;border-radius:12px;">
                 @csrf
                 <div style="margin-bottom:12px;">
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Announcement Title</label>
@@ -325,24 +322,23 @@ $sections = [
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Body</label>
                     <textarea name="body" rows="4" required style="width:100%;padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;"></textarea>
                 </div>
-                <button type="submit">Post Announcement</button>
+                <button type="submit" style="padding:10px 24px;background:#16697A;color:white;border:none;border-radius:8px;cursor:pointer;">Post Announcement</button>
             </form>
 
-            <h3 class="settings-subhead">Recent Announcements</h3>
+            <h3 style="font-size:15px;margin:20px 0 12px;">Recent Announcements</h3>
             @forelse($announcements as $ann)
-            <div class="settings-content-record">
-                <span class="settings-active-indicator {{ $ann->is_active ? 'is-active' : 'is-inactive' }}" title="{{ $ann->is_active ? 'Active' : 'Inactive' }}" aria-label="{{ $ann->is_active ? 'Active' : 'Inactive' }}"></span>
+            <div style="background:#F0EEE9;padding:14px;border-radius:10px;margin-bottom:10px;border-left:3px solid {{ $ann->is_active ? '#2E8B57' : '#6E6E73' }};">
                 <strong>{{ $ann->title }}</strong>
                 <p style="color:#6E6E73;margin:4px 0 0;font-size:13px;">{{ Str::limit($ann->body, 100) }}</p>
-                <span class="settings-content-meta">{{ $ann->created_at->diffForHumans() }} by {{ $ann->creator->name ?? 'Admin' }}</span>
+                <span style="font-size:12px;color:#6E6E73;">{{ $ann->created_at->diffForHumans() }} by {{ $ann->creator->name ?? 'Admin' }}</span>
             </div>
             @empty
-            <p class="settings-section-empty">No announcements yet.</p>
+            <p style="color:#6E6E73;">No announcements yet.</p>
             @endforelse
         </div>
 
         <div>
-            <form method="POST" action="{{ url('/admin/settings/policy') }}" class="settings-content-form">
+            <form method="POST" action="{{ url('/admin/settings/policy') }}" style="background:#F0EEE9;padding:20px;border-radius:12px;margin-bottom:20px;">
                 @csrf
                 <div style="margin-bottom:12px;">
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Policy Title</label>
@@ -352,23 +348,19 @@ $sections = [
                     <label style="display:block;margin-bottom:4px;font-weight:600;">Content</label>
                     <textarea name="content" rows="5" required style="width:100%;padding:8px 14px;border:1px solid #d1d5db;border-radius:8px;box-sizing:border-box;"></textarea>
                 </div>
-                <button type="submit">Create Policy</button>
+                <button type="submit" style="padding:10px 24px;background:#8b5cf6;color:white;border:none;border-radius:8px;cursor:pointer;">Create Policy</button>
             </form>
 
             @forelse($policies as $policy)
-            <div class="settings-content-record">
-                <span class="settings-active-indicator {{ $policy->is_active ? 'is-active' : 'is-inactive' }}" title="{{ $policy->is_active ? 'Active' : 'Inactive' }}" aria-label="{{ $policy->is_active ? 'Active' : 'Inactive' }}"></span>
+            <div style="background:#F0EEE9;padding:14px;border-radius:10px;margin-bottom:10px;border-left:3px solid {{ $policy->is_active ? '#8b5cf6' : '#6E6E73' }};">
                 <strong>{{ $policy->title }}</strong>
                 <span style="font-size:12px;color:#6E6E73;margin-left:8px;">v{{ $policy->version }}</span>
                 <p style="color:#6E6E73;margin:4px 0 0;font-size:13px;">{{ Str::limit($policy->content, 100) }}</p>
             </div>
             @empty
-            <p class="settings-section-empty">No policies created yet.</p>
+            <p style="color:#6E6E73;">No policies created yet.</p>
             @endforelse
         </div>
     </div>
-</main>
-@push('scripts')
-    @include('seller.partials.photo-editor')
-@endpush
+</div>
 @endsection

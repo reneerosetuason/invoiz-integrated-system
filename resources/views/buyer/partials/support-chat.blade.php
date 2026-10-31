@@ -33,7 +33,9 @@
     <input id="supportChatInput" type="text" placeholder="Type your question…" maxlength="300" autocomplete="off"
            style="flex:1;padding:10px;border:1px solid var(--border,#ddd);border-radius:10px;font-size:13px">
     <button onclick="sendSupportChat()" aria-label="Send"
-            style="padding:0 14px;background:var(--green,#16697A);color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer">➤</button>
+            style="padding:0 14px;background:var(--green,#16697A);color:#fff;border:none;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+    </button>
   </div>
 </div>
 <script src="{{ asset('assets/buyer/js/partials/support-chat.js') }}" data-config="{{ json_encode([($botFaqs), (config('support.quick_replies', [])), (config('support.bot_greeting', 'Hi! How can I help?')), (config('support.bot_fallback', 'Let me connect you with support.')), (url('/help')), (url('/orders')), (url('/messages'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>

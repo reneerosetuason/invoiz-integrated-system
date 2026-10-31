@@ -123,10 +123,32 @@ class RiderController extends Controller
 
         $currentDelivery = $rider->activeDeliveries()->with('rider')->first();
 
+        $payouts = \App\Models\EscrowRemittance::with(['order', 'delivery'])
+            ->where(function ($q) use ($rider) {
+                $q->where('rider_id', $rider->id)
+                  ->orWhere('recipient_user_id', $rider->user_id);
+            })
+            ->latest()
+            ->take(20)
+            ->get();
+
         return view('logistics.riders.show', [
             'rider' => $rider,
             'currentDelivery' => $currentDelivery,
+            'payouts' => $payouts,
         ]);
+    }
+
+    public function acceptPayout(Request $request, int $id): RedirectResponse
+    {
+        $escrow = \App\Models\EscrowRemittance::findOrFail($id);
+        if ($escrow->status !== \App\Models\EscrowRemittance::STATUS_REMITTED) {
+            return back()->with('error', 'This remittance cannot be accepted yet because it has not been released by Admin.');
+        }
+
+        $escrow->accept($request->user(), $request->input('note'));
+
+        return back()->with('success', "Remittance of ₱" . number_format((float) $escrow->amount, 2) . " accepted successfully. Earnings confirmed received.");
     }
 
     public function activate(Rider $rider): RedirectResponse
@@ -159,7 +181,7 @@ class RiderController extends Controller
             'type' => 'rider_status_changed',
             'title' => 'Rider Activated',
             'message' => "Rider {$rider->name} is now {$rider->fresh()->status}.",
-            'icon' => '✅',
+            'icon' => 'check-circle',
             'priority' => 'normal',
             'center_id' => $rider->center_id,
             'audience' => $rider->center_id ? 'center' : 'admin',
@@ -201,7 +223,7 @@ class RiderController extends Controller
             'type' => 'rider_status_changed',
             'title' => 'Rider Re-verified',
             'message' => "Rider {$rider->name}'s licence and vehicle were re-verified.",
-            'icon' => '✅',
+            'icon' => 'check-circle',
             'priority' => 'normal',
             'center_id' => $rider->center_id,
             'audience' => $rider->center_id ? 'center' : 'admin',
@@ -287,7 +309,7 @@ class RiderController extends Controller
                 'type' => 'rider_status_changed',
                 'title' => 'Rider Suspended',
                 'message' => "Rider {$lockedRider->name} was suspended. Reason: {$reason}",
-                'icon' => '⛔',
+                'icon' => 'slash',
                 'priority' => 'high',
                 'center_id' => $lockedRider->center_id,
                 'audience' => $lockedRider->center_id ? 'center' : 'admin',

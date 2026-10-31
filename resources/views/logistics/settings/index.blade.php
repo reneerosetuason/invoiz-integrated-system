@@ -68,6 +68,52 @@
                     </div>
                 </div>
 
+                {{-- Logistics Center Card --}}
+                @php
+                    $userCenter = auth()->user()->logisticsCenter;
+                    $isLogisticsAdmin = in_array(auth()->user()->role, ['admin', 'logistics_admin'], true);
+                @endphp
+                <div data-section="center hub logistics location facility" x-show="sectionVisible('center hub logistics location facility')"
+                     class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-6 py-5 flex items-center justify-between gap-4">
+                        <div class="flex items-center gap-4">
+                            <div class="h-10 w-10 rounded-xl bg-teal-light flex items-center justify-center flex-shrink-0">
+                                <svg class="h-5 w-5 text-teal-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <p class="text-sm font-semibold text-gray-900">Assigned Logistics Center</p>
+                                    @if($userCenter)
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-[#E6F4F1] text-[#0E4A57]">
+                                            {{ $userCenter->code ?? 'HUB' }}
+                                        </span>
+                                    @endif
+                                </div>
+                                <p class="text-xs text-gray-500 mt-0.5">
+                                    @if($userCenter)
+                                        Currently operating from <strong>{{ $userCenter->name }}</strong>{{ $userCenter->city ? ' in ' . $userCenter->city : '' }}{{ $userCenter->address ? ' (' . $userCenter->address . ')' : '' }}.
+                                    @elseif($isLogisticsAdmin)
+                                        HQ Administrator account with global privileges across all logistics hubs and sorting centers.
+                                    @else
+                                        No logistics center assigned yet. Contact your administrator.
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
+                        @if($isLogisticsAdmin)
+                            <a href="{{ route('centers.index') }}"
+                               class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition-colors flex-shrink-0">
+                                Manage Centers
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </a>
+                        @endif
+                    </div>
+                </div>
+
                 {{-- Security & Password --}}
                 <div data-section="security password change" x-show="sectionVisible('security password change')"
                      x-data="{ pwOpen: {{ $errors->has('current_password') || $errors->has('password') ? 'true' : 'false' }} }"

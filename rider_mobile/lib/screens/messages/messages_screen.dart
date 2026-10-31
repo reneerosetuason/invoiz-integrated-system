@@ -437,6 +437,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
       fontSize: 12,
       color: mine ? Colors.white70 : AppTheme.primary,
     );
+    Widget fileLabel() => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.attach_file, size: 14, color: linkStyle.color),
+        const SizedBox(width: 4),
+        Flexible(child: Text('${a.name} (${a.size})', style: linkStyle)),
+      ],
+    );
+
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: isImage
@@ -449,11 +458,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   width: 180,
                   height: 140,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Text('📎 ${a.name} (${a.size})', style: linkStyle),
+                  errorBuilder: (_, _, _) => fileLabel(),
                 ),
               ),
             )
-          : Text('📎 ${a.name} (${a.size})', style: linkStyle),
+          : fileLabel(),
     );
   }
 

@@ -1,296 +1,281 @@
 @extends('admin.layout')
 
 @section('content')
-@include('admin.partials.list-ui-styles')
-@include('admin.partials.order-ui-styles')
+<style>
+  .pay-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+  }
+  .pay-table th {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: #6E6E73;
+    padding: 10px 12px;
+    border-bottom: 1px solid #E8E6E0;
+    background: #FAFAF8;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .pay-table td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #F1F0EC;
+    font-size: 13px;
+    color: #1B1B1E;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .pay-table tr:hover td { background: #FAF9F6; }
+  .pay-table tr:last-child td { border-bottom: none; }
+</style>
 
-<link rel="stylesheet" href="{{ asset('assets/admin/css/payments.css') }}">
-
-<div class="admin-list admin-payments">
-    <header class="admin-list-head payments-head">
-        <span class="payments-eyebrow">Finance</span>
-        <h1>Payments</h1>
-    </header>
+<div class="card" style="padding: 20px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; gap:16px; flex-wrap:wrap;">
+        <div>
+            <h1 class="page-title" style="margin-bottom:4px;">Payments &amp; Escrow Remittances</h1>
+            <p style="color:var(--text-secondary); font-size:13px; margin:0;">Track customer order transactions, reconcile platform commission, and release stakeholder remittances.</p>
+        </div>
+    </div>
 
     @if(session('status'))
-    <div class="admin-list-flash payments-flash" role="status">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5a7.5 7.5 0 1 0 0 15 7.5 7.5 0 0 0 0-15Z"/><path d="M10 8.8v4.5M10 6.2v.1"/></svg>
-        <span>{{ session('status') }}</span>
-    </div>
+    <div class="alert alert-success" style="font-weight:600; font-size:13px; margin-bottom:14px;">{{ session('status') }}</div>
+    @endif
+    @if(session('error'))
+    <div class="alert alert-danger" style="font-weight:600; font-size:13px; margin-bottom:14px;">{{ session('error') }}</div>
     @endif
 
-    <section class="admin-list-stats payments-status-strip" aria-label="Transaction totals">
-        <div class="admin-list-stat">
-            <span class="payments-status-label">All Transactions</span>
-            <strong class="{{ $stats['all'] == 0 ? 'is-zero' : '' }}">{{ $stats['all'] }}</strong>
-            <small>₱{{ number_format($stats['all_amount'], 2) }} volume</small>
+    {{-- Top Stats --}}
+    <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px;">
+        <div class="stat-card" style="border-left:3px solid #16697A; padding:12px 14px;">
+            <span style="font-size:10.5px; font-weight:700; color:#6E6E73; text-transform:uppercase;">All Transactions</span>
+            <strong style="font-size:20px; font-weight:800; margin-top:2px; display:block;">{{ $stats['all'] }}</strong>
+            <div style="font-size:11px;color:#6E6E73;margin-top:2px;">₱{{ number_format($stats['all_amount'], 2) }} volume</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-status-label">Successful</span>
-            <strong class="{{ $stats['successful'] == 0 ? 'is-zero' : '' }}">{{ $stats['successful'] }}</strong>
-            <small>₱{{ number_format($stats['successful_amount'], 2) }}</small>
+        <div class="stat-card" style="border-left:3px solid #10B981; padding:12px 14px;">
+            <span style="font-size:10.5px; font-weight:700; color:#6E6E73; text-transform:uppercase;">Successful</span>
+            <strong style="font-size:20px; font-weight:800; color:#059669; margin-top:2px; display:block;">{{ $stats['successful'] }}</strong>
+            <div style="font-size:11px;color:#6E6E73;margin-top:2px;">₱{{ number_format($stats['successful_amount'], 2) }}</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-status-label">Pending</span>
-            <strong class="{{ $stats['pending'] == 0 ? 'is-zero' : '' }}">{{ $stats['pending'] }}</strong>
-            <small>₱{{ number_format($stats['pending_amount'], 2) }}</small>
+        <div class="stat-card" style="border-left:3px solid #F59E0B; padding:12px 14px;">
+            <span style="font-size:10.5px; font-weight:700; color:#6E6E73; text-transform:uppercase;">Pending</span>
+            <strong style="font-size:20px; font-weight:800; color:#D97706; margin-top:2px; display:block;">{{ $stats['pending'] }}</strong>
+            <div style="font-size:11px;color:#6E6E73;margin-top:2px;">₱{{ number_format($stats['pending_amount'], 2) }}</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-status-label">Failed</span>
-            <strong class="{{ $stats['failed'] == 0 ? 'is-zero' : '' }}">{{ $stats['failed'] }}</strong>
-            <small>₱{{ number_format($stats['failed_amount'], 2) }}</small>
+        <div class="stat-card" style="border-left:3px solid #EF4444; padding:12px 14px;">
+            <span style="font-size:10.5px; font-weight:700; color:#6E6E73; text-transform:uppercase;">Failed</span>
+            <strong style="font-size:20px; font-weight:800; color:#DC2626; margin-top:2px; display:block;">{{ $stats['failed'] }}</strong>
+            <div style="font-size:11px;color:#6E6E73;margin-top:2px;">₱{{ number_format($stats['failed_amount'], 2) }}</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-status-label">Refunded</span>
-            <strong class="{{ $stats['refunded'] == 0 ? 'is-zero' : '' }}">{{ $stats['refunded'] }}</strong>
-            <small>₱{{ number_format($stats['refunded_amount'], 2) }} returned</small>
+        <div class="stat-card" style="border-left:3px solid #8B5CF6; padding:12px 14px;">
+            <span style="font-size:10.5px; font-weight:700; color:#6E6E73; text-transform:uppercase;">Refunded</span>
+            <strong style="font-size:20px; font-weight:800; color:#7C3AED; margin-top:2px; display:block;">{{ $stats['refunded'] }}</strong>
+            <div style="font-size:11px;color:#6E6E73;margin-top:2px;">₱{{ number_format($stats['refunded_amount'], 2) }} returned</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-status-label">Partially Refunded</span>
-            <strong class="{{ $stats['partially_refunded'] == 0 ? 'is-zero' : '' }}">{{ $stats['partially_refunded'] }}</strong>
+        <div class="stat-card" style="border-left:3px solid #0E4A57; padding:12px 14px;">
+            <span style="font-size:10.5px; font-weight:700; color:#6E6E73; text-transform:uppercase;">Admin Commission</span>
+            <strong style="font-size:20px; font-weight:800; color:#0E4A57; margin-top:2px; display:block;">₱{{ number_format($stats['admin_earnings'], 2) }}</strong>
+            <div style="font-size:11px;color:#6E6E73;margin-top:2px;">10% platform share</div>
         </div>
-    </section>
+    </div>
 
-    <section class="admin-list-stats admin-list-stats--4 payments-earnings-strip" aria-label="Earnings breakdown">
-        <div class="admin-list-stat">
-            <span class="payments-earning-label">Admin Earnings</span>
-            <strong class="payments-earning-value">₱{{ number_format($stats['admin_earnings'], 2) }}</strong>
-            <small>Commission + fees</small>
+    {{-- Earnings Distribution Strip --}}
+    <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:20px;">
+        <div style="background:#F0EEE9;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:11px;font-weight:700;color:#6E6E73;text-transform:uppercase;letter-spacing:.05em;">Platform Commission (10%)</div>
+            <div style="font-size:19px;font-weight:800;color:#16697A;margin-top:2px;">₱{{ number_format($stats['commission'], 2) }}</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-earning-label">Platform Commission</span>
-            <strong class="payments-earning-value">₱{{ number_format($stats['commission'], 2) }}</strong>
+        <div style="background:#F0EEE9;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:11px;font-weight:700;color:#6E6E73;text-transform:uppercase;letter-spacing:.05em;">Seller Net Earnings</div>
+            <div style="font-size:19px;font-weight:800;color:#10B981;margin-top:2px;">₱{{ number_format($stats['seller_earnings'], 2) }}</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-earning-label">Seller Earnings</span>
-            <strong class="payments-earning-value">₱{{ number_format($stats['seller_earnings'], 2) }}</strong>
+        <div style="background:#F0EEE9;border-radius:10px;padding:12px 16px;">
+            <div style="font-size:11px;font-weight:700;color:#6E6E73;text-transform:uppercase;letter-spacing:.05em;">Logistics &amp; Rider Fees</div>
+            <div style="font-size:19px;font-weight:800;color:#0E4A57;margin-top:2px;">₱{{ number_format(($stats['rider_fees'] ?? 0) + ($stats['origin_hub_fees'] ?? 0) + ($stats['destination_hub_fees'] ?? 0), 2) }}</div>
         </div>
-        <div class="admin-list-stat">
-            <span class="payments-earning-label">Rider Fees</span>
-            <strong class="payments-earning-value">₱{{ number_format($stats['rider_fees'], 2) }}</strong>
-        </div>
-    </section>
+    </div>
 
-    <aside class="money-flow" aria-label="Money flow note">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7.2"/><path d="M10 9v4M10 6.5v.1"/></svg>
-        <p><strong>Escrow &amp; Stakeholder Remittances:</strong> COD Cash Collected → Last-Mile Rider Fee (₱50 retained) → Escrow Settlement → Origin Hub (₱30) + Pickup Rider (₱30/item) + Inter-Hub Driver (₱20) + Destination Hub (₱30) + Platform Commission (10%) + Seller Net Remittance.</p>
-    </aside>
-
-    @if(isset($escrowRemittances) && $escrowRemittances)
-    {{-- Escrow Bank Remittances Table --}}
-    <div class="transactions-header" style="margin-top: 2rem;">
-        <div class="flex flex-wrap items-center justify-between gap-3 w-full" style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+    {{-- ============================ ESCROW REMITTANCES ============================ --}}
+    <div style="background:#F7FAF9; border:1px solid #D2E7E4; border-radius:14px; padding:18px; margin-bottom:24px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
             <div>
-                <h2 id="escrow-remittances" style="margin:0;">Stakeholder Bank Remittances (Platform Escrow)</h2>
-                <p style="font-size:0.8rem; color:#6B7280; margin:0.25rem 0 0;">Auditable remittances released directly to each worker's, hub's, and seller's bank account.</p>
+                <h2 style="font-size:16px; font-weight:800; color:#0E4A57; margin:0;">Escrow Remittances &amp; Stakeholder Payouts</h2>
+                <p style="color:#56696B; font-size:12px; margin:3px 0 0;">Approve and release payouts to Pickup Riders, Drivers, and Hubs. Admin 10% commission is booked automatically upon payout release.</p>
             </div>
-            @if(($escrowTotals['pending'] ?? 0) > 0)
-            <form method="POST" action="{{ route('admin.escrow.remit-all') }}" onsubmit="return confirm('Release all pending escrow bank remittances?');">
-                @csrf
-                <button type="submit" class="btn btn-primary" style="background:#16697A; color:#fff; padding:0.4rem 0.85rem; border-radius:0.5rem; font-weight:700; font-size:0.8rem; border:none; cursor:pointer;">
-                    Release All Pending (₱{{ number_format($escrowTotals['pending'], 2) }})
-                </button>
-            </form>
+            @if(isset($pendingEscrowRemittances) && $pendingEscrowRemittances->count() > 0)
+                <form method="POST" action="{{ route('admin.escrow.remit-all') }}" onsubmit="return confirm('Release all {{ $pendingEscrowRemittances->count() }} pending payouts totaling ₱{{ number_format($pendingEscrowTotal ?? 0, 2) }}?');">
+                    @csrf
+                    <button type="submit" class="btn btn-primary btn-sm" style="font-weight:700; display:inline-flex; align-items:center; gap:5px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        <span>Release All Pending (₱{{ number_format($pendingEscrowTotal ?? 0, 2) }})</span>
+                    </button>
+                </form>
+            @endif
+        </div>
+
+        {{-- Single-line Clean Table (Fits 100%, No Horizontal Scroll) --}}
+        <div style="background:#fff; border:1px solid #E8E6E0; border-radius:10px; overflow:hidden;">
+            <table class="pay-table">
+                <thead>
+                    <tr>
+                        <th>Order #</th>
+                        <th>Recipient</th>
+                        <th>Role</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Mode</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($escrowRemittancesList ?? [] as $remit)
+                        <tr>
+                            <td>
+                                <a href="{{ url('/admin/orders/'.($remit->order_id ?? '')) }}" style="font-weight:700; color:#16697A; text-decoration:none; font-family:monospace;">
+                                    #{{ $remit->order?->order_number ?? $remit->order_id }}
+                                </a>
+                            </td>
+                            <td>
+                                <span style="font-weight:600; color:#1B1B1E;" title="{{ $remit->rule_applied }}">
+                                    {{ Str::limit($remit->recipient_name, 22) }}
+                                </span>
+                            </td>
+                            <td>
+                                <span style="font-size:11px; font-weight:700; padding:2px 7px; border-radius:999px; background:#F0EEE9; color:#374151;">
+                                    {{ $remit->roleLabel() }}
+                                </span>
+                            </td>
+                            <td style="font-weight:800; font-size:13.5px; color:#0E4A57;">
+                                ₱{{ number_format((float) $remit->amount, 2) }}
+                            </td>
+                            <td>
+                                @if($remit->status === 'accepted')
+                                    <span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#166534; background:#E8F5EE; border:1px solid #BFE3D0; padding:2px 7px; border-radius:999px;">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Accepted
+                                    </span>
+                                @elseif($remit->status === 'remitted')
+                                    <span style="font-size:11px; font-weight:700; color:#1E40AF; background:#DBEAFE; border:1px solid #BFDBFE; padding:2px 7px; border-radius:999px;">
+                                        Remitted
+                                    </span>
+                                @elseif($remit->status === 'pending_remittance')
+                                    <span style="display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:700; color:#92400E; background:#FEF3C7; border:1px solid #FDE68A; padding:2px 7px; border-radius:999px;">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                        Ready to Remit
+                                    </span>
+                                @else
+                                    <span style="font-size:11px; font-weight:600; color:#6B7280; background:#F3F4F6; padding:2px 7px; border-radius:999px;">
+                                        Held in Escrow
+                                    </span>
+                                @endif
+                            </td>
+                            <td style="font-size:12px; color:#6E6E73;">
+                                {{ $remit->settlementModeLabel() }}
+                            </td>
+                            <td style="text-align: right;">
+                                @if($remit->status === 'pending_remittance')
+                                    <form method="POST" action="{{ route('admin.escrow.remit', $remit->id) }}" style="display:inline;" onsubmit="return confirm('Release payout of ₱{{ number_format((float) $remit->amount, 2) }} to {{ $remit->recipient_name }}?');">
+                                        @csrf
+                                        <button type="submit" class="btn btn-primary btn-xs" style="font-weight:700;">
+                                            Release Payout
+                                        </button>
+                                    </form>
+                                @elseif($remit->status === 'remitted')
+                                    <span style="font-size:11.5px; color:#1E40AF; font-weight:600;">Sent</span>
+                                @elseif($remit->status === 'accepted')
+                                    <span style="display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:#166534; font-weight:700;">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                                        Confirmed
+                                    </span>
+                                @else
+                                    <span style="font-size:11px; color:#9CA3AF;">Awaiting COD</span>
+                                @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" style="padding:24px; text-align:center; color:#6E6E73; font-size:12.5px;">
+                                No escrow remittances available yet.
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+            @if(isset($escrowRemittancesList) && method_exists($escrowRemittancesList, 'hasPages') && $escrowRemittancesList->hasPages())
+                @include('admin.partials.pager', ['paginator' => $escrowRemittancesList])
             @endif
         </div>
     </div>
 
-    <div class="admin-list-panel payments-panel" style="margin-top: 0.75rem; margin-bottom: 2rem;">
-      <div class="admin-list-table-wrap payments-table-wrap">
-        <table class="admin-list-table payments-table" role="table" aria-label="Escrow remittances">
-            <thead role="rowgroup">
-                <tr role="row">
-                    <th scope="col">Recipient / Role</th>
-                    <th scope="col">Order / Tracking</th>
-                    <th scope="col">Rule Applied</th>
-                    <th scope="col" style="text-align:right;">Amount</th>
-                    <th scope="col">Settlement Mode</th>
-                    <th scope="col">Status</th>
-                    <th scope="col" style="text-align:right;">Action</th>
+    {{-- ============================ ALL TRANSACTIONS ============================ --}}
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
+        <h2 id="transactions" style="font-size:16px; font-weight:800; margin:0;">All Payment Transactions</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            @foreach (['' => 'All', 'successful' => 'Successful', 'pending' => 'Pending', 'failed' => 'Failed', 'refunded' => 'Refunded'] as $key => $label)
+            <a href="{{ $key ? url('/admin/payments?status='.$key) : url('/admin/payments') }}" style="padding:4px 12px;border-radius:999px;font-size:12px;font-weight:600;text-decoration:none;{{ ($status ?? '') === $key ? 'background:#16697A;color:#fff;' : 'background:#F0EEE9;color:#374151;' }}">{{ $label }}</a>
+            @endforeach
+        </div>
+    </div>
+
+    {{-- Single-line Transactions Table (Fits 100%, No Horizontal Scroll) --}}
+    <div style="background:#fff; border:1px solid #E8E6E0; border-radius:10px; overflow-x:auto;">
+        <table class="pay-table">
+            <thead>
+                <tr>
+                    <th>Ref #</th>
+                    <th>Order #</th>
+                    <th>Store</th>
+                    <th>Method</th>
+                    <th>Total Amount</th>
+                    <th>Platform Cut (10%)</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th style="text-align: right;">Action</th>
                 </tr>
             </thead>
-            <tbody role="rowgroup">
-                @forelse($escrowRemittances as $er)
-                <tr class="list-record" role="row">
-                    <td data-label="Recipient">
-                        <strong>{{ $er->recipient_name }}</strong>
-                        <div style="font-size:0.75rem; color:#6B7280;">{{ $er->roleLabel() }}</div>
-                    </td>
-                    <td data-label="Order / Tracking">
-                        <a href="{{ url('/admin/orders/'.$er->order_id) }}" style="font-weight:700; color:#16697A;">#{{ $er->order_id }}</a>
-                        @if($er->delivery?->tracking_number)
-                            <div style="font-size:0.75rem; color:#6B7280; font-family:monospace;">{{ $er->delivery->tracking_number }}</div>
-                        @endif
-                    </td>
-                    <td data-label="Rule Applied" style="font-size:0.8rem; color:#4B5563;">
-                        {{ $er->rule_applied }}
-                    </td>
-                    <td data-label="Amount" style="text-align:right; font-weight:700;">
-                        ₱{{ number_format($er->amount, 2) }}
-                    </td>
-                    <td data-label="Settlement Mode" style="font-size:0.75rem;">
-                        <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#F3F4F6; color:#374151; font-weight:600;">
-                            {{ $er->settlementModeLabel() }}
-                        </span>
-                        @if($er->bank_reference)
-                            <div style="font-size:0.7rem; color:#9CA3AF; margin-top:2px;">Ref: {{ $er->bank_reference }}</div>
-                        @endif
-                    </td>
-                    <td data-label="Status">
-                        @if($er->status === 'remitted')
-                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#DEF7EC; color:#03543F; font-size:0.75rem; font-weight:700;">Remitted</span>
-                        @elseif($er->status === 'pending_remittance')
-                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#FEF08A; color:#854D0E; font-size:0.75rem; font-weight:700;">Ready to Remit</span>
-                        @elseif($er->status === 'voided')
-                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#FEE2E2; color:#991B1B; font-size:0.75rem; font-weight:700;">Voided</span>
-                        @else
-                            <span style="display:inline-block; padding:0.2rem 0.5rem; border-radius:0.375rem; background:#F3F4F6; color:#4B5563; font-size:0.75rem; font-weight:600;">Held in Escrow</span>
-                        @endif
-                    </td>
-                    <td data-label="Action" style="text-align:right;">
-                        @if($er->status === 'pending_remittance')
-                            <form method="POST" action="{{ route('admin.escrow.remit', $er->id) }}" style="display:inline-block;" onsubmit="return confirm('Remit ₱{{ number_format($er->amount, 2) }} to {{ $er->recipient_name }}?');">
-                                @csrf
-                                <button type="submit" class="btn" style="background:#059669; color:#fff; font-size:0.75rem; font-weight:700; padding:0.25rem 0.6rem; border-radius:0.375rem; border:none; cursor:pointer;">
-                                    Remit Bank
-                                </button>
-                            </form>
-                        @elseif($er->status === 'remitted')
-                            <span style="font-size:0.75rem; color:#059669; font-weight:600;">Settled</span>
-                        @else
-                            <span style="font-size:0.75rem; color:#9CA3AF;">In Transit</span>
-                        @endif
-                    </td>
-                </tr>
-                @empty
-                <tr><td colspan="7" style="text-align:center; padding:2rem; color:#6B7280;">No escrow remittance records found.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-      </div>
-      @if($escrowRemittances->hasPages())
-        <div style="padding:1rem;">@include('admin.partials.pager', ['paginator' => $escrowRemittances])</div>
-      @endif
-    </div>
-    @endif
-
-    <div class="transactions-header">
-        <h2 id="transactions">All Transactions</h2>
-    </div>
-    <nav class="admin-list-filters payments-filters" aria-label="Filter transactions by status">
-        @foreach (['' => 'All', 'successful' => 'Successful', 'pending' => 'Pending', 'failed' => 'Failed', 'refunded' => 'Refunded', 'partially_refunded' => 'Partial'] as $key => $label)
-        @php $isActiveFilter = ($status ?? '') === $key; @endphp
-        <a href="{{ $key ? url('/admin/payments?status='.$key) : url('/admin/payments') }}" data-filter="{{ $key }}" class="admin-list-filter tx-filter {{ $isActiveFilter ? 'is-active' : '' }}" aria-current="{{ $isActiveFilter ? 'page' : 'false' }}">{{ $label }}</a>
-        @endforeach
-    </nav>
-
-    <div class="admin-list-panel payments-panel">
-      <div class="admin-list-table-wrap payments-table-wrap">
-        <table class="admin-list-table payments-table" role="table" aria-label="Payment transactions">
-            <colgroup>
-                <col style="width:15%"><col style="width:16%"><col style="width:12.5%"><col style="width:12.5%">
-                <col style="width:12.5%"><col style="width:10%"><col style="width:10%"><col style="width:11.5%">
-            </colgroup>
-            <thead role="rowgroup">
-                <tr role="row">
-                    <th scope="col" role="columnheader">Ref / Order</th>
-                    <th scope="col" role="columnheader">Store / Gateway</th>
-                    <th scope="col" role="columnheader">Amount</th>
-                    <th scope="col" role="columnheader">Seller earning</th>
-                    <th scope="col" role="columnheader">Commission</th>
-                    <th scope="col" role="columnheader">Rider fee</th>
-                    <th scope="col" role="columnheader">Refunded</th>
-                    <th scope="col" role="columnheader">Status</th>
-                </tr>
-            </thead>
-            <tbody id="txBody" role="rowgroup">
+            <tbody>
                 @forelse($transactions as $tx)
                 @php
-                    $orderedStores = ($tx->order?->items ?? collect())->map(function ($item) {
-                        $store = $item->seller?->seller ?? $item->product?->seller;
-                        $name = $store?->store_name ?: $store?->business_name;
-                        if (!filled($name)) return null;
-                        return ['id' => $store->getKey(), 'name' => trim($name)];
-                    })->filter()->unique('id')->values();
-                    if ($orderedStores->isEmpty() && $tx->order?->seller) {
-                        $legacyStore = $tx->order->seller;
-                        $legacyStoreName = $legacyStore->store_name ?: $legacyStore->business_name;
-                        if (filled($legacyStoreName)) {
-                            $orderedStores = collect([['id' => $legacyStore->getKey(), 'name' => trim($legacyStoreName)]]);
-                        }
-                    }
-                    $storeNames = $orderedStores->pluck('name')->implode(', ');
-                    $gatewayOriginal = trim((string) $tx->gateway);
-                    $gatewayKey = strtolower(str_replace(' ', '_', $gatewayOriginal));
-                    $gatewayLabel = match ($gatewayKey) {
-                        'cash_on_delivery' => 'Cash on delivery',
-                        'gcash' => 'GCash',
-                        'cod' => 'COD',
-                        default => ucfirst(strtolower(str_replace('_', ' ', $gatewayOriginal))),
-                    };
-                    $normalizedTxStatus = strtolower(str_replace(' ', '_', (string) $tx->status));
-                    $txStatusLabel = ucfirst(str_replace('_', ' ', (string) $tx->status));
-                    [$paymentTone, $paymentIcon] = match ($normalizedTxStatus) {
-                        'successful' => ['teal', 'check'],
-                        'pending' => ['neutral', 'clock'],
-                        'failed' => ['brick', 'x'],
-                        'refunded' => ['neutral', 'refund'],
-                        'partially_refunded' => ['neutral', 'partial'],
-                        default => ['neutral', 'dot'],
+                    $txCls = match($tx->status) {
+                        'successful' => 'background:#ECFDF5;color:#065F46;border:1px solid #A7F3D0;',
+                        'failed' => 'background:#FEF2F2;color:#991B1B;border:1px solid #FECACA;',
+                        default => 'background:#FFFBEB;color:#92400E;border:1px solid #FDE68A;',
                     };
                 @endphp
-                <tr class="list-record tx-record" data-status="{{ $tx->status }}" role="row">
-                    <td class="tx-ref-order-cell" data-label="Ref / Order" role="cell">
-                        <span class="tx-ref-order">
-                            <span class="tx-reference" title="{{ $tx->transaction_ref }}">{{ $tx->transaction_ref }}</span>
-                            <a href="{{ url('/admin/orders/'.$tx->order_id) }}" class="tx-order-link" aria-label="Open order {{ $tx->order->order_number ?? '-' }} for transaction {{ $tx->transaction_ref }}" title="{{ $tx->order->order_number ?? '-' }}">{{ $tx->order->order_number ?? '-' }}</a>
+                <tr>
+                    <td style="font-family:monospace;font-size:12px;color:#1B1B1E;">{{ Str::limit($tx->transaction_ref, 14) }}</td>
+                    <td>
+                        <a href="{{ url('/admin/orders/'.$tx->order_id) }}" style="color:#16697A;text-decoration:none;font-weight:700;font-family:monospace;" title="{{ $tx->order->order_number ?? $tx->order_id }}">
+                            #{{ Str::limit($tx->order->order_number ?? (string)$tx->order_id, 14) }}
+                        </a>
+                    </td>
+                    <td>
+                        <span style="color:#475569;" title="{{ $tx->order->seller->store_name ?? 'Invoiz Store' }}">{{ Str::limit($tx->order->seller->store_name ?? 'Invoiz Store', 14) }}</span>
+                    </td>
+                    <td style="color:#6E6E73;font-size:12px;">{{ strtoupper($tx->gateway ?? 'COD') }}</td>
+                    <td style="font-weight:700;color:#0E4A57;">₱{{ number_format($tx->amount, 2) }}</td>
+                    <td style="font-weight:600;color:#16697A;">₱{{ number_format($tx->platform_commission, 2) }}</td>
+                    <td>
+                        <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:999px;{{ $txCls }}">
+                            {{ ucfirst($tx->status) }}
                         </span>
                     </td>
-                    <td class="tx-store-gateway-cell" data-label="Store / Gateway" role="cell">
-                        <span class="tx-store-gateway">
-                            <span class="tx-store-name {{ $storeNames ? '' : 'is-missing' }}" title="{{ $storeNames ?: 'N/A' }}">{{ $storeNames ?: 'N/A' }}</span>
-                            <span class="tx-gateway" title="{{ $gatewayLabel }}">{{ $gatewayLabel }}</span>
-                        </span>
-                    </td>
-                    <td data-label="Amount" role="cell"><span class="tx-money tx-amount {{ (float) $tx->amount == 0.0 ? 'is-zero' : '' }}" data-label="Amount">₱{{ number_format($tx->amount, 2) }}</span></td>
-                    <td data-label="Seller earning" role="cell"><span class="tx-money tx-value--seller {{ (float) $tx->seller_earning == 0.0 ? 'is-zero' : '' }}" data-label="Seller earning">₱{{ number_format($tx->seller_earning, 2) }}</span></td>
-                    <td data-label="Commission" role="cell"><span class="tx-money tx-value--commission {{ (float) $tx->platform_commission == 0.0 ? 'is-zero' : '' }}" data-label="Commission">₱{{ number_format($tx->platform_commission, 2) }}</span></td>
-                    <td data-label="Rider fee" role="cell"><span class="tx-money tx-value--rider {{ (float) $tx->rider_fee == 0.0 ? 'is-zero' : '' }}" data-label="Rider fee">₱{{ number_format($tx->rider_fee, 2) }}</span></td>
-                    <td data-label="Refunded" role="cell"><span class="tx-money tx-value--refunded {{ (float) $tx->refunded_amount > 0 ? '' : 'is-empty' }}" data-label="Refunded">{{ $tx->refunded_amount > 0 ? '₱'.number_format($tx->refunded_amount, 2) : '—' }}</span></td>
-                    <td class="tx-status-cell" data-label="Status" role="cell">
-                        <span class="order-status-chip order-status-chip--payment order-status-chip--{{ $paymentTone }} payment-status payment-status--{{ $paymentTone }}" data-status="{{ $normalizedTxStatus }}">
-                            @if($paymentIcon === 'dot')
-                                <span class="order-status-dot" aria-hidden="true"></span>
-                            @else
-                                <svg viewBox="0 0 20 20" aria-hidden="true">
-                                    @if($paymentIcon === 'check')
-                                        <path d="m4 10 4 4 8-8"/>
-                                    @elseif($paymentIcon === 'clock')
-                                        <circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 1.5"/>
-                                    @elseif($paymentIcon === 'refund')
-                                        <path d="M5 6H2.5V3.5M3 6a7 7 0 1 1-.5 7"/>
-                                    @elseif($paymentIcon === 'partial')
-                                        <path d="M10 3a7 7 0 1 0 0 14V3Z"/><path d="M10 3a7 7 0 0 1 0 14"/>
-                                    @else
-                                        <path d="m5 5 10 10M15 5 5 15"/>
-                                    @endif
-                                </svg>
-                            @endif
-                            <span>{{ $txStatusLabel }}</span>
-                        </span>
+                    <td style="font-size:12px;color:#6E6E73;">{{ $tx->created_at?->format('M d, Y') ?? '—' }}</td>
+                    <td style="text-align: right;">
+                        <a href="{{ url('/admin/orders/'.$tx->order_id) }}" class="btn btn-soft btn-xs" style="padding:4px 10px;font-weight:700;font-size:11.5px;border-radius:6px;text-decoration:none;">
+                            View
+                        </a>
                     </td>
                 </tr>
                 @empty
-                <tr class="empty-order-row" role="row"><td colspan="8" class="tx-empty" role="cell">No transactions found.</td></tr>
+                <tr>
+                    <td colspan="9" style="padding:24px;text-align:center;color:#6E6E73;font-size:12.5px;">No transactions found.</td>
+                </tr>
                 @endforelse
-                <tr id="txEmpty" class="empty-order-row" style="display:none;" role="row"><td colspan="8" class="tx-empty" role="cell">No transactions for this status.</td></tr>
             </tbody>
         </table>
-      </div>
-    </div>
-    <div class="admin-list-pagination payments-pagination">
         @include('admin.partials.pager', ['paginator' => $transactions])
     </div>
 </div>
-<script src="{{ asset('assets/admin/js/payments.js') }}"></script>
 @endsection

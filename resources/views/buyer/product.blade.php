@@ -65,7 +65,14 @@
       <div class="soldby">Sold by <a href="{{ url('/store/'.$sellerUserId) }}" class="u-line">{{ \App\Models\Seller::nameFor($sellerUserId) }}</a></div>
 
       <div style="display:flex;align-items:center;gap:6px;margin-top:8px;color:#A16207;font-size:13px;font-weight:700">
-        <span aria-label="{{ number_format((float)$p->rating,1) }} out of 5 stars">{{ $p->rating ? '★ '.number_format((float)$p->rating,1) : 'No ratings yet' }}</span>
+        <span aria-label="{{ number_format((float)$p->rating,1) }} out of 5 stars" style="display:inline-flex;align-items:center;gap:4px;">
+          @if($p->rating)
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            <span>{{ number_format((float)$p->rating,1) }}</span>
+          @else
+            <span>No ratings yet</span>
+          @endif
+        </span>
         <span style="color:var(--text3);font-weight:500">{{ $p->reviews->count() ? '('.$p->reviews->count().' '.($p->reviews->count() === 1 ? 'review' : 'reviews').')' : ($p->rating ? '(rating on file)' : '(0 reviews)') }}</span>
       </div>
 
@@ -106,7 +113,15 @@
 
       <form method="POST" action="{{ url('/wishlist/'.$p->id.'/toggle') }}" style="margin-top:10px">
         @csrf
-        <button type="submit" class="btn-p btn-line" style="width:100%">{{ $isFavorited ? '♥ Saved to Wishlist · Remove' : '♡ Add to Wishlist' }}</button>
+        <button type="submit" class="btn-p btn-line" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;">
+          @if($isFavorited)
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#dc2626" stroke="#dc2626" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <span>Saved to Wishlist · Remove</span>
+          @else
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            <span>Add to Wishlist</span>
+          @endif
+        </button>
       </form>
 
       <a href="{{ url('/chat/seller/'.$sellerUserId) }}" class="msglink u-line">
@@ -152,7 +167,15 @@
       <article style="padding:14px 0;border-bottom:1px solid var(--border-light)">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
           <strong style="font-size:13px">{{ $review->buyer?->full_name ?? trim(($review->buyer?->first_name ?? '').' '.($review->buyer?->last_name ?? '')) ?: 'Buyer' }}</strong>
-          <span aria-label="{{ $review->rating }} out of 5 stars" style="color:#A16207;letter-spacing:1px">@for($star=1;$star<=5;$star++){{ $star <= (int)$review->rating ? '★' : '☆' }}@endfor</span>
+          <span aria-label="{{ $review->rating }} out of 5 stars" style="display:inline-flex;align-items:center;gap:2px;">
+            @for($star=1;$star<=5;$star++)
+              @if($star <= (int)$review->rating)
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              @else
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#D8D5CC" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              @endif
+            @endfor
+          </span>
         </div>
         @if($review->comment)<p style="margin:6px 0 0;font-size:13px;color:var(--text2);line-height:1.5">{{ $review->comment }}</p>@endif
         @if($review->seller_reply)

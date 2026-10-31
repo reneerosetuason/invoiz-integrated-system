@@ -315,6 +315,7 @@ class DashboardController extends Controller
             'serviceAreas' => $serviceAreas,
             'activities' => $activities,
             'staffCenterId' => $staffCenterId,
+            'staffCenter' => ($user && $user->center_id) ? $user->logisticsCenter : null,
             'activeStatuses' => Delivery::ACTIVE_STATUSES,
             'recent_deliveries' => $recentDeliveriesForView,
             'detailedRecords' => $detailedRecords,

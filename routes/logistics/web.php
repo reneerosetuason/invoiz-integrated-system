@@ -92,6 +92,7 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('riders/{rider}/activate', [RiderController::class, 'activate'])->middleware('rider.manager')->name('riders.activate');
     Route::post('riders/{rider}/deactivate', [RiderController::class, 'deactivate'])->middleware('rider.manager')->name('riders.deactivate');
     Route::post('riders/{rider}/reverify', [RiderController::class, 'reverify'])->middleware('rider.manager')->name('riders.reverify');
+    Route::post('riders/payouts/{id}/accept', [RiderController::class, 'acceptPayout'])->name('riders.payouts.accept');
 
     // Pickup Requests (staff: approve/reject pickups at their center)
     Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');
@@ -154,6 +155,8 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // Remittances (read-only: COD cash handoffs rider -> seller, center-scoped)
     Route::get('remittances', [RemittanceController::class, 'index'])->name('remittances.index');
     Route::get('remittances/export', [RemittanceController::class, 'export'])->name('remittances.export');
+    Route::post('remittances/{remittance}/confirm-received', [RemittanceController::class, 'confirmReceived'])->name('remittances.confirm-received');
+    Route::post('remittances/hub-payouts/{id}/accept', [RemittanceController::class, 'acceptHubPayout'])->name('remittances.hub-payouts.accept');
 
     // Reports
     Route::get('reports', [ReportController::class, 'index'])->name('reports.index');

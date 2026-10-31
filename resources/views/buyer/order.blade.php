@@ -136,7 +136,19 @@
       @if($o->status === 'delivered')
         @php($existingReview = ($reviews ?? collect())->get($it->product_id))
         @if($existingReview)
-          <div style="margin-top:8px;font-size:12px;color:#A16207;font-weight:700">Your rating: @for($star=1;$star<=5;$star++){{ $star <= (int)$existingReview->rating ? '★' : '☆' }}@endfor @if($existingReview->comment)<span style="color:var(--text2);font-weight:400"> · {{ $existingReview->comment }}</span>@endif</div>
+          <div style="margin-top:8px;font-size:12px;color:#A16207;font-weight:700;display:flex;align-items:center;gap:4px;">
+            <span>Your rating:</span>
+            <span style="display:inline-flex;align-items:center;gap:2px;">
+              @for($star=1;$star<=5;$star++)
+                @if($star <= (int)$existingReview->rating)
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                @else
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#D8D5CC" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                @endif
+              @endfor
+            </span>
+            @if($existingReview->comment)<span style="color:var(--text2);font-weight:400"> · {{ $existingReview->comment }}</span>@endif
+          </div>
         @else
           <form method="POST" action="{{ url('/orders/'.$o->id.'/rate/'.$it->product_id) }}" style="margin-top:8px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
             @csrf

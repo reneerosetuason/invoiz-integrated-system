@@ -60,12 +60,12 @@ class MarketplaceDemoSeeder extends Seeder
         }
 
         $notifications = [
-            ['type' => 'new_order', 'title' => 'New order received', 'message' => 'Order ORD-00002 is waiting for fulfillment.', 'icon' => '🛒', 'priority' => 'normal', 'is_read' => false, 'link' => '/seller/orders'],
-            ['type' => 'delivery_completed', 'title' => 'Delivery completed', 'message' => 'TRK-20260819-0001 was delivered successfully.', 'icon' => '✅', 'priority' => 'low', 'is_read' => false, 'link' => '/logistics/deliveries'],
-            ['type' => 'failed_delivery', 'title' => 'Delivery failed', 'message' => 'TRK-20260819-0009 needs a reattempt.', 'icon' => '⚠️', 'priority' => 'high', 'is_read' => false, 'link' => '/logistics/deliveries'],
-            ['type' => 'new_message', 'title' => 'New logistics message', 'message' => 'Rider One sent you a message.', 'icon' => '💬', 'priority' => 'normal', 'is_read' => true, 'link' => '/logistics/messages'],
-            ['type' => 'rider_application', 'title' => 'New rider application', 'message' => 'Pending Applicant submitted requirements.', 'icon' => '🛵', 'priority' => 'normal', 'is_read' => false, 'link' => '/logistics/rider-applications'],
-            ['type' => 'system', 'title' => 'Scheduled maintenance', 'message' => 'The platform will be unavailable at 2 AM.', 'icon' => '🔧', 'priority' => 'low', 'is_read' => true, 'link' => null],
+            ['type' => 'new_order', 'title' => 'New order received', 'message' => 'Order ORD-00002 is waiting for fulfillment.', 'icon' => 'shopping-cart', 'priority' => 'normal', 'is_read' => false, 'link' => '/seller/orders'],
+            ['type' => 'delivery_completed', 'title' => 'Delivery completed', 'message' => 'TRK-20260819-0001 was delivered successfully.', 'icon' => 'check-circle', 'priority' => 'low', 'is_read' => false, 'link' => '/logistics/deliveries'],
+            ['type' => 'failed_delivery', 'title' => 'Delivery failed', 'message' => 'TRK-20260819-0009 needs a reattempt.', 'icon' => 'alert-triangle', 'priority' => 'high', 'is_read' => false, 'link' => '/logistics/deliveries'],
+            ['type' => 'new_message', 'title' => 'New logistics message', 'message' => 'Rider One sent you a message.', 'icon' => 'message', 'priority' => 'normal', 'is_read' => true, 'link' => '/logistics/messages'],
+            ['type' => 'rider_application', 'title' => 'New rider application', 'message' => 'Pending Applicant submitted requirements.', 'icon' => 'truck', 'priority' => 'normal', 'is_read' => false, 'link' => '/logistics/rider-applications'],
+            ['type' => 'system', 'title' => 'Scheduled maintenance', 'message' => 'The platform will be unavailable at 2 AM.', 'icon' => 'settings', 'priority' => 'low', 'is_read' => true, 'link' => null],
         ];
 
         foreach ($notifications as $notification) {

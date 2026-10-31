@@ -87,6 +87,8 @@ Route::middleware('auth:sanctum')->group(function () {
         // Cash handoffs rider -> seller (bank-to-bank, verified by seller).
         Route::get('/remittances', [RiderRemittanceController::class, 'index']);
         Route::post('/remittances/{remittance}/sent', [RiderRemittanceController::class, 'markSent']);
+        Route::get('/remittances/earnings-payouts', [RiderRemittanceController::class, 'earningsPayouts']);
+        Route::post('/remittances/{id}/accept-payout', [RiderRemittanceController::class, 'acceptPayout']);
 
         Route::get('/notifications', [RiderNotificationController::class, 'index']);
         Route::patch('/notifications/read-all', [RiderNotificationController::class, 'markAllRead']);

@@ -634,22 +634,24 @@ class EscrowEarnings
                     ],
                 ];
 
+                $codCollected = ! $isCod || (bool) ($delivery && $delivery->cod_amount_received !== null && (float) $delivery->cod_amount_received > 0);
+
                 foreach ($rows as $role => $meta) {
                     $existing = EscrowRemittance::where('order_id', $order->id)
                         ->where('seller_id', $sid)
                         ->where('recipient_role', $role)
                         ->first();
 
-                    // Do not overwrite an already-remitted row unless the order was cancelled/voided.
+                    // Do not overwrite an already-remitted or already-accepted row unless the order was cancelled/voided.
                     if ($isCancelled) {
                         $status = 'voided';
-                    } elseif ($existing && $existing->status === 'remitted') {
-                        $status = 'remitted';
-                    } elseif (! empty($meta['auto_remitted'])) {
+                    } elseif ($existing && in_array($existing->status, ['remitted', 'accepted'], true)) {
+                        $status = $existing->status;
+                    } elseif (! empty($meta['auto_remitted']) && $codCollected) {
                         $status = 'remitted';
                     } elseif ((float) $meta['amount'] <= 0.0) {
-                        $status = $isSettled ? 'remitted' : 'held_in_escrow';
-                    } elseif ($isSettled || (! empty($meta['earned_ready']) && $isDelivered)) {
+                        $status = ($isSettled && $codCollected) ? 'remitted' : 'held_in_escrow';
+                    } elseif (($isSettled || ! empty($meta['earned_ready'])) && $isDelivered && $codCollected) {
                         $status = 'pending_remittance';
                     } else {
                         $status = 'held_in_escrow';

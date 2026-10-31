@@ -51,15 +51,19 @@ if (! function_exists('rating_stars')) {
         $full = floor($rating);
         $half = $rating - $full >= 0.5 ? 1 : 0;
         $empty = 5 - $full - $half;
+        $svgStar = function($colorCls, $opacity = false) {
+            $op = $opacity ? ' opacity-60' : '';
+            return '<svg class="w-3.5 h-3.5 inline-block align-middle ' . $colorCls . $op . '" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>';
+        };
         $out = '';
         for ($i = 0; $i < $full; $i++) {
-            $out .= '<span class="rating-stars">★</span>';
+            $out .= $svgStar('text-amber-500');
         }
         if ($half) {
-            $out .= '<span class="rating-stars opacity-60">★</span>';
+            $out .= $svgStar('text-amber-500', true);
         }
         for ($i = 0; $i < $empty; $i++) {
-            $out .= '<span class="text-[#D8D5CC]">★</span>';
+            $out .= $svgStar('text-gray-300');
         }
 
         return $out;
