@@ -28,7 +28,7 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="{{ asset('assets/logistics/js/auth/forgot-password.js') }}"></script>
-    <script src="{{ asset('assets/logistics/js/center-application-apply-2.js') }}" data-config="{{ json_encode([(route('center-application.verification.send')), (route('center-application.verification.verify'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+    <script src="{{ asset('assets/logistics/js/center-application-apply-2.js') }}?v={{ filemtime(public_path('assets/logistics/js/center-application-apply-2.js')) }}" data-config="{{ json_encode([(route('center-application.verification.send')), (route('center-application.verification.verify'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="{{ asset('assets/logistics/css/center-application-apply.css') }}">
     <noscript>
@@ -327,11 +327,14 @@
                                     <div class="mt-2">
                                         <p class="text-[13px] leading-relaxed text-gray-600">Enter the 6-digit code sent to <span class="font-semibold text-gray-900" x-text="codeSentTo"></span>.</p>
                                         <div class="mt-3 flex flex-col gap-2.5 sm:flex-row">
-                                            <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456"
-                                                   x-model="verifyCode" :disabled="verifyBusy" aria-label="Verification code"
+                                            <input type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="123456"
+                                                   x-model="verifyCode"
+                                                   x-on:input="verifyCode = $event.target.value.replace(/\D/g, '').slice(0, 6)"
+                                                   x-on:keydown.enter.prevent="confirmVerifyCode()"
+                                                   :disabled="verifyBusy" aria-label="Verification code"
                                                    class="block h-[52px] w-full rounded-xl border-gray-300 text-center font-mono text-[15px] tracking-[0.3em] placeholder:text-gray-400 focus:border-teal focus:ring-4 focus:ring-teal/15 sm:flex-1" />
-                                            <button type="button" x-on:click="confirmVerifyCode()" :disabled="verifyBusy || verifyCode.trim().length !== 6"
-                                                    class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-teal px-6 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_-8px_rgba(22,105,122,0.5)] transition hover:bg-teal-dark active:bg-teal-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none sm:w-auto sm:flex-none sm:px-8">
+                                            <button type="button" x-on:click="confirmVerifyCode()" :disabled="verifyBusy"
+                                                    class="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-teal px-6 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_-8px_rgba(22,105,122,0.5)] transition hover:bg-teal-dark active:bg-teal-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none sm:w-auto sm:flex-none sm:px-8 cursor-pointer">
                                                 <span x-text="verifyBusy ? 'Verifying...' : 'Verify'">Verify</span>
                                             </button>
                                         </div>

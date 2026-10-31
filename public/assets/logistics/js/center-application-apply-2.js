@@ -81,14 +81,30 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     }
                 },
                 async confirmVerifyCode() {
-                    const email = this.inputValue('email');
+                    const email = (this.codeSentTo || this.inputValue('email') || '').toLowerCase().trim();
+                    if (!email) {
+                        this.verifyMsgOk = false;
+                        this.verifyMsg = 'Please enter your email address.';
+                        return;
+                    }
+                    const code = (this.verifyCode ?? '').toString().replace(/\D/g, '').trim();
+                    if (!code) {
+                        this.verifyMsgOk = false;
+                        this.verifyMsg = 'Please enter the 6-digit verification code.';
+                        return;
+                    }
+                    if (code.length !== 6) {
+                        this.verifyMsgOk = false;
+                        this.verifyMsg = 'Please enter the full 6-digit verification code sent to your email.';
+                        return;
+                    }
                     this.verifyBusy = true;
                     this.verifyMsg = '';
                     try {
                         const res = await fetch(invoizData_bb23c8a4ce[1], {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this.csrfToken() },
-                            body: JSON.stringify({ email: email, code: this.verifyCode.trim() }),
+                            body: JSON.stringify({ email: email, code: code }),
                         });
                         const data = await res.json().catch(() => ({}));
                         if (!res.ok) {

@@ -13,7 +13,10 @@
 
     <p>Use the verification code below to verify the email address for your INVOIZ Logistics Hub application:</p>
 
-    <p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #16697A;">{{ $code }}</p>
+    <div style="text-align: center; margin: 24px 0;">
+        <span style="display: inline-block; font-size: 32px; font-weight: bold; letter-spacing: 6px; color: #16697A; background: #E8F4F8; padding: 14px 28px; border-radius: 8px; font-family: monospace; user-select: all;">{{ $code }}</span>
+        <p style="margin-top: 10px; font-size: 13px; color: #555;">Enter this 6-digit code on the application page and click <strong>Verify</strong> to proceed.</p>
+    </div>
 
     <p>This code expires in 5 minutes.</p>
 
