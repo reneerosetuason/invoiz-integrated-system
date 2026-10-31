@@ -20,6 +20,8 @@ class ServiceAreaController extends Controller
         $status = trim((string) $request->query('status', ''));
 
         $query = ServiceArea::with('logisticsCenter')->withCount(['riders', 'deliveries']);
+        $companyId = ($request->user()->isAdmin() || $request->user()->isLogisticsAdmin()) ? null : (int) ($request->user()->logistics_company_id ?? 0);
+        if ($companyId !== null) $query->whereHas('logisticsCenter', fn ($q) => $q->where('logistics_company_id', $companyId));
 
         if ($search !== '') {
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
@@ -43,24 +45,27 @@ class ServiceAreaController extends Controller
 
         return view('logistics.service-areas.index', [
             'areas' => $areas,
-            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
+            'centers' => LogisticsCenter::where('is_active', true)->when($companyId !== null, fn ($q) => $q->where('logistics_company_id', $companyId))->orderBy('name')->get(),
         ]);
     }
 
     public function create(): View
     {
+        abort_unless(request()->user()->isAdmin() || request()->user()->isLogisticsAdmin(), 403);
         return view('logistics.service-areas.create', [
-            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
+            'centers' => LogisticsCenter::where('is_active', true)->when(! request()->user()->isAdmin() && ! request()->user()->isLogisticsAdmin(), fn ($q) => $q->where('logistics_company_id', request()->user()->logistics_company_id ?: 0))->orderBy('name')->get(),
         ]);
     }
 
     public function store(Request $request, AuditLogger $audit): RedirectResponse
     {
+        abort_unless($request->user()->isAdmin() || $request->user()->isLogisticsAdmin(), 403);
         $validated = $request->validate([
             'logistics_center_id' => 'required|exists:logistics_centers,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:500',
         ]);
+        $this->assertCompanyCenter((int) $validated['logistics_center_id'], $request);
 
         $serviceArea = ServiceArea::create($validated);
 
@@ -78,25 +83,29 @@ class ServiceAreaController extends Controller
 
     public function show(ServiceArea $serviceArea): View
     {
+        $this->assertCompanyArea($serviceArea, request());
         $serviceArea->load('logisticsCenter')->loadCount(['riders', 'deliveries']);
         return view('logistics.service-areas.show', ['area' => $serviceArea]);
     }
 
     public function edit(ServiceArea $serviceArea): View
     {
+        $this->assertCompanyArea($serviceArea, request());
         return view('logistics.service-areas.edit', [
             'area' => $serviceArea,
-            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
+            'centers' => LogisticsCenter::where('is_active', true)->when(! request()->user()->isAdmin() && ! request()->user()->isLogisticsAdmin(), fn ($q) => $q->where('logistics_company_id', request()->user()->logistics_company_id ?: 0))->orderBy('name')->get(),
         ]);
     }
 
     public function update(Request $request, ServiceArea $serviceArea, AuditLogger $audit): RedirectResponse
     {
+        $this->assertCompanyArea($serviceArea, $request);
         $validated = $request->validate([
             'logistics_center_id' => 'required|exists:logistics_centers,id',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:500',
         ]);
+        $this->assertCompanyCenter((int) $validated['logistics_center_id'], $request);
 
         $before = $this->auditValues($serviceArea);
         $serviceArea->update($validated);
@@ -118,6 +127,7 @@ class ServiceAreaController extends Controller
 
     public function toggle(ServiceArea $serviceArea, AuditLogger $audit): RedirectResponse
     {
+        $this->assertCompanyArea($serviceArea, request());
         $before = $this->auditValues($serviceArea);
         $serviceArea->update(['is_active' => !$serviceArea->is_active]);
         $label = $serviceArea->is_active ? 'activated' : 'deactivated';
@@ -136,6 +146,7 @@ class ServiceAreaController extends Controller
 
     public function destroy(ServiceArea $serviceArea, AuditLogger $audit): RedirectResponse
     {
+        $this->assertCompanyArea($serviceArea, request());
         $values = $this->auditValues($serviceArea);
         $serviceArea->delete();
 
@@ -154,6 +165,17 @@ class ServiceAreaController extends Controller
     private function auditValues(ServiceArea $serviceArea): array
     {
         return $serviceArea->only(['logistics_center_id', 'name', 'description', 'is_active']);
+    }
+
+    private function assertCompanyCenter(int $centerId, Request $request): void
+    {
+        $center = LogisticsCenter::findOrFail($centerId);
+        if (! $request->user()->isAdmin() && ! $request->user()->isLogisticsAdmin()) abort_unless((int) $center->logistics_company_id === (int) $request->user()->logistics_company_id, 403);
+    }
+
+    private function assertCompanyArea(ServiceArea $area, Request $request): void
+    {
+        if (! $request->user()->isAdmin() && ! $request->user()->isLogisticsAdmin()) abort_unless((int) $area->logisticsCenter?->logistics_company_id === (int) $request->user()->logistics_company_id, 404);
     }
 }
 

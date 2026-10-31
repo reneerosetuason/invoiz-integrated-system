@@ -41,6 +41,9 @@ class MobileAuthController extends AuthController
         if (! $user || ! Hash::check($data['password'], $user->password)) {
             return response()->json(['message' => 'Invalid email or password.'], 401);
         }
+        if ($user->isDesignatedLogisticsAdminAccount()) {
+            return response()->json(['message' => 'This is a Logistics account. Please sign in on the Logistics login page.'], 403);
+        }
         if (! $user->isActive()) {
             return response()->json(['message' => 'Your account is not active.'], 403);
         }
@@ -64,7 +67,7 @@ class MobileAuthController extends AuthController
         $data = $request->validate(['email' => 'required|email', 'code' => 'required|digits:6']);
         $approvalRequired = DB::transaction(function () use ($data) {
             $user = User::where('email', $data['email'])->lockForUpdate()->first();
-            if (! $user || ! $user->isActive() || ! $user->otp || ! $user->otp_expires_at || $user->otp_expires_at->isPast()) {
+            if (! $user || $user->isDesignatedLogisticsAdminAccount() || ! $user->isActive() || ! $user->otp || ! $user->otp_expires_at || $user->otp_expires_at->isPast()) {
                 throw ValidationException::withMessages(['code' => 'No active verification code. Request a new code.']);
             }
             $key = 'otp_verify_attempts_'.$user->id;
@@ -93,7 +96,7 @@ class MobileAuthController extends AuthController
         $this->normalizeEmail($request);
         $data = $request->validate(['email' => 'required|email']);
         $user = User::where('email', $data['email'])->first();
-        if (! $user || ! $user->isActive() || $user->email_verified_at) {
+        if (! $user || $user->isDesignatedLogisticsAdminAccount() || ! $user->isActive() || $user->email_verified_at) {
             throw ValidationException::withMessages(['email' => 'No unverified active account found.']);
         }
         if (cache()->has('otp_resend_'.$user->id)) {
@@ -106,6 +109,12 @@ class MobileAuthController extends AuthController
 
     public function sendCode(User $user): void
     {
+        abort_if(
+            $user->isDesignatedLogisticsAdminAccount(),
+            403,
+            'The designated global Logistics Admin cannot use marketplace email verification.'
+        );
+
         $code = $user->otp && $user->otp_expires_at?->isFuture()
             ? (string) $user->otp : str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $user->update(['otp' => $code, 'otp_expires_at' => now()->addMinutes(10)]);

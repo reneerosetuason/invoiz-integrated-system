@@ -7,7 +7,7 @@
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
             </a>
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">Center Application Review</h1>
+                <h1 class="text-2xl font-bold text-gray-900">Logistics Hub Application Review</h1>
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-3">
@@ -35,7 +35,7 @@
             <div>
                 <h2 class="text-xl font-bold text-gray-900">{{ $application->business_name }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ $application->email }} &middot; {{ $application->phone }}</p>
-                <span class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-light text-teal-dark">Logistics Center Applicant</span>
+                <span class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-light text-teal-dark">Logistics Hub Applicant</span>
             </div>
         </div>
     </div>
@@ -148,11 +148,26 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {{-- Approve & provision --}}
             <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">
-                <h3 class="text-base font-bold text-gray-900 mb-1">Approve &amp; Provision Center</h3>
-                <p class="text-sm text-gray-500 mb-5">Creates the Logistics Center (set active) and a staff login for the owner. Leave the password blank to automatically generate a secure temporary password. After approval, the login credentials will be sent to the center's registered email address.</p>
+                <h3 class="text-base font-bold text-gray-900 mb-1">Approve Center &amp; Provision Staff</h3>
+                <p class="text-sm text-gray-500 mb-5">Select the registered company only after reviewing ownership evidence. Approval may provision the applicant as company Logistics Staff; it never creates or promotes a Logistics Admin.</p>
                 <form action="{{ route('center-applications.approve', $application) }}" method="POST">
                     @csrf
                     <div class="space-y-4">
+                        <div>
+                            <label for="logistics_company_id" class="block text-sm font-medium text-gray-700 mb-1.5">Verified logistics company *</label>
+                            <select name="logistics_company_id" id="logistics_company_id" required class="w-full rounded-xl border-gray-300 text-sm">
+                                <option value="">Select an existing company</option>
+                                @foreach($companies as $company)
+                                    <option value="{{ $company->id }}" @selected(old('logistics_company_id') == $company->id)>{{ $company->name }} · {{ $company->registration_number }}</option>
+                                @endforeach
+                            </select>
+                            @error('logistics_company_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div>
+                            <label for="ownership_evidence" class="block text-sm font-medium text-gray-700 mb-1.5">Ownership verification evidence *</label>
+                            <textarea name="ownership_evidence" id="ownership_evidence" rows="2" required class="w-full rounded-xl border-gray-300 text-sm">{{ old('ownership_evidence') }}</textarea>
+                            @error('ownership_evidence')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                        </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label for="password" class="block text-sm font-medium text-gray-700 mb-1.5">Initial Password (optional — auto-generated if blank)</label>
@@ -171,7 +186,7 @@
                         </div>
                         <div class="flex justify-end">
                             <button type="submit" class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
-                                Approve &amp; Create Center Account
+                                Approve &amp; Provision Center Staff
                             </button>
                         </div>
                     </div>

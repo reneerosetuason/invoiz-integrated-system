@@ -47,7 +47,7 @@
                     @endforeach
                 </select>
                 <select name="center_id" class="rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                    <option value="">All Centers</option>
+                    <option value="">All Logistics Hubs</option>
                     @foreach($centers as $center)
                         <option value="{{ $center->id }}" @selected((int) request('center_id') === $center->id)>{{ $center->name }}</option>
                     @endforeach
@@ -70,7 +70,7 @@
                         <tr>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Tracking #</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Rider</th>
-                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Center</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Logistics Hub</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Rider Fee</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Commission</th>

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCenterApplication;
+use App\Models\LogisticsCompany;
 use App\Models\Rider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -29,6 +30,28 @@ class LogisticsAccessAlignmentTest extends TestCase
             'status' => 'active',
             'email_verified_at' => now(),
         ], $overrides));
+    }
+
+    private function globalAdmin(): User
+    {
+        if ($existing = User::where('email', User::GLOBAL_LOGISTICS_ADMIN_EMAIL)->first()) {
+            return $existing;
+        }
+
+        $user = new User([
+            'name' => 'INVOIZ Global Logistics Admin',
+            'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
+            'password' => Hash::make('secret123'),
+            'role' => 'logistics_admin',
+            'is_admin' => false,
+            'status' => 'active',
+            'account_status' => 'active',
+            'email_verified_at' => now(),
+        ]);
+        $user->id = User::GLOBAL_LOGISTICS_ADMIN_ID;
+        $user->save();
+
+        return $user;
     }
 
     private function center(string $name = 'Phase 12 Center'): LogisticsCenter
@@ -80,12 +103,20 @@ class LogisticsAccessAlignmentTest extends TestCase
     {
         Mail::fake();
 
-        $admin = $this->user('logistics_admin');
+        $admin = $this->globalAdmin();
         $user = $this->user($role);
         $application = $this->application($user);
+        $company = LogisticsCompany::create([
+            'name' => 'Verified Phase 12 Company '.$this->seq,
+            'registration_number' => 'PH12-'.$this->seq,
+            'status' => 'active',
+        ]);
 
         $this->actingAs($admin)
-            ->post("/logistics/center-applications/{$application->id}/approve")
+            ->post("/logistics/center-applications/{$application->id}/approve", [
+                'logistics_company_id' => $company->id,
+                'ownership_evidence' => 'Verified registration record PH12-'.$this->seq,
+            ])
             ->assertRedirect();
 
         $user = $user->fresh();
@@ -309,7 +340,7 @@ class LogisticsAccessAlignmentTest extends TestCase
 
     public function test_logistics_admin_retains_access(): void
     {
-        $admin = $this->user('logistics_admin');
+        $admin = $this->globalAdmin();
 
         $this->actingAs($admin)
             ->get('/logistics/dashboard')

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Verify Your Email — INVOIZ Logistics Center Application</title>
+    <title>Verify Your Email — INVOIZ Logistics Hub Application</title>
 </head>
 <body style="font-family: Arial, Helvetica, sans-serif; color: #1B1B1E; background: #F7F6F2; margin: 0; padding: 24px;">
 <div style="max-width: 560px; margin: 0 auto; background: #FFFFFF; border: 1px solid #E8E6E0; border-radius: 12px; padding: 32px;">
@@ -11,7 +11,7 @@
 
     <p>Hello {{ $applicantName }},</p>
 
-    <p>Use the verification code below to verify the email address for your INVOIZ Logistics Center application:</p>
+    <p>Use the verification code below to verify the email address for your INVOIZ Logistics Hub application:</p>
 
     <p style="font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #16697A;">{{ $code }}</p>
 

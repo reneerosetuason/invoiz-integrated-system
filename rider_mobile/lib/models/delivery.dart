@@ -8,6 +8,9 @@ class Delivery {
     required this.id,
     required this.trackingNumber,
     this.orderId,
+    this.pickupLocation,
+    this.fulfillmentLeg,
+    this.readOnly = false,
     required this.status,
     required this.statusLabel,
     required this.shop,
@@ -45,6 +48,24 @@ class Delivery {
   final int id;
   final String trackingNumber;
   final int? orderId;
+  final Shop? pickupLocation;
+  final String? fulfillmentLeg;
+  final bool readOnly;
+
+  Shop get pickup => pickupLocation ?? shop;
+  bool get isCenterLeg =>
+      fulfillmentLeg == 'delivery' ||
+      sortingCenterHandoffAt != null &&
+          const ['assigned', 'accepted'].contains(status);
+  bool get canCollectFromCenter =>
+      isCenterLeg &&
+      parcelStatus == 'dispatched' &&
+      !hasSortingPickup &&
+      const ['assigned', 'accepted'].contains(status);
+  bool get canStartFinalDelivery =>
+      isCenterLeg &&
+      hasSortingPickup &&
+      const ['assigned', 'accepted'].contains(status);
   final String status;
   final String statusLabel;
   final Shop shop;
@@ -73,7 +94,7 @@ class Delivery {
   /// A re-attempt was requested and is awaiting Logistics review.
   bool get hasReattemptRequest => reattemptRequestedAt != null;
 
-  /// The parcel was returned to the sorting center.
+  /// The parcel was returned to the Logistics Hub.
   bool get hasCenterReturn => returnedAt != null;
   final List<StatusLog> statusLogs;
   final String? parcelStatus;
@@ -90,15 +111,17 @@ class Delivery {
 
   bool get isCashOnDelivery => paymentMethod == 'cash_on_delivery';
 
-  bool get isActive => const [
-    'assigned',
-    'accepted',
-    'going_to_pickup',
-    'arrived_at_shop',
-    'picked_up',
-    'out_for_delivery',
-    'arrived_at_customer',
-  ].contains(status);
+  bool get isActive =>
+      !readOnly &&
+      const [
+        'assigned',
+        'accepted',
+        'going_to_pickup',
+        'arrived_at_shop',
+        'picked_up',
+        'out_for_delivery',
+        'arrived_at_customer',
+      ].contains(status);
 
   /// Statuses that belong in the rider-facing Status History.
   ///
@@ -121,10 +144,10 @@ class Delivery {
     'cancelled',
   };
 
-  /// Whether parcel has been handed over to sorting center by the pickup rider.
+  /// Whether parcel has been handed over to Logistics Hub by the pickup rider.
   bool get hasSortingHandoff => sortingCenterHandoffAt != null;
 
-  /// Whether parcel has been picked up from sorting center by delivery rider.
+  /// Whether parcel has been picked up from Logistics Hub by delivery rider.
   bool get hasSortingPickup => sortingCenterPickupAt != null;
 
   factory Delivery.fromJson(Map<String, dynamic> json) {
@@ -160,10 +183,20 @@ class Delivery {
       proofType = json['proof']['type'] as String?;
     }
 
+    final pickupRaw = json['pickup_location'];
+    final pickupLocation = (pickupRaw is Map<String, dynamic>)
+        ? Shop.fromJson(pickupRaw)
+        : null;
+    final fulfillmentLeg = json['fulfillment_leg'] as String?;
+    final readOnly = json['read_only'] == true;
+
     return Delivery(
       id: (json['id'] as num?)?.toInt() ?? 0,
       trackingNumber: json['tracking_number'] as String? ?? '',
       orderId: (json['order_id'] as num?)?.toInt(),
+      pickupLocation: pickupLocation,
+      fulfillmentLeg: fulfillmentLeg,
+      readOnly: readOnly,
       status: json['status'] as String? ?? 'waiting_for_rider',
       statusLabel: json['status_label'] as String? ?? '',
       shop: Shop.fromJson((json['shop'] as Map<String, dynamic>?) ?? const {}),
@@ -215,11 +248,20 @@ class Delivery {
     return DateTime.tryParse(value.toString())?.toLocal();
   }
 
-  Delivery copyWith({String? status, String? statusLabel}) {
+  Delivery copyWith({
+    String? status,
+    String? statusLabel,
+    bool? readOnly,
+    String? fulfillmentLeg,
+    Shop? pickupLocation,
+  }) {
     return Delivery(
       id: id,
       trackingNumber: trackingNumber,
       orderId: orderId,
+      pickupLocation: pickupLocation ?? this.pickupLocation,
+      fulfillmentLeg: fulfillmentLeg ?? this.fulfillmentLeg,
+      readOnly: readOnly ?? this.readOnly,
       status: status ?? this.status,
       statusLabel: statusLabel ?? this.statusLabel,
       shop: shop,

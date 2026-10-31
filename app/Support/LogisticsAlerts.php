@@ -4,12 +4,13 @@ namespace App\Support;
 
 use App\Models\Delivery;
 use App\Models\PickupRequest;
+use App\Models\LogisticsCenter;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 
 /**
- * Live operational alerts for the Logistics Center dashboard.
+ * Live operational alerts for the Logistics Hub dashboard.
  *
  * Alerts are computed from current rows (no queue, cron, or alert table), so
  * they are idempotent, clear themselves when the condition is resolved, and

@@ -143,7 +143,7 @@
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Parcel Processing</h4>
-                        <p class="mt-1 text-xs text-gray-400">Where the physical parcel is inside the sorting center. This is separate from the delivery status above.</p>
+                        <p class="mt-1 text-xs text-gray-400">Where the physical parcel is inside the Logistics Hub. This is separate from the delivery status above.</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-2">
                         @if($atHub)
@@ -364,7 +364,7 @@
                                 <div class="flex flex-wrap items-center gap-2">
                                     <x-status-badge :status="$log->status" />
                                     @if(in_array($log->status, $parcelEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark">Parcel</span>@endif
-                                    @if(in_array($log->status, $centerEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Sorting Center</span>@endif
+                                    @if(in_array($log->status, $centerEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Hub Sorting</span>@endif
                                     @if(in_array($log->status, $recordEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
                                     <span class="text-xs text-gray-400">{{ $log->created_at->format('M d, Y \a\t g:i A') }}</span>
                                 </div>

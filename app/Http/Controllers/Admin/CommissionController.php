@@ -8,6 +8,7 @@ use App\Models\Seller;
 use App\Models\Category;
 use App\Models\SellerPayout;
 use App\Models\CommissionRate;
+use App\Support\EscrowEarnings;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -102,8 +103,11 @@ class CommissionController extends Controller
         // ------------------------------------------------------------------
         // Commission rates (editable)
         // ------------------------------------------------------------------
-        $rates = CommissionRate::with('category')->get()->sortBy(fn ($r) => $r->category->name ?? 'Default')->values();
+        CommissionRate::firstOrCreate(['category_id' => null], ['rate' => 10.00]);
+        $rates = CommissionRate::with('category')->get()->sortBy(fn ($r) => $r->category?->name ?? 'Default')->values();
         $defaultRate = CommissionRate::whereNull('category_id')->value('rate') ?? 10.00;
+        $assignedCategoryIds = CommissionRate::whereNotNull('category_id')->pluck('category_id');
+        $availableCategories = Category::whereNotIn('id', $assignedCategoryIds)->orderBy('name')->get();
 
         // ------------------------------------------------------------------
         // Payout totals
@@ -115,7 +119,7 @@ class CommissionController extends Controller
 
         return view('admin.commission', compact(
             'totalSales', 'totalCommission', 'sellerCommissions', 'orderCommissions',
-            'categoryCommissions', 'rates', 'defaultRate', 'payoutStats'
+            'categoryCommissions', 'rates', 'defaultRate', 'payoutStats', 'availableCategories'
         ));
     }
 
@@ -132,6 +136,21 @@ class CommissionController extends Controller
 
         $label = $rate->category ? $rate->category->name : 'Default';
         return redirect()->back()->with('status', "Commission rate for {$label} set to {$rate->rate}%.");
+    }
+
+    public function updateEarnings(Request $request)
+    {
+        $validated = $request->validate([
+            'origin_hub_fee'        => 'required|numeric|min:0|max:5000',
+            'pickup_rider_per_item' => 'required|numeric|min:0|max:5000',
+            'inter_hub_driver_fee'  => 'required|numeric|min:0|max:5000',
+            'destination_hub_fee'   => 'required|numeric|min:0|max:5000',
+            'last_mile_rider_fee'   => 'required|numeric|min:0|max:5000',
+        ]);
+
+        EscrowEarnings::updateRates($validated);
+
+        return redirect()->back()->with('status', 'Escrow earnings distribution schedule updated successfully.');
     }
 
     public function storeRate(Request $request)

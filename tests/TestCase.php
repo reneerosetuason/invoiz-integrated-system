@@ -7,15 +7,28 @@ use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 abstract class TestCase extends BaseTestCase
 {
     /**
-     * Databases that must never be touched by a test run.
+     * Positive allowlist for MySQL-backed tests.
      *
-     * Tests using RefreshDatabase run `migrate:fresh`, which DROPs every
-     * table in the configured connection. Without this guard a stray
-     * phpunit config (or a local .env override) pointing at the live
-     * e-commerce database would silently destroy production data.
+     * RefreshDatabase runs `migrate:fresh`, which DROPs every table in the
+     * configured connection. PHPUnit exports <php><env> values before the
+     * app boots, so getenv() is the correct pre-boot source of truth.
+     *
+     * Only the disposable sandbox instance is permitted. Everything else,
+     * including localhost:3306 and the scratch 3307 instance, is rejected.
      */
-    private const PROTECTED_DATABASES = [
+    private const SANDBOX_HOST = '127.0.0.1';
+
+    private const SANDBOX_PORT = 3308;
+
+    private const SANDBOX_DATABASE = 'invoiz_ecommerce_sandbox';
+
+    private const SANDBOX_USERNAME = 'invoiz_test';
+
+    private const BLOCKED_PORTS = [3306, 3307];
+
+    private const BLOCKED_DATABASES = [
         'invoiz_ecommerce_db',
+        'invoiz_ecommerce_test',
         'invoizdb',
     ];
 
@@ -24,8 +37,6 @@ abstract class TestCase extends BaseTestCase
      *
      * RefreshDatabase performs migrate:fresh inside parent::setUp(), so a
      * check that relied on a booted application would run after the damage.
-     * PHPUnit exports the <php><env> values before the app boots, so
-     * getenv() is the correct pre-boot source of truth.
      */
     protected function setUp(): void
     {
@@ -36,32 +47,56 @@ abstract class TestCase extends BaseTestCase
 
     private function guardAgainstDestructiveDatabase(): void
     {
-        $driver = (string) (getenv('DB_CONNECTION') ?: 'mysql');
+        $environment = (string) (getenv('APP_ENV') ?: '');
+        $driver = (string) (getenv('DB_CONNECTION') ?: '');
+        $host = (string) (getenv('DB_HOST') ?: '');
+        $port = (string) (getenv('DB_PORT') ?: '');
         $name = (string) (getenv('DB_DATABASE') ?: '');
-        $host = (string) (getenv('DB_HOST') ?: '127.0.0.1');
+        $username = (string) (getenv('DB_USERNAME') ?: '');
 
-        // Throwaway drivers need no guard.
-        if ($driver === 'sqlite' || $name === '' || str_starts_with($name, ':memory:')) {
+        // In-memory SQLite cannot touch a server database.
+        if ($driver === 'sqlite' && str_starts_with($name, ':memory:')) {
             return;
         }
 
-        if (in_array($name, self::PROTECTED_DATABASES, true)) {
+        $portNumber = ctype_digit($port) ? (int) $port : 0;
+
+        if (in_array($portNumber, self::BLOCKED_PORTS, true) || in_array($name, self::BLOCKED_DATABASES, true)) {
             $this->fail(sprintf(
-                'REFUSING TO RUN: connection "%s" (host %s) points at protected database "%s". '
-                .'Tests using RefreshDatabase run migrate:fresh and would destroy it. '
-                .'Point DB_DATABASE at a dedicated *_test schema instead.',
+                'REFUSING TO RUN: connection "%s" targets blocked port %s and/or protected database "%s". '
+                .'Tests run migrate:fresh; use the isolated sandbox on 127.0.0.1:3308/invoiz_ecommerce_sandbox.',
                 $driver,
-                $host,
-                $name
+                $port === '' ? '(unset)' : $port,
+                $name === '' ? '(unset)' : $name
             ));
         }
 
-        if ($host !== '127.0.0.1' && $host !== 'localhost' && $host !== '::1') {
-            $this->fail(sprintf(
-                'REFUSING TO RUN: non-local database host "%s" with non-test database "%s".',
-                $host,
-                $name
-            ));
+        $problems = [];
+        if ($environment !== 'testing') {
+            $problems[] = 'APP_ENV must be "testing"';
+        }
+        if ($driver !== 'mysql') {
+            $problems[] = 'DB_CONNECTION must be "mysql"';
+        }
+        if ($host !== self::SANDBOX_HOST) {
+            $problems[] = 'DB_HOST must be "' . self::SANDBOX_HOST . '"';
+        }
+        if ($portNumber !== self::SANDBOX_PORT) {
+            $problems[] = 'DB_PORT must be "' . self::SANDBOX_PORT . '"';
+        }
+        if ($name !== self::SANDBOX_DATABASE) {
+            $problems[] = 'DB_DATABASE must be "' . self::SANDBOX_DATABASE . '"';
+        }
+        if ($username !== self::SANDBOX_USERNAME) {
+            $problems[] = 'DB_USERNAME must be "' . self::SANDBOX_USERNAME . '"';
+        }
+
+        if ($problems !== []) {
+            $this->fail(
+                'REFUSING TO RUN: positive test allowlist not satisfied ('
+                .implode('; ', $problems)
+                .'). Use `php artisan test -c phpunit.mysql.xml`.'
+            );
         }
     }
 }

@@ -68,4 +68,82 @@ class RiderRemittanceController extends Controller
             'remittance' => $remittance,
         ]);
     }
+
+    /**
+     * Payout remittances earned by this rider (pickup rider fees, transport driver fees, etc.).
+     * Shows whether Admin has released/remitted the payout and whether the rider has accepted it.
+     */
+    public function earningsPayouts(Request $request): JsonResponse
+    {
+        $rider = $request->user()->rider;
+        if (! $rider) {
+            return response()->json(['message' => 'Rider profile not found.'], 403);
+        }
+
+        $payouts = \App\Models\EscrowRemittance::with(['order:id,order_number', 'delivery:id,tracking_number'])
+            ->where(function ($q) use ($rider, $request) {
+                $q->where('rider_id', $rider->id)
+                  ->orWhere('recipient_user_id', $request->user()->id);
+            })
+            ->latest()
+            ->get()
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'order_number' => $p->order?->order_number ?? ('#' . $p->order_id),
+                'tracking_number' => $p->delivery?->tracking_number,
+                'role' => $p->recipient_role,
+                'role_label' => $p->roleLabel(),
+                'rule_applied' => $p->rule_applied,
+                'amount' => (float) $p->amount,
+                'status' => $p->status,
+                'status_label' => match ($p->status) {
+                    'accepted' => 'Accepted / Confirmed by Rider',
+                    'remitted' => 'Remitted by Admin (Ready to Accept)',
+                    'pending_remittance' => 'Awaiting Admin Settlement',
+                    default => 'Held in Escrow',
+                },
+                'can_accept' => ($p->status === \App\Models\EscrowRemittance::STATUS_REMITTED),
+                'bank_reference' => $p->bank_reference,
+                'remitted_at' => $p->remitted_at?->format('Y-m-d H:i:s'),
+            ]);
+
+        return response()->json([
+            'payouts' => $payouts,
+            'total_earned' => round($payouts->sum('amount'), 2),
+            'total_available_to_accept' => round($payouts->where('can_accept', true)->sum('amount'), 2),
+            'total_confirmed' => round($payouts->where('status', 'accepted')->sum('amount'), 2),
+            'total_pending_admin' => round($payouts->where('status', 'pending_remittance')->sum('amount'), 2),
+        ]);
+    }
+
+    /**
+     * Pickup rider confirms/accepts receipt of their remittance payout after Admin release.
+     */
+    public function acceptPayout(Request $request, int $id): JsonResponse
+    {
+        $rider = $request->user()->rider;
+        if (! $rider) {
+            return response()->json(['message' => 'Rider profile not found.'], 403);
+        }
+
+        $escrow = \App\Models\EscrowRemittance::where('id', $id)
+            ->where(function ($q) use ($rider, $request) {
+                $q->where('rider_id', $rider->id)
+                  ->orWhere('recipient_user_id', $request->user()->id);
+            })
+            ->firstOrFail();
+
+        if ($escrow->status !== \App\Models\EscrowRemittance::STATUS_REMITTED) {
+            return response()->json([
+                'message' => 'Remittance cannot be accepted yet. Current status: ' . $escrow->status,
+            ], 422);
+        }
+
+        $escrow->accept($request->user(), $request->input('note'));
+
+        return response()->json([
+            'message' => "Remittance of ₱" . number_format((float) $escrow->amount, 2) . " accepted successfully. Earnings confirmed.",
+            'payout'  => $escrow->fresh(),
+        ]);
+    }
 }

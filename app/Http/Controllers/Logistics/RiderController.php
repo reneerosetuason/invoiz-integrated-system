@@ -47,7 +47,8 @@ class RiderController extends Controller
 
         $user = Auth::user();
         $isCenterScoped = $user->isLogisticsStaff()
-            && ! $user->isLogisticsAdmin();
+            && ! $user->isLogisticsAdmin()
+            && ! $user->isAdmin();
         $staffCenterId = $isCenterScoped ? (int) ($user->center_id ?? 0) : null;
 
         // Staff are always restricted to their assigned logistics center. This is
@@ -385,7 +386,7 @@ class RiderController extends Controller
     {
         $user = Auth::user();
 
-        if ($user->isLogisticsAdmin()) {
+        if ($user->isAdmin() || $user->isLogisticsAdmin()) {
             return;
         }
 

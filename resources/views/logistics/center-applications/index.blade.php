@@ -2,8 +2,8 @@
     <div class="space-y-6">
         <div class="lw-head flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-                <h1 class="text-2xl font-bold text-gray-900">Logistics Center Applications</h1>
-                <p class="text-sm text-gray-500 mt-1">Review business details and documents before approving a new logistics center.</p>
+                <h1 class="text-2xl font-bold text-gray-900">Logistics Hub Applications</h1>
+                <p class="text-sm text-gray-500 mt-1">Review business details and documents before approving a new logistics hub.</p>
             </div>
         </div>
 

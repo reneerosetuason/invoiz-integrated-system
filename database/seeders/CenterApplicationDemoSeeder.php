@@ -21,7 +21,7 @@ class CenterApplicationDemoSeeder extends Seeder
             return;
         }
 
-        $adminId = DB::table('users')->where('role', 'logistics_admin')->value('id');
+        $adminId = DB::table('users')->where('id', \App\Models\User::GLOBAL_LOGISTICS_ADMIN_ID)->value('id');
 
         $applications = [
             [

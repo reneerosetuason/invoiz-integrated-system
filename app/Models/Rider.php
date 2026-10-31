@@ -127,7 +127,12 @@ class Rider extends Model
     {
         $type = VehicleType::whereRaw('LOWER(name) = ?', [strtolower(trim((string) $this->vehicle_type))])->first();
 
-        return $type ? (bool) $type->is_active : true;
+        return $type ? (bool) $type->is_active : $this->isLastMileVehicle();
+    }
+
+    public function isLastMileVehicle(): bool
+    {
+        return \App\Support\LogisticsVehicleCategory::for($this->vehicle_type) === 'two_wheel';
     }
 
     public function isEligibilityApproved(): bool
@@ -181,12 +186,24 @@ class Rider extends Model
             return 'Account inactive';
         }
 
+        if ($this->logisticsCenter && $this->logisticsCenter->is_active === false) {
+            return 'Assigned logistics hub is inactive';
+        }
+
+        if ($this->logisticsCenter?->company && $this->logisticsCenter->company->status !== 'active') {
+            return 'Logistics company is inactive';
+        }
+
         if ($this->vehicle_verification !== 'verified') {
             return 'Vehicle not verified';
         }
 
         if (! $this->vehicleTypeIsActive()) {
             return 'Vehicle type deactivated';
+        }
+
+        if (! $this->isLastMileVehicle()) {
+            return 'Only an approved two-wheel vehicle can be assigned last-mile deliveries';
         }
 
         if ($this->licenseExpired()) {

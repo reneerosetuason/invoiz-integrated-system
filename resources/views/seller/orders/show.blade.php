@@ -250,7 +250,7 @@
                 </form>
             @endif
         @else
-            <p class="mt-3 text-sm text-ink-light">The parcel is back at the sorting center and is waiting to be sent to you.</p>
+            <p class="mt-3 text-sm text-ink-light">The parcel is back at the Logistics Hub and is waiting to be sent to you.</p>
         @endif
     </div>
 @endif

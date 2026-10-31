@@ -24,7 +24,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>Open a Logistics Center</title>
+    <title>Open a Logistics Hub</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="{{ asset('assets/logistics/js/auth/forgot-password.js') }}"></script>
@@ -51,28 +51,28 @@
                 <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Logo" class="h-12 w-12 rounded-xl object-cover ring-1 ring-white/25 shadow-lg">
                 <div>
                     <p class="text-xl font-extrabold tracking-tight">Logistics</p>
-                    <p class="text-[11px] font-semibold tracking-[0.25em] uppercase text-white/70 mt-0.5">Logistics Center</p>
+                    <p class="text-[11px] font-semibold tracking-[0.25em] uppercase text-white/70 mt-0.5">Logistics Hub</p>
                 </div>
             </a>
 
             {{-- Headline --}}
             <h1 class="mt-8 text-2xl sm:text-3xl xl:text-4xl font-extrabold leading-tight tracking-tight">
-                Open a Logistics Center.
+                Open a Logistics Hub.
             </h1>
 
             <p class="mt-4 text-sm sm:text-[15px] text-white/75 leading-relaxed">
-                Run your own INVOIZ Logistics Center and connect riders, deliveries, and service areas in your community.
+                Run your own INVOIZ Logistics Hub and connect riders, deliveries, and service areas in your community.
             </p>
 
             {{-- Steps --}}
             <ol class="mt-8 space-y-3 text-sm">
                 <li class="flex items-start gap-3">
                     <span class="flex-none w-7 h-7 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center text-xs font-bold">1</span>
-                    <span class="text-white/80 pt-1">Tell us about your center and the owner.</span>
+                    <span class="text-white/80 pt-1">Tell us about your Logistics Hub and the owner.</span>
                 </li>
                 <li class="flex items-start gap-3">
                     <span class="flex-none w-7 h-7 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center text-xs font-bold">2</span>
-                    <span class="text-white/80 pt-1">Add your center location.</span>
+                    <span class="text-white/80 pt-1">Add your Logistics Hub location.</span>
                 </li>
                 <li class="flex items-start gap-3">
                     <span class="flex-none w-7 h-7 rounded-full bg-white/10 ring-1 ring-white/20 flex items-center justify-center text-xs font-bold">3</span>
@@ -234,11 +234,11 @@
                     <h3 id="wizard-step-1" tabindex="-1" x-ref="stepHeading0" class="text-[20px] sm:text-[23px] font-bold tracking-tight text-[#1F2933] focus:outline-none">
                         Center &amp; Owner Details
                     </h3>
-                    <p class="mt-2 text-sm leading-relaxed text-gray-500">Tell us about your center and its owner. All fields marked <span class="text-red-500" aria-hidden="true">*</span> are required.</p>
+                    <p class="mt-2 text-sm leading-relaxed text-gray-500">Tell us about your Logistics Hub and its owner. All fields marked <span class="text-red-500" aria-hidden="true">*</span> are required.</p>
 
                     <div class="mt-6 grid gap-x-5 gap-y-6 sm:grid-cols-2">
                         <div class="min-w-0">
-                            <label for="business_name" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Logistics Center Name <span class="text-red-500" aria-hidden="true">*</span></label>
+                            <label for="business_name" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Logistics Hub Name <span class="text-red-500" aria-hidden="true">*</span></label>
                             <input id="business_name" x-ref="business_name" x-on:input="clearFieldError('business_name')" type="text" name="business_name" value="{{ old('business_name') }}"
                                    class="block mt-2 h-[52px] w-full rounded-xl border-gray-300 bg-white px-4 text-[15px] text-gray-900 placeholder:text-gray-400 focus:border-teal focus:ring-4 focus:ring-teal/15 @error('business_name') border-red-400 focus:border-red-500 focus:ring-red-500 @enderror"
                                    required maxlength="255" autocomplete="organization" placeholder="e.g., Midtown Logistics Hub"
@@ -682,7 +682,7 @@
             <p class="mt-6 text-center text-sm text-gray-500">
                 Already applied?
                 <a href="{{ route('center-application.status') }}" class="font-semibold text-teal hover:text-teal-dark underline underline-offset-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1">
-                    Check a Logistics Center Application Status
+                    Check a Logistics Hub Application Status
                 </a>
             </p>
         </div>

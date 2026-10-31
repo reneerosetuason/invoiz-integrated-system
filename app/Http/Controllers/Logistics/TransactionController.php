@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Logistics;
 use App\Models\Transaction;
 use App\Models\Delivery;
 use App\Models\LogisticsCenter;
+use App\Models\Order;
 use App\Models\Rider;
+use App\Support\EscrowEarnings;
+use App\Support\LogisticsAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class TransactionController extends Controller
@@ -25,19 +29,12 @@ class TransactionController extends Controller
         $query = Transaction::with(['delivery', 'rider', 'logisticsCenter', 'serviceArea']);
 
         $user = Auth::user();
-        $isCenterScoped = $user
-            && $user->isLogisticsStaff()
-            && ! $user->isAdmin()
-            && ! $user->isLogisticsAdmin();
-        $staffCenterId = $isCenterScoped ? (int) ($user->center_id ?? 0) : null;
+        $staffCenterId = LogisticsAccess::centerId($user);
+        $isCenterScoped = $staffCenterId !== null;
 
-        if ($isCenterScoped) {
-            if ($staffCenterId === 0) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->where('logistics_center_id', $staffCenterId);
-            }
-        }
+        // Company ownership is enforced first; center scoping narrows it
+        // further. Missing assignments produce an empty ledger, never all.
+        LogisticsAccess::scopeTransactions($query, $user);
 
         if ($search !== '') {
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
@@ -73,16 +70,15 @@ class TransactionController extends Controller
             COALESCE(SUM(admin_commission), 0) as total_commission
         ')->first();
 
-        $centersQuery = LogisticsCenter::query();
+        $centersQuery = LogisticsCenter::query()->where('is_active', true);
+        LogisticsAccess::scopeCenters($centersQuery, $user);
 
-        if ($isCenterScoped) {
+        if ($staffCenterId !== null) {
             if ($staffCenterId === 0) {
                 $centersQuery->whereRaw('1 = 0');
             } else {
                 $centersQuery->whereKey($staffCenterId);
             }
-        } else {
-            $centersQuery->where('is_active', true);
         }
 
         return view('logistics.transactions.index', [
@@ -104,24 +100,57 @@ class TransactionController extends Controller
                 return;
             }
 
-            // Approved money rule per delivery: flat ₱50 rider payout +
-            // flat ₱15 logistics operations fee. The platform's 10% lives
-            // ONLY on payment_transactions (merchandise-based) so the
-            // seller is never double-charged.
-            $amount = (float) ($delivery->delivery_fee ?? \App\Models\Order::SHIPPING_FEE_PER_SELLER);
+            // Derive the ledger row from the same allocation the escrow and
+            // settlement use. Rider pay is the last-mile fee; hub, pickup and
+            // linehaul costs are logistics. The platform commission lives on
+            // payment_transactions only, so the seller is never double-charged.
+            $order = $delivery->order()->with(['items', 'orderVouchers.voucher'])->first();
+            $sellerId = (int) ($delivery->seller_id
+                ?? $order?->items->pluck('seller_id')->filter()->first()
+                ?? 0);
+            $calc = ($order && $sellerId > 0)
+                ? EscrowEarnings::calculateForSeller($order, $sellerId, $delivery)
+                : null;
 
-            Transaction::create([
+            $riderFee = $calc
+                ? round((float) $calc['last_mile_rider_fee'], 2)
+                : round((float) ($delivery->delivery_fee ?? Order::SHIPPING_FEE_PER_SELLER), 2);
+            $logisticsFee = $calc
+                ? round((float) $calc['merch_logistics_deducted'], 2)
+                : Order::LOGISTICS_FEE_PER_DELIVERY;
+
+            $payload = [
                 'delivery_id' => $delivery->id,
                 'tracking_number' => $delivery->tracking_number,
                 'rider_id' => $delivery->rider_id,
                 'logistics_center_id' => $delivery->center_id,
                 'service_area_id' => $delivery->service_area_id,
-                'amount' => $amount,
-                'rider_fee' => $amount,
-                'logistics_fee' => \App\Models\Order::LOGISTICS_FEE_PER_DELIVERY,
+                'amount' => $riderFee,
+                'rider_fee' => $riderFee,
+                'logistics_fee' => $logisticsFee,
                 'admin_commission' => 0,
                 'status' => 'completed',
-            ]);
+            ];
+
+            if ($calc) {
+                $optional = [
+                    'origin_center_id' => $calc['origin_center_id'],
+                    'destination_center_id' => $calc['destination_center_id'],
+                    'pickup_rider_id' => EscrowEarnings::pickupRiderIdFor($delivery),
+                    'origin_hub_fee' => $calc['origin_hub_fee'],
+                    'pickup_rider_fee' => $calc['pickup_rider_fee'],
+                    'inter_hub_driver_fee' => $calc['inter_hub_driver_fee'],
+                    'destination_hub_fee' => $calc['destination_hub_fee'],
+                    'last_mile_rider_fee' => $calc['last_mile_rider_fee'],
+                ];
+                foreach ($optional as $column => $value) {
+                    if (Schema::hasColumn('transactions', $column)) {
+                        $payload[$column] = $value;
+                    }
+                }
+            }
+
+            Transaction::create($payload);
         });
     }
 }

@@ -119,7 +119,7 @@
                             <div id="seller-qr" class="bg-white p-0.5 border border-gray-300 rounded" style="width: 44px; height: 44px;"></div>
                             <div>
                                 <div class="text-[6.5px] font-extrabold uppercase tracking-widest text-[#16697A]">QR Verification</div>
-                                <div class="text-[6px] text-gray-500">Scan at sorting center</div>
+                                <div class="text-[6px] text-gray-500">Scan at Logistics Hub</div>
                                 <div class="font-mono text-[7px] font-semibold text-gray-600 mt-0.5">{{ 'INV-'.$order->id }}</div>
                             </div>
                         @else

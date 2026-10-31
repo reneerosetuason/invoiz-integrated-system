@@ -23,3 +23,15 @@ yarn-error.log
 /.taste-skill/
 /server.log
 /storage/framework/cleanup-recovery-*.zip
+
+# Flutter and Dart generated files
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/android/.gradle/
+**/android/local.properties/
+
+# IDE and local development files
+**/.idea/
+**/.vscode/

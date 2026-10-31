@@ -8,6 +8,7 @@ use App\Models\PaymentTransaction;
 use App\Models\Seller;
 use App\Models\SellerPayout;
 use App\Models\WithdrawalRequest;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Single home for payment money wiring so orders, payments,
@@ -69,42 +70,42 @@ class Payments
     }
 
     /**
-     * Per-seller money split for one order, recomputed from live data so
-     * ledger, dashboard and reports can never disagree.
+     * Per-seller money split for one order. Delegates to EscrowEarnings so
+     * settlement, escrow rows, transaction details and stakeholder earnings
+     * always share one allocation formula.
      *
-     * @return array [sellerKey => ['merch' => net merch, 'commission' => cut, 'waived' => absorbed shipping, 'earning' => payable]]
+     * @return array [sellerKey => ['merch' => net merch, 'commission' => cut, 'waived' => absorbed shipping, 'earning' => payable, ...]]
      */
     public static function splitForSellers(Order $order, ?float $rate = null): array
     {
         $order->loadMissing(['items', 'orderVouchers.voucher']);
-        $rate = $rate ?? self::defaultCommissionRate();
 
-        $groups = [];
-        foreach ($order->items as $item) {
-            $sid = (int) $item->seller_id;
-            $line = $item->lineTotal ?? ((float) ($item->unit_price ?? $item->price ?? 0)) * ((int) ($item->quantity ?? 0));
-            if (! isset($groups[$sid])) {
-                $groups[$sid] = ['sub' => 0.0];
-            }
-            $groups[$sid]['sub'] += $line;
-        }
         $out = [];
-        foreach ($groups as $sid => $g) {
-            // Canonical per-seller math (capped shares, loaded relations).
-            // The seller funds the flat logistics fee per delivery so the
-            // admin cut stays exactly the configured rate.
-            $merchNet = round($g['sub'] - $order->voucherDiscountForSeller($sid), 2);
-            $commission = round($merchNet * $rate / 100, 2);
-            $waived = $order->shippingWaivedForSeller($sid);
-            $logistics = $order->logisticsFeeForSeller($sid);
+        foreach ($order->shippingGroupIds() as $sellerId) {
+            $sid = (int) $sellerId;
+            $calc = EscrowEarnings::calculateForSeller($order, $sid, null, $rate);
+            if (! $calc['has_group']) {
+                continue;
+            }
             $out[$sid] = [
-                'merch'      => $merchNet,
-                'commission' => $commission,
-                'waived'     => $waived,
-                'logistics'  => $logistics,
-                'earning'    => round(max(0, $merchNet - $commission - $waived - $logistics), 2),
+                'merch'                  => $calc['net_merch'],
+                'commission'             => $calc['admin_commission'],
+                'waived'                 => $calc['shipping_waived'],
+                'logistics'              => $calc['merch_logistics_deducted'],
+                'earning'                => $calc['seller_earning'],
+                'deficit'                => $calc['seller_deficit'],
+                'origin_hub_fee'         => $calc['origin_hub_fee'],
+                'pickup_rider_fee'       => $calc['pickup_rider_fee'],
+                'inter_hub_driver_fee'   => $calc['inter_hub_driver_fee'],
+                'destination_hub_fee'    => $calc['destination_hub_fee'],
+                'last_mile_rider_fee'    => $calc['last_mile_rider_fee'],
+                'admin_commission'       => $calc['admin_commission'],
+                'buyer_total_payable'    => $calc['buyer_total_payable'],
+                'cod_escrow_remittance'  => $calc['cod_escrow_remittance'],
+                'seller_deficit'         => $calc['seller_deficit'],
             ];
         }
+
         return $out;
     }
 
@@ -119,10 +120,16 @@ class Payments
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $order->loadMissing(['items', 'orderVouchers.voucher']);
             $split = self::splitForSellers($order);
-            $sellerEarning = round(array_sum(array_column($split, 'earning')), 2);
-            $commission = round(array_sum(array_column($split, 'commission')), 2);
-            $riderFee = round($order->shippingTotal(), 2);
-            $logisticsFee = round(count($order->shippingGroupIds()) * Order::LOGISTICS_FEE_PER_DELIVERY, 2);
+            $sum = fn (string $key): float => round(array_sum(array_map(
+                fn (array $share): float => (float) ($share[$key] ?? 0),
+                $split
+            )), 2);
+
+            $sellerEarning = $sum('earning');
+            $commission = $sum('commission');
+            $riderFee = $sum('last_mile_rider_fee');
+            $logisticsFee = $sum('logistics');
+            $sellerDeficit = $sum('seller_deficit');
 
             $tx = self::transactionFor($order);
             if (! $tx) {
@@ -135,16 +142,33 @@ class Payments
                 ]);
             }
             if ($tx->status === 'successful' && ! $force) {
+                EscrowEarnings::syncRemittancesForOrder($order, $tx);
+
                 return;
             }
-            $tx->update([
+
+            $payload = [
                 'status'              => 'successful',
                 'seller_earning'      => $sellerEarning,
                 'platform_commission' => $commission,
                 'rider_fee'           => $riderFee,
                 'logistics_fee'       => $logisticsFee,
                 'paid_at'             => now(),
-            ]);
+            ];
+            foreach ([
+                'origin_hub_fee'       => $sum('origin_hub_fee'),
+                'pickup_rider_fee'     => $sum('pickup_rider_fee'),
+                'inter_hub_driver_fee' => $sum('inter_hub_driver_fee'),
+                'destination_hub_fee'  => $sum('destination_hub_fee'),
+                'last_mile_rider_fee'  => $riderFee,
+                'seller_deficit'       => $sellerDeficit,
+            ] as $column => $value) {
+                if (Schema::hasColumn('payment_transactions', $column)) {
+                    $payload[$column] = $value;
+                }
+            }
+
+            $tx->update($payload);
             $order->update([
                 'payment_status'    => 'paid',
                 'commission_amount' => $commission,
@@ -152,6 +176,8 @@ class Payments
             if ($order->payment) {
                 $order->payment->update(['status' => 'paid', 'paid_at' => now()]);
             }
+
+            EscrowEarnings::syncRemittancesForOrder($order, $tx);
         });
     }
 
@@ -171,6 +197,7 @@ class Payments
                     'status'          => 'failed',
                 ]);
             }
+            EscrowEarnings::syncRemittancesForOrder($order);
         } catch (\Throwable $e) {
             if ($strict) {
                 throw $e;

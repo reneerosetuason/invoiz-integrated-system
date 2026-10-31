@@ -104,7 +104,7 @@ class LogisticsAutomationTest extends TestCase
     public function test_pending_filter_and_badge_share_the_same_eligibility(): void
     {
         $center = $this->center('Consistent Center');
-        $admin = $this->user('logistics_admin');
+        $admin = User::where('email', 'logistics_admin@test.com')->firstOrFail();
 
         $actionable = $this->delivery($center, ['status' => 'assigned', 'parcel_status' => 'received']);
         PickupRequest::create([
@@ -181,7 +181,7 @@ class LogisticsAutomationTest extends TestCase
 
         // The processing card must point at the parcel workflow, not the
         // unassigned-rider queue.
-        $response->assertSee('Requires processing')->assertSee('Pickup reviews');
+        $response->assertSee('Awaiting sorting or dispatch')->assertSee('Pickup requests to review');
     }
 
     // ------------------------------------------------ LOG-DASH-003 date filter
@@ -464,7 +464,7 @@ class LogisticsAutomationTest extends TestCase
     public function test_admin_can_route_an_unrouted_pickup_before_review(): void
     {
         $center = $this->center('Routing Destination');
-        $admin = $this->user('logistics_admin');
+        $admin = User::where('email', 'logistics_admin@test.com')->firstOrFail();
         $delivery = $this->delivery(null);
         $pickup = PickupRequest::openForDelivery($delivery, notify: false);
 

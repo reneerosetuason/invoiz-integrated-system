@@ -138,17 +138,7 @@ class RiderDeliveryCompletionTest extends TestCase
 
     private function admin(): User
     {
-        $this->seq++;
-
-        return User::create([
-            'name' => 'Completion Admin',
-            'email' => "completion-admin-{$this->seq}@test.local",
-            'password' => Hash::make('secret123'),
-            'role' => 'logistics_admin',
-            'status' => 'active',
-            'account_status' => 'active',
-            'email_verified_at' => now(),
-        ]);
+        return User::where('email', 'logistics_admin@test.com')->firstOrFail();
     }
 
     private function staff(?int $centerId = null): User
@@ -215,12 +205,14 @@ class RiderDeliveryCompletionTest extends TestCase
         $this->assertSame(1, DeliveryStatusLog::where('delivery_id', $delivery->id)->where('status', 'delivered')->count());
         $this->assertSame(1, DeliveryProof::where('delivery_id', $delivery->id)->count());
 
+        // logistics_fee is now the origin hub + pickup rider share from the
+        // centralized allocation: 30 + (30 x 2 items) = 90 for this shipment.
         $this->assertDatabaseHas('transactions', [
             'delivery_id' => $delivery->id,
             'rider_id' => $rider->id,
             'amount' => 50,
             'rider_fee' => 50,
-            'logistics_fee' => Order::LOGISTICS_FEE_PER_DELIVERY,
+            'logistics_fee' => 90,
             'status' => 'completed',
         ]);
 

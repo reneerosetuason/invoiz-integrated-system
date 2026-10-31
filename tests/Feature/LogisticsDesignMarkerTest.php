@@ -24,7 +24,7 @@ class LogisticsDesignMarkerTest extends TestCase
 
         // new design: standalone document + 40/60 branded split + headline
         $this->assertStringContainsString('Keep every delivery moving.', $body, 'new login headline missing');
-        $this->assertStringContainsString('Logistics Center', $body);
+        $this->assertStringContainsString('Logistics Hub', $body);
         $this->assertStringContainsString('cdn.tailwindcss.com', $body, 'new design uses the Tailwind CDN shell');
         // old design used the shared auth-split layout
         $this->assertStringNotContainsString('layouts.auth-split', $body, 'old auth-split layout still in use');

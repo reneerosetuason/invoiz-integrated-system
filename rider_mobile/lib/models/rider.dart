@@ -54,6 +54,7 @@ class Rider {
     this.licenseExpiringSoon = false,
     this.vehicleRegistration,
     this.company,
+    this.hubName,
     this.serviceArea,
     this.status,
     this.isOnline = false,
@@ -79,6 +80,7 @@ class Rider {
   final bool licenseExpiringSoon;
   final String? vehicleRegistration;
   final String? company;
+  final String? hubName;
   final String? serviceArea;
   final String? status;
   final bool isOnline;
@@ -112,6 +114,7 @@ class Rider {
       licenseExpiringSoon: json['license_expiring_soon'] as bool? ?? false,
       vehicleRegistration: json['vehicle_registration'] as String?,
       company: json['company'] as String?,
+      hubName: (json['hub'] as Map?)?['name'] as String?,
       serviceArea: json['service_area'] as String?,
       status: json['status'] as String?,
       isOnline: json['is_online'] as bool? ?? false,
@@ -141,6 +144,7 @@ class Rider {
       licenseExpiringSoon: licenseExpiringSoon,
       vehicleRegistration: vehicleRegistration,
       company: company,
+      hubName: hubName,
       serviceArea: serviceArea,
       status: status,
       isOnline: isOnline ?? this.isOnline,
@@ -168,6 +172,7 @@ class Rider {
         'license_expiring_soon': licenseExpiringSoon,
         'vehicle_registration': vehicleRegistration,
         'company': company,
+        'hub': hubName == null ? null : {'name': hubName},
         'service_area': serviceArea,
         'status': status,
         'is_online': isOnline,

@@ -2,229 +2,569 @@
     $dateQuery = array_filter(['date_from' => $dateFrom ?: null, 'date_to' => $dateTo ?: null]);
     $statusMap = array_flip($status_labels);
     $hasTrendData = array_sum($trendsChart['created']) + array_sum($trendsChart['delivered']) + array_sum($trendsChart['failed']) > 0;
-    $statusTone = fn ($status) => match (true) {
-        $status === 'delivered' => 'ld-status--delivered',
-        in_array($status, ['delivery_failed', 'lost', 'damaged']) => 'ld-status--failed',
-        $status === 'waiting_for_rider' => 'ld-status--pending',
-        in_array($status, ['cancelled', 'returned_to_seller']) => 'ld-status--neutral',
-        default => '',
-    };
 @endphp
-<div class="logistics-dashboard">
-    <header class="ld-head">
+<div class="logistics-dashboard space-y-6">
+    {{-- Page Header --}}
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-            <h1>Delivery overview</h1>
-            <p>{{ now()->format('l, F j, Y') }} &middot; {{ $staffCenterId !== null ? ($staffCenterId ? 'Your logistics center' : 'Awaiting center assignment') : 'All logistics centers' }}</p>
-        </div>
-        <div class="ld-actions">
-            <a class="ld-button ld-button--soft" href="{{ route('tracking.index') }}">Track a parcel</a>
-            <a class="ld-button" href="{{ route('deliveries.index') }}">View deliveries <span aria-hidden="true">&rarr;</span></a>
-        </div>
-    </header>
-
-    <div class="ld-lead-grid">
-        <section class="ld-today" aria-labelledby="ld-today-title">
-            <div>
-                <h2 id="ld-today-title">Today at a glance</h2>
-                <p class="ld-today-date">{{ now()->format('F j') }} &middot; Live delivery activity</p>
+            <div class="flex items-center gap-2">
+                <h1 class="text-2xl font-bold text-[#1B1B1E]">Logistics Dashboard</h1>
+                @if(isset($staffCenter) && $staffCenter)
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#E6F4F1] text-[#0E4A57] border border-[#16697A]/20">
+                        <span class="w-2 h-2 rounded-full bg-[#16697A]"></span>
+                        {{ $staffCenter->name }} ({{ $staffCenter->code ?? 'HUB' }})
+                    </span>
+                @elseif($staffCenterId === null)
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200">
+                        <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                        HQ Admin · All Logistics Centers
+                    </span>
+                @else
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Awaiting Center Assignment
+                    </span>
+                @endif
             </div>
-            <div class="ld-today-main"><strong>{{ number_format($todayCounts['created']) }}</strong><span>new {{ $todayCounts['created'] === 1 ? 'delivery' : 'deliveries' }} today</span></div>
-            <dl>
-                <div><dt>Delivered today</dt><dd>{{ number_format($todayCounts['delivered']) }}</dd></div>
-                <div><dt>Failed today</dt><dd>{{ number_format($todayCounts['failed']) }}</dd></div>
-            </dl>
-        </section>
-        <section class="ld-panel ld-queue" aria-labelledby="ld-queue-title">
-            <div class="ld-section-head"><div><h2 id="ld-queue-title">Your next actions</h2><p>Select a queue to review the parcels that need work.</p></div></div>
-            <div class="ld-queue-list">
-                <a class="ld-queue-row" href="{{ route('deliveries.index', ['status' => 'waiting_for_rider']) }}"><span>Waiting for a rider</span><strong>{{ number_format($needsAttention['waitingForRider']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
-                <a class="ld-queue-row" href="{{ route('sorting-center.index') }}"><span>Awaiting sorting or dispatch</span><strong>{{ number_format($needsAttention['processing']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
-                <a class="ld-queue-row" href="{{ route('pickup-requests.index', ['status' => 'pending']) }}"><span>Pickup requests to review</span><strong>{{ number_format($needsAttention['pickups']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
-                <a class="ld-queue-row" href="{{ route('deliveries.index', ['status' => 'exceptions']) }}"><span>Failed, lost or damaged</span><strong>{{ number_format($needsAttention['failed']) }}</strong><span class="ld-arrow" aria-hidden="true">&rarr;</span></a>
-            </div>
-        </section>
+            <p class="text-xs text-[#6E6E73] mt-1">
+                {{ now()->format('l, F j, Y') }} &middot;
+                @if(isset($staffCenter) && $staffCenter)
+                    Assigned Center: <strong class="text-[#1B1B1E]">{{ $staffCenter->name }}</strong>
+                    @if($staffCenter->city) &middot; {{ $staffCenter->city }} @endif
+                @elseif($staffCenterId === null)
+                    All Logistics Centers (Global Admin Oversight)
+                @else
+                    Awaiting Center Assignment
+                @endif
+            </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+            <a class="btn btn-outline" href="{{ route('tracking.index') }}">
+                <x-icon name="search" class="w-4 h-4" />
+                Track a Parcel
+            </a>
+            <a class="btn btn-primary" href="{{ route('deliveries.index') }}">
+                View Deliveries
+                <span aria-hidden="true">&rarr;</span>
+            </a>
+        </div>
     </div>
 
-    <section class="ld-panel ld-filter-panel" aria-labelledby="ld-shipments-title">
-        <div class="ld-section-head">
-            <div><h2 id="ld-shipments-title">Delivery totals</h2><p>{{ $dateFilterActive ? 'Deliveries registered in your selected date range.' : 'All registered deliveries, across all dates.' }}</p></div>
-            <form method="GET" action="{{ route('dashboard') }}" class="ld-date-form">
+    {{-- Top 4 KPI Stat Cards + Date Filter --}}
+    <div class="card p-5 space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pb-3 border-b border-[#E8E6E0]">
+            <div>
+                <h2 class="text-sm font-bold text-[#1B1B1E]">Delivery Summary</h2>
+                <p class="text-xs text-[#6E6E73]">
+                    {{ $dateFilterActive ? 'Deliveries registered in your selected date range.' : 'All registered deliveries across all dates.' }}
+                </p>
+            </div>
+            <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="trends_range" value="{{ $trendsRange }}">
-                <label class="ld-field" for="date_from">From<input id="date_from" type="date" name="date_from" value="{{ $dateFrom }}" max="{{ $dateTo }}"></label>
-                <label class="ld-field" for="date_to">To<input id="date_to" type="date" name="date_to" value="{{ $dateTo }}" min="{{ $dateFrom }}"></label>
-                <button type="submit" class="ld-button">Apply dates</button>
-                @if($dateFilterActive)<a class="ld-text-button" href="{{ route('dashboard', ['trends_range' => $trendsRange]) }}">Clear dates</a>@endif
+                <div>
+                    <label class="field-label" for="date_from">From</label>
+                    <input id="date_from" type="date" name="date_from" value="{{ $dateFrom }}" max="{{ $dateTo }}" class="input !w-auto">
+                </div>
+                <div>
+                    <label class="field-label" for="date_to">To</label>
+                    <input id="date_to" type="date" name="date_to" value="{{ $dateTo }}" min="{{ $dateFrom }}" class="input !w-auto">
+                </div>
+                <button type="submit" class="btn btn-primary">Apply Dates</button>
+                @if($dateFilterActive)
+                    <a class="btn btn-ghost" href="{{ route('dashboard', ['trends_range' => $trendsRange]) }}">Clear</a>
+                @endif
             </form>
         </div>
-        <div class="ld-kpis">
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             @foreach([
-                ['key' => 'pending', 'label' => 'Pending', 'detail' => 'Waiting for a rider'],
-                ['key' => 'in_transit', 'label' => 'In transit', 'detail' => 'Assigned or with a rider'],
-                ['key' => 'delivered', 'label' => 'Delivered', 'detail' => 'Handed to the recipient'],
-                ['key' => 'failed', 'label' => 'Failed', 'detail' => 'Failed, lost or damaged'],
+                ['key' => 'pending', 'label' => 'Pending', 'detail' => 'Waiting for a rider', 'bg' => 'bg-amber-50 text-amber-700', 'icon' => 'clock'],
+                ['key' => 'in_transit', 'label' => 'In Transit', 'detail' => 'Assigned or with a rider', 'bg' => 'bg-blue-50 text-blue-700', 'icon' => 'truck'],
+                ['key' => 'delivered', 'label' => 'Delivered', 'detail' => 'Handed to recipient', 'bg' => 'bg-emerald-50 text-emerald-700', 'icon' => 'check'],
+                ['key' => 'failed', 'label' => 'Failed / Exceptions', 'detail' => 'Failed, lost or damaged', 'bg' => 'bg-red-50 text-red-700', 'icon' => 'alert-triangle'],
             ] as $metric)
-                <a class="ld-kpi" href="{{ route('deliveries.index', array_merge(['status' => $metric['key']], $dateQuery)) }}">
-                    <span>{{ $metric['label'] }}</span><strong>{{ number_format($statusGroupCounts[$metric['key']] ?? 0) }}</strong><small>{{ $metric['detail'] }}</small>
+                <a class="stat-card block hover:border-[#16697A]" href="{{ route('deliveries.index', array_merge(['status' => $metric['key']], $dateQuery)) }}">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <div class="text-[11px] font-bold uppercase tracking-wider text-[#6E6E73]">{{ $metric['label'] }}</div>
+                            <div class="text-2xl font-extrabold text-[#1B1B1E] mt-1">{{ number_format($statusGroupCounts[$metric['key']] ?? 0) }}</div>
+                            <div class="text-[11px] text-[#6E6E73] mt-1">{{ $metric['detail'] }}</div>
+                        </div>
+                        <div class="stat-icon {{ $metric['bg'] }}">
+                            <x-icon :name="$metric['icon']" class="w-4 h-4" />
+                        </div>
+                    </div>
                 </a>
             @endforeach
         </div>
-        <p class="ld-note">Select a total to view matching deliveries. Dates filter these totals and recent records. Today&rsquo;s activity always shows today.</p>
-    </section>
+    </div>
 
-    @if($alertTotal > 0)
-        <section class="ld-alerts" aria-labelledby="ld-alert-title">
-            <div class="ld-section-head"><div><h2 id="ld-alert-title">Operational alerts</h2><p>Overdue work that needs a closer look. A parcel may appear in more than one alert.</p></div></div>
-            @foreach($operationalAlerts as $alert)
-                <a class="ld-alert-row" href="{{ $alert['url'] }}">
-                    <div><strong>{{ $alert['title'] }}</strong><p>{{ $alert['action'] }} @if($alert['oldest']) Oldest: {{ $alert['oldest']->diffForHumans() }}.@endif</p></div>
-                    <span class="ld-alert-count {{ $alert['severity'] === 'danger' ? 'ld-alert-count--danger' : '' }}" aria-label="{{ $alert['count'] }} affected parcels or requests">{{ number_format($alert['count']) }} <span aria-hidden="true">&rarr;</span></span>
+    {{-- Today at a Glance + Next Actions Queue --}}
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="card p-5 flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-[#1B1B1E]">Today at a Glance</h2>
+                    <span class="badge badge-confirmed">{{ now()->format('M j') }}</span>
+                </div>
+                <p class="text-xs text-[#6E6E73] mt-0.5">Live delivery activity for today</p>
+                <div class="mt-4 p-3.5 rounded-xl bg-[#EAF4F3] border border-[#16697A]/15">
+                    <div class="text-xs font-semibold text-[#0E4A57]">New Deliveries Today</div>
+                    <div class="text-3xl font-extrabold text-[#16697A] mt-0.5">{{ number_format($todayCounts['created']) }}</div>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-[#E8E6E0]">
+                <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                    <div class="text-[11px] font-bold uppercase text-[#6E6E73]">Delivered Today</div>
+                    <div class="text-lg font-extrabold text-emerald-700 mt-0.5">{{ number_format($todayCounts['delivered']) }}</div>
+                </div>
+                <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                    <div class="text-[11px] font-bold uppercase text-[#6E6E73]">Failed Today</div>
+                    <div class="text-lg font-extrabold text-red-600 mt-0.5">{{ number_format($todayCounts['failed']) }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card p-5 lg:col-span-2">
+            <div class="mb-3">
+                <h2 class="text-sm font-bold text-[#1B1B1E]">Your Next Actions</h2>
+                <p class="text-xs text-[#6E6E73]">Select a queue to review parcels that need attention.</p>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('deliveries.index', ['status' => 'waiting_for_rider']) }}">
+                    <div>
+                        <div class="text-xs font-semibold text-[#1B1B1E]">Waiting for a Rider</div>
+                        <div class="text-[11px] text-[#6E6E73]">Unassigned parcels</div>
+                    </div>
+                    <span class="text-lg font-extrabold text-[#16697A]">{{ number_format($needsAttention['waitingForRider']) }} &rarr;</span>
                 </a>
-            @endforeach
-        </section>
+                <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('sorting-center.index') }}">
+                    <div>
+                        <div class="text-xs font-semibold text-[#1B1B1E]">Awaiting Sorting / Dispatch</div>
+                        <div class="text-[11px] text-[#6E6E73]">In sorting center workflow</div>
+                    </div>
+                    <span class="text-lg font-extrabold text-[#16697A]">{{ number_format($needsAttention['processing']) }} &rarr;</span>
+                </a>
+                <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('pickup-requests.index', ['status' => 'pending']) }}">
+                    <div>
+                        <div class="text-xs font-semibold text-[#1B1B1E]">Pickup Requests to Review</div>
+                        <div class="text-[11px] text-[#6E6E73]">Pending seller pickups</div>
+                    </div>
+                    <span class="text-lg font-extrabold text-[#16697A]">{{ number_format($needsAttention['pickups']) }} &rarr;</span>
+                </a>
+                <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('deliveries.index', ['status' => 'exceptions']) }}">
+                    <div>
+                        <div class="text-xs font-semibold text-[#1B1B1E]">Failed, Lost or Damaged</div>
+                        <div class="text-[11px] text-[#6E6E73]">Delivery exceptions</div>
+                    </div>
+                    <span class="text-lg font-extrabold text-red-600">{{ number_format($needsAttention['failed']) }} &rarr;</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {{-- Operational Alerts --}}
+    @if($alertTotal > 0)
+        <div class="card p-5 border-amber-200 bg-amber-50/40">
+            <div class="mb-3">
+                <h2 class="text-sm font-bold text-[#1B1B1E]">Operational Alerts</h2>
+                <p class="text-xs text-[#6E6E73]">Overdue work that needs immediate review.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                @foreach($operationalAlerts as $alert)
+                    <a class="p-3.5 rounded-xl bg-white border border-[#E8E6E0] hover:border-[#16697A] flex items-center justify-between gap-3 transition" href="{{ $alert['url'] }}">
+                        <div>
+                            <div class="text-xs font-bold text-[#1B1B1E]">{{ $alert['title'] }}</div>
+                            <p class="text-[11px] text-[#6E6E73] mt-0.5">
+                                {{ $alert['action'] }}
+                                @if($alert['oldest']) &middot; Oldest: {{ $alert['oldest']->diffForHumans() }} @endif
+                            </p>
+                        </div>
+                        <span class="badge {{ $alert['severity'] === 'danger' ? 'badge-cancelled' : 'badge-pending' }}">
+                            {{ number_format($alert['count']) }} &rarr;
+                        </span>
+                    </a>
+                @endforeach
+            </div>
+        </div>
     @endif
 
-    <div x-data="dashboardCharts()" x-init="initCharts()">
+    {{-- Charts & Finances --}}
+    <div x-data="dashboardCharts()" x-init="initCharts()" class="space-y-6">
         <div id="statusKeyMap" hidden data-map='@json($statusMap)'></div>
-        <div class="ld-analysis">
-            <section class="ld-panel" aria-labelledby="ld-trends-title">
-                <div class="ld-chart-heading"><div><h2 id="ld-trends-title">Delivery trends</h2><p>Daily activity over the last {{ $trendsRange }} days.</p></div><button type="button" class="ld-text-button" @click="openTrendsModal()" aria-label="Expand delivery trends chart">Expand <span aria-hidden="true">&#8599;</span></button></div>
-                <div class="ld-chart-tools">
-                    <nav class="ld-periods" aria-label="Delivery trend period">
-                        <a href="{{ route('dashboard', array_merge($dateQuery, ['trends_range' => 7])) }}" aria-current="{{ $trendsRange === 7 ? 'true' : 'false' }}">7 days</a>
-                        <a href="{{ route('dashboard', array_merge($dateQuery, ['trends_range' => 30])) }}" aria-current="{{ $trendsRange === 30 ? 'true' : 'false' }}">30 days</a>
-                    </nav>
-                    <div class="ld-legend" aria-label="Chart legend"><span><i class="ld-swatch" aria-hidden="true"></i>Created</span><span><i class="ld-swatch ld-swatch--delivered" aria-hidden="true"></i>Delivered</span><span><i class="ld-swatch ld-swatch--failed" aria-hidden="true"></i>Failed</span></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {{-- Delivery Trends --}}
+            <div class="card p-5 lg:col-span-2">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-[#1B1B1E]">Delivery Trends</h2>
+                        <p class="text-xs text-[#6E6E73]">Daily activity over the last {{ $trendsRange }} days</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="inline-flex rounded-lg bg-[#F0EEE9] p-0.5 text-xs">
+                            <a href="{{ route('dashboard', array_merge($dateQuery, ['trends_range' => 7])) }}"
+                               class="px-2.5 py-1 rounded-md font-semibold {{ $trendsRange === 7 ? 'bg-white text-[#16697A] shadow-sm' : 'text-[#6E6E73]' }}">7D</a>
+                            <a href="{{ route('dashboard', array_merge($dateQuery, ['trends_range' => 30])) }}"
+                               class="px-2.5 py-1 rounded-md font-semibold {{ $trendsRange === 30 ? 'bg-white text-[#16697A] shadow-sm' : 'text-[#6E6E73]' }}">30D</a>
+                        </div>
+                        <button type="button" class="btn btn-ghost btn-sm" @click="openTrendsModal()">Expand &#8599;</button>
+                    </div>
                 </div>
                 @if($hasTrendData)
-                    <div class="ld-chart"><canvas id="trendsChart" role="img" aria-label="Daily created, delivered and failed shipments for the last {{ $trendsRange }} days. Expand for a table of exact values."></canvas></div>
-                    <div x-show="selectedTrendDate" x-cloak class="ld-chart-result"><span><strong x-text="selectedTrendDate"></strong><br><span x-text="selectedTrendDetail"></span></span><a :href="trendLink">View deliveries &rarr;</a></div>
+                    <div class="ld-chart-box">
+                        <canvas id="trendsChart" role="img" aria-label="Daily created, delivered and failed shipments"></canvas>
+                    </div>
+                    <div x-show="selectedTrendDate" x-cloak class="mt-3 p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0] flex items-center justify-between text-xs">
+                        <span><strong x-text="selectedTrendDate"></strong> &middot; <span x-text="selectedTrendDetail"></span></span>
+                        <a class="font-semibold text-[#16697A]" :href="trendLink">View Deliveries &rarr;</a>
+                    </div>
                 @else
-                    <div class="ld-empty"><strong>No activity in this period</strong><p>New delivery activity will appear here. Try the 30-day view for a wider period.</p></div>
+                    <div class="py-12 text-center text-xs text-[#6E6E73]">
+                        <strong class="block text-sm text-[#1B1B1E] mb-1">No activity in this period</strong>
+                        New delivery activity will appear here.
+                    </div>
                 @endif
-            </section>
-            <section class="ld-panel" aria-labelledby="ld-status-title">
-                <div class="ld-chart-heading"><div><h2 id="ld-status-title">Delivery status</h2><p>{{ number_format($statusChart['total']) }} deliveries{{ $dateFilterActive ? ' in this date range' : ' across all dates' }}.</p></div><button type="button" class="ld-text-button" @click="openStatusModal()" aria-label="Expand delivery status chart">Expand <span aria-hidden="true">&#8599;</span></button></div>
+            </div>
+
+            {{-- Delivery Status Breakdown --}}
+            <div class="card p-5">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-[#1B1B1E]">Delivery Status</h2>
+                        <p class="text-xs text-[#6E6E73]">{{ number_format($statusChart['total']) }} total deliveries</p>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" @click="openStatusModal()">Expand &#8599;</button>
+                </div>
                 @if($statusChart['total'] > 0)
-                    <div class="ld-chart ld-chart--status"><canvas id="statusChart" role="img" aria-label="Delivery status distribution. Exact counts and percentages follow."></canvas></div>
-                    <div class="ld-status-list">
+                    <div class="ld-chart-box ld-chart-box--compact">
+                        <canvas id="statusChart" role="img" aria-label="Delivery status distribution"></canvas>
+                    </div>
+                    <div class="mt-3 space-y-1.5 max-h-40 overflow-y-auto pr-1">
                         @foreach($statusChart['labels'] as $i => $label)
                             @php $statusKey = $statusMap[$label] ?? ''; @endphp
-                            <div class="ld-status-row"><a href="{{ route('deliveries.index', array_merge($dateQuery, ['status' => $statusKey])) }}"><i class="ld-swatch" style="background:{{ $statusChart['colors'][$i] }}" aria-hidden="true"></i>{{ $label }}</a><strong>{{ number_format($statusChart['data'][$i]) }}</strong><small>{{ round($statusChart['data'][$i] / $statusChart['total'] * 100) }}%</small></div>
+                            <div class="flex items-center justify-between text-xs py-1 border-b border-[#E8E6E0] last:border-0">
+                                <a href="{{ route('deliveries.index', array_merge($dateQuery, ['status' => $statusKey])) }}" class="flex items-center gap-2 text-[#1B1B1E] hover:text-[#16697A]">
+                                    <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:{{ $statusChart['colors'][$i] }}"></span>
+                                    <span>{{ $label }}</span>
+                                </a>
+                                <span class="font-semibold text-[#1B1B1E]">{{ number_format($statusChart['data'][$i]) }} <span class="text-[#6E6E73] font-normal">({{ round($statusChart['data'][$i] / $statusChart['total'] * 100) }}%)</span></span>
+                            </div>
                         @endforeach
                     </div>
-                    <div x-show="selectedStatus" x-cloak class="ld-chart-result"><span><strong x-text="selectedStatus"></strong>: <span x-text="selectedStatusCount"></span></span><a :href="statusLink">View deliveries &rarr;</a></div>
                 @else
-                    <div class="ld-empty"><strong>No deliveries to show</strong><p>{{ $dateFilterActive ? 'Try a wider date range.' : 'The breakdown will appear as deliveries are registered.' }}</p></div>
+                    <div class="py-12 text-center text-xs text-[#6E6E73]">
+                        <strong class="block text-sm text-[#1B1B1E] mb-1">No deliveries to show</strong>
+                        Status distribution will appear once deliveries are registered.
+                    </div>
                 @endif
-            </section>
+            </div>
         </div>
 
-        <div class="ld-support-grid">
-            <section class="ld-panel" aria-labelledby="ld-center-title">
-                <div class="ld-chart-heading"><div><h2 id="ld-center-title">Center performance</h2><p>{{ $staffCenterId !== null ? 'Delivery totals for your assigned center.' : 'All-time delivery totals across logistics centers.' }}</p></div><button type="button" class="ld-text-button" @click="openCenterModal()" aria-label="Expand center performance chart">Expand <span aria-hidden="true">&#8599;</span></button></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {{-- Center Performance --}}
+            <div class="card p-5 lg:col-span-2">
+                <div class="flex items-center justify-between gap-2 mb-3">
+                    <div>
+                        <h2 class="text-sm font-bold text-[#1B1B1E]">Center Performance</h2>
+                        <p class="text-xs text-[#6E6E73]">{{ $staffCenterId !== null ? 'Delivery totals for your assigned center' : 'Delivery totals across logistics centers' }}</p>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" @click="openCenterModal()">Expand &#8599;</button>
+                </div>
                 @if(!$centerPerformanceChart['empty'])
-                    <div class="ld-chart" style="height:{{ max(280, count($centerPerformanceChart['labels']) * 60) }}px"><canvas id="centerChart" role="img" aria-label="Total, delivered, pending and failed deliveries by logistics center. Expand for exact values."></canvas></div>
-                    <div x-show="selectedCenter" x-cloak class="ld-chart-result"><span><strong x-text="selectedCenter"></strong><br><span x-text="selectedCenterDetail"></span></span><a :href="centerLink">View deliveries &rarr;</a></div>
+                    <div class="ld-chart-box" style="height:{{ max(240, count($centerPerformanceChart['labels']) * 52) }}px">
+                        <canvas id="centerChart" role="img" aria-label="Center performance chart"></canvas>
+                    </div>
                 @else
-                    <div class="ld-empty"><strong>No center activity yet</strong><p>Center totals will appear when deliveries are assigned.</p></div>
+                    <div class="py-12 text-center text-xs text-[#6E6E73]">
+                        <strong class="block text-sm text-[#1B1B1E] mb-1">No center activity yet</strong>
+                        Center totals will appear when deliveries are assigned.
+                    </div>
                 @endif
-            </section>
-            <section class="ld-panel" aria-labelledby="ld-financial-title">
-                <div class="ld-section-head"><div><h2 id="ld-financial-title">Today&rsquo;s finances</h2><p>Recorded transactions for {{ now()->format('F j') }}.</p></div></div>
-                <dl class="ld-money">
-                    <div><dt>Transaction amount</dt><dd>&#8369;{{ number_format($financialToday['amount'], 2) }}</dd></div>
-                    <div><dt>Rider fees</dt><dd>&#8369;{{ number_format($financialToday['rider_fee'], 2) }}</dd></div>
-                    <div><dt>Commission</dt><dd>&#8369;{{ number_format($financialToday['commission'], 2) }}</dd></div>
-                    <div><dt>Transactions</dt><dd>{{ number_format($financialToday['count']) }}</dd></div>
-                </dl>
-                <p class="ld-note ld-money-caption">These figures cover today only and do not change with the shipment date filter.</p>
-                <a class="ld-text-button" href="{{ route('transactions.index') }}">View transactions &rarr;</a>
-            </section>
+            </div>
+
+            {{-- Today's Finances --}}
+            <div class="card p-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h2 class="text-sm font-bold text-[#1B1B1E]">Today&rsquo;s Finances</h2>
+                            <p class="text-xs text-[#6E6E73]">Recorded transactions for {{ now()->format('F j') }}</p>
+                        </div>
+                        <a class="btn btn-soft btn-xs" href="{{ route('transactions.index') }}">View All &rarr;</a>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2.5">
+                        <div class="p-3 rounded-xl bg-[#FAF9F6] border border-[#E8E6E0] flex items-center justify-between">
+                            <span class="text-xs text-[#6E6E73]">Transaction Amount</span>
+                            <strong class="text-sm font-extrabold text-[#1B1B1E]">&#8369;{{ number_format($financialToday['amount'], 2) }}</strong>
+                        </div>
+                        <div class="p-3 rounded-xl bg-[#FAF9F6] border border-[#E8E6E0] flex items-center justify-between">
+                            <span class="text-xs text-[#6E6E73]">Rider Fees</span>
+                            <strong class="text-sm font-bold text-[#1B1B1E]">&#8369;{{ number_format($financialToday['rider_fee'], 2) }}</strong>
+                        </div>
+                        <div class="p-3 rounded-xl bg-[#FAF9F6] border border-[#E8E6E0] flex items-center justify-between">
+                            <span class="text-xs text-[#6E6E73]">Commission</span>
+                            <strong class="text-sm font-bold text-emerald-700">&#8369;{{ number_format($financialToday['commission'], 2) }}</strong>
+                        </div>
+                        <div class="p-3 rounded-xl bg-[#FAF9F6] border border-[#E8E6E0] flex items-center justify-between">
+                            <span class="text-xs text-[#6E6E73]">Transactions Count</span>
+                            <strong class="text-sm font-bold text-[#1B1B1E]">{{ number_format($financialToday['count']) }}</strong>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-[11px] text-[#6E6E73] mt-3">Covers today&rsquo;s recorded transactions only.</p>
+            </div>
         </div>
 
+        {{-- Expanded Chart Modals --}}
         @foreach([
-            ['key' => 'Status', 'id' => 'status', 'title' => 'Delivery status', 'canvas' => 'statusChartModal'],
-            ['key' => 'Trends', 'id' => 'trends', 'title' => 'Delivery trends', 'canvas' => 'trendsChartModal'],
-            ['key' => 'Center', 'id' => 'center', 'title' => 'Center performance', 'canvas' => 'centerChartModal'],
+            ['key' => 'Status', 'id' => 'status', 'title' => 'Delivery Status Breakdown', 'canvas' => 'statusChartModal'],
+            ['key' => 'Trends', 'id' => 'trends', 'title' => 'Delivery Trends', 'canvas' => 'trendsChartModal'],
+            ['key' => 'Center', 'id' => 'center', 'title' => 'Center Performance', 'canvas' => 'centerChartModal'],
         ] as $dialog)
             <template x-teleport="body">
-                <div class="ld-dialog" data-dialog="{{ $dialog['id'] }}" x-show="show{{ $dialog['key'] }}Modal" x-cloak role="dialog" aria-modal="true" aria-labelledby="ld-{{ $dialog['id'] }}-dialog-title" @keydown.escape.window="if(show{{ $dialog['key'] }}Modal) close{{ $dialog['key'] }}Modal()" @keydown.tab="trapDialog($event)">
-                    <div class="ld-dialog-scrim" @click="close{{ $dialog['key'] }}Modal()"></div>
-                    <div class="ld-dialog-panel">
-                        <div class="ld-section-head"><div><h2 id="ld-{{ $dialog['id'] }}-dialog-title">{{ $dialog['title'] }}</h2><p>{{ $dialog['id'] === 'trends' ? 'The last '.$trendsRange.' days. Exact values are listed below.' : 'Exact values for the chart are listed below.' }}</p></div><button type="button" class="ld-button ld-button--soft" @click="close{{ $dialog['key'] }}Modal()" data-dialog-close>Close</button></div>
-                        @if(($dialog['id'] === 'status' && $statusChart['total'] > 0) || ($dialog['id'] === 'trends' && $hasTrendData) || ($dialog['id'] === 'center' && !$centerPerformanceChart['empty']))
-                            <div class="ld-chart"><canvas id="{{ $dialog['canvas'] }}" role="img" aria-label="{{ $dialog['title'] }} expanded chart"></canvas></div>
-                        @endif
-                        <div class="ld-table-wrap" tabindex="0" aria-label="{{ $dialog['title'] }} data">
-                            <table class="ld-table">
-                                @if($dialog['id'] === 'status')
-                                    <thead><tr><th scope="col">Status</th><th scope="col">Deliveries</th><th scope="col">Share</th></tr></thead>
-                                    <tbody>@forelse($statusChart['labels'] as $i => $label)<tr><td><a href="{{ route('deliveries.index', array_merge($dateQuery, ['status' => $statusMap[$label] ?? ''])) }}">{{ $label }}</a></td><td>{{ number_format($statusChart['data'][$i]) }}</td><td>{{ $statusChart['total'] ? round($statusChart['data'][$i] / $statusChart['total'] * 100) : 0 }}%</td></tr>@empty<tr><td colspan="3">No deliveries in this period.</td></tr>@endforelse</tbody>
-                                @elseif($dialog['id'] === 'trends')
-                                    <thead><tr><th scope="col">Date</th><th scope="col">Created</th><th scope="col">Delivered</th><th scope="col">Failed</th></tr></thead>
-                                    <tbody>@foreach($trendsChart['labels'] as $i => $label)<tr><td>{{ $label }}</td><td>{{ number_format($trendsChart['created'][$i]) }}</td><td>{{ number_format($trendsChart['delivered'][$i]) }}</td><td>{{ number_format($trendsChart['failed'][$i]) }}</td></tr>@endforeach</tbody>
-                                @else
-                                    <thead><tr><th scope="col">Center</th><th scope="col">Total</th><th scope="col">Delivered</th><th scope="col">Pending</th><th scope="col">Failed</th></tr></thead>
-                                    <tbody>@forelse($centerPerformanceChart['labels'] as $i => $label)<tr><td>{{ $label }}</td><td>{{ number_format($centerPerformanceChart['total'][$i]) }}</td><td>{{ number_format($centerPerformanceChart['delivered'][$i]) }}</td><td>{{ number_format($centerPerformanceChart['pending'][$i]) }}</td><td>{{ number_format($centerPerformanceChart['failed'][$i]) }}</td></tr>@empty<tr><td colspan="5">No center records yet.</td></tr>@endforelse</tbody>
-                                @endif
-                            </table>
+                <div class="ld-modal-backdrop" data-dialog="{{ $dialog['id'] }}" x-show="show{{ $dialog['key'] }}Modal" x-cloak role="dialog" aria-modal="true" @keydown.escape.window="if(show{{ $dialog['key'] }}Modal) close{{ $dialog['key'] }}Modal()" @keydown.tab="trapDialog($event)">
+                    <div class="ld-modal ld-modal--wide" @click.outside="close{{ $dialog['key'] }}Modal()">
+                        <div class="flex items-center justify-between pb-3 mb-4 border-b border-[#E8E6E0]">
+                            <div>
+                                <h2 class="text-base font-bold text-[#1B1B1E]">{{ $dialog['title'] }}</h2>
+                                <p class="text-xs text-[#6E6E73]">Expanded chart and breakdown table</p>
+                            </div>
+                            <button type="button" class="btn btn-outline btn-sm" @click="close{{ $dialog['key'] }}Modal()" data-dialog-close>Close</button>
                         </div>
+                        @if(($dialog['id'] === 'status' && $statusChart['total'] > 0) || ($dialog['id'] === 'trends' && $hasTrendData) || ($dialog['id'] === 'center' && !$centerPerformanceChart['empty']))
+                            <div class="ld-modal-chart mb-4"><canvas id="{{ $dialog['canvas'] }}"></canvas></div>
+                        @endif
+                        <table class="table">
+                            @if($dialog['id'] === 'status')
+                                <thead><tr><th>Status</th><th>Deliveries</th><th>Share</th></tr></thead>
+                                <tbody>@forelse($statusChart['labels'] as $i => $label)<tr><td><a class="font-semibold text-[#16697A]" href="{{ route('deliveries.index', array_merge($dateQuery, ['status' => $statusMap[$label] ?? ''])) }}">{{ $label }}</a></td><td>{{ number_format($statusChart['data'][$i]) }}</td><td>{{ $statusChart['total'] ? round($statusChart['data'][$i] / $statusChart['total'] * 100) : 0 }}%</td></tr>@empty<tr><td colspan="3">No deliveries in this period.</td></tr>@endforelse</tbody>
+                            @elseif($dialog['id'] === 'trends')
+                                <thead><tr><th>Date</th><th>Created</th><th>Delivered</th><th>Failed</th></tr></thead>
+                                <tbody>@foreach($trendsChart['labels'] as $i => $label)<tr><td>{{ $label }}</td><td>{{ number_format($trendsChart['created'][$i]) }}</td><td>{{ number_format($trendsChart['delivered'][$i]) }}</td><td>{{ number_format($trendsChart['failed'][$i]) }}</td></tr>@endforeach</tbody>
+                            @else
+                                <thead><tr><th>Center</th><th>Total</th><th>Delivered</th><th>Pending</th><th>Failed</th></tr></thead>
+                                <tbody>@forelse($centerPerformanceChart['labels'] as $i => $label)<tr><td>{{ $label }}</td><td>{{ number_format($centerPerformanceChart['total'][$i]) }}</td><td>{{ number_format($centerPerformanceChart['delivered'][$i]) }}</td><td>{{ number_format($centerPerformanceChart['pending'][$i]) }}</td><td>{{ number_format($centerPerformanceChart['failed'][$i]) }}</td></tr>@empty<tr><td colspan="5">No center records yet.</td></tr>@endforelse</tbody>
+                            @endif
+                        </table>
                     </div>
                 </div>
             </template>
         @endforeach
     </div>
 
-    <section class="ld-panel ld-records" aria-labelledby="ld-records-title" x-data="detailedRecords()">
-        <div class="ld-section-head">
-            <div><h2 id="ld-records-title">Recent deliveries</h2><p x-show="!expanded">The six most recently updated deliveries{{ $dateFilterActive ? ' in your date range' : '' }}.</p><p x-show="expanded" x-cloak>Search the latest {{ count($detailedRecords) }} deliveries{{ $dateFilterActive ? ' in your date range' : '' }}. Open all deliveries to search older records.</p></div>
-            <div class="ld-actions"><button type="button" class="ld-button ld-button--soft" @click="expanded = !expanded" :aria-expanded="expanded.toString()" aria-controls="ld-record-browser" x-text="expanded ? 'Show latest six' : 'Search recent records'">Search recent records</button><a class="ld-text-button" href="{{ route('deliveries.index', $dateQuery) }}">All deliveries &rarr;</a></div>
+    {{-- Recent Deliveries Table (No Horizontal Scroll + View Action) --}}
+    <div class="card overflow-hidden" x-data="detailedRecords()">
+        <div class="p-5 border-b border-[#E8E6E0] flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h2 class="text-sm font-bold text-[#1B1B1E]">Recent Deliveries</h2>
+                <p class="text-xs text-[#6E6E73]" x-show="!expanded">The 6 most recently updated deliveries{{ $dateFilterActive ? ' in your date range' : '' }}.</p>
+                <p class="text-xs text-[#6E6E73]" x-show="expanded" x-cloak>Search the latest {{ count($detailedRecords) }} deliveries{{ $dateFilterActive ? ' in your date range' : '' }}.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" class="btn btn-soft btn-sm" @click="expanded = !expanded" x-text="expanded ? 'Show Latest 6' : 'Search Recent'"></button>
+                <a class="btn btn-outline btn-sm" href="{{ route('deliveries.index', $dateQuery) }}">All Deliveries &rarr;</a>
+            </div>
         </div>
+
         <div x-show="!expanded">
-            <div class="ld-table-wrap ld-desktop-table">
-                <table class="ld-table"><thead><tr><th scope="col" style="width:23%">Tracking number</th><th scope="col">Recipient</th><th scope="col">Rider</th><th scope="col" style="width:19%">Status</th><th scope="col" style="width:16%">Updated</th></tr></thead>
-                    <tbody>@forelse($recent_deliveries as $delivery)<tr><td><a href="{{ route('deliveries.show', $delivery) }}">{{ $delivery->tracking_number }}</a></td><td>{{ $delivery->recipient_name ?: 'Not provided' }}</td><td>{{ $delivery->rider?->name ?? 'Unassigned' }}</td><td><span class="ld-status {{ $statusTone($delivery->status) }}">{{ $status_labels[$delivery->status] ?? ucwords(str_replace('_', ' ', $delivery->status)) }}</span></td><td class="ld-muted">{{ $delivery->updated_at?->diffForHumans() }}</td></tr>@empty<tr><td colspan="5">No deliveries to show{{ $dateFilterActive ? ' in this date range' : ' yet' }}.</td></tr>@endforelse</tbody>
-                </table>
-            </div>
-            <div class="ld-record-cards">
-                @forelse($recent_deliveries as $delivery)
-                    <a class="ld-record-card" href="{{ route('deliveries.show', $delivery) }}">
-                        <div class="ld-record-card-head"><strong class="ld-record-id">{{ $delivery->tracking_number }}</strong><span class="ld-status {{ $statusTone($delivery->status) }}">{{ $status_labels[$delivery->status] ?? ucwords(str_replace('_', ' ', $delivery->status)) }}</span></div>
-                        <dl><div><dt>Recipient</dt><dd>{{ $delivery->recipient_name ?: 'Not provided' }}</dd></div><div><dt>Rider</dt><dd>{{ $delivery->rider?->name ?? 'Unassigned' }}</dd></div></dl>
-                        <p class="ld-note">Updated {{ $delivery->updated_at?->diffForHumans() }}</p>
-                    </a>
-                @empty<div class="ld-empty"><strong>No deliveries to show</strong><p>{{ $dateFilterActive ? 'Try a wider date range.' : 'New deliveries will appear here as they are registered.' }}</p></div>@endforelse
-            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Tracking #</th>
+                        <th>Recipient</th>
+                        <th>Rider</th>
+                        <th>Status</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($recent_deliveries as $delivery)
+                        <tr>
+                            <td>
+                                <a class="font-bold text-[#16697A] hover:underline" href="{{ route('deliveries.show', $delivery) }}">{{ $delivery->tracking_number }}</a>
+                                <div class="text-[11px] text-[#6E6E73]">{{ $delivery->updated_at?->diffForHumans() }}</div>
+                            </td>
+                            <td class="font-medium text-[#1B1B1E]">{{ $delivery->recipient_name ?: 'Not provided' }}</td>
+                            <td class="text-[#6E6E73]">{{ $delivery->rider?->name ?? 'Unassigned' }}</td>
+                            <td><x-status-badge :status="$delivery->status" /></td>
+                            <td class="text-right">
+                                <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-soft btn-xs">View</a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="5" class="text-center py-8 text-xs text-[#6E6E73]">No deliveries to show{{ $dateFilterActive ? ' in this date range' : ' yet' }}.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
-        <div id="ld-record-browser" x-show="expanded" x-cloak>
-            <div class="ld-records-filters">
-                <label class="ld-field">Search<input type="search" x-model="search" @input.debounce.200ms="page=1; applyFilters()" placeholder="Tracking, recipient or center" aria-label="Search recent deliveries"></label>
-                <label class="ld-field">Status<select x-model="statusFilter" @change="page=1; applyFilters()"><option value="">All statuses</option><template x-for="opt in statusOptions" :key="opt.value"><option :value="opt.value" x-text="opt.label"></option></template></select></label>
-                <label class="ld-field">Center<select x-model="centerFilter" @change="page=1; applyFilters()"><option value="">All centers</option><template x-for="center in centerOptions" :key="center.value"><option :value="center.value" x-text="center.label"></option></template></select></label>
-                <label class="ld-field">Sort by<select x-model="sortBy" @change="page=1; applyFilters()"><option value="updated_desc">Updated: newest first</option><option value="updated_asc">Updated: oldest first</option><option value="tracking_asc">Tracking: A to Z</option><option value="status_asc">Status: A to Z</option></select></label>
-            </div>
-            <div class="ld-table-wrap ld-desktop-table" x-show="paginated.length > 0">
-                <table class="ld-table"><thead><tr><th scope="col" style="width:24%">Tracking number</th><th scope="col">Recipient</th><th scope="col">Center</th><th scope="col" style="width:19%">Status</th><th scope="col" style="width:15%">Updated</th></tr></thead>
-                    <tbody><template x-for="row in paginated" :key="row.id"><tr><td><a :href="row.showUrl" x-text="row.tracking"></a></td><td x-text="row.recipient"></td><td x-text="row.center"></td><td><span class="ld-status" :class="statusClass(row.statusRaw)" x-text="row.status"></span></td><td class="ld-muted" x-text="row.updated"></td></tr></template></tbody>
-                </table>
-            </div>
-            <div class="ld-record-cards" x-show="paginated.length > 0"><template x-for="row in paginated" :key="row.id"><a class="ld-record-card" :href="row.showUrl"><div class="ld-record-card-head"><strong class="ld-record-id" x-text="row.tracking"></strong><span class="ld-status" :class="statusClass(row.statusRaw)" x-text="row.status"></span></div><dl><div><dt>Recipient</dt><dd x-text="row.recipient"></dd></div><div><dt>Center</dt><dd x-text="row.center"></dd></div></dl><p class="ld-note" x-text="'Updated ' + row.updated"></p></a></template></div>
-            <div class="ld-empty" x-show="paginated.length === 0"><strong x-text="all.length ? 'No records match your filters' : 'No delivery records yet'"></strong><p>Try a different search or date range.</p><button type="button" class="ld-text-button" @click="clearFilters()" x-show="all.length > 0">Clear filters</button></div>
-            <div class="ld-pagination" aria-live="polite"><p x-text="filtered.length + ' of ' + all.length + ' records'"></p><div class="ld-actions"><button type="button" @click="prev()" :disabled="page===1">Previous</button><span x-text="'Page ' + page + ' of ' + totalPages"></span><button type="button" @click="next()" :disabled="page===totalPages">Next</button></div></div>
-        </div>
-    </section>
 
-    <div class="ld-support-grid">
-        <section class="ld-panel" aria-labelledby="ld-riders-title">
-            <div class="ld-section-head"><div><h2 id="ld-riders-title">Rider availability</h2><p>Online riders available for assignments.</p></div><a class="ld-text-button" href="{{ route('riders.index') }}">All riders &rarr;</a></div>
-            <div class="ld-rider-summary"><span><strong>{{ number_format($riders['online']) }}</strong> online</span><span><strong>{{ number_format($riders['offline']) }}</strong> offline</span><span>{{ number_format($riders['total']) }} total riders</span></div>
-            <div class="ld-rider-list">@forelse($onlineRiders as $rider)<a class="ld-rider" href="{{ route('riders.show', $rider) }}"><span class="ld-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr($rider->name, 0, 1)) }}</span><div><span class="ld-rider-name">{{ $rider->name }}</span><p>{{ $rider->serviceArea?->name ?? 'No service area assigned' }}</p></div><span class="ld-rider-count"><span class="ld-online">Online</span><br>{{ $rider->active_deliveries }} active</span></a>@empty<div class="ld-empty"><strong>No riders online</strong><p>Available riders appear here when they come online.</p></div>@endforelse</div>
-                <div class="ld-rider-workload" aria-labelledby="ld-workload-title"><h3 id="ld-workload-title">Rider workload</h3><div class="ld-table-wrap"><table class="ld-table"><thead><tr><th scope="col" style="width:42%">Rider</th><th scope="col" style="width:38%">Area</th><th scope="col">Active</th></tr></thead><tbody>@forelse($riderWorkload as $rider)<tr><td><a href="{{ route('riders.show', $rider) }}">{{ $rider->name }}</a><p class="ld-note">{{ $rider->is_online ? 'Online' : 'Offline' }}</p></td><td>{{ $rider->serviceArea?->name ?? 'Unassigned' }}</td><td>{{ number_format($rider->active_deliveries) }}</td></tr>@empty<tr><td colspan="3">No riders assigned yet.</td></tr>@endforelse</tbody></table></div></div>
-</section>
-        <section class="ld-panel" aria-labelledby="ld-activity-title"><h2 id="ld-activity-title">Recent activity</h2><div class="ld-activity">@forelse($activities as $activity)<a href="{{ route('deliveries.index', ['search' => $activity['tracking']]) }}"><span class="ld-record-id">{{ $activity['tracking'] ?: 'Delivery update' }}</span><div>{{ $activity['message'] }}</div><p>{{ $activity['created_at']?->diffForHumans() }}{{ $activity['by'] ? ' · '.$activity['by'] : '' }}{{ $activity['recipient'] ? ' · '.$activity['recipient'] : '' }}</p></a>@empty<div class="ld-empty"><strong>No updates yet</strong><p>Delivery milestones will appear here as they happen.</p></div>@endforelse</div></section>
+        <div x-show="expanded" x-cloak>
+            <div class="p-4 bg-[#FAF9F6] border-b border-[#E8E6E0] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div>
+                    <label class="field-label">Search</label>
+                    <input type="search" class="input" x-model="search" @input.debounce.200ms="page=1; applyFilters()" placeholder="Tracking, recipient, center...">
+                </div>
+                <div>
+                    <label class="field-label">Status</label>
+                    <select class="select" x-model="statusFilter" @change="page=1; applyFilters()">
+                        <option value="">All statuses</option>
+                        <template x-for="opt in statusOptions" :key="opt.value"><option :value="opt.value" x-text="opt.label"></option></template>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Center</label>
+                    <select class="select" x-model="centerFilter" @change="page=1; applyFilters()">
+                        <option value="">All centers</option>
+                        <template x-for="center in centerOptions" :key="center.value"><option :value="center.value" x-text="center.label"></option></template>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Sort By</label>
+                    <select class="select" x-model="sortBy" @change="page=1; applyFilters()">
+                        <option value="updated_desc">Updated: Newest</option>
+                        <option value="updated_asc">Updated: Oldest</option>
+                        <option value="tracking_asc">Tracking: A-Z</option>
+                        <option value="status_asc">Status: A-Z</option>
+                    </select>
+                </div>
+            </div>
+
+            <table class="table" x-show="paginated.length > 0">
+                <thead>
+                    <tr>
+                        <th>Tracking #</th>
+                        <th>Recipient</th>
+                        <th>Center</th>
+                        <th>Status</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="row in paginated" :key="row.id">
+                        <tr>
+                            <td>
+                                <a class="font-bold text-[#16697A] hover:underline" :href="row.showUrl" x-text="row.tracking"></a>
+                                <div class="text-[11px] text-[#6E6E73]" x-text="row.updated"></div>
+                            </td>
+                            <td class="font-medium text-[#1B1B1E]" x-text="row.recipient"></td>
+                            <td class="text-[#6E6E73]" x-text="row.center"></td>
+                            <td><span class="ld-status" :class="statusClass(row.statusRaw)" x-text="row.status"></span></td>
+                            <td class="text-right">
+                                <a class="btn btn-soft btn-xs" :href="row.showUrl">View</a>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+
+            <div class="py-8 text-center text-xs text-[#6E6E73]" x-show="paginated.length === 0">
+                <strong class="block text-sm text-[#1B1B1E] mb-1" x-text="all.length ? 'No records match your filters' : 'No delivery records yet'"></strong>
+                <button type="button" class="btn btn-outline btn-xs mt-2" @click="clearFilters()" x-show="all.length > 0">Clear Filters</button>
+            </div>
+
+            <div class="p-3.5 border-t border-[#E8E6E0] flex items-center justify-between text-xs text-[#6E6E73]">
+                <span x-text="filtered.length + ' of ' + all.length + ' records'"></span>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="btn btn-outline btn-xs" @click="prev()" :disabled="page===1">Previous</button>
+                    <span class="font-semibold text-[#1B1B1E]" x-text="'Page ' + page + ' of ' + totalPages"></span>
+                    <button type="button" class="btn btn-outline btn-xs" @click="next()" :disabled="page===totalPages">Next</button>
+                </div>
+            </div>
+        </div>
     </div>
-    <div>
-        <section class="ld-panel ld-areas-panel" aria-labelledby="ld-areas-title"><div class="ld-section-head"><div><h2 id="ld-areas-title">Service areas</h2><p>Delivery coverage and active workload.</p></div><a class="ld-text-button" href="{{ route('deliveries.index') }}">All deliveries &rarr;</a></div><div class="ld-table-wrap"><table class="ld-table"><thead><tr><th scope="col" style="width:50%">Service area</th><th scope="col">Total</th><th scope="col">Active</th></tr></thead><tbody>@forelse($serviceAreas as $area)<tr><td>{{ $area['name'] }}</td><td>{{ number_format($area['total']) }}</td><td>{{ number_format($area['active']) }}</td></tr>@empty<tr><td colspan="3">No service area data yet.</td></tr>@endforelse</tbody></table></div></section>
 
+    {{-- Bottom Row: Rider Availability & Workload + Recent Activity + Service Areas --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="card overflow-hidden">
+            <div class="p-5 border-b border-[#E8E6E0] flex items-center justify-between">
+                <div>
+                    <h2 class="text-sm font-bold text-[#1B1B1E]">Rider Availability &amp; Workload</h2>
+                    <p class="text-xs text-[#6E6E73]">
+                        <strong class="text-emerald-700">{{ number_format($riders['online']) }} online</strong> &middot;
+                        {{ number_format($riders['offline']) }} offline &middot;
+                        {{ number_format($riders['total']) }} total
+                    </p>
+                </div>
+                <a class="btn btn-outline btn-xs" href="{{ route('riders.index') }}">All Riders &rarr;</a>
+            </div>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Rider</th>
+                        <th>Service Area</th>
+                        <th>Active</th>
+                        <th class="text-right">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($riderWorkload as $rider)
+                        <tr>
+                            <td>
+                                <a class="font-semibold text-[#1B1B1E] hover:text-[#16697A]" href="{{ route('riders.show', $rider) }}">{{ $rider->name }}</a>
+                                <div class="text-[11px] {{ $rider->is_online ? 'text-emerald-600 font-semibold' : 'text-[#6E6E73]' }}">
+                                    {{ $rider->is_online ? 'Online' : 'Offline' }}
+                                </div>
+                            </td>
+                            <td class="text-[#6E6E73]">{{ $rider->serviceArea?->name ?? 'Unassigned' }}</td>
+                            <td class="font-bold text-[#1B1B1E]">{{ number_format($rider->active_deliveries) }}</td>
+                            <td class="text-right">
+                                <a href="{{ route('riders.show', $rider) }}" class="btn btn-soft btn-xs">View</a>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4" class="text-center py-6 text-xs text-[#6E6E73]">No riders assigned yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+
+        <div class="space-y-4">
+            <div class="card p-5">
+                <h2 class="text-sm font-bold text-[#1B1B1E] mb-3">Recent Activity</h2>
+                <div class="space-y-2.5">
+                    @forelse($activities as $activity)
+                        <a href="{{ route('deliveries.index', ['search' => $activity['tracking']]) }}" class="block p-3 rounded-xl bg-[#FAF9F6] border border-[#E8E6E0] hover:border-[#16697A] transition">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-bold text-[#16697A]">{{ $activity['tracking'] ?: 'Delivery Update' }}</span>
+                                <span class="text-[11px] text-[#6E6E73]">{{ $activity['created_at']?->diffForHumans() }}</span>
+                            </div>
+                            <div class="text-xs text-[#1B1B1E] mt-0.5">{{ $activity['message'] }}</div>
+                        </a>
+                    @empty
+                        <div class="py-6 text-center text-xs text-[#6E6E73]">No recent activity yet.</div>
+                    @endforelse
+                </div>
+            </div>
+
+            <div class="card overflow-hidden">
+                <div class="p-4 border-b border-[#E8E6E0] flex items-center justify-between">
+                    <h2 class="text-sm font-bold text-[#1B1B1E]">Service Areas Coverage</h2>
+                    <a class="btn btn-ghost btn-xs" href="{{ route('service-areas.index') }}">Manage &rarr;</a>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Service Area</th>
+                            <th>Total</th>
+                            <th>Active</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($serviceAreas as $area)
+                            <tr>
+                                <td class="font-medium text-[#1B1B1E]">{{ $area['name'] }}</td>
+                                <td>{{ number_format($area['total']) }}</td>
+                                <td class="font-semibold text-[#16697A]">{{ number_format($area['active']) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="3" class="text-center py-6 text-xs text-[#6E6E73]">No service area data yet.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>

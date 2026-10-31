@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -11,13 +12,11 @@ use Illuminate\Support\Facades\Hash;
  *
  * These roles exist only in the users.role enum added by
  * 2026_10_11_142249_add_logistics_roles_to_users and are the accounts the
- * /logistics login (App\Http\Requests\Auth\LoginRequest) and the
- * Logistics\EnsureAdmin / Logistics\EnsureLogisticsStaff middleware expect.
+ * /logistics login and staff middleware expect.
  *
- * is_admin stays FALSE on purpose: LoginRequest rejects any account with
- * is_admin truthy from the logistics form ("Administrator accounts must use
- * the main admin login page"), so the marketplace admin flag must not be set
- * here even for logistics_admin.
+ * The designated global Logistics Admin is never created or updated here.
+ * Its credentials and identity are provisioned separately and remain intact
+ * when this demo seeder is rerun.
  */
 class LogisticsUserSeeder extends Seeder
 {
@@ -26,7 +25,6 @@ class LogisticsUserSeeder extends Seeder
         $isLocal = app()->environment(['local', 'testing']);
 
         $password = env('LOGISTICS_SEED_PASSWORD');
-        $adminEmail = env('LOGISTICS_ADMIN_SEED_EMAIL');
         $staffEmail = env('LOGISTICS_STAFF_SEED_EMAIL');
         $staffCebuEmail = env('LOGISTICS_STAFF_CEBU_SEED_EMAIL');
 
@@ -35,9 +33,6 @@ class LogisticsUserSeeder extends Seeder
 
             if (! $password) {
                 $missing[] = 'LOGISTICS_SEED_PASSWORD';
-            }
-            if (! $adminEmail) {
-                $missing[] = 'LOGISTICS_ADMIN_SEED_EMAIL';
             }
             if (! $staffEmail) {
                 $missing[] = 'LOGISTICS_STAFF_SEED_EMAIL';
@@ -55,22 +50,29 @@ class LogisticsUserSeeder extends Seeder
 
         if ($isLocal) {
             $password ??= 'password123';
-            $adminEmail ??= 'logistics_admin@test.com';
             $staffEmail ??= 'logistics_staff@test.com';
             $staffCebuEmail ??= 'logistics_staff_cebu@test.com';
+        }
+
+        $designatedAdmin = DB::table('users')
+            ->where('id', User::GLOBAL_LOGISTICS_ADMIN_ID)
+            ->first(['id', 'email', 'role', 'is_admin', 'status', 'account_status']);
+
+        if (! $designatedAdmin) {
+            $this->command?->warn('The designated global Logistics Admin (user ID 18) is not present; this seeder will not create or replace it.');
+        } elseif (
+            $designatedAdmin->email !== User::GLOBAL_LOGISTICS_ADMIN_EMAIL
+            || $designatedAdmin->role !== 'logistics_admin'
+            || (bool) $designatedAdmin->is_admin
+            || $designatedAdmin->status !== 'active'
+            || (($designatedAdmin->account_status ?? 'active') !== 'active')
+        ) {
+            throw new \RuntimeException('The designated global Logistics Admin identity or active state does not match the approved account. No account fields were changed.');
         }
 
         $centers = DB::table('logistics_centers')->pluck('id', 'name');
 
         $accounts = [
-            [
-                'email' => $adminEmail,
-                'first_name' => 'Logistics',
-                'last_name' => 'Admin',
-                'role' => 'logistics_admin',
-                'center' => null,
-                'phone' => '09170000001',
-            ],
             [
                 'email' => $staffEmail,
                 'first_name' => 'Logistics',
@@ -90,6 +92,13 @@ class LogisticsUserSeeder extends Seeder
         ];
 
         foreach ($accounts as $account) {
+            if (
+                strcasecmp(trim($account['email']), User::GLOBAL_LOGISTICS_ADMIN_EMAIL) === 0
+                || (int) DB::table('users')->where('email', $account['email'])->value('id') === User::GLOBAL_LOGISTICS_ADMIN_ID
+            ) {
+                throw new \RuntimeException('Logistics staff seed addresses cannot replace the designated global Logistics Admin.');
+            }
+
             // Idempotent: re-running only refreshes these demo rows. Centers
             // are resolved by name so the demo works on a fresh seed (global
             // admin stays unscoped; each staff account is center-scoped).

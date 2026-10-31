@@ -6,7 +6,7 @@
         </a>
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Add Staff Account</h1>
-            <p class="text-sm text-gray-500 mt-1">Create a logistics center staff account.</p>
+            <p class="text-sm text-gray-500 mt-1">Create a logistics hub staff account.</p>
         </div>
     </div>
 
@@ -54,9 +54,9 @@
                     @error('birthday')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
                 </div>
                 <div>
-                    <label for="center_id" class="block text-sm font-medium text-gray-700 mb-1">Logistics Center <span class="text-red-500">*</span></label>
+                    <label for="center_id" class="block text-sm font-medium text-gray-700 mb-1">Logistics Hub <span class="text-red-500">*</span></label>
                     <select name="center_id" id="center_id" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                        <option value="">— Select center —</option>
+                        <option value="">— Select Logistics Hub —</option>
                         @foreach($centers as $center)
                             <option value="{{ $center->id }}" @selected((int) old('center_id') === $center->id)>{{ $center->name }}</option>
                         @endforeach

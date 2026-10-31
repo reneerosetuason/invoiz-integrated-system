@@ -123,7 +123,7 @@ class RiderDemoSeeder extends Seeder
                         : null,
                     'vehicle_verified_at' => $rider['verification'] === 'verified' ? now()->subDays(10) : null,
                     'vehicle_verified_by' => $rider['verification'] === 'verified'
-                        ? DB::table('users')->where('role', 'logistics_admin')->value('id')
+                        ? DB::table('users')->where('id', \App\Models\User::GLOBAL_LOGISTICS_ADMIN_ID)->value('id')
                         : null,
                     'status' => $rider['status'],
                     'is_verified' => $rider['is_verified'],
@@ -136,7 +136,7 @@ class RiderDemoSeeder extends Seeder
             );
         }
 
-        $adminId = DB::table('users')->where('role', 'logistics_admin')->value('id');
+        $adminId = DB::table('users')->where('id', \App\Models\User::GLOBAL_LOGISTICS_ADMIN_ID)->value('id');
         $manilaCenter = DB::table('logistics_centers')->where('name', 'Invoiz Manila Logistics Center')->value('id');
         $manilaArea = DB::table('service_areas')->where('name', 'Manila North')->value('id');
 

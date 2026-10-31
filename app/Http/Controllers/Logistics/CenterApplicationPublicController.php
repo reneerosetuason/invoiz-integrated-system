@@ -12,8 +12,8 @@ use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
- * Public Logistics web flows: "Open a Logistics Center" application and
- * "Check a Logistics Center Application Status". Both share the exact same
+ * Public Logistics web flows: "Open a Logistics Hub" application and
+ * "Check a Logistics Hub Application Status". Both share the exact same
  * validation and persistence logic as the mobile API via
  * CenterApplicationService, so the two surfaces stay consistent.
  */
@@ -89,7 +89,7 @@ class CenterApplicationPublicController extends Controller
 
         return redirect()
             ->route('center-application.apply')
-            ->with('success', 'Your Logistics Center application has been submitted successfully. Use the "Check a Logistics Center Application Status" page with the email you registered to track its progress.');
+            ->with('success', 'Your Logistics Hub application has been submitted successfully. Use the "Check a Logistics Hub Application Status" page with the email you registered to track its progress.');
     }
 
     /**

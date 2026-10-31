@@ -208,16 +208,17 @@ class OrderController extends Controller
             abort_unless(in_array($order->status, ['processing', 'ready_for_delivery'], true), 409, 'The order can no longer be scheduled for pickup.');
             $delivery = app(\App\Services\OrderShipmentService::class)->ensure($order, $order->status === 'ready_for_delivery');
             abort_if($delivery->picked_up_at, 409, 'The parcel has already left the seller.');
-        CourierPickup::create([
-            'order_id'        => $order->id,
-            'seller_id'       => $sellerId,
-            'courier'         => $validated['courier'],
-            'pickup_at'       => $validated['pickup_at'],
-            'tracking_number' => $validated['tracking_number'] ?? null,
-            'status'          => 'scheduled',
-            'notes'           => $validated['notes'] ?? null,
-        ]);
-
+            CourierPickup::updateOrCreate(
+                ['order_id' => $order->id],
+                [
+                    'seller_id'       => $sellerId,
+                    'courier'         => $validated['courier'],
+                    'pickup_at'       => $validated['pickup_at'],
+                    'tracking_number' => $validated['tracking_number'] ?? null,
+                    'status'          => 'scheduled',
+                    'notes'           => $validated['notes'] ?? null,
+                ]
+            );
         });
 
         return back()->with('success', 'Courier pickup scheduled successfully.');

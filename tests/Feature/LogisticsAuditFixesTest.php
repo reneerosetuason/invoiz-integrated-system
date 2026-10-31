@@ -7,6 +7,7 @@ use App\Models\Logistics\Conversation;
 use App\Models\Logistics\Message;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCenterApplication;
+use App\Models\LogisticsCompany;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\PickupRequest;
@@ -659,11 +660,17 @@ class LogisticsAuditFixesTest extends TestCase
             'address' => '1 Atomic Street',
             'status' => 'pending',
         ]);
+        $company = LogisticsCompany::create([
+            'name' => 'Atomic Verified Logistics', 'registration_number' => 'ATOMIC-REG-001', 'status' => 'active',
+        ]);
 
         $centerCount = LogisticsCenter::count();
 
         $this->actingAs($admin)
-            ->post("/logistics/center-applications/{$application->id}/approve")
+            ->post("/logistics/center-applications/{$application->id}/approve", [
+                'logistics_company_id' => $company->id,
+                'ownership_evidence' => 'Verified registration certificate for ATOMIC-REG-001',
+            ])
             ->assertRedirect();
 
         $application->refresh();
@@ -684,7 +691,10 @@ class LogisticsAuditFixesTest extends TestCase
             ->count());
 
         $this->actingAs($admin)
-            ->post("/logistics/center-applications/{$application->id}/approve")
+            ->post("/logistics/center-applications/{$application->id}/approve", [
+                'logistics_company_id' => $company->id,
+                'ownership_evidence' => 'Verified registration certificate for ATOMIC-REG-001',
+            ])
             ->assertStatus(422);
 
         $this->assertSame($centerCount + 1, LogisticsCenter::count());

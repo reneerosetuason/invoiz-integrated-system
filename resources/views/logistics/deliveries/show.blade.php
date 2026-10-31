@@ -36,6 +36,7 @@
         $maxAttempts = (int) ($attemptPrefs['max_attempts'] ?? 2);
         $failedAttempts = $delivery->statusLogs->where('status', 'delivery_failed')->count();
         $isCodDelivery = \App\Support\Cod::isCod($delivery);
+        $canOverride = auth()->user()->canManageRiders() && auth()->user()->isLogisticsAdmin();
         $codExpected = $isCodDelivery ? \App\Support\Cod::expected($delivery) : null;
     @endphp
 
@@ -92,7 +93,7 @@
         {{-- Delivery Progress (delivery status: rider-to-customer lifecycle) --}}
         <div class="delivery-progress mt-8 pt-6 border-t border-gray-100">
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Delivery Progress</p>
-            <p class="mt-1 mb-5 text-xs text-gray-400">Follow the rider’s progress from assignment to delivery. Center processing is shown below.</p>
+            <p class="mt-1 mb-5 text-xs text-gray-400">Follow the rider’s progress from assignment to delivery. Hub processing is shown below.</p>
             <div class="relative">
                 @if(!$isTerminalBad)
                     <div class="absolute top-5 left-0 right-0 h-1 bg-gray-200 rounded-full"></div>
@@ -272,7 +273,7 @@
                 {{ ucwords(str_replace('_', ' ', $delivery->parcel_status ?? 'pending_arrival')) }}
             </span>
         </div>
-        <p class="mt-1 mb-5 text-xs text-gray-400">Follow the parcel through your center: receive, scan, sort, then dispatch. Rider assignment is managed separately.</p>
+        <p class="mt-1 mb-5 text-xs text-gray-400">Follow the parcel through your Logistics Hub: receive, scan, sort, then dispatch. Rider assignment is managed separately.</p>
 
         @php
             $parcelSteps = [
@@ -309,114 +310,12 @@
                 @endforeach
             </div>
         </div>
-
         @if(!$delivery->archived_at)
-            @php
-                $labelCod = (float) ($delivery->amount_to_collect ?? 0);
-                $labelShipDate = $delivery->created_at?->format('M d, Y') ?? '—';
-
-                // Unified waybill context (read-only presentation of real data; "—" when unavailable).
-                $wbOrder = $waybillOrder ?? $delivery->order;
-                $wbAddress = $waybillAddress ?? null;
-                $wbPayment = $waybillPayment ?? null;
-                $wbDiscount = (float) ($waybillDiscount ?? 0);
-                $wbStores = $waybillStores ?? collect();
-
-                // Sellers behind the order (distinct), primary seller first.
-                $wbSellers = ($wbOrder ? $wbOrder->items->pluck('seller')->filter()->unique('id')->values() : collect());
-                $wbSeller = $wbSellers->first();
-                $wbStore = ($wbSeller ? $wbStores->get($wbSeller->id) : null);
-
-                // SHIPPED BY: seller store/user first, delivery sender fields as fallback.
-                $wbShipName = ($wbStore->business_name ?? null) ?: ($wbSeller->name ?? null) ?: ($delivery->sender_name ?? null) ?: '—';
-                $wbShipPhone = ($wbSeller->phone ?? null) ?: ($delivery->sender_phone ?? null) ?: '—';
-                $wbShipAddrParts = array_values(array_filter([
-                    $wbSeller->address_line ?? null,
-                    $wbSeller->barangay ?? null,
-                    $wbSeller->municipality ?? null,
-                    $wbSeller->province ?? null,
-                ]));
-                $wbShipAddress = $wbShipAddrParts !== [] ? implode(', ', $wbShipAddrParts) : (($delivery->sender_address ?? null) ?: '—');
-
-                // DELIVER TO: authoritative order address first, delivery recipient fields as fallback.
-                $wbBuyName = ($wbAddress->recipient_name ?? null) ?: ($delivery->recipient_name ?? null) ?: '—';
-                $wbBuyPhone = ($wbAddress->phone ?? null) ?: ($delivery->recipient_phone ?? null) ?: '—';
-                $wbBuyAddrParts = $wbAddress ? array_values(array_filter([
-                    $wbAddress->address_line ?? null,
-                    $wbAddress->barangay ?? null,
-                    $wbAddress->city ?? null,
-                    $wbAddress->province ?? null,
-                    $wbAddress->region ?? null,
-                    isset($wbAddress->postal_code) && $wbAddress->postal_code ? $wbAddress->postal_code : null,
-                ])) : [];
-                $wbBuyAddress = $wbBuyAddrParts !== []
-                    ? implode(', ', $wbBuyAddrParts)
-                    : (($delivery->recipient_address ?? null) ?: '—');
-
-                // ORDER ITEMS: authoritative order items first, delivery items as fallback.
-                $wbRows = collect();
-                if ($wbOrder && $wbOrder->items->isNotEmpty()) {
-                    foreach ($wbOrder->items as $wbOrderItem) {
-                        $wbRows->push([
-                            'name' => ($wbOrderItem->product_name ?? null) ?: '—',
-                            'variant' => $wbOrderItem->variant_label,
-                            'qty' => (int) $wbOrderItem->quantity,
-                            'price' => (float) $wbOrderItem->price,
-                            'subtotal' => $wbOrderItem->subtotal !== null
-                                ? (float) $wbOrderItem->subtotal
-                                : ((float) $wbOrderItem->price * (int) $wbOrderItem->quantity),
-                        ]);
-                    }
-                } else {
-                    foreach ($delivery->items as $wbDeliveryItem) {
-                        $wbRows->push([
-                            'name' => ($wbDeliveryItem->name ?? null) ?: '—',
-                            'variant' => $wbDeliveryItem->variant_label,
-                            'qty' => (int) $wbDeliveryItem->quantity,
-                            'price' => (float) ($wbDeliveryItem->price ?? 0),
-                            'subtotal' => (float) $wbDeliveryItem->subtotal,
-                        ]);
-                    }
-                }
-                $wbItemsSubtotal = (float) $wbRows->sum('subtotal');
-                $wbFee = $delivery->delivery_fee !== null ? (float) $delivery->delivery_fee : null;
-                $wbTotal = $wbOrder
-                    ? (float) $wbOrder->total_amount
-                    : (($wbRows->isNotEmpty() || $wbFee !== null) ? $wbItemsSubtotal + ($wbFee ?? 0) : null);
-
-                // PAYMENT: authoritative payment record first, delivery fields as fallback.
-                $wbMethodRaw = ($wbPayment->method ?? null) ?: ($delivery->payment_method ?? null);
-                $wbMethodKey = is_string($wbMethodRaw) ? strtolower($wbMethodRaw) : null;
-                $wbIsCod = $labelCod > 0 || in_array($wbMethodKey, ['cash_on_delivery', 'cod'], true);
-                $wbMethodLabels = [
-                    'cash_on_delivery' => 'CASH ON DELIVERY',
-                    'cod' => 'CASH ON DELIVERY',
-                    'gcash' => 'GCASH',
-                    'bank_transfer' => 'BANK TRANSFER',
-                ];
-                $wbMethodLabel = ($wbMethodKey && isset($wbMethodLabels[$wbMethodKey]))
-                    ? $wbMethodLabels[$wbMethodKey]
-                    : ($wbMethodRaw ? strtoupper($wbMethodRaw) : ($wbIsCod ? 'CASH ON DELIVERY' : null));
-
-                // DELIVERY / LOGISTICS facts.
-                $wbPickup = $delivery->picked_up_at
-                    ? 'Completed · ' . $delivery->picked_up_at->format('M d, Y h:i A')
-                    : '—';
-                $wbParcelRows = array_values(array_filter([
-                    $delivery->package_type ? ['Type', $delivery->package_type] : null,
-                    $delivery->package_description ? ['Description', $delivery->package_description] : null,
-                    $delivery->weight ? ['Weight', rtrim(rtrim((string) $delivery->weight, '0'), '.') . ' kg'] : null,
-                    $delivery->priority ? ['Priority', ucfirst($delivery->priority)] : null,
-                    ($delivery->delivery_notes ?? null) ? ['Instructions', $delivery->delivery_notes] : null,
-                    (($delivery->notes ?? null) && ($delivery->notes !== $delivery->delivery_notes)) ? ['Notes', $delivery->notes] : null,
-                    ($wbOrder && ($wbOrder->notes ?? null)) ? ['Order Notes', $wbOrder->notes] : null,
-                ]));
-            @endphp
             <div class="mb-6 no-print">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="min-w-0">
                         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Parcel Label</p>
-                        <p class="text-xs text-gray-500 mt-1">Preview of the physical shipping label. Print it and affix it to the parcel so it can be scanned at the center.</p>
+                        <p class="text-xs text-gray-500 mt-1">Preview of the physical shipping label. Print it and affix it to the parcel so it can be scanned at the Logistics Hub.</p>
                     </div>
                     <button type="button" onclick="window.print()"
                             class="inline-flex items-center gap-2 self-start bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 font-semibold px-4 py-2 rounded-xl transition text-sm">
@@ -425,248 +324,197 @@
                     </button>
                 </div>
             </div>
-
-            {{-- Unified INVOIZ shipping waybill: seller/order/customer data merged with
-                logistics operations. Tracking number stays the single identifier
-                for the waybill, barcode and QR. Uses only real data ("—" fallback). --}}
-            <div class="delivery-waybill-preview mb-6 flex justify-center">
-                <div id="shipping-label" role="img" aria-label="Shipping label for parcel {{ $delivery->tracking_number }}"
-                     class="w-full bg-[#ffffff] text-[#111111]" style="max-width: 105mm;">
-                    <div class="waybill-card">
-                        {{-- Header --}}
-                        <div class="waybill-header px-3 pt-2.5 pb-2 flex items-center gap-2.5">
-                            <img src="{{ asset('assets/shared/images/logo.png') }}" alt="INVOIZ logo" class="h-12 w-auto flex-shrink-0">
-                            <p class="waybill-title text-lg font-extrabold tracking-tight leading-none whitespace-nowrap text-[#0E4A57]">SHIPPING WAYBILL</p>
-                        </div>
-
-                        {{-- Waybill / tracking number --}}
-                        <div class="waybill-tracking px-3 py-2 border-b-2 border-[#111111] text-center">
-                            <p class="waybill-tracking-label text-[10px] font-bold tracking-widest">WAYBILL / TRACKING</p>
-                            <p class="waybill-tracking-number font-mono font-extrabold text-xl leading-tight break-all">{{ $delivery->tracking_number }}</p>
-                            @if($wbOrder)
-                                <p class="text-[10px] font-bold tracking-wide mt-1">ORDER #: {{ $wbOrder->id }} · {{ $wbOrder->created_at?->format('F d, Y') ?? '—' }}</p>
-                            @endif
-                        </div>
-
-                        {{-- Barcode (CODE128 of the tracking number, rendered by script below) --}}
-                        <div class="waybill-barcode px-3 py-2 border-b-2 border-[#111111] text-center bg-white">
-                            <svg id="parcel-barcode" class="w-full" role="img" aria-label="Barcode for {{ $delivery->tracking_number }}"></svg>
-                            <p class="font-mono text-[11px] font-bold tracking-widest mt-0.5">{{ $delivery->tracking_number }}</p>
-                        </div>
-
-                        {{-- Shipped by / Deliver to --}}
-                        <div class="waybill-parties grid grid-cols-2 border-b-2 border-[#111111]">
-                            <div class="waybill-party px-3 py-2">
-                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">SHIPPED BY / SELLER</p>
-                                <p class="waybill-party-value text-xs font-bold mt-1 break-words">{{ $wbShipName }}</p>
-                                <p class="waybill-party-value text-[11px] mt-0.5 break-words">{{ $wbShipPhone }}</p>
-                                <p class="waybill-party-value text-[11px] mt-0.5 break-words">{{ $wbShipAddress }}</p>
-                                @if($wbSellers->count() > 1)
-                                    <p class="waybill-party-value text-[10px] mt-0.5 break-words">+ {{ $wbSellers->count() - 1 }} more: {{ $wbSellers->skip(1)->pluck('name')->filter()->implode(', ') }}</p>
-                                @endif
-                            </div>
-                            <div class="waybill-party px-3 py-2 bg-[#F8FAF9]">
-                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">DELIVER TO / BUYER</p>
-                                <p class="waybill-party-value text-sm font-extrabold mt-1 break-words">{{ $wbBuyName }}</p>
-                                <p class="waybill-party-value text-xs font-bold mt-0.5 break-words">{{ $wbBuyAddress }}</p>
-                                <p class="waybill-party-value text-xs font-bold mt-0.5 break-words">{{ $wbBuyPhone }}</p>
-                            </div>
-                        </div>
-
-                        {{-- Delivery / logistics --}}
-                        <div class="waybill-logistics px-3 py-2 border-b-2 border-[#111111]">
-                            <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">DELIVERY / LOGISTICS</p>
-                            <dl class="mt-1 space-y-0.5 text-[11px]">
-                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Courier:</dt><dd class="break-words">{{ $delivery->rider ? $delivery->rider->name . ($delivery->rider->phone ? ' · ' . $delivery->rider->phone : '') : '—' }}</dd></div>
-                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Pickup:</dt><dd class="break-words">{{ $wbPickup }}</dd></div>
-                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Tracking:</dt><dd class="font-mono break-all">{{ $delivery->tracking_number }}</dd></div>
-                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Origin:</dt><dd class="break-words">{{ $delivery->logisticsCenter->name ?? '—' }}</dd></div>
-                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Destination:</dt><dd class="break-words">{{ $delivery->destinationCenter->name ?? '—' }}</dd></div>
-                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">Service Area:</dt><dd class="break-words">{{ $delivery->serviceArea->name ?? '—' }}</dd></div>
-                            </dl>
-                        </div>
-
-                        {{-- Payment + parcel (left) beside QR verification (right) --}}
-                        <div class="waybill-payment-parcel grid grid-cols-2 border-b-2 border-[#111111]">
-                            <div class="waybill-payment-details border-r-2 border-[#111111]">
-                                <div class="waybill-payment px-3 py-2 border-b-2 border-[#111111]">
-                                    <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">PAYMENT</p>
-                                    @if($labelCod > 0)
-                                        <p class="waybill-payment-amount text-xl font-extrabold mt-1 text-[#0E4A57]">{{ '₱' . number_format($labelCod, 2) }}</p>
-                                        <p class="text-[10px] font-bold tracking-widest mt-0.5">{{ $wbMethodLabel ?? 'CASH ON DELIVERY' }} — COLLECT ON DELIVERY</p>
-                                    @elseif($wbMethodLabel)
-                                        <p class="text-sm font-extrabold mt-1 break-words">{{ $wbMethodLabel }}</p>
-                                        <p class="text-[10px] font-bold tracking-widest mt-0.5">NO AMOUNT TO COLLECT</p>
-                                    @else
-                                        <p class="text-sm font-extrabold mt-1">—</p>
-                                        <p class="text-[10px] font-bold tracking-widest mt-0.5">NO AMOUNT TO COLLECT</p>
-                                    @endif
-                                    @if($wbPayment && ($wbPayment->reference_number ?? null))
-                                        <p class="text-[10px] mt-0.5 break-words">REF: {{ $wbPayment->reference_number }}</p>
-                                    @endif
-                                </div>
-                                <div class="waybill-parcel-details px-3 py-2">
-                                    <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">PARCEL INFORMATION</p>
-                                    @if($wbParcelRows !== [])
-                                        <dl class="mt-1 space-y-0.5 text-[11px]">
-                                            @foreach($wbParcelRows as $wbParcelRow)
-                                                <div class="waybill-detail-row"><dt class="font-bold shrink-0">{{ $wbParcelRow[0] }}:</dt><dd class="break-words">{{ $wbParcelRow[1] }}</dd></div>
-                                            @endforeach
-                                        </dl>
-                                    @else
-                                        <p class="mt-1 text-[11px]"><span class="font-bold">Details:</span> —</p>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="waybill-qr-panel px-3 py-2 flex flex-col items-center justify-center text-center">
-                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">QR VERIFICATION</p>
-                                <div id="parcel-qr" class="bg-white p-1.5 mt-1"
-                                     role="img" aria-label="QR code for parcel {{ $delivery->tracking_number }}"></div>
-                                <p class="text-[10px] font-extrabold tracking-widest mt-1">SCAN TO VERIFY PARCEL</p>
-                            </div>
-                        </div>
-
-                        {{-- Order items + summary --}}
-                        @if($wbRows->isNotEmpty())
-                            <div class="waybill-items px-3 py-2 border-b-2 border-[#111111]">
-                                <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">ORDER ITEMS</p>
-                                <table class="w-full mt-1 text-[11px]">
-                                    <thead>
-                                        <tr class="text-left">
-                                            <th class="font-extrabold tracking-wide py-0.5 pr-1">ITEM</th>
-                                            <th class="font-extrabold tracking-wide py-0.5 px-1 text-center">QTY</th>
-                                            <th class="font-extrabold tracking-wide py-0.5 px-1 text-right">PRICE</th>
-                                            <th class="font-extrabold tracking-wide py-0.5 pl-1 text-right">SUBTOTAL</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($wbRows as $wbRow)
-                                            <tr class="border-t border-[#111111]/20">
-                                                <td class="py-0.5 pr-1 font-bold break-words">{{ $wbRow['name'] }}@if($wbRow['variant'])<span class="block font-normal">{{ $wbRow['variant'] }}</span>@endif</td>
-                                                <td class="py-0.5 px-1 text-center">{{ $wbRow['qty'] }}</td>
-                                                <td class="py-0.5 px-1 text-right whitespace-nowrap">₱{{ number_format($wbRow['price'], 2) }}</td>
-                                                <td class="py-0.5 pl-1 text-right font-bold whitespace-nowrap">₱{{ number_format($wbRow['subtotal'], 2) }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                                <dl class="waybill-totals mt-1.5 space-y-0.5 text-[11px]">
-                                    <div class="flex justify-between gap-2"><dt>Subtotal:</dt><dd class="font-bold whitespace-nowrap">₱{{ number_format($wbItemsSubtotal, 2) }}</dd></div>
-                                    @if($wbFee !== null)
-                                        <div class="flex justify-between gap-2"><dt>Delivery Fee:</dt><dd class="font-bold whitespace-nowrap">₱{{ number_format($wbFee, 2) }}</dd></div>
-                                    @endif
-                                    @if($wbDiscount > 0)
-                                        <div class="flex justify-between gap-2"><dt>Discount:</dt><dd class="font-bold whitespace-nowrap">−₱{{ number_format($wbDiscount, 2) }}</dd></div>
-                                    @endif
-                                    @if($wbTotal !== null)
-                                        <div class="waybill-total-row flex justify-between gap-2 text-[13px]"><dt class="font-extrabold">TOTAL:</dt><dd class="font-extrabold whitespace-nowrap">₱{{ number_format($wbTotal, 2) }}</dd></div>
-                                    @endif
-                                </dl>
-                            </div>
-                        @endif
-
-                        {{-- Footer --}}
-                        <div class="waybill-footer px-3 py-2">
-                            @if($delivery->destinationCenter)
-                                <p class="text-[11px] font-extrabold tracking-wide break-words">DESTINATION: {{ strtoupper($delivery->destinationCenter->name) }}</p>
-                            @endif
-                            @if($delivery->logisticsCenter)
-                                <p class="text-[10px] font-bold mt-0.5 break-words">ORIGIN: {{ strtoupper($delivery->logisticsCenter->name) }}</p>
-                            @endif
-                            <p class="text-[10px] mt-0.5">SHIP DATE: {{ $labelShipDate }} · INVOIZ LOGISTICS</p>
-                            <p class="text-[10px] mt-0.5 italic">Thank you for shopping with INVOIZ.</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            @include('shared.waybill.label')
         @endif
 
         @if(!$delivery->archived_at)
-            <p class="delivery-actions-note">Available actions follow this delivery?s current status. Review the details before updating a record.</p>
-            <div class="flex flex-wrap gap-3">
-                @if(in_array($delivery->parcel_status, ['pending_arrival', null]))
-                    <form action="{{ route('deliveries.receive', $delivery) }}" method="POST" class="w-full max-w-xl">
-                        @csrf
-                        <label for="receive_center_id" class="block text-sm font-medium text-gray-700 mb-1">Receive at Logistics Center</label>
-                        <div class="flex flex-col sm:flex-row gap-2">
-                            <select name="center_id" id="receive_center_id" required
-                                    class="flex-1 min-w-0 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                                <option value="">— Select center —</option>
-                                @foreach($centers as $center)
-                                    <option value="{{ $center->id }}" @selected((int) $delivery->center_id === (int) $center->id)>{{ $center->name }}</option>
-                                @endforeach
-                            </select>
-                            <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold py-2 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                                Mark as Received
-                            </button>
+            @if($delivery->order_id && ! in_array($delivery->status, ['delivered', 'cancelled'], true))
+                <p class="delivery-actions-note">Seller preparation &rarr; approved pickup &rarr; rider collection &rarr; center processing &rarr; delivery rider &rarr; buyer OTP and COD. Rider milestones are confirmed in the rider app.</p>
+            @else
+                <p class="delivery-actions-note">Available actions follow this delivery’s current status. Review the details before updating a record.</p>
+            @endif
+
+            @if($hasActiveHubTransfer)
+                <p class="mb-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">This parcel remains in fleet-transfer custody. Destination-hub processing is available after the transfer is finalized.</p>
+            @endif
+
+            @if($delivery->order_id && ($delivery->isInterHubRoute() || $delivery->originCenter))
+                @php
+                    $originHub = $delivery->originCenter ?? $delivery->logisticsCenter;
+                    $destHub = $delivery->destinationCenter;
+                    $isInterHub = $delivery->isInterHubRoute();
+                    $currentCenter = $delivery->logisticsCenter;
+                    $driver = $delivery->interHubRider;
+
+                    // Stage calculations
+                    $stage1Done = $delivery->scanned_at || in_array($delivery->parcel_status, ['sorted', 'dispatched']) || ($delivery->center_id && $delivery->destination_center_id && (int)$delivery->center_id === (int)$delivery->destination_center_id);
+                    $stage1Active = !$stage1Done;
+
+                    $stage2Done = ($delivery->center_id && $delivery->destination_center_id && (int)$delivery->center_id === (int)$delivery->destination_center_id && $delivery->parcel_status !== 'dispatched');
+                    $stage2Active = $stage1Done && !$stage2Done && ($delivery->inter_hub_dispatched_at || ($delivery->parcel_status === 'dispatched' && (int)$delivery->center_id !== (int)$delivery->destination_center_id));
+
+                    $stage3Done = in_array($delivery->status, ['out_for_delivery', 'delivered']);
+                    $stage3Active = $stage2Done && !$stage3Done;
+
+                    $stage4Done = $delivery->status === 'delivered';
+                    $stage4Active = $delivery->status === 'out_for_delivery';
+                @endphp
+
+                <div class="w-full rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50/70 p-5 shadow-sm space-y-4 mb-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100 pb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider {{ $isInterHub ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white' }}">
+                                {{ $isInterHub ? 'Inter-Hub Transit Route' : 'Local Single-Hub Route' }}
+                            </span>
+                            <span class="text-sm font-semibold text-gray-900">
+                                {{ $originHub?->name ?? 'Origin Hub' }} &rarr; {{ $destHub?->name ?? 'Destination Hub' }}
+                            </span>
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">Log the parcel arriving at the handling logistics center.</p>
-                    </form>
-                @endif
-
-                @if($delivery->parcel_status === 'received')
-                    <a href="{{ route('deliveries.scan-page', ['expect' => $delivery->tracking_number]) }}"
-                       class="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                        Scan &amp; Verify Parcel
-                    </a>
-                @endif
-
-                @if($delivery->parcel_status === 'scanned')
-                    <form action="{{ route('deliveries.sort', $delivery) }}" method="POST" class="w-full">
-                        @csrf
-                        <fieldset class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
-                            <legend class="text-sm font-medium text-gray-700 px-2">Sort to Destination</legend>
-                            <div>
-                                <label for="destination_center" class="block text-sm font-medium text-gray-700 mb-1">Destination Center</label>
-                                <select name="destination_center_id" id="destination_center" required
-                                        class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                                    <option value="">— Select destination —</option>
-                                    @foreach($centers as $center)
-                                        <option value="{{ $center->id }}" @selected((int) $delivery->destination_center_id === (int) $center->id)>{{ $center->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div>
-                                <label for="service_area" class="block text-sm font-medium text-gray-700 mb-1">Service Area</label>
-                                <select name="service_area_id" id="service_area" required
-                                        class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                                    <option value="">— Select service area —</option>
-                                    @foreach($serviceAreas as $area)
-                                        <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) $delivery->service_area_id === (int) $area->id)>{{ $area->name }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <button type="submit" class="md:col-span-2 bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2.5 px-5 rounded-xl transition shadow-sm text-sm">
-                                Mark as Sorted
-                            </button>
-                        </fieldset>
-                    </form>
-                @endif
-
-                @if($delivery->parcel_status === 'sorted')
-                    <form action="{{ route('deliveries.dispatch', $delivery) }}" method="POST" class="w-full max-w-xl">
-                        @csrf
-                        <div class="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-sky-50 rounded-xl px-4 py-3 border border-sky-100">
-                            <p class="text-sm text-sky-800 flex-1">Parcel is sorted and ready. Confirm it has left the center toward its delivery assignment. Rider assignment remains a separate step.</p>
-                            <button type="submit" class="bg-sky-500 hover:bg-sky-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                                Dispatch Parcel
-                            </button>
+                        <div class="text-xs text-gray-500">
+                            Currently at: <strong class="text-indigo-900">{{ $currentCenter?->name ?? 'In Transit' }}</strong>
                         </div>
-                    </form>
-                @endif
+                    </div>
+
+                    {{-- 4-Stage Stepper --}}
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3 pt-1">
+                        {{-- Step 1 --}}
+                        <div class="relative rounded-xl p-3 border {{ $stage1Done ? 'bg-emerald-50/80 border-emerald-200' : ($stage1Active ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-400/40' : 'bg-white border-gray-200') }}">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {{ $stage1Done ? 'bg-emerald-600 text-white' : ($stage1Active ? 'bg-amber-500 text-white' : 'bg-gray-200 text-gray-500') }}">
+                                    {!! $stage1Done ? '✓' : '1' !!}
+                                </span>
+                                <span class="text-xs font-bold text-gray-900">1. Origin Hub</span>
+                            </div>
+                            <p class="text-[11px] text-gray-600 mt-1 font-medium">{{ $originHub?->name ?? 'Origin' }}</p>
+                            <p class="text-[10px] text-gray-500 mt-0.5">
+                                {{ $stage1Done ? 'Intake & sorted' : 'Intake & scanning' }}
+                            </p>
+                        </div>
+
+                        {{-- Step 2 --}}
+                        <div class="relative rounded-xl p-3 border {{ $stage2Done ? 'bg-emerald-50/80 border-emerald-200' : ($stage2Active ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-400/40' : 'bg-white border-gray-200') }}">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {{ $stage2Done ? 'bg-emerald-600 text-white' : ($stage2Active ? 'bg-indigo-600 text-white animate-pulse' : 'bg-gray-200 text-gray-500') }}">
+                                    {!! $stage2Done ? '✓' : '2' !!}
+                                </span>
+                                <span class="text-xs font-bold text-gray-900">2. Hub Transfer</span>
+                            </div>
+                            <p class="text-[11px] text-gray-600 mt-1 font-medium">
+                                Driver: {{ $driver?->name ?? 'Shared Hub Van' }}
+                            </p>
+                            <p class="text-[10px] text-gray-500 mt-0.5">
+                                {{ $stage2Done ? 'Linehaul complete' : ($stage2Active ? 'In transit to Dest Hub' : 'Awaiting dispatch') }}
+                            </p>
+                        </div>
+
+                        {{-- Step 3 --}}
+                        <div class="relative rounded-xl p-3 border {{ $stage3Done ? 'bg-emerald-50/80 border-emerald-200' : ($stage3Active ? 'bg-sky-50 border-sky-300 ring-2 ring-sky-400/40' : 'bg-white border-gray-200') }}">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {{ $stage3Done ? 'bg-emerald-600 text-white' : ($stage3Active ? 'bg-sky-600 text-white' : 'bg-gray-200 text-gray-500') }}">
+                                    {!! $stage3Done ? '✓' : '3' !!}
+                                </span>
+                                <span class="text-xs font-bold text-gray-900">3. Destination Hub</span>
+                            </div>
+                            <p class="text-[11px] text-gray-600 mt-1 font-medium">{{ $destHub?->name ?? 'Destination' }}</p>
+                            <p class="text-[10px] text-gray-500 mt-0.5">
+                                {{ $stage3Done ? 'Received & dispatched' : 'Awaiting transfer arrival' }}
+                            </p>
+                        </div>
+
+                        {{-- Step 4 --}}
+                        <div class="relative rounded-xl p-3 border {{ $stage4Done ? 'bg-emerald-50/80 border-emerald-200' : ($stage4Active ? 'bg-teal-50 border-teal-300 ring-2 ring-teal-400/40' : 'bg-white border-gray-200') }}">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold {{ $stage4Done ? 'bg-emerald-600 text-white' : ($stage4Active ? 'bg-teal-600 text-white animate-pulse' : 'bg-gray-200 text-gray-500') }}">
+                                    {!! $stage4Done ? '✓' : '4' !!}
+                                </span>
+                                <span class="text-xs font-bold text-gray-900">4. Out for Delivery</span>
+                            </div>
+                            <p class="text-[11px] text-gray-600 mt-1 font-medium">
+                                Rider: {{ $delivery->rider?->name ?? 'Assigned Rider' }}
+                            </p>
+                            <p class="text-[10px] text-gray-500 mt-0.5">
+                                {{ $stage4Done ? 'Delivered successfully' : ($stage4Active ? 'With delivery rider' : 'Pending final leg') }}
+                            </p>
+                        </div>
+                    </div>
+
+                    {{-- Why inter-hub note --}}
+                    @if($isInterHub)
+                        <div class="text-xs text-indigo-700 bg-white/80 rounded-xl p-3 border border-indigo-100 flex items-start gap-2">
+                            <svg class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            <div>
+                                <strong>Why is this an Inter-Hub Route?</strong> The seller is located in <strong>{{ $originHub?->city ?? 'Origin area' }}</strong> (handled by {{ $originHub?->name }}), while the buyer's shipping address is in <strong>{{ $destHub?->city ?? 'Destination area' }}</strong> (handled by {{ $destHub?->name }}). Parcels transfer between these two logistics centers before being dispatched to the last-mile rider.
+                            </div>
+                        </div>
+                    @endif
+                </div>
+            @endif
+            {{-- Parcel Hub Processing Status & Workflow Handoff --}}
+            <div class="card p-4 bg-[#FAF9F6] border-[#E8E6E0] space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-[#6E6E73]">Hub Processing Status</span>
+                            <span class="badge {{ $delivery->parcel_status === 'dispatched' ? 'badge-delivered' : 'badge-inactive' }}">
+                                {{ ucwords(str_replace('_', ' ', $delivery->parcel_status ?? 'pending_arrival')) }}
+                            </span>
+                        </div>
+                        <p class="text-xs text-[#6E6E73] mt-1">
+                            @if(in_array($delivery->parcel_status, ['pending_arrival', null]))
+                                Awaiting physical arrival and receipt verification at the logistics hub.
+                            @elseif($delivery->parcel_status === 'received')
+                                Parcel received at hub. Awaiting physical QR/barcode verification in Sorting Operations.
+                            @elseif($delivery->parcel_status === 'scanned')
+                                Parcel is verified. Ready for destination hub and service area sorting in Sorting Operations.
+                            @elseif($delivery->parcel_status === 'sorted')
+                                @if($delivery->destination_center_id && (int) $delivery->destination_center_id !== (int) $delivery->center_id)
+                                    Parcel sorted for inter-hub transfer to {{ $delivery->destinationCenter?->name ?? 'destination hub' }}. Proceed through fleet Hub Transfers.
+                                @else
+                                    Parcel sorted at destination hub. Ready for last-mile delivery assignment below.
+                                @endif
+                            @elseif($delivery->parcel_status === 'dispatched')
+                                Parcel dispatched from hub sorting. Last-mile Delivery Rider assignment and delivery progress are managed below.
+                            @endif
+                        </p>
+                    </div>
+
+                    {{-- Contextual Action to Sorting Center / Hub Transfers --}}
+                    <div class="flex items-center gap-2 shrink-0">
+                        @if(in_array($delivery->parcel_status, ['pending_arrival', null]))
+                            <a href="{{ route('sorting-center.index', ['tab' => 'incoming', 'search' => $delivery->tracking_number]) }}"
+                               class="btn btn-outline btn-sm">
+                                Process in Sorting Center &rarr;
+                            </a>
+                        @elseif($delivery->parcel_status === 'received')
+                            <a href="{{ route('sorting-center.index', ['tab' => 'received', 'search' => $delivery->tracking_number]) }}"
+                               class="btn btn-outline btn-sm">
+                                Verify in Sorting Center &rarr;
+                            </a>
+                        @elseif($delivery->parcel_status === 'scanned')
+                            <a href="{{ route('sorting-center.index', ['tab' => 'scanned', 'search' => $delivery->tracking_number]) }}"
+                               class="btn btn-outline btn-sm">
+                                Sort in Sorting Center &rarr;
+                            </a>
+                        @elseif($delivery->parcel_status === 'sorted' && $delivery->destination_center_id && (int) $delivery->destination_center_id !== (int) $delivery->center_id)
+                            <a href="{{ route('hub-transfers.index', ['search' => $delivery->tracking_number]) }}"
+                               class="btn btn-outline btn-sm">
+                                View in Hub Transfers &rarr;
+                            </a>
+                        @endif
+                    </div>
+                </div>
 
                 @if($delivery->sorting_center_handoff_at || $delivery->sorting_center_pickup_at || (in_array($delivery->parcel_status, ['received', 'scanned', 'sorted', 'dispatched']) && $delivery->logisticsCenter))
-                    <div class="w-full flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
-                        @if($delivery->logisticsCenter)<span><strong class="text-gray-700">Handling Center:</strong> {{ $delivery->logisticsCenter->name }}</span>@endif
-                        @if($delivery->sorting_center_handoff_at)<span><strong class="text-gray-700">Handed to Center:</strong> {{ $delivery->sorting_center_handoff_at->format('M d, Y h:i A') }}@if($delivery->sortingCenterHandoffRider) by {{ $delivery->sortingCenterHandoffRider->name }}@endif</span>@endif
-                        @if($delivery->received_at)<span><strong class="text-gray-700">Received:</strong> {{ $delivery->received_at->format('M d, Y h:i A') }}</span>@endif
-                        @if($delivery->scanned_at)<span><strong class="text-gray-700">Scanned:</strong> {{ $delivery->scanned_at->format('M d, Y h:i A') }}</span>@endif
-                        @if($delivery->destinationCenter)<span><strong class="text-gray-700">Destination:</strong> {{ $delivery->destinationCenter->name }}</span>@endif
-                        @if($delivery->serviceArea)<span><strong class="text-gray-700">Service Area:</strong> {{ $delivery->serviceArea->name }}</span>@endif
-                        @if($delivery->sorted_at)<span><strong class="text-gray-700">Sorted:</strong> {{ $delivery->sorted_at->format('M d, Y h:i A') }}</span>@endif
-                        @if($delivery->sorting_center_pickup_at)<span><strong class="text-gray-700">Picked from Center:</strong> {{ $delivery->sorting_center_pickup_at->format('M d, Y h:i A') }}@if($delivery->sortingCenterPickupRider) by {{ $delivery->sortingCenterPickupRider->name }}@endif</span>@endif
-                        @if($delivery->dispatched_at)<span><strong class="text-gray-700">Dispatched:</strong> {{ $delivery->dispatched_at->format('M d, Y h:i A') }}</span>@endif
+                    <div class="pt-3 border-t border-[#E8E6E0] flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[#6E6E73]">
+                        @if($delivery->logisticsCenter)<span><strong class="text-[#1B1B1E]">Handling Hub:</strong> {{ $delivery->logisticsCenter->name }}</span>@endif
+                        @if($delivery->sorting_center_handoff_at)<span><strong class="text-[#1B1B1E]">Handed to Hub:</strong> {{ $delivery->sorting_center_handoff_at->format('M d, Y h:i A') }}@if($delivery->sortingCenterHandoffRider) by {{ $delivery->sortingCenterHandoffRider->name }}@endif</span>@endif
+                        @if($delivery->received_at)<span><strong class="text-[#1B1B1E]">Received:</strong> {{ $delivery->received_at->format('M d, Y h:i A') }}</span>@endif
+                        @if($delivery->scanned_at)<span><strong class="text-[#1B1B1E]">Scanned:</strong> {{ $delivery->scanned_at->format('M d, Y h:i A') }}</span>@endif
+                        @if($delivery->destinationCenter)<span><strong class="text-[#1B1B1E]">Destination:</strong> {{ $delivery->destinationCenter->name }}</span>@endif
+                        @if($delivery->serviceArea)<span><strong class="text-[#1B1B1E]">Service Area:</strong> {{ $delivery->serviceArea->name }}</span>@endif
+                        @if($delivery->sorted_at)<span><strong class="text-[#1B1B1E]">Sorted:</strong> {{ $delivery->sorted_at->format('M d, Y h:i A') }}</span>@endif
+                        @if($delivery->sorting_center_pickup_at)<span><strong class="text-[#1B1B1E]">Picked from Hub:</strong> {{ $delivery->sorting_center_pickup_at->format('M d, Y h:i A') }}@if($delivery->sortingCenterPickupRider) by {{ $delivery->sortingCenterPickupRider->name }}@endif</span>@endif
+                        @if($delivery->dispatched_at)<span><strong class="text-[#1B1B1E]">Dispatched:</strong> {{ $delivery->dispatched_at->format('M d, Y h:i A') }}</span>@endif
                     </div>
                 @endif
             </div>
@@ -740,7 +588,7 @@
                                         {{ \Illuminate\Support\Str::title(str_replace('_', ' ', $log->status)) }}
                                         @if(in_array($log->status, ['delivery_failed', 'lost', 'returned_to_seller', 'cancelled']))<span class="ml-1 text-xs font-normal text-red-500">(final)</span>@endif
                                         @if(in_array($log->status, $parcelEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark">Parcel</span>@endif
-                                        @if(in_array($log->status, $centerEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Sorting Center</span>@endif
+                                        @if(in_array($log->status, $centerEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Hub Sorting</span>@endif
                                         @if(in_array($log->status, $recordEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
                                     </span>
                                     <span class="text-xs text-gray-500">{{ $log->created_at->format('M d, Y · h:i A') }}</span>
@@ -782,7 +630,7 @@
 
         @if(!$delivery->archived_at)
             <div class="delivery-processing-actions flex flex-wrap gap-3">
-                @if(Auth::user()->canManageRiders() && $delivery->status === 'waiting_for_rider')
+                @if(! $hasActiveHubTransfer && Auth::user()->canManageRiders() && $delivery->status === 'waiting_for_rider')
                     <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-2xl">
                         @csrf
                         <div class="flex flex-col sm:flex-row sm:items-end gap-2">
@@ -826,7 +674,7 @@
                             </div>
                         </div>
                         @if($riderEligibility->where('eligible', true)->isEmpty())
-                            <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination center and service area.</p>
+                            <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination Logistics Hub and service area.</p>
                         @endif
                         @if($errors->has('rider_id'))
                             <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
@@ -844,7 +692,7 @@
                     @endif
                 @endif
 
-                @if(Auth::user()->canManageRiders() && in_array($delivery->status, ['assigned', 'delivery_failed'], true))
+                @if(! $hasActiveHubTransfer && Auth::user()->canManageRiders() && in_array($delivery->status, ['assigned', 'delivery_failed'], true))
                     @php $reassignLabel = $delivery->status === 'delivery_failed' ? 'Retry — Assign Rider' : 'Reassign Rider'; @endphp
                     <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-xl">
                         @csrf
@@ -884,7 +732,7 @@
                             </button>
                         </div>
                         @if($riderEligibility->where('eligible', true)->isEmpty())
-                            <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination center and service area.</p>
+                            <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination Logistics Hub and service area.</p>
                         @endif
                         @if($errors->has('rider_id'))
                             <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
@@ -955,7 +803,7 @@
                     </button>
                 @endif
 
-                @if(in_array($delivery->status, ['delivered', 'delivery_failed', 'cancelled']))
+                @if($canOverride)
                     <button type="button" @click="overrideOpen = true"
                             class="inline-flex items-center gap-2 bg-white border border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -1065,6 +913,14 @@
                 @csrf
                 @method('PATCH')
                 <input type="hidden" name="override" value="1">
+                @if($isCodDelivery)
+                    <div class="px-6 pt-4">
+                        <label for="override_amount_received" class="block text-sm font-medium text-gray-700">Cash Received (COD)</label>
+                        <input type="number" name="amount_received" id="override_amount_received" min="0" step="0.01" inputmode="decimal"
+                               class="mt-1 w-full rounded-xl border-gray-300 text-sm" value="{{ old('amount_received') }}">
+                        <p class="mt-1 text-xs text-gray-500">Required when completing a COD delivery. Uploaded proof and a delivery rider are also required.</p>
+                    </div>
+                @endif
                 <div class="px-6 py-4 border-b border-gray-100">
                     <h4 class="font-bold text-gray-900">Override Delivery Status?</h4>
                     <p class="text-sm text-gray-500 mt-0.5">
@@ -1077,7 +933,7 @@
                         <label for="delivery-action-field-5" class="block text-sm font-medium text-gray-700 mb-1">New Status <span class="text-red-500">*</span></label>
                         <select id="delivery-action-field-5" name="status" required class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                             <option value="">— Select target status —</option>
-                            @foreach(['waiting_for_rider', 'assigned', 'picked_up', 'out_for_delivery'] as $target)
+                            @foreach(($delivery->order_id ? ['picked_up', 'out_for_delivery', 'delivered'] : ['waiting_for_rider', 'assigned', 'picked_up', 'out_for_delivery', 'delivered']) as $target)
                                 @if($target !== $delivery->status)
                                     <option value="{{ $target }}">{{ ucfirst(str_replace('_', ' ', $target)) }}</option>
                                 @endif
@@ -1086,7 +942,7 @@
                     </div>
                     <div>
                         <label for="delivery-action-field-6" class="block text-sm font-medium text-gray-700 mb-1">Override Reason <span class="text-red-500">*</span></label>
-                        <textarea id="delivery-action-field-6" name="override_reason" required minlength="3" rows="3" placeholder="Explain why this override is necessary..."
+                        <textarea id="delivery-action-field-6" name="override_reason" required minlength="10" maxlength="300" rows="3" placeholder="Explain why this override is necessary..."
                                   class="block w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm"></textarea>
                     </div>
                 </div>
@@ -1205,7 +1061,7 @@
                         <p class="text-sm font-semibold text-blue-700">Return sent to seller on {{ $returnState['dispatched_at']?->format('M d, Y h:i A') }}.</p>
                         <p class="text-xs text-gray-500 mt-1">Waiting for the seller to confirm physical receipt. Stock and refunds are still pending.</p>
                     @elseif($returnState['can_dispatch'])
-                        <p class="text-sm text-gray-600 mb-3">The parcel is back at the center. Record the handoff/courier reference before it leaves to the seller.</p>
+                        <p class="text-sm text-gray-600 mb-3">The parcel is back at the Logistics Hub. Record the handoff/courier reference before it leaves to the seller.</p>
                         <form action="{{ route('deliveries.return-to-seller', $delivery) }}" method="POST" class="flex flex-col sm:flex-row gap-2">
                             @csrf
                             <input type="text" name="reference" maxlength="150" placeholder="Courier / handoff reference"
@@ -1215,7 +1071,7 @@
                             </button>
                         </form>
                     @else
-                        <p class="text-sm text-gray-500">A failed or damaged parcel must be returned to the sorting center before it can be sent back to the seller.</p>
+                        <p class="text-sm text-gray-500">A failed or damaged parcel must be returned to the Logistics Hub before it can be sent back to the seller.</p>
                     @endif
                 @else
                     <p class="text-sm text-gray-500">Return state is unavailable.</p>

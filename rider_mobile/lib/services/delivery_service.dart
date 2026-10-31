@@ -157,7 +157,7 @@ class DeliveryService {
     );
   }
 
-  /// Return a failed parcel to the sorting center.
+  /// Return a failed parcel to the Logistics Hub.
   Future<Delivery> returnToCenter(int id) async {
     final data = await _api.post('/rider/deliveries/$id/return-to-center');
     return Delivery.fromJson(

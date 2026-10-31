@@ -4,7 +4,7 @@ import '../core/network/api_client.dart';
 import '../core/network/api_exception.dart';
 import '../core/utils/name_validation.dart';
 
-/// Formats a center application id as CEN-YYYY-NNNN, e.g. CEN-2026-0001.
+/// Formats a Logistics Hub application id as CEN-YYYY-NNNN, e.g. CEN-2026-0001.
 class CenterApplicationReference {
   CenterApplicationReference._();
 
@@ -81,7 +81,7 @@ class CenterApplicationStatus {
   }
 }
 
-/// Result of a successful center application submission.
+/// Result of a successful Logistics Hub application submission.
 class CenterApplicationSubmitResult {
   const CenterApplicationSubmitResult({
     required this.id,

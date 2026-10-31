@@ -12,7 +12,10 @@ class Transaction extends Model
 
     protected $fillable = [
         'delivery_id', 'tracking_number', 'rider_id', 'logistics_center_id',
-        'service_area_id', 'amount', 'rider_fee', 'logistics_fee', 'admin_commission', 'status',
+        'service_area_id', 'origin_center_id', 'destination_center_id', 'pickup_rider_id',
+        'amount', 'rider_fee', 'logistics_fee', 'admin_commission',
+        'origin_hub_fee', 'pickup_rider_fee', 'inter_hub_driver_fee',
+        'destination_hub_fee', 'last_mile_rider_fee', 'status',
     ];
 
     protected function casts(): array
@@ -20,7 +23,13 @@ class Transaction extends Model
         return [
             'amount' => 'decimal:2',
             'rider_fee' => 'decimal:2',
+            'logistics_fee' => 'decimal:2',
             'admin_commission' => 'decimal:2',
+            'origin_hub_fee' => 'decimal:2',
+            'pickup_rider_fee' => 'decimal:2',
+            'inter_hub_driver_fee' => 'decimal:2',
+            'destination_hub_fee' => 'decimal:2',
+            'last_mile_rider_fee' => 'decimal:2',
         ];
     }
 

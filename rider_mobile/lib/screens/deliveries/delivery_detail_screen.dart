@@ -57,8 +57,7 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
         appBar: AppBar(title: const Text('Delivery')),
         body: ErrorView(
           message: provider.error ?? 'Delivery not found.',
-          onRetry: () =>
-              provider.loadDetail(widget.deliveryId),
+          onRetry: () => provider.loadDetail(widget.deliveryId),
         ),
       );
     }
@@ -87,18 +86,16 @@ class _DeliveryDetailScreenState extends State<DeliveryDetailScreen> {
             const SizedBox(height: 16),
             if (delivery.statusLogs.isNotEmpty)
               StaggerIn(
-                  index: 4,
-                  child: _TimelineSection(logs: delivery.statusLogs)),
+                index: 4,
+                child: _TimelineSection(logs: delivery.statusLogs),
+              ),
             const SizedBox(height: 24),
           ],
         ),
       ),
       bottomNavigationBar: StaggerIn(
         index: 5,
-        child: _ActionBar(
-          delivery: delivery,
-          busy: provider.actionBusy,
-        ),
+        child: _ActionBar(delivery: delivery, busy: provider.actionBusy),
       ),
     );
   }
@@ -126,10 +123,7 @@ class _StatusHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    delivery.trackingNumber,
-                    style: AppText.tracking,
-                  ),
+                  Text(delivery.trackingNumber, style: AppText.tracking),
                   const SizedBox(height: 4),
                   Text(
                     'Order #${delivery.orderId ?? delivery.trackingNumber}',
@@ -153,19 +147,24 @@ class _ShopSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shop = delivery.shop;
+    final shop = delivery.pickup;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SectionTitle(
+            _SectionTitle(
               icon: Icons.storefront_outlined,
-              title: 'Shop Information',
+              title: delivery.isCenterLeg
+                  ? 'Pickup Center'
+                  : 'Shop Information',
             ),
             const SizedBox(height: 12),
-            _InfoRow(label: 'Shop', value: shop.name),
+            _InfoRow(
+              label: delivery.isCenterLeg ? 'Center' : 'Shop',
+              value: shop.name,
+            ),
             if (shop.phone != null && shop.phone!.isNotEmpty) ...[
               const SizedBox(height: 8),
               _InfoRow(label: 'Phone', value: shop.phone!),
@@ -180,9 +179,15 @@ class _ShopSection extends StatelessWidget {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () => Geolocation.openNavigation(
-                      shop.latitude!, shop.longitude!),
+                    shop.latitude!,
+                    shop.longitude!,
+                  ),
                   icon: const Icon(Icons.navigation_outlined, size: 18),
-                  label: const Text('Navigate to Shop'),
+                  label: Text(
+                    delivery.isCenterLeg
+                        ? 'Navigate to Center'
+                        : 'Navigate to Shop',
+                  ),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(44),
                   ),
@@ -220,7 +225,10 @@ class _OrderSection extends StatelessWidget {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   'No item details available.',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
                 ),
               )
             else
@@ -252,9 +260,10 @@ class _OrderSection extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Text('x${item.quantity}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700)),
+                      Text(
+                        'x${item.quantity}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
                       const SizedBox(width: 16),
                       SizedBox(
                         width: 80,
@@ -358,7 +367,9 @@ class _CustomerSection extends StatelessWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () => Geolocation.openNavigation(
-                          customer.latitude!, customer.longitude!),
+                        customer.latitude!,
+                        customer.longitude!,
+                      ),
                       icon: const Icon(Icons.navigation_outlined, size: 18),
                       label: const Text('Navigate'),
                       style: OutlinedButton.styleFrom(
@@ -443,9 +454,9 @@ class _MessageBuyerButtonState extends State<_MessageBuyerButton> {
           MaterialPageRoute(builder: (_) => MessagesScreen(thread: match)),
         );
       } else {
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const ConversationsScreen()),
-        );
+        await Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const ConversationsScreen()));
         if (mounted) {
           _snack('No buyer conversation exists for this delivery yet.');
         }
@@ -458,7 +469,9 @@ class _MessageBuyerButtonState extends State<_MessageBuyerButton> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -491,10 +504,7 @@ class _TimelineSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _SectionTitle(
-              icon: Icons.history,
-              title: 'Status History',
-            ),
+            const _SectionTitle(icon: Icons.history, title: 'Status History'),
             const SizedBox(height: 8),
             ...logs.asMap().entries.map((entry) {
               final log = entry.value;
@@ -515,8 +525,9 @@ class _TimelineSection extends StatelessWidget {
                             color: StatusBadge.colorFor(log.status),
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: StatusBadge.colorFor(log.status)
-                                  .withValues(alpha: 0.3),
+                              color: StatusBadge.colorFor(
+                                log.status,
+                              ).withValues(alpha: 0.3),
                               width: 2,
                             ),
                           ),
@@ -582,8 +593,23 @@ class _ActionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDone = const ['delivered', 'delivery_failed', 'cancelled']
-        .contains(delivery.status);
+    final isDone = const [
+      'delivered',
+      'delivery_failed',
+      'cancelled',
+    ].contains(delivery.status);
+
+    if (delivery.readOnly) {
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+          child: _custodyBanner(
+            'Your pickup leg is complete. The center has confirmed receipt of this parcel.',
+          ),
+        ),
+      );
+    }
 
     // Terminal records stay read-only, except the failed-delivery
     // next step (re-attempt request / center return), which is valid
@@ -607,7 +633,22 @@ class _ActionBar extends StatelessWidget {
           child: _custodyBanner(
             handoffCenter != null && handoffCenter.isNotEmpty
                 ? 'Parcel handed over to $handoffCenter.'
-                : 'Parcel handed over to sorting center.',
+                : 'Parcel handed over to Logistics Hub.',
+          ),
+        ),
+      );
+    }
+
+    if (delivery.isCenterLeg &&
+        !delivery.hasSortingPickup &&
+        delivery.parcelStatus != 'dispatched' &&
+        delivery.status == 'accepted') {
+      return SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+          child: _custodyBanner(
+            'Waiting for logistics staff to dispatch this parcel. Collect it at ${delivery.pickup.name}.',
           ),
         ),
       );
@@ -616,23 +657,24 @@ class _ActionBar extends StatelessWidget {
     // Special handoff/pickup actions take precedence over the generic next-step.
     final handoffAction = _sortingCenterAction();
     if (handoffAction != null) {
-      final isHandoff = delivery.status == 'picked_up' &&
+      final isHandoff =
+          delivery.status == 'picked_up' &&
           delivery.sortingCenterHandoffAt == null;
-      final isPickup = (delivery.status == 'assigned' ||
-              delivery.status == 'accepted') &&
-          delivery.parcelStatus == 'sorted' &&
+      final isPickup =
+          (delivery.status == 'assigned' || delivery.status == 'accepted') &&
+          delivery.parcelStatus == 'dispatched' &&
           delivery.sortingCenterHandoffAt != null &&
           delivery.sortingCenterPickupAt == null;
       final label = isHandoff
-          ? 'Deliver to Sorting Center'
+          ? 'Deliver to Logistics Hub'
           : isPickup
-              ? 'Pick Up from Sorting Center'
-              : handoffAction.label;
+          ? 'Pick Up from Sorting Center'
+          : handoffAction.label;
       final icon = isHandoff
           ? Icons.warehouse_outlined
           : isPickup
-              ? Icons.inventory_2_outlined
-              : handoffAction.icon;
+          ? Icons.inventory_2_outlined
+          : handoffAction.icon;
 
       return SafeArea(
         top: false,
@@ -645,24 +687,28 @@ class _ActionBar extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   margin: const EdgeInsets.only(bottom: 8),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.18)),
+                      color: AppColors.primary.withValues(alpha: 0.18),
+                    ),
                   ),
                   child: const Text(
-                    'Parcel is sorted and ready at the center. Pick it up to start delivery.',
+                    'Center staff have released this parcel. Confirm collection to start delivery.',
                     style: TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary),
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ),
               ElevatedButton.icon(
-                onPressed:
-                    busy ? null : () => _onAction(context),
+                onPressed: busy ? null : () => _onAction(context),
                 icon: busy
                     ? const SizedBox(
                         width: 20,
@@ -691,7 +737,7 @@ class _ActionBar extends StatelessWidget {
         : delivery.handlingCenterName;
     final showPickupConfirm =
         (delivery.status == 'assigned' || delivery.status == 'accepted') &&
-            delivery.sortingCenterPickupAt != null;
+        delivery.sortingCenterPickupAt != null;
 
     return SafeArea(
       top: false,
@@ -704,14 +750,12 @@ class _ActionBar extends StatelessWidget {
               _custodyBanner(
                 pickupCenter != null && pickupCenter.isNotEmpty
                     ? 'Parcel picked up from $pickupCenter — ready for delivery.'
-                    : 'Parcel picked up from sorting center — ready for delivery.',
+                    : 'Parcel picked up from Logistics Hub — ready for delivery.',
               ),
               const SizedBox(height: 8),
             ],
             ElevatedButton.icon(
-              onPressed: busy
-                  ? null
-                  : () => _onAction(context),
+              onPressed: busy ? null : () => _onAction(context),
               icon: busy
                   ? const SizedBox(
                       width: 20,
@@ -755,7 +799,7 @@ class _ActionBar extends StatelessWidget {
           child: _custodyBanner(
             center != null && center.isNotEmpty
                 ? 'Parcel returned to $center.'
-                : 'Parcel returned to the sorting center.',
+                : 'Parcel returned to the Logistics Hub.',
           ),
         ),
       );
@@ -788,7 +832,7 @@ class _ActionBar extends StatelessWidget {
                 onPressed: busy ? null : () => _nextStep(context, false),
                 icon: const Icon(Icons.warehouse_outlined, size: 20),
                 label: Text(
-                  busy ? 'Working...' : 'Return to Sorting Center (RTS)',
+                  busy ? 'Working...' : 'Return to Logistics Hub (RTS)',
                 ),
                 style: OutlinedButton.styleFrom(
                   minimumSize: const Size.fromHeight(48),
@@ -810,17 +854,19 @@ class _ActionBar extends StatelessWidget {
     if (ok) {
       provider.loadDetail(delivery.id);
       _snack(
-          context,
-          reattempt
-              ? 'Re-attempt requested. Logistics will review and reassign.'
-              : 'Parcel marked as returned to the sorting center.');
+        context,
+        reattempt
+            ? 'Re-attempt requested. Logistics will review and reassign.'
+            : 'Parcel marked as returned to the Logistics Hub.',
+      );
     } else {
       _snack(
-          context,
-          provider.error ??
-              (reattempt
-                  ? 'Unable to request a re-attempt.'
-                  : 'Unable to return the parcel.'));
+        context,
+        provider.error ??
+            (reattempt
+                ? 'Unable to request a re-attempt.'
+                : 'Unable to return the parcel.'),
+      );
     }
   }
 
@@ -835,21 +881,27 @@ class _ActionBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.success.withValues(alpha: 0.18)),
       ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const PopIn(
-                child: Icon(Icons.check_circle_outline,
-                    size: 18, color: AppColors.success),
-              ),
-              const SizedBox(width: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const PopIn(
+            child: Icon(
+              Icons.check_circle_outline,
+              size: 18,
+              color: AppColors.success,
+            ),
+          ),
+          const SizedBox(width: 8),
           Flexible(
-            child: Text(message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.success)),
+            child: Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.success,
+              ),
+            ),
           ),
         ],
       ),
@@ -859,10 +911,10 @@ class _ActionBar extends StatelessWidget {
   _Action? _sortingCenterAction() {
     if (delivery.status == 'picked_up' &&
         delivery.sortingCenterHandoffAt == null) {
-      return _Action('Deliver to Sorting Center', Icons.warehouse_outlined);
+      return _Action('Deliver to Logistics Hub', Icons.warehouse_outlined);
     }
     if ((delivery.status == 'assigned' || delivery.status == 'accepted') &&
-        delivery.parcelStatus == 'sorted' &&
+        delivery.parcelStatus == 'dispatched' &&
         delivery.sortingCenterHandoffAt != null &&
         delivery.sortingCenterPickupAt == null) {
       return _Action('Pick Up from Sorting Center', Icons.inventory_2_outlined);
@@ -876,6 +928,9 @@ class _ActionBar extends StatelessWidget {
   }
 
   _Action _nextAction(String status) {
+    if (delivery.canStartFinalDelivery) {
+      return _Action('Out for Delivery', Icons.delivery_dining_outlined);
+    }
     switch (status) {
       case 'assigned':
         return _Action('Accept Delivery', Icons.check_circle_outline);
@@ -897,68 +952,78 @@ class _ActionBar extends StatelessWidget {
   }
 
   void _onAction(BuildContext context) {
-    // Sorting center handoff (pickup rider)
+    // Logistics Hub handoff (pickup rider)
     if (delivery.status == 'picked_up' &&
         delivery.sortingCenterHandoffAt == null) {
-      _confirmThen(context,
-          title: 'Deliver to Sorting Center?',
-          message:
-              'Confirm this parcel has been handed over to the sorting center. This will record the handoff time.',
-          onConfirm: () async {
-            final provider = context.read<DeliveryProvider>();
-            final ok = await provider.sortingCenterHandoff(delivery.id);
-            if (!context.mounted) return;
-            if (ok) {
-              provider.loadDetail(delivery.id);
-              _snack(context, 'Parcel handed over to sorting center.');
-            } else {
-              _snack(context, provider.error ?? 'Unable to hand over.');
-            }
-          });
+      _confirmThen(
+        context,
+        title: 'Deliver to Logistics Hub?',
+        message:
+            'Confirm this parcel has been handed over to the Logistics Hub. This will record the handoff time.',
+        onConfirm: () async {
+          final provider = context.read<DeliveryProvider>();
+          final ok = await provider.sortingCenterHandoff(delivery.id);
+          if (!context.mounted) return;
+          if (ok) {
+            provider.loadDetail(delivery.id);
+            _snack(context, 'Parcel handed over to Logistics Hub.');
+          } else {
+            _snack(context, provider.error ?? 'Unable to hand over.');
+          }
+        },
+      );
       return;
     }
 
-    // Sorting center pickup (delivery rider)
+    // Logistics Hub pickup (delivery rider)
     if ((delivery.status == 'assigned' || delivery.status == 'accepted') &&
-        delivery.parcelStatus == 'sorted' &&
+        delivery.parcelStatus == 'dispatched' &&
         delivery.sortingCenterHandoffAt != null &&
         delivery.sortingCenterPickupAt == null) {
-      _confirmThen(context,
-          title: 'Pick Up from Sorting Center?',
-          message:
-              'Confirm you have collected this parcel from the sorting center. Parcel will be marked dispatched.',
-          onConfirm: () async {
-            final provider = context.read<DeliveryProvider>();
-            final ok = await provider.sortingCenterPickup(delivery.id);
-            if (!context.mounted) return;
-            if (ok) {
-              provider.loadDetail(delivery.id);
-              _snack(context, 'Parcel picked up from sorting center.');
-            } else {
-              _snack(context, provider.error ?? 'Unable to pick up.');
-            }
-          });
+      _confirmThen(
+        context,
+        title: 'Pick Up from Sorting Center?',
+        message:
+            'Confirm you have received this parcel from center staff. This records custody under your rider account.',
+        onConfirm: () async {
+          final provider = context.read<DeliveryProvider>();
+          final ok = await provider.sortingCenterPickup(delivery.id);
+          if (!context.mounted) return;
+          if (ok) {
+            provider.loadDetail(delivery.id);
+            _snack(context, 'Parcel picked up from sorting center.');
+          } else {
+            _snack(context, provider.error ?? 'Unable to pick up.');
+          }
+        },
+      );
       return;
     }
 
     final provider = context.read<DeliveryProvider>();
+    if (delivery.canStartFinalDelivery) {
+      _update(context, 'out_for_delivery', 'Out for delivery.');
+      return;
+    }
 
     switch (delivery.status) {
       case 'assigned':
-        _confirmThen(context,
-            title: 'Accept this delivery?',
-            message:
-                'Once accepted, you are responsible for completing this delivery.',
-            onConfirm: () async {
-              final ok = await provider.accept(delivery.id);
-              if (!context.mounted) return;
-              if (ok) {
-                provider.loadDetail(delivery.id);
-                _snack(context, 'Delivery accepted.');
-              } else {
-                _snack(context, provider.error ?? 'Unable to accept.');
-              }
-            });
+        _confirmThen(
+          context,
+          title: 'Accept this delivery?',
+          message:
+              'Once accepted, you are responsible for completing this delivery.',
+          onConfirm: () async {
+            final ok = await provider.accept(delivery.id);
+            if (!context.mounted) return;
+            if (ok) {
+              provider.loadDetail(delivery.id);
+              _snack(context, 'Delivery accepted.');
+            } else {
+              _snack(context, provider.error ?? 'Unable to accept.');
+            }
+          },
+        );
         break;
       case 'accepted':
         _update(context, 'going_to_pickup', 'Heading to the shop...');
@@ -1009,8 +1074,10 @@ class _ActionBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Icon(Icons.check_circle_outline,
-                      color: AppTheme.success),
+                  leading: const Icon(
+                    Icons.check_circle_outline,
+                    color: AppTheme.success,
+                  ),
                   title: const Text('Complete Delivery'),
                   subtitle: const Text('Collect COD and provide proof.'),
                   onTap: () {
@@ -1019,8 +1086,10 @@ class _ActionBar extends StatelessWidget {
                   },
                 ),
                 ListTile(
-                  leading:
-                      const Icon(Icons.error_outline, color: AppTheme.danger),
+                  leading: const Icon(
+                    Icons.error_outline,
+                    color: AppTheme.danger,
+                  ),
                   title: const Text('Report Failed Delivery'),
                   subtitle: const Text('Customer unavailable or other issue.'),
                   onTap: () {
@@ -1081,7 +1150,9 @@ class _ActionBar extends StatelessWidget {
   }
 
   void _snack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -1097,7 +1168,7 @@ class _SectionTitle extends StatelessWidget {
       children: [
         IconTile(icon: icon, size: 34, iconSize: 18),
         const SizedBox(width: AppGaps.sm),
-        Text(title, style: AppText.section),
+        Expanded(child: Text(title, style: AppText.section)),
       ],
     );
   }

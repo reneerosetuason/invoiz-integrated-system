@@ -25,7 +25,7 @@
             @elseif($pickupRequest->status === 'pending')
                 <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">Needs routing</span>
             @else
-                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200">Not yet received at a center</span>
+                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-gray-50 text-gray-400 ring-1 ring-inset ring-gray-200">Not yet received at a Logistics Hub</span>
             @endif
         </div>
     </div>
@@ -72,7 +72,7 @@
                 <p class="text-sm font-medium text-gray-900">{{ $pickupRequest->delivery->tracking_number }}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Destination Center</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Destination Logistics Hub</p>
                 <p class="text-sm font-medium text-gray-900">{{ $pickupRequest->delivery->destinationCenter?->name ?? '—' }}</p>
             </div>
             <div>
@@ -115,17 +115,17 @@
     {{-- Routing (admin only, before review) --}}
     @if($canRoute)
         <div class="bg-white rounded-2xl shadow-sm border border-amber-200 p-6 mb-6">
-            <h3 class="text-base font-bold text-gray-900 mb-1">Route to a Logistics Center</h3>
+            <h3 class="text-base font-bold text-gray-900 mb-1">Route to a Logistics Hub</h3>
             <p class="text-sm text-gray-500 mb-5">
                 This pickup has no handling center. Assign one before the pickup can be reviewed. The delivery will be routed to the same center.
             </p>
             <form action="{{ route('pickup-requests.route', $pickupRequest) }}" method="POST" class="flex flex-col sm:flex-row sm:items-end gap-3">
                 @csrf
                 <div class="flex-1">
-                    <label for="center_id" class="block text-sm font-medium text-gray-700 mb-1.5">Logistics center *</label>
+                    <label for="center_id" class="block text-sm font-medium text-gray-700 mb-1.5">Logistics Hub *</label>
                     <select name="center_id" id="center_id" required
                             class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('center_id') border-red-500 @enderror">
-                        <option value="">Select a center</option>
+                        <option value="">Select a Logistics Hub</option>
                         @foreach($centers as $center)
                             <option value="{{ $center->id }}" @selected(old('center_id') == $center->id)>{{ $center->name }}</option>
                         @endforeach

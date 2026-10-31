@@ -23,8 +23,9 @@
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app.css') }}">
         <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
         <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-        <link rel="stylesheet" href="{{ asset('assets/shared/css/app-sidebar.css') }}?v={{ filemtime(public_path('assets/shared/css/app-sidebar.css')) }}">
-        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-shell.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-shell.css')) }}">
+        <link rel="stylesheet" href="{{ asset('assets/shared/css/app.css') }}?v={{ @filemtime(public_path('assets/shared/css/app.css')) ?: 1 }}">
+        <link rel="stylesheet" href="{{ asset('assets/shared/css/app-sidebar.css') }}?v={{ @filemtime(public_path('assets/shared/css/app-sidebar.css')) ?: 1 }}">
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-shell.css') }}?v={{ @filemtime(public_path('assets/logistics/css/logistics-shell.css')) ?: 1 }}">
         @if(!request()->routeIs('dashboard', 'deliveries.*'))
             @include('logistics.partials.workspace-theme')
         @endif
@@ -121,7 +122,12 @@
                             <div class="logistics-page-header mb-5">{{ $header }}</div>
                         @endisset
 
-                        {{ $slot }}
+                        {{-- Support both @extends('...app') sections and <x-app-layout> component slots. --}}
+                        @hasSection('content')
+                            @yield('content')
+                        @elseif (isset($slot))
+                            {{ $slot }}
+                        @endif
                     </div>
                 </main>
             </div>

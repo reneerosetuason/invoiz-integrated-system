@@ -18,7 +18,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator as ValidatorContract;
 
 /**
- * Shared "Open a Logistics Center" application logic used by both the mobile
+ * Shared "Open a Logistics Hub" application logic used by both the mobile
  * API (Api\CenterApplicationController) and the Logistics web flows
  * (CenterApplicationPublicController). Keeps validation, normalization, the
  * document store, and the admin notification in one place so the API and web
@@ -306,8 +306,8 @@ class CenterApplicationService
     {
         Notification::create([
             'type' => 'new_center_application',
-            'title' => 'New Center Application',
-            'message' => "A new Logistics Center application from {$application->business_name} is waiting for review.",
+            'title' => 'New Hub Application',
+            'message' => "A new Logistics Hub application from {$application->business_name} is waiting for review.",
             'icon' => '🏬',
             'priority' => 'high',
             'audience' => 'admin',

@@ -1,9 +1,6 @@
 <x-app-layout>
     @push('styles')
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-dashboard.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-dashboard.css')) }}">
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-dashboard.css') }}?v={{ @filemtime(public_path('assets/logistics/css/logistics-dashboard.css')) ?: 1 }}">
     @endpush
     @php
         $dateQuery = array_filter(['date_from' => $dateFrom ?: null, 'date_to' => $dateTo ?: null]);

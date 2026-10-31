@@ -78,7 +78,7 @@
                 <p class="text-sm font-medium text-gray-900">{{ $rider->email }}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Logistics Center</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Logistics Hub</p>
                 @if($rider->logisticsCenter)
                     <p class="text-sm font-medium text-gray-900">{{ $rider->logisticsCenter->name }}</p>
                 @else

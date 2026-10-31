@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Logistics;
 
 use App\Models\User;
 use App\Models\LogisticsCenter;
+use App\Models\LogisticsCompany;
 use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
 use App\Support\NameNormalizer;
@@ -22,6 +23,8 @@ class StaffController extends Controller
         $centerId = (int) $request->query('center_id', 0);
 
         $query = User::whereIn('role', ['staff', 'logistics_staff'])->with('logisticsCenter');
+        $companyId = $this->companyScope();
+        if ($companyId !== null) $query->where('logistics_company_id', $companyId);
 
         if ($search !== '') {
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
@@ -40,14 +43,14 @@ class StaffController extends Controller
 
         return view('logistics.staff.index', [
             'staff' => $staff,
-            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
+            'centers' => LogisticsCenter::where('is_active', true)->when($companyId !== null, fn ($q) => $q->where('logistics_company_id', $companyId))->orderBy('name')->get(),
         ]);
     }
 
     public function create(): View
     {
         return view('logistics.staff.create', [
-            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
+            'centers' => LogisticsCenter::where('is_active', true)->when($this->companyScope() !== null, fn ($q) => $q->where('logistics_company_id', $this->companyScope()))->orderBy('name')->get(),
         ]);
     }
 
@@ -65,12 +68,14 @@ class StaffController extends Controller
             'terms' => 'accepted',
             'phone' => ['required', new PhilippinePhone],
             'birthday' => 'required|date|before:today',
-            'center_id' => 'required|exists:logistics_centers,id',
+            'center_id' => ['required', 'exists:logistics_centers,id', function ($attribute, $value, $fail): void { $this->validateCenterCompany((int) $value, $fail); }],
         ]);
 
         $validated['name'] = trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? ''));
         $validated['phone'] = PhilippinePhone::normalize($validated['phone']);
         $validated['role'] = 'staff';
+        $centerCompanyId = LogisticsCenter::whereKey($validated['center_id'])->value('logistics_company_id');
+        $validated['logistics_company_id'] = $centerCompanyId ?: ($request->user()?->logistics_company_id ?: (\App\Models\LogisticsCompany::value('id') ?? 1));
         $validated['status'] = 'active';
         $validated['age'] = \Carbon\Carbon::parse($validated['birthday'])->age;
         $validated['password'] = Hash::make($validated['password']);
@@ -112,13 +117,15 @@ class StaffController extends Controller
             'email' => 'required|email|max:150|unique:users,email,' . $staff->id,
             'phone' => ['required', new PhilippinePhone],
             'birthday' => 'required|date|before:today',
-            'center_id' => 'required|exists:logistics_centers,id',
+            'center_id' => ['required', 'exists:logistics_centers,id', function ($attribute, $value, $fail): void { $this->validateCenterCompany((int) $value, $fail); }],
             'status' => 'required|in:active,inactive',
         ]);
 
         $validated['name'] = trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? ''));
         $validated['phone'] = PhilippinePhone::normalize($validated['phone']);
         $validated['age'] = \Carbon\Carbon::parse($validated['birthday'])->age;
+        $centerCompanyId = LogisticsCenter::whereKey($validated['center_id'])->value('logistics_company_id');
+        $validated['logistics_company_id'] = $centerCompanyId ?: ($staff->logistics_company_id ?: ($request->user()?->logistics_company_id ?: (\App\Models\LogisticsCompany::value('id') ?? 1)));
 
         $staff->update($validated);
 
@@ -154,15 +161,37 @@ class StaffController extends Controller
 
     private function ensureStaffAccount(User $staff, bool $manage = false): void
     {
+        abort_if($staff->isDesignatedLogisticsAdminAccount(), 404);
         abort_unless(in_array($staff->role, ['staff', 'logistics_staff'], true), 404);
+        $companyId = $this->companyScope();
+        if ($companyId !== null) abort_unless((int) $staff->logistics_company_id === (int) $companyId, 404);
 
         if ($manage && $staff->rider()->exists()) {
             abort_unless(request()->user()?->canManageRiders(), 403,
                 'Accounts with rider profiles are managed by logistics personnel.');
         }
     }
-}
 
+    private function companyScope(): ?int
+    {
+        $user = request()->user();
+        if ($user?->isAdmin()) return null;
+        return $user?->logistics_company_id ? (int) $user->logistics_company_id : null;
+    }
+
+    private function validateCenterCompany(int $centerId, callable $fail): void
+    {
+        $companyId = $this->companyScope();
+        $center = LogisticsCenter::find($centerId);
+        if (! $center) {
+            $fail('The selected logistics hub does not exist.');
+            return;
+        }
+        if ($companyId !== null && $center->logistics_company_id && (int) $center->logistics_company_id !== $companyId) {
+            $fail('The logistics hub must belong to your logistics organization.');
+        }
+    }
+}
 
 
 

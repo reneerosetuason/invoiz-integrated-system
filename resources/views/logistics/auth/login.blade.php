@@ -1,13 +1,13 @@
 @extends('shared.layouts.auth-split')
 
-@section('title', 'Sign in to Logistics Center')
-@section('wordmark_extra')<span class="mt-1 block text-[10px] font-bold uppercase text-teal-dark" style="letter-spacing:.22em">Logistics Center</span>@endsection
+@section('title', 'Sign in to Logistics Hub')
+@section('wordmark_extra')<span class="mt-1 block text-[10px] font-bold uppercase text-teal-dark" style="letter-spacing:.22em">Logistics Hub</span>@endsection
 @section('brand_lines')
 <span class="mask-line" aria-hidden="true"><span style="transition-delay:140ms">Keep every</span></span>
 <span class="mask-line" aria-hidden="true"><span style="transition-delay:230ms">delivery moving.</span></span>
 @endsection
 @section('brand_plain', 'Keep every delivery moving.')
-@section('brand_copy', 'Manage rider applications, assign deliveries, track packages, and monitor your delivery operations — all from one connected Logistics Center.')
+@section('brand_copy', 'Manage rider applications, assign deliveries, track packages, and monitor your delivery operations — all from one connected Logistics Hub.')
 
 @section('left_bottom')
 <div class="rv hidden min-[900px]:block" style="transition-delay:380ms">
@@ -23,7 +23,7 @@
 @section('form_eyebrow', 'Logistics login')
 @section('form_head')
 <h1 class="rv-r font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.6rem,2.4vw,1.875rem);line-height:1.1;transition-delay:70ms">Welcome back</h1>
-<p class="rv-r mt-2 text-sm text-muted" style="transition-delay:140ms">Sign in to your Logistics Center.</p>
+<p class="rv-r mt-2 text-sm text-muted" style="transition-delay:140ms">Sign in to your Logistics Hub.</p>
 
 @if($errors->has('email'))
 <div class="rv-r mt-5 rounded-[14px] bg-white px-4 py-3 text-sm font-semibold" role="alert" aria-live="assertive" style="border:1px solid rgba(180,35,24,.35);color:#B42318;transition-delay:170ms">
@@ -73,6 +73,6 @@
 
 @section('after_form')
 <div class="rv-r my-4 flex items-center gap-3 text-xs font-bold text-muted min-[900px]:my-5" style="transition-delay:280ms" aria-hidden="true"><span class="h-px flex-1" style="background:rgba(15,76,92,.12)"></span><span>OR</span><span class="h-px flex-1" style="background:rgba(15,76,92,.12)"></span></div>
-<a href="{{ route('center-application.apply') }}" class="rv-r flex w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-bold text-ink transition hover:border-teal" style="height:44px;border-radius:12px;border:1px solid rgba(15,76,92,.2);transition-delay:320ms">Open a Logistics Center</a>
-<p class="rv-r mt-5 text-center" style="transition-delay:360ms"><a href="{{ route('center-application.status') }}" class="group inline-flex items-center gap-1.5 text-sm font-semibold text-teal-dark"><svg class="h-4 w-4 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg><span class="lnk">Check a Logistics Center Application Status</span></a></p>
+<a href="{{ route('center-application.apply') }}" class="rv-r flex w-full items-center justify-center gap-2 rounded-xl bg-white text-sm font-bold text-ink transition hover:border-teal" style="height:44px;border-radius:12px;border:1px solid rgba(15,76,92,.2);transition-delay:320ms">Open a Logistics Hub</a>
+<p class="rv-r mt-5 text-center" style="transition-delay:360ms"><a href="{{ route('center-application.status') }}" class="group inline-flex items-center gap-1.5 text-sm font-semibold text-teal-dark"><svg class="h-4 w-4 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg><span class="lnk">Check a Logistics Hub Application Status</span></a></p>
 @endsection

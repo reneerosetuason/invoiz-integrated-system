@@ -58,9 +58,9 @@
                 </div>
                 @if($tab !== 'center')
                 <div>
-                    <label class="block text-xs font-medium text-gray-500 mb-1">Center</label>
+                    <label class="block text-xs font-medium text-gray-500 mb-1">Logistics Hub</label>
                     <select name="center_id" class="rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                        <option value="0">All Centers</option>
+                        <option value="0">All Logistics Hubs</option>
                         @foreach($centers as $c)
                             <option value="{{ $c->id }}" @selected((int) ($f['centerId'] ?? 0) === $c->id)>{{ $c->name }}</option>
                         @endforeach
@@ -95,7 +95,7 @@
 
         @if($tab === 'all')
             <div class="bg-teal/10 border border-teal/30 rounded-2xl px-4 py-3 text-sm text-teal-dark">
-                <span class="font-semibold">All Reports</span> — a consolidated view of all five report categories (Delivery, Center, Service Area, Rider, and Financial) under the selected filters. The <span class="font-semibold">Download PDF</span> button generates a single consolidated report containing every section.
+                <span class="font-semibold">All Reports</span> — a consolidated view of all five report categories (Delivery, Logistics Hub, Service Area, Rider, and Financial) under the selected filters. The <span class="font-semibold">Download PDF</span> button generates a single consolidated report containing every section.
             </div>
         @endif
 
@@ -132,7 +132,7 @@
                 <table class="min-w-full divide-y divide-gray-100">
                     <thead class="bg-gray-50/50">
                         <tr>
-                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Center</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Logistics Hub</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">City</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Deliveries</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Service Areas</th>
@@ -149,7 +149,7 @@
                                 <td class="px-6 py-4 text-right text-sm text-gray-500">{{ $c['riders_count'] ?? 0 }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500">No centers found.</td></tr>
+                            <tr><td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500">No Logistics Hubs found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -163,7 +163,7 @@
                     <thead class="bg-gray-50/50">
                         <tr>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Area</th>
-                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Center</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Logistics Hub</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Deliveries</th>
                             <th class="px-6 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Riders</th>
                         </tr>

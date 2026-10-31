@@ -17,12 +17,25 @@ use App\Http\Controllers\Logistics\Api\RiderPasswordController;
 use App\Http\Controllers\Logistics\Api\RiderPasswordResetController;
 use App\Http\Controllers\Logistics\Api\RiderRemittanceController;
 use App\Http\Controllers\Logistics\Api\VehicleTypeController;
+use App\Http\Controllers\Logistics\Api\HubCourierController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('logistics')->group(function () {
 
 Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:10,1');
+Route::post('/courier/login', [HubCourierController::class, 'login'])->middleware('throttle:10,1');
+Route::middleware('auth:sanctum')->prefix('courier')->group(function () {
+    Route::get('/profile', [HubCourierController::class, 'profile']);
+    Route::get('/dashboard', [HubCourierController::class, 'dashboard']);
+    Route::patch('/status', [HubCourierController::class, 'status']);
+    Route::get('/transfers/{transfer}', [HubCourierController::class, 'show']);
+    Route::post('/transfers/{transfer}/origin-arrival', [HubCourierController::class, 'originArrival']);
+    Route::post('/transfers/{transfer}/load', [HubCourierController::class, 'loadParcel']);
+    Route::post('/transfers/{transfer}/complete-loading', [HubCourierController::class, 'completeLoading']);
+    Route::post('/transfers/{transfer}/dispatch', [HubCourierController::class, 'dispatch']);
+    Route::post('/transfers/{transfer}/destination-arrival', [HubCourierController::class, 'destinationArrival']);
+});
 
 Route::get('/vehicle-types', [VehicleTypeController::class, 'index']);
 Route::get('/address/provinces', [AddressController::class, 'provinces']);

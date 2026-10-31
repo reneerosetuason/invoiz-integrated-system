@@ -160,7 +160,7 @@
                         <ul class="divide-y divide-gray-100">
                             @foreach([
                                 'rider_applications'  => ['New Rider Applications',  'Notified when a rider submits an application'],
-                                'application_updates' => ['Application Updates',     'Notified about Logistics Center application submissions and decisions'],
+                                'application_updates' => ['Application Updates',     'Notified about Logistics Hub application submissions and decisions'],
                                 'delivery_requests'   => ['New Delivery Requests',   'Notified when a new delivery is created'],
                                 'failed_deliveries'   => ['Failed Deliveries',       'Notified when a delivery attempt fails'],
                                 'failed_pickups'      => ['Failed Pickups',          'Notified when a rider cannot pick up a package'],

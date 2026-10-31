@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Models\Remittance;
+use App\Models\LogisticsCenter;
 use App\Models\User;
 use App\Support\Cod;
 use App\Support\CsvExport;
+use App\Support\LogisticsAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -87,7 +89,9 @@ class RemittanceController extends Controller
             'logistics.remittances',
             [
                 'status' => in_array($status, ['pending', 'sent', 'confirmed'], true) ? $status : null,
-                'center_scope' => ($user->isLogisticsAdmin() ? 'global' : (int) ($user->center_id ?? 0)),
+                'center_scope' => LogisticsAccess::isGlobal($user)
+                    ? 'global'
+                    : (LogisticsAccess::centerId($user) ?? 'company'),
             ]
         );
     }
@@ -134,28 +138,57 @@ class RemittanceController extends Controller
     {
         $query = Remittance::query();
 
-        // Global logistics admins are unrestricted. Every other logistics
-        // account is center-scoped, including accounts with no center: those
-        // accounts must see no rows rather than every center's cash.
-        if ($user->isLogisticsAdmin()) {
+        // Global accounts are unrestricted. Everyone else is company-scoped;
+        // staff with an assigned center are narrowed to that hub. Accounts
+        // without a valid company/center assignment see no rows.
+        if (LogisticsAccess::isGlobal($user)) {
             return $query;
         }
 
-        if (! $user->isLogisticsStaff()) {
+        $companyId = LogisticsAccess::companyId($user);
+        $centerId = LogisticsAccess::centerId($user);
+
+        if ($centerId === 0 || $companyId === null) {
             return $query->whereRaw('1 = 0');
         }
 
-        $centerId = (int) ($user->center_id ?? 0);
-        if ($centerId <= 0) {
+        if ($companyId > 0) {
+            $companyCenters = LogisticsCenter::query()
+                ->select('id')
+                ->where('logistics_company_id', $companyId);
+
+            return $query->where(function ($scope) use ($centerId, $companyCenters) {
+                $scope->whereHas('delivery', function ($delivery) use ($centerId, $companyCenters) {
+                    $delivery->where(function ($companyScope) use ($companyCenters) {
+                        $companyScope->whereIn('center_id', $companyCenters)
+                            ->orWhereIn('destination_center_id', $companyCenters);
+                    });
+
+                    if ($centerId !== null && $centerId > 0) {
+                        $delivery->where(function ($centerScope) use ($centerId) {
+                            $centerScope->where('center_id', $centerId)
+                                ->orWhere('destination_center_id', $centerId);
+                        });
+                    }
+                })->orWhereHas('rider', function ($rider) use ($centerId, $companyCenters) {
+                    $rider->whereIn('center_id', $companyCenters);
+
+                    if ($centerId !== null && $centerId > 0) {
+                        $rider->where('center_id', $centerId);
+                    }
+                });
+            });
+        }
+
+        // Staff at a legacy hub without a company are narrowed to that hub.
+        if ($centerId === null) {
             return $query->whereRaw('1 = 0');
         }
 
         return $query->where(function ($scope) use ($centerId) {
             $scope->whereHas('delivery', function ($delivery) use ($centerId) {
-                $delivery->where(function ($deliveryScope) use ($centerId) {
-                    $deliveryScope->where('center_id', $centerId)
-                        ->orWhere('destination_center_id', $centerId);
-                });
+                $delivery->where('center_id', $centerId)
+                    ->orWhere('destination_center_id', $centerId);
             })->orWhereHas('rider', fn ($rider) => $rider->where('center_id', $centerId));
         });
     }

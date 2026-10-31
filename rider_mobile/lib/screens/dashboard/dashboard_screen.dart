@@ -101,6 +101,7 @@ class DashboardScreen extends StatelessWidget {
             onToggle: () => _toggleAvailability(context, riderProvider),
           ),
         ),
+        Card(child: ListTile(leading: const Icon(Icons.two_wheeler), title: const Text('DELIVERY RIDER · HUB-TO-DOOR'), subtitle: Text('${rider.vehicleType ?? 'Vehicle'} · ${rider.licensePlate ?? 'Plate not set'}\n${rider.company ?? 'Logistics company'} · ${rider.hubName ?? 'Assigned hub'}'))),
         if (rider.isOnline && riderProvider.locationWarning != null) ...[
           const SizedBox(height: 12),
           StaggerIn(

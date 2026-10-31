@@ -6,7 +6,7 @@
         </a>
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Add Service Area</h1>
-            <p class="text-sm text-gray-500 mt-1">Create a new service area under a logistics center.</p>
+            <p class="text-sm text-gray-500 mt-1">Create a new service area under a logistics hub.</p>
         </div>
     </div>
 
@@ -15,9 +15,9 @@
             @csrf
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="logistics_center_id" class="block text-sm font-medium text-gray-700 mb-1">Logistics Center <span class="text-red-500">*</span></label>
+                    <label for="logistics_center_id" class="block text-sm font-medium text-gray-700 mb-1">Logistics Hub <span class="text-red-500">*</span></label>
                     <select name="logistics_center_id" id="logistics_center_id" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                        <option value="">— Select center —</option>
+                        <option value="">— Select Logistics Hub —</option>
                         @foreach($centers as $center)
                             <option value="{{ $center->id }}" @selected((int) old('logistics_center_id', request()->integer('logistics_center_id')) === $center->id)>{{ $center->name }}</option>
                         @endforeach

@@ -122,27 +122,11 @@ class LogisticsOperationsDemoSeeder extends Seeder
         ];
 
         $logisticsUsers = DB::table('users')
-            ->whereIn('role', ['logistics_admin', 'logistics_staff'])
+            ->where(function ($query): void {
+                $query->whereIn('role', ['staff', 'logistics_staff'])
+                    ->orWhere('id', \App\Models\User::GLOBAL_LOGISTICS_ADMIN_ID);
+            })
             ->pluck('id');
-
-        $admin = DB::table('users')->where('role', 'logistics_admin')->first();
-
-        if ($admin) {
-            $plain = 'demo-logistics-token';
-            DB::table('personal_access_tokens')->updateOrInsert(
-                ['token' => hash('sha256', $plain)],
-                [
-                    'tokenable_type' => \App\Models\User::class,
-                    'tokenable_id' => $admin->id,
-                    'name' => 'demo-logistics-admin',
-                    'abilities' => json_encode(['*']),
-                    'last_used_at' => null,
-                    'expires_at' => now()->addDays(30),
-                    'created_at' => DB::raw('COALESCE(created_at, NOW())'),
-                    'updated_at' => now(),
-                ]
-            );
-        }
 
         foreach ($logisticsUsers as $userId) {
             DB::table('logistics_settings')->updateOrInsert(

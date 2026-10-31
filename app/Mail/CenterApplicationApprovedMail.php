@@ -32,7 +32,7 @@ class CenterApplicationApprovedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'INVOIZ Logistics Center Approved ? Login Credentials',
+            subject: 'INVOIZ Logistics Hub Approved ? Login Credentials',
         );
     }
 

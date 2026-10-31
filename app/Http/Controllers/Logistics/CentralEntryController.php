@@ -60,14 +60,18 @@ class CentralEntryController extends Controller
      */
     public static function destinationFor(User $user): ?string
     {
-        // Logistics admin/staff go to dashboard (explicit paths avoid
-        // route-name collisions with the main marketplace).
-        if ($user->isAdmin() || $user->isStaff() || $user->role === 'logistics_admin' || $user->role === 'logistics_staff') {
+        // Logistics administrators, company managers, and staff go to the
+        // dashboard (explicit paths avoid route-name collisions with the
+        // main marketplace). Only the designated global Logistics Admin and
+        // Platform Administrators are global; raw `logistics_admin` roles on
+        // other accounts have no logistics scope.
+        if ($user->isLogisticsStaff()) {
             return '/logistics/dashboard';
         }
 
         // Marketplace accounts assigned to a center (approved without a
-        // role change) also belong to the logistics dashboard.
+        // role change) also belong to the logistics dashboard. This is kept
+        // for accounts whose provisioning marker is the only link.
         if ($user->hasProvisionedCenterAssignment()) {
             return '/logistics/dashboard';
         }

@@ -30,11 +30,31 @@ class RiderApplicationApprovalTest extends TestCase
 
     private function manager(): User
     {
-        return User::create([
-            'name' => 'Approval Manager', 'email' => 'approval-manager-'.(++$this->seq).'@test.local',
-            'password' => 'TestManager123!', 'role' => 'logistics_admin', 'is_admin' => false,
-            'status' => 'active', 'email_verified_at' => now(),
+        // Rider applications are provisioned only by the designated global
+        // Logistics Admin; other logistics_admin fixtures are rejected.
+        $manager = User::query()
+            ->where('email', User::GLOBAL_LOGISTICS_ADMIN_EMAIL)
+            ->where('role', 'logistics_admin')
+            ->first();
+
+        if ($manager) {
+            return $manager;
+        }
+
+        $manager = new User([
+            'name' => 'Global Logistics Admin',
+            'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
+            'password' => 'TestManager123!',
+            'role' => 'logistics_admin',
+            'is_admin' => false,
+            'status' => 'active',
+            'account_status' => 'active',
+            'email_verified_at' => now(),
         ]);
+        $manager->id = User::GLOBAL_LOGISTICS_ADMIN_ID;
+        $manager->save();
+
+        return $manager;
     }
 
     private function center(string $name = 'Approval Center', bool $active = true): LogisticsCenter

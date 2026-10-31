@@ -17,7 +17,7 @@ class EnsureAdmin
             return redirect('/logistics/login');
         }
 
-        if (! $user->isAdmin() && ! in_array($user->role, ['admin', 'logistics_admin'], true)) {
+        if (! $user->isAdmin() && ! $user->isLogisticsAdmin()) {
             abort(403, 'This action is restricted to administrators.');
         }
 

@@ -11,6 +11,7 @@ import '../../providers/earnings_provider.dart';
 import '../../providers/notification_provider.dart';
 import '../../providers/rider_provider.dart';
 import '../../services/location_service.dart';
+import '../../services/tutorial_completion_store.dart';
 import '../auth/login_screen.dart';
 import '../dashboard/dashboard_screen.dart';
 import '../deliveries/deliveries_screen.dart';
@@ -19,6 +20,8 @@ import '../notifications/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import '../scan/scan_parcel_screen.dart';
 import '../settings/settings_screen.dart';
+import '../onboarding/rider_tutorial_screen.dart';
+import 'hub_courier_home_screen.dart';
 import '../../widgets/liquid_nav_bar.dart';
 
 /// Bottom-navigation shell for the rider app.
@@ -40,6 +43,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _tab = 0;
   Timer? _locationTimer;
   bool _appResumed = true;
+  bool _tutorialChecked = false;
 
   static const _screens = [
     DashboardScreen(),
@@ -55,15 +59,18 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _preload();
-    _startLocationHeartbeat();
+    if (context.read<AuthProvider>().courier == null) _startLocationHeartbeat();
     _redirectOnLogout();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTutorial());
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
     if (_appResumed) {
-      _startLocationHeartbeat();
+      if (context.read<AuthProvider>().courier == null) {
+        _startLocationHeartbeat();
+      }
     } else {
       // The OS may keep the process alive; stop GPS pings while backgrounded.
       _locationTimer?.cancel();
@@ -96,12 +103,32 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void _preload() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (context.read<AuthProvider>().courier != null) return;
       context.read<RiderProvider>().loadDashboard();
       context.read<DeliveryProvider>().load();
       context.read<NotificationProvider>().load();
       context.read<EarningsProvider>().loadSummary();
       context.read<AuthProvider>().clearError();
     });
+  }
+
+  Future<void> _maybeShowTutorial() async {
+    if (_tutorialChecked || !mounted) return;
+    _tutorialChecked = true;
+    final auth = context.read<AuthProvider>();
+    final workflow = auth.courier != null ? 'hub_courier' : 'delivery_rider';
+    if (await const TutorialCompletionStore().isCompleted(workflow: workflow) ||
+        !mounted) {
+      return;
+    }
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => RiderTutorialScreen(
+          workflowType: workflow,
+          riderId: auth.rider?.id,
+        ),
+      ),
+    );
   }
 
   void _startLocationHeartbeat() {
@@ -150,6 +177,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    if (context.watch<AuthProvider>().courier != null) {
+      return const HubCourierHomeScreen();
+    }
     return Scaffold(
       extendBody: true,
       appBar: AppBar(

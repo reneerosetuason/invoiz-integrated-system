@@ -12,7 +12,8 @@ class VehicleTypeController extends Controller
     {
         $types = VehicleType::where('is_active', true)
             ->orderBy('sort_order')
-            ->get(['id', 'name', 'label', 'capacity_kg', 'sort_order']);
+            ->get(['id', 'name', 'label', 'capacity_kg', 'sort_order'])
+            ->filter(fn ($t) => $t->operationalCategory() === 'two_wheel');
 
         return response()->json([
             'vehicle_types' => $types->map(fn ($t) => [
@@ -20,6 +21,7 @@ class VehicleTypeController extends Controller
                 'name' => $t->name,
                 'label' => $t->label,
                 'capacity_kg' => (float) $t->capacity_kg,
+                'category' => $t->operationalCategory(),
             ])->values(),
         ]);
     }

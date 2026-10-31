@@ -7,6 +7,7 @@ use App\Models\LogisticsCenter;
 use App\Models\Notification;
 use App\Models\PickupRequest;
 use App\Models\User;
+use App\Support\LogisticsAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class PickupRequestController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        $isAdmin = $this->isGlobalAdmin($user);
+        $isAdmin = LogisticsAccess::isGlobal($user);
 
         $status = $request->input('status');
 
@@ -77,7 +78,7 @@ class PickupRequestController extends Controller
             'canReview' => $this->canReview($user, $pickupRequest) && $pickupRequest->center_id !== null,
             'canRoute' => $this->canRoute($user, $pickupRequest),
             'centers' => $this->canRoute($user, $pickupRequest)
-                ? LogisticsCenter::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
+            ? LogisticsCenter::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
                 : collect(),
         ]);
     }
@@ -287,20 +288,32 @@ class PickupRequestController extends Controller
 
     public function canReview(User $user, PickupRequest $pickupRequest): bool
     {
-        if ($this->isGlobalAdmin($user)) {
+        if (LogisticsAccess::isGlobal($user)) {
             return true;
         }
 
-        if (! $user->isLogisticsStaff()) {
+        if (! $user->isLogisticsStaff() || ! $pickupRequest->center_id) {
             return false;
         }
 
-        return $pickupRequest->center_id && $pickupRequest->center_id == $user->center_id;
+        $centerId = LogisticsAccess::centerId($user);
+
+        // Company managers may review every hub in their company.
+        if ($centerId === null) {
+            $centerCompanyId = (int) (LogisticsCenter::query()
+                ->whereKey((int) $pickupRequest->center_id)
+                ->value('logistics_company_id') ?? 0);
+
+            return LogisticsAccess::canAccessCompany($user, $centerCompanyId);
+        }
+
+        // Center-scoped staff: own hub only. A centerless account matches none.
+        return $centerId > 0 && (int) $pickupRequest->center_id === $centerId;
     }
 
     private function canRoute(User $user, PickupRequest $pickupRequest): bool
     {
-        if (! $this->isGlobalAdmin($user) || $pickupRequest->status !== 'pending') {
+        if (! LogisticsAccess::isGlobal($user) || $pickupRequest->status !== 'pending') {
             return false;
         }
 
@@ -339,14 +352,12 @@ class PickupRequestController extends Controller
     }
 
     /**
-     * Global logistics oversight is role-based: the admin and logistics_admin
-     * roles see and review every center. A legacy is_admin flag alone must not
-     * widen pickup scope, and a center assignment on an oversight account must
-     * not narrow it.
+     * Platform Administrators and the designated global Logistics Admin can
+     * see and review every center. Company staff remain center-scoped.
      */
     private function isGlobalAdmin(User $user): bool
     {
-        return $user->isLogisticsAdmin();
+        return $user->isAdmin() || $user->isLogisticsAdmin();
     }
 
     private function authorizeView(User $user, PickupRequest $pickupRequest): void
@@ -356,6 +367,5 @@ class PickupRequestController extends Controller
         }
     }
 }
-
 
 

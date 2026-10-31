@@ -7,6 +7,7 @@ use App\Mail\CenterApplicationRejectedMail;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCenterApplication;
 use App\Models\LogisticsCenterApplicationDocument;
+use App\Models\LogisticsCompany;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -15,11 +16,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 /**
- * Logistics Web ??? Logistics Center application review & center provisioning.
+ * Logistics Web ??? Logistics Hub application review & hub provisioning.
  * The admin-side counterpart to the mobile center apply flow: on approval a
  * LogisticsCenter is created and a staff login linked to it is provisioned.
  */
@@ -66,6 +68,7 @@ class CenterApplicationAdminController extends Controller
 
         return view('logistics.center-applications.show', [
             'application' => $application,
+            'companies' => LogisticsCompany::where('status', 'active')->orderBy('name')->get(['id', 'name', 'registration_number']),
         ]);
     }
 
@@ -78,6 +81,8 @@ class CenterApplicationAdminController extends Controller
         $validated = $request->validate([
             'password' => ['nullable', 'confirmed', Password::min(8)],
             'notes' => 'nullable|string|max:1000',
+            'logistics_company_id' => ['required', 'integer', Rule::exists('logistics_companies', 'id')->where('status', 'active')],
+            'ownership_evidence' => 'required|string|max:2000',
         ]);
 
         $admin = $request->user();
@@ -94,6 +99,13 @@ class CenterApplicationAdminController extends Controller
                 ->firstOrFail();
 
             abort_unless($application->status === 'pending', 422, 'Only pending applications can be approved.');
+            abort_if(
+                LogisticsCenter::where('name', $application->business_name)->exists(),
+                422,
+                'A logistics center with this name already exists. Review the existing hub before approving this application.'
+            );
+
+            $company = LogisticsCompany::whereKey($validated['logistics_company_id'])->where('status', 'active')->firstOrFail();
 
             $center = LogisticsCenter::create([
                 'name' => $application->business_name,
@@ -102,6 +114,9 @@ class CenterApplicationAdminController extends Controller
                 'province' => $application->province,
                 'phone' => $application->phone,
                 'is_active' => true,
+                'logistics_company_id' => $company->id,
+                'ownership_verified_at' => now(),
+                'ownership_verified_by' => $admin->id,
             ]);
 
             $first = trim((string) ($application->owner_first_name ?? ''));
@@ -114,11 +129,19 @@ class CenterApplicationAdminController extends Controller
                 $last = $last !== '' ? $last : ($nameParts[1] ?? $application->displayOwnerName());
             }
 
-            $user = User::where('email', $application->email)->first();
+            $user = User::query()
+                ->select(['id', 'email', 'role', 'is_admin', 'status', 'account_status', 'center_id', 'logistics_company_id'])
+                ->where('email', $application->email)
+                ->first();
             // Never strand an existing account: marketplace/admin logins are
             // preserved (one email keeps working everywhere); only the center
             // assignment is added. Brand-new applicants get a staff login with
             // mailed credentials as before.
+            abort_if(
+                $user?->isDesignatedLogisticsAdminAccount() || $user?->isAdmin() || $user?->isLogisticsAdmin(),
+                422,
+                'The global Logistics Admin and Platform Administrator cannot be assigned as company staff.'
+            );
             $keepLogin = $user && $user->keepsOwnLogin();
             if (! $user) {
                 $user = User::create([
@@ -134,12 +157,14 @@ class CenterApplicationAdminController extends Controller
                     'role' => 'logistics_staff',
                     'status' => 'active',
                     'center_id' => $center->id,
+                    'logistics_company_id' => $company->id,
                     'email_verified_at' => now(),
                 ]);
             } else {
                 $update = [
                     'status' => 'active',
                     'center_id' => $center->id,
+                    'logistics_company_id' => $company->id,
                 ];
                 if (! $keepLogin) {
                     $update['role'] = 'logistics_staff';
@@ -147,6 +172,13 @@ class CenterApplicationAdminController extends Controller
                 }
                 $user->update($update);
             }
+
+            \Illuminate\Support\Facades\DB::table('logistics_company_ownership_histories')->insert([
+                'logistics_center_id' => $center->id, 'from_company_id' => null, 'to_company_id' => $company->id,
+                'action' => 'application_approved', 'evidence' => $validated['ownership_evidence'] . ' (application #' . $application->id . ')',
+                'reason' => 'Center ownership was reviewed and associated with the selected registered company.', 'changed_by' => $admin->id,
+                'actor_name' => $admin->name, 'created_at' => now(), 'updated_at' => now(),
+            ]);
 
             $application->update([
                 'status' => 'approved',
@@ -158,7 +190,7 @@ class CenterApplicationAdminController extends Controller
 
             Notification::create([
                 'type' => 'center_approved',
-                'title' => 'Logistics Center Approved',
+                'title' => 'Logistics Hub Approved',
                 'message' => "{$application->business_name} was approved and a staff account was provisioned.",
                 'icon' => '✅',
                 'priority' => 'high',
@@ -204,7 +236,10 @@ class CenterApplicationAdminController extends Controller
             'Only approved and provisioned center accounts can have their credentials resent.'
         );
 
-        $user = User::where('email', $application->email)->whereIn('role', ['staff', 'logistics_staff'])->first();
+        $user = User::where('email', $application->email)
+            ->where('id', '!=', User::GLOBAL_LOGISTICS_ADMIN_ID)
+            ->whereIn('role', ['staff', 'logistics_staff'])
+            ->first();
 
         abort_unless($user instanceof User, 422, 'No provisioned staff account exists for this application.');
 
@@ -299,7 +334,7 @@ class CenterApplicationAdminController extends Controller
     private function serveDocument(LogisticsCenterApplicationDocument $document, string $disposition): \Symfony\Component\HttpFoundation\BinaryFileResponse
     {
         $user = request()->user();
-        if (! $user || ! in_array($user->role, ['admin', 'logistics_admin'], true)) {
+        if (! $user || (! $user->isAdmin() && ! $user->isLogisticsAdmin())) {
             abort(403, 'This action is restricted to administrators.');
         }
 
@@ -317,11 +352,9 @@ class CenterApplicationAdminController extends Controller
             abort(401);
         }
 
-        if (! in_array($user->role, ['admin', 'logistics_admin'], true)) {
+        if (! $user->isAdmin() && ! $user->isLogisticsAdmin()) {
             abort(403, 'This action is restricted to administrators.');
         }
     }
 }
-
-
 

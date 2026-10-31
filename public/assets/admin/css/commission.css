@@ -77,3 +77,37 @@
     .commission-rate-form{flex-wrap:wrap}
   }
   @media(prefers-reduced-motion:reduce){.admin-commission *{scroll-behavior:auto!important;transition:none!important}}
+
+/* ==========================================================================
+   Configurable Escrow & Stakeholder Distribution Card
+   ========================================================================== */
+.escrow-rates-panel{background:#fff;border:1px solid var(--commission-rule);border-radius:14px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.02)}
+.escrow-rates-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.escrow-rate-card{background:#F8FAFA;border:1px solid rgba(15,76,92,.12);border-radius:12px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;min-height:142px;transition:border-color .15s ease,box-shadow .15s ease}
+.escrow-rate-card:hover{border-color:rgba(15,76,92,.28);box-shadow:0 2px 6px rgba(15,76,92,.04)}
+.escrow-rate-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.escrow-rate-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--commission-ink);margin:0}
+.escrow-rate-badge{display:inline-block;font-size:10.5px;font-weight:600;padding:2.5px 7px;border-radius:5px;white-space:nowrap}
+.escrow-badge--shipment,.escrow-badge--item{background:#E6F4F1;color:#0F4C5C}
+.escrow-badge--interhub{background:#EDE9FE;color:#5B21B6}
+.escrow-badge--lastmile{background:#DCFCE7;color:#166534}
+.escrow-badge--automated{background:#FEF3C7;color:#92400E}
+.escrow-rate-input-wrap{position:relative;display:flex;align-items:center;margin-top:4px}
+.escrow-rate-prefix{position:absolute;left:11px;font-weight:700;font-size:14px;color:var(--commission-muted);pointer-events:none}
+.escrow-rate-field{width:100%;min-height:38px;padding:6px 12px 6px 28px;font-family:inherit;font-size:14px;font-weight:700;color:var(--commission-ink);background:#fff;border:1px solid rgba(15,76,92,.22);border-radius:8px;font-variant-numeric:tabular-nums;transition:border-color .15s ease,box-shadow .15s ease}
+.escrow-rate-field:focus{outline:none;border-color:var(--list-deep);box-shadow:0 0 0 3px rgba(15,76,92,.12)}
+.escrow-rate-hint{font-size:11.5px;color:var(--commission-muted);line-height:1.4;margin:8px 0 0}
+.escrow-summary-text{font-size:12px;color:var(--commission-ink);line-height:1.5;margin:6px 0 0}
+.escrow-save-btn{width:100%;min-height:38px;margin-top:12px;padding:8px 16px;background:var(--list-deep);color:#fff;font-family:inherit;font-size:12.5px;font-weight:700;border:none;border-radius:8px;cursor:pointer;box-shadow:0 1px 2px rgba(15,76,92,.15);transition:background-color .15s ease,transform .1s ease}
+.escrow-save-btn:hover{background:var(--list-teal)}
+.escrow-save-btn:active{transform:scale(.99)}
+
+/* Add Category Rate form bar */
+.category-rate-add-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 16px;background:#F8FAFA;border:1px dashed var(--commission-rule);border-radius:10px;margin-top:14px}
+.category-rate-add-form{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.category-rate-add-form select,.category-rate-add-form input{min-height:36px;padding:6px 10px;border:1px solid var(--commission-rule);border-radius:8px;background:#fff;font-family:inherit;font-size:13px;color:var(--commission-ink)}
+.category-rate-add-form button{min-height:36px;padding:6px 14px;border:none;border-radius:8px;background:var(--list-deep);color:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;transition:background-color .15s ease}
+.category-rate-add-form button:hover{background:var(--list-teal)}
+
+@media(max-width:1024px){.escrow-rates-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:640px){.escrow-rates-grid{grid-template-columns:1fr}}

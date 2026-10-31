@@ -4,22 +4,18 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/deep_link_service.dart';
-import '../../services/tutorial_completion_store.dart';
 import '../../widgets/deep_link_broker.dart';
 import '../auth/login_screen.dart';
 import '../home/home_shell.dart';
-import '../onboarding/rider_tutorial_screen.dart';
 
 /// Splash screen: restores the session, then routes to login or the shell.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({
     super.key,
     this.startupDeepLinkGate,
-    this.tutorialStore = const TutorialCompletionStore(),
   });
 
   final StartupDeepLinkGate? startupDeepLinkGate;
-  final TutorialCompletionStore tutorialStore;
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -41,19 +37,6 @@ class _SplashScreenState extends State<SplashScreen> {
     try {
       await auth.restoreSession().timeout(const Duration(seconds: 5));
     } catch (_) {}
-    if (!mounted) return;
-
-    final tutorialCompleted = await widget.tutorialStore
-        .isCompleted()
-        .catchError((_) => false);
-    if (!mounted) return;
-    if (!tutorialCompleted) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => const RiderTutorialScreen(),
-        ),
-      );
-    }
     if (!mounted) return;
 
     final target = auth.isAuthenticated ? const HomeShell() : const LoginScreen();

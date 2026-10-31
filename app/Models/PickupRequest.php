@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\LogisticsAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -94,23 +95,45 @@ class PickupRequest extends Model
     /**
      * Requests the given account is allowed to see in the Logistics UI.
      *
-     * Global oversight is role-based: the admin and logistics_admin roles see
-     * every center. A legacy is_admin flag alone does not widen pickup scope.
-     * Center-scoped staff see only their assigned center. Accounts without a
-     * logistics scope see nothing. This is the single source of truth shared
-     * by the index and the sidebar badge so the two can never drift apart.
+     * Platform Administrators and the designated global Logistics Admin see
+     * every center. Company managers see their company; center-scoped staff
+     * see only their assigned center. Accounts without a logistics scope see
+     * nothing. This is the single source of truth shared by the index and the
+     * sidebar badge so the two can never drift apart.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if ($user->isLogisticsAdmin()) {
+        if (LogisticsAccess::isGlobal($user)) {
             return $query;
         }
 
-        if ($user->isLogisticsStaff() && $user->center_id) {
-            return $query->whereNotNull('center_id')->where('center_id', $user->center_id);
+        if (! $user->isLogisticsStaff()) {
+            return $query->whereRaw('1 = 0');
         }
 
-        return $query->whereRaw('1 = 0');
+        $companyId = LogisticsAccess::companyId($user);
+        $centerId = LogisticsAccess::centerId($user);
+
+        if ($centerId === 0) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if ($companyId !== null && $companyId > 0) {
+            $query->whereIn(
+                'center_id',
+                LogisticsCenter::query()->select('id')->where('logistics_company_id', $companyId)
+            );
+        }
+
+        if ($centerId === null) {
+            // Company manager: every hub inside the company. A manager
+            // without a company has no scope at all.
+            return $companyId !== null && $companyId > 0 ? $query : $query->whereRaw('1 = 0');
+        }
+
+        // Center-scoped staff, including staff at a legacy hub that has no
+        // company assignment yet.
+        return $query->where('center_id', $centerId);
     }
 
     /**

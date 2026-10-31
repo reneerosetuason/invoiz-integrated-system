@@ -62,14 +62,20 @@ class LoginRequest extends FormRequest
 
         $user = Auth::user();
 
-        // admin/staff -> Logistics Center; rider -> rider messaging page.
-        // logistics_admin/logistics_staff -> Logistics Center
+        // Platform admins, logistics staff, and the designated global
+        // Logistics Admin may use the Logistics login; riders use their
+        // approved profile.
         // Marketplace accounts assigned to a center, or linked as riders
         // (approved without a role change), enter the same way. Any other
         // role has no access to this system.
         $linkedStaff = $user->hasProvisionedCenterAssignment();
         $linkedRider = $user->hasApprovedRiderProfile();
-        if (! in_array($user->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true) && ! $linkedStaff && ! $linkedRider) {
+        if (! $user->isAdmin()
+            && ! $user->isStaff()
+            && ! $user->isLogisticsAdmin()
+            && ! $user->isCompanyManager()
+            && ! $linkedStaff
+            && ! $linkedRider) {
             Auth::guard('web')->logout();
 
             throw ValidationException::withMessages([
@@ -80,7 +86,7 @@ class LoginRequest extends FormRequest
         // Main-marketplace administrators have their own login page and
         // must not enter through the Logistics login (legacy Logistics
         // accounts keep is_admin false and are unaffected).
-        if ($user->is_admin) {
+        if ($user->isAdmin()) {
             Auth::guard('web')->logout();
 
             throw ValidationException::withMessages([

@@ -8,7 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Promoter / operator "Open a Logistics Center" application flow, the
+ * Promoter / operator "Open a Logistics Hub" application flow, the
  * center-application counterpart to the rider apply flow. Applications land
  * in logistics_center_applications for admin review on the Logistics Web.
  * Validation, normalization, document storage, and the admin notification

@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\EscrowRemittance;
 use App\Models\PaymentDispute;
 use App\Models\Order;
 use App\Models\Seller;
 use Illuminate\Support\Facades\DB;
 use App\Models\SellerPayout;
 use App\Models\WithdrawalRequest;
+use App\Support\AuditLogger;
 use App\Support\Payments;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class PaymentActionController extends Controller
 {
@@ -25,6 +28,97 @@ class PaymentActionController extends Controller
         $payout->update(['status' => 'paid', 'paid_at' => now()]);
 
         return back()->with('status', 'Payout marked as paid.');
+    }
+
+    /**
+     * Release one escrow remittance. Only rows already marked ready
+     * (pending_remittance) are payable; held-in-escrow money must stay
+     * locked until the logistics workflow marks it earned.
+     */
+    public function remitEscrow(Request $request, $id)
+    {
+        $released = DB::transaction(function () use ($request, $id): ?array {
+            $remittance = EscrowRemittance::query()->lockForUpdate()->findOrFail($id);
+            if ($remittance->status !== 'pending_remittance') {
+                return null;
+            }
+
+            $reference = $request->input('bank_reference') ?: ('REMIT-' . strtoupper(Str::random(8)));
+            $remittance->update([
+                'status'         => 'remitted',
+                'bank_reference' => $reference,
+                'remitted_at'    => now(),
+                'remitted_by'    => auth()->id(),
+            ]);
+
+            (new AuditLogger)->record(
+                auth()->user(),
+                'escrow.remit',
+                'escrow_remittance',
+                $remittance->id,
+                ['status' => 'pending_remittance'],
+                ['status' => 'remitted', 'bank_reference' => $reference],
+                'Escrow bank remittance released'
+            );
+
+            return [
+                'amount' => (float) $remittance->amount,
+                'name' => $remittance->recipient_name,
+                'reference' => $reference,
+            ];
+        });
+
+        if ($released === null) {
+            return back()->with('status', 'That remittance is not ready for release.');
+        }
+
+        return back()->with('status', 'Remittance of ₱' . number_format($released['amount'], 2)
+            . " released to {$released['name']} (Ref: {$released['reference']}).");
+    }
+
+    public function remitAllPendingEscrow(Request $request)
+    {
+        $batch = 'BATCH-REMIT-' . strtoupper(Str::random(8));
+
+        $result = DB::transaction(function () use ($batch): array {
+            $rows = EscrowRemittance::query()
+                ->where('status', 'pending_remittance')
+                ->lockForUpdate()
+                ->get();
+
+            $count = 0;
+            $total = 0.0;
+            foreach ($rows as $row) {
+                $row->update([
+                    'status'         => 'remitted',
+                    'bank_reference' => $batch,
+                    'remitted_at'    => now(),
+                    'remitted_by'    => auth()->id(),
+                ]);
+
+                (new AuditLogger)->record(
+                    auth()->user(),
+                    'escrow.remit',
+                    'escrow_remittance',
+                    $row->id,
+                    ['status' => 'pending_remittance'],
+                    ['status' => 'remitted', 'bank_reference' => $batch],
+                    'Batch escrow bank remittance released'
+                );
+
+                $count++;
+                $total += (float) $row->amount;
+            }
+
+            return ['count' => $count, 'total' => $total];
+        });
+
+        if ($result['count'] === 0) {
+            return back()->with('status', 'No escrow remittances are ready for release.');
+        }
+
+        return back()->with('status', "Released {$result['count']} escrow remittance(s) totalling ₱"
+            . number_format($result['total'], 2) . " (Batch: {$batch}).");
     }
 
     public function approveWithdrawal($id)

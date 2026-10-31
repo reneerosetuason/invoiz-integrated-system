@@ -63,7 +63,7 @@
                     </div>
                 </form>
 
-                <p class="mt-4 text-center text-sm text-gray-400">Center staff can only find deliveries handled by their assigned center.</p>
+                <p class="mt-4 text-center text-sm text-gray-400">Logistics Hub Staff can only find deliveries handled by their assigned Logistics Hub.</p>
                 <p class="mt-2 text-center text-sm text-gray-400">e.g. TRK-20260101-XXXX</p>
             </div>
 
