@@ -149,7 +149,9 @@
         </div>
     </div>
 
-    @php($canManageRider = Auth::user()->canManageRiders() && (Auth::user()->isLogisticsAdmin() || (Auth::user()->center_id && (int) Auth::user()->center_id === (int) $rider->center_id)))
+    @php
+        $canManageRider = Auth::user()->canManageRiders() && (Auth::user()->isLogisticsAdmin() || (Auth::user()->center_id && (int) Auth::user()->center_id === (int) $rider->center_id));
+    @endphp
     @if($canManageRider)
         <div class="card p-6 mb-5">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">

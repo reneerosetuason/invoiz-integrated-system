@@ -32,6 +32,19 @@ class RiderEmailVerificationController extends Controller
 
         $email = strtolower(trim($validated['email']));
 
+        $marketplaceUser = \App\Models\User::where('email', $email)
+            ->whereIn('role', ['buyer', 'seller'])
+            ->first();
+
+        if ($marketplaceUser || \App\Models\Seller::where('email', $email)->exists()) {
+            return response()->json([
+                'message' => 'This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Rider account. Please use a separate email address.',
+                'errors' => [
+                    'email' => ['This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Rider account.'],
+                ],
+            ], 422);
+        }
+
         $recent = RiderEmailVerification::where('email', $email)
             ->whereNull('consumed_at')
             ->latest('id')

@@ -96,8 +96,14 @@
         </div>
     </div>
 
+    @php
+        $escrowRemittancesList = $escrowRemittancesList ?? $escrowRemittances ?? null;
+        $pendingEscrowRemittances = $pendingEscrowRemittances ?? (isset($escrowRemittancesList) ? collect($escrowRemittancesList->items())->where('status', 'pending_remittance') : collect());
+        $pendingEscrowTotal = $pendingEscrowTotal ?? ($escrowTotals['pending'] ?? 0);
+    @endphp
+
     {{-- ============================ ESCROW REMITTANCES ============================ --}}
-    <div style="background:#F7FAF9; border:1px solid #D2E7E4; border-radius:14px; padding:18px; margin-bottom:24px;">
+    <div id="escrow-remittances" style="background:#F7FAF9; border:1px solid #D2E7E4; border-radius:14px; padding:18px; margin-bottom:24px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
             <div>
                 <h2 style="font-size:16px; font-weight:800; color:#0E4A57; margin:0;">Escrow Remittances &amp; Stakeholder Payouts</h2>

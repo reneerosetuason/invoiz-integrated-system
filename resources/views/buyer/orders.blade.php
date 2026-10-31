@@ -8,9 +8,13 @@
     'pending' => 'To Ship',
     'out_for_delivery' => 'In Transit',
     'delivered' => 'Delivered',
+    'return' => 'Return',
     'cancelled' => 'Cancelled',
   ];
-  $pillFor = function($status){
+  $pillFor = function($status, $hasReturn = false){
+    if ($hasReturn || in_array($status, ['return_requested', 'returned', 'refunded'])) {
+      return ['Return', 'st-neutral', false];
+    }
     return match($status) {
       'delivered' => ['Delivered', 'st-done', true],
       'cancelled' => ['Cancelled', 'st-cancel', false],
@@ -55,7 +59,8 @@
 @else
   @foreach($orders as $o)
     @php
-      [$pillLabel, $pillClass, $pillCheck] = $pillFor($o->status);
+      $hasOrderReturn = ($o->returnRequests && $o->returnRequests->isNotEmpty()) || in_array($o->status, ['return_requested', 'returned', 'refunded']);
+      [$pillLabel, $pillClass, $pillCheck] = $pillFor($o->status, $hasOrderReturn);
       $oNames = $o->items->take(2)->pluck('product_name')->all();
       $oRest = $o->items->count() - count($oNames);
       $oRef = $o->order_number ?? ('INV-'.$o->id);
@@ -94,9 +99,16 @@
       <div class="ofoot">
         <span class="paychip {{ $isPaid ? 'paid' : '' }}">{{ $isPaid ? 'Paid' : 'Pending' }}</span>
         <span class="ototal">₱{{ number_format($o->total_amount ?? $o->total ?? 0,2) }}</span>
-        <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm trackbtn" aria-label="Track order {{ $oRef }}">Track
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </a>
+        <div style="display:flex;align-items:center;gap:8px">
+          @if($hasOrderReturn)
+            <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm" style="border-color:#3b82f6;color:#1e40af;text-decoration:none">Return Details</a>
+          @elseif($o->status === 'delivered')
+            <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm" style="border-color:#d97706;color:#b45309;text-decoration:none">Return / Refund</a>
+          @endif
+          <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm trackbtn" aria-label="Track order {{ $oRef }}">Track
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </a>
+        </div>
       </div>
     </article>
   @endforeach

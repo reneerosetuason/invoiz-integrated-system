@@ -22,17 +22,39 @@ Route::post('/orders/{order}/rate/{product}', [BuyerFeaturesController::class, '
 
 Route::post('/cart/add/{id}', function($id, Request $request){
   $buyer = \App\Support\BuyerSession::current();
-  if(!$buyer) return redirect('/login')->with('error','Please login to add items to cart');
+  if(!$buyer) {
+    if ($request->expectsJson() || $request->ajax()) {
+      return response()->json(['message' => 'Please login to add items to cart', 'redirect' => '/login'], 401);
+    }
+    return redirect('/login')->with('error','Please login to add items to cart');
+  }
   $request->validate(['qty' => ['nullable', 'integer', 'min:1', 'max:200'], 'variant_id' => ['nullable', 'integer', 'min:1']]);
   $product = Product::where('status', 'active')->find($id);
-  if(!$product) return redirect('/cart')->with('error','Product not found');
+  if(!$product) {
+    if ($request->expectsJson() || $request->ajax()) {
+      return response()->json(['message' => 'Product not found'], 404);
+    }
+    return redirect('/cart')->with('error','Product not found');
+  }
   $variant = Cart::purchaseVariant($product, $request->input('variant_id'));
-  if($error = Cart::addFor($buyer['id'], $product, $variant, (int)($request->input('qty') ?? 1))) return redirect('/cart')->with('error', $error);
+  if ($product->variants()->where('status', 'active')->exists() && ! $variant) {
+    $variant = $product->variants()->where('status', 'active')->where('stock', '>', 0)->first() ?? $product->variants()->where('status', 'active')->first();
+  }
+  if($error = Cart::addFor($buyer['id'], $product, $variant, (int)($request->input('qty') ?? 1))) {
+    if ($request->expectsJson() || $request->ajax()) {
+      return response()->json(['message' => $error], 422);
+    }
+    return redirect('/cart')->with('error', $error);
+  }
   $product->trackCartAddition();
+  $newCount = \App\Models\Cart::itemsFor($buyer['id'])->sum('quantity');
+  if ($request->expectsJson() || $request->ajax()) {
+    return response()->json(['success' => true, 'message' => 'Added to cart', 'cart_count' => $newCount]);
+  }
   return redirect('/cart')->with('success','Added to cart');
 });
 
-Route::get('/buy/{id}', function($id, Request $request){
+Route::match(['get', 'post'], '/buy/{id}', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to buy');
   $request->validate(['qty' => ['nullable', 'integer', 'min:1', 'max:200'], 'variant_id' => ['nullable', 'integer', 'min:1']]);
@@ -40,6 +62,9 @@ Route::get('/buy/{id}', function($id, Request $request){
   if(!$product) return redirect('/shop')->with('error','Product not found');
   $qty = max(1, min(200, $request->integer('qty', 1)));
   $variant = Cart::purchaseVariant($product, $request->input('variant_id'));
+  if ($product->variants()->where('status', 'active')->exists() && ! $variant) {
+    $variant = $product->variants()->where('status', 'active')->where('stock', '>', 0)->first() ?? $product->variants()->where('status', 'active')->first();
+  }
   $available = Cart::availableFor($product, $variant);
   if($available < 1) return back()->with('error', 'This item is out of stock.');
   $qty = min($qty, $available);
@@ -445,8 +470,13 @@ Route::get('/orders', function(Request $request){
   if(!$buyer) return redirect('/login')->with('error','Please login to view orders');
   $tab = $request->input('tab','all');
   $groups = ['pending'=>['pending','confirmed','processing','ready_for_delivery'],'out_for_delivery'=>['out_for_delivery','shipped'],'delivered'=>['delivered'],'cancelled'=>['cancelled']];
-  $q = \App\Models\Order::with('items.product')->where('buyer_id',$buyer['id']);
-  if($tab!=='all' && isset($groups[$tab])) $q->whereIn('status',$groups[$tab]);
+  $q = \App\Models\Order::with(['items.product', 'returnRequests'])->where('buyer_id',$buyer['id']);
+  if($tab === 'return'){
+    $q->where(function($sq){
+      $sq->whereIn('status', ['return_requested', 'returned', 'refunded'])
+         ->orWhereHas('returnRequests');
+    });
+  } elseif($tab!=='all' && isset($groups[$tab])) $q->whereIn('status',$groups[$tab]);
   if($request->filled('q')){
     $needle = '%'.$request->input('q').'%';
     $q->whereHas('items', fn($iq) => $iq->where('product_name','like',$needle));
@@ -460,7 +490,8 @@ Route::get('/orders/{id}', function($id, Request $request){
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $order = \App\Models\Order::with(['items.product','payment','deliveries','statusHistories'])->where('buyer_id',$buyer['id'])->findOrFail($id);
   $reviews = \App\Models\Review::where('buyer_id',$buyer['id'])->where('order_id',$order->id)->get()->keyBy('product_id');
-  return view('buyer.order', ['order'=>$order, 'reviews'=>$reviews]);
+  $returns = \App\Models\ReturnRequest::where('order_id', $order->id)->where('buyer_id', $buyer['id'])->get()->groupBy('order_item_id');
+  return view('buyer.order', ['order'=>$order, 'reviews'=>$reviews, 'returns'=>$returns]);
 })->whereNumber('id');
 
 Route::post('/orders/{id}/cancel', function($id, Request $request){
@@ -479,6 +510,111 @@ Route::post('/orders/{id}/cancel', function($id, Request $request){
 })->whereNumber('id');
 
 // ---- Buyer â†” seller chat (same threads the seller and admin see) ----
+Route::post('/orders/{id}/returns', function($id, Request $request){
+  $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
+  if(!$buyer) return redirect('/login')->with('error','Please login');
+
+  $validated = $request->validate([
+    'order_item_id' => ['required', 'integer', 'min:1'],
+    'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
+    'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'max:300'],
+    'quantity' => ['required', 'integer', 'min:1', 'max:9999'],
+    'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,mp4,mov,avi,webm,quicktime', 'max:51200'],
+  ], [
+    'evidence.required' => 'Please provide photo or video evidence for your return request.',
+    'evidence.mimes' => 'Evidence must be a photo (JPG, PNG, WEBP) or video (MP4, MOV, WEBM).',
+    'evidence.max' => 'Evidence file must not exceed 50MB.',
+  ]);
+
+  if ($validated['reason'] === 'other' && strlen(trim($validated['reason_details'] ?? '')) < 10) {
+    return back()->with('error', 'Please provide at least 10 characters explaining the other reason.');
+  }
+
+  try {
+    \Illuminate\Support\Facades\DB::transaction(function() use ($buyer, $validated, $id) {
+      $order = \App\Models\Order::with('items')->where('buyer_id', $buyer['id'])->lockForUpdate()->findOrFail($id);
+      if ($order->status !== 'delivered') {
+        throw new \Exception('You can only request a return after the order is delivered.');
+      }
+      $item = $order->items->where('id', (int) $validated['order_item_id'])->first();
+      if (! $item) {
+        throw new \Exception('The selected order item was not found.');
+      }
+      $windowDays = max(1, (int) \App\Models\Setting::get('return_window_days', 7));
+      $deliveredAt = $order->statusHistories()->where('to_status', 'delivered')->oldest('created_at')->value('created_at');
+      if (! $deliveredAt) {
+        $deliveredAt = $order->deliveries()->where('seller_id', $item->seller_id)->where('status', 'delivered')->max('delivered_at');
+      }
+      $deliveredAt = \Illuminate\Support\Carbon::parse($deliveredAt ?: $order->created_at);
+      if ($deliveredAt->lt(now()->subDays($windowDays))) {
+        throw new \Exception('The return window (' . $windowDays . ' days after delivery) has closed.');
+      }
+
+      $open = \App\Models\ReturnRequest::where('order_id', $order->id)
+        ->where('order_item_id', $item->id)
+        ->whereIn('status', ['requested', 'approved', 'item_received'])
+        ->first();
+      if ($open) {
+        throw new \Exception('You already have an open return request for this item.');
+      }
+
+      $completed = \App\Models\ReturnRequest::where('order_item_id', $item->id)->where('status', 'refunded');
+      $remaining = max(0, (int) $item->quantity - (int) (clone $completed)->sum('quantity'));
+      $qty = (int) ($validated['quantity'] ?? $remaining);
+      if ($qty < 1 || $qty > $remaining) {
+        throw new \Exception('The quantity exceeds the remaining returnable items.');
+      }
+
+      $sellerSubtotal = $order->sellerSubtotal((int) $item->seller_id);
+      $discount = $sellerSubtotal > 0
+        ? $order->voucherDiscountForSeller((int) $item->seller_id) * $item->lineTotal / $sellerSubtotal
+        : 0;
+      $lineNet = round(max(0, $item->lineTotal - $discount), 2);
+      $remainingRefund = round(max(0, $lineNet - (float) (clone $completed)->sum('refund_amount')), 2);
+      $refund = $qty === $remaining
+        ? $remainingRefund
+        : min(round($lineNet * $qty / $item->quantity, 2), $remainingRefund);
+
+      $evidenceFile = $request->file('evidence');
+      $evidencePath = null;
+      $evidenceType = null;
+      if ($evidenceFile) {
+        $mime = $evidenceFile->getMimeType() ?: '';
+        $evidenceType = str_starts_with($mime, 'video/') ? 'video' : 'image';
+        $evidencePath = $evidenceFile->store('returns', 'public');
+      }
+
+      $ret = \App\Models\ReturnRequest::create([
+        'order_id' => $order->id,
+        'order_item_id' => $item->id,
+        'buyer_id' => $buyer['id'],
+        'seller_id' => $item->seller_id,
+        'product_id' => $item->product_id,
+        'quantity' => $qty,
+        'reason' => $validated['reason'],
+        'reason_details' => $validated['reason_details'] ?? null,
+        'evidence_path' => $evidencePath,
+        'evidence_type' => $evidenceType,
+        'refund_amount' => $refund,
+        'status' => 'requested',
+      ]);
+
+      \App\Models\SellerNotification::create([
+        'seller_id' => $item->seller_id,
+        'order_id' => $order->id,
+        'product_id' => $item->product_id,
+        'type' => 'return_requested',
+        'title' => 'New return request',
+        'body' => 'Return #' . $ret->id . ' for ' . $qty . ' × ' . ($item->product_name ?: 'purchased item') . '. Review it in Returns & Refunds.',
+        'is_read' => false,
+      ]);
+    });
+    return redirect('/orders/' . $id)->with('success', 'Return request submitted successfully. The seller will review it shortly.');
+  } catch (\Throwable $e) {
+    return redirect('/orders/' . $id)->with('error', $e->getMessage());
+  }
+})->whereNumber('id');
+
 Route::get('/messages', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');

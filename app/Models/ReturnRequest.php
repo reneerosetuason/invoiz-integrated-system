@@ -15,11 +15,22 @@ class ReturnRequest extends Model
         'quantity',
         'reason',
         'reason_details',
+        'evidence_path',
+        'evidence_type',
         'refund_amount',
         'status',
         'decision_note',
         'resolved_at',
     ];
+
+    protected $appends = [
+        'evidence_url',
+    ];
+
+    public function getEvidenceUrlAttribute(): ?string
+    {
+        return $this->evidence_path ? asset('storage/' . $this->evidence_path) : null;
+    }
 
     protected $casts = [
         'quantity' => 'integer',

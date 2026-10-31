@@ -26,6 +26,7 @@ Route::middleware(OptionalBuyerAuthentication::class)->group(function () {
     // Cascading Region -> Barangay address options (PSGC), cached server-side.
     Route::get('/psgc/{path}', [App\Http\Controllers\Buyer\Api\PsgcController::class, 'show'])
         ->where('path', '.*');
+    Route::get('/help/faq', [App\Http\Controllers\Buyer\Api\HelpController::class, 'index']);
 });
 Route::post('/register', [App\Http\Controllers\Buyer\Api\AuthController::class, 'register'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
 Route::post('/login', [App\Http\Controllers\Buyer\Api\AuthController::class, 'login'])->middleware(\App\Http\Middleware\AuthenticationThrottle::class);
@@ -72,6 +73,9 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         ->whereNumber('order')
         ->whereNumber('delivery');
     Route::post('/orders/{id}/returns', [App\Http\Controllers\Buyer\Api\OrderController::class, 'requestReturn'])->whereNumber('id');
+
+    Route::get('/help/complaints', [App\Http\Controllers\Buyer\Api\HelpController::class, 'myComplaints']);
+    Route::post('/help/complaint', [App\Http\Controllers\Buyer\Api\HelpController::class, 'storeComplaint']);
 
     Route::get('/favorites', [FavoriteController::class, 'index']);
     Route::post('/favorites/toggle', [FavoriteController::class, 'toggle']);

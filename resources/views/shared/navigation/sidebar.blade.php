@@ -693,7 +693,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <x-icon name="card" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Payments</span>
           </a>
-          <a class="nav-link {{ request()->is('logistics/remittances*') ? 'active' : '' }}" href="{{ route('remittances.index') }}" title="COD Remittances">
+          <a class="nav-link {{ request()->is('admin/payments*') && request()->is('*escrow*') ? 'active' : '' }}" href="/admin/payments#escrow-remittances" title="COD Remittances">
             <x-icon name="dollar" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">COD Remittances</span>
           </a>

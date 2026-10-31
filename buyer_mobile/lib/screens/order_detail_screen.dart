@@ -192,7 +192,17 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         builder: (_) => OrderReturnDialog(
           item: item,
           maxQuantity: remaining,
-          submit: (body) => _api.post('orders/${widget.orderId}/returns', body),
+          submit: (body, [files]) {
+            if (files != null && files.isNotEmpty) {
+              final fields = body.map((k, v) => MapEntry(k, v.toString()));
+              return _api.postForm(
+                'orders/${widget.orderId}/returns',
+                fields,
+                files: files,
+              );
+            }
+            return _api.post('orders/${widget.orderId}/returns', body);
+          },
         ),
       );
       if (saved == null || !mounted) return;
@@ -328,6 +338,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text(
                   '${record['quantity']} item(s) · ${_fmt(double.tryParse('${record['refund_amount']}') ?? 0)}',
                 ),
+                if (record['evidence_path'] != null)
+                  Text(
+                    'Evidence: ${record['evidence_type'] == 'video' ? 'Video' : 'Photo'} attached',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 if ((record['decision_note'] as String?)?.trim().isNotEmpty ==
                     true)
                   Text('Store note: ${record['decision_note']}'),

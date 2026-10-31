@@ -134,7 +134,15 @@
       </div>
       @if($it->variant_label)<div style="font-size:11px;color:var(--text3);margin-top:2px">{{ $it->variant_label }}</div>@endif
       @if($o->status === 'delivered')
-        @php($existingReview = ($reviews ?? collect())->get($it->product_id))
+        @php
+          $existingReview = ($reviews ?? collect())->get($it->product_id);
+          $itemReturns = ($returns ?? collect())->get($it->id, collect());
+          $openReturn = $itemReturns->first(fn($r) => in_array($r->status, ['requested', 'approved', 'item_received']));
+          $refundedReturn = $itemReturns->first(fn($r) => $r->status === 'refunded');
+          $refundedQty = (int) $itemReturns->where('status', 'refunded')->sum('quantity');
+          $remainingQty = max(0, (int)$it->quantity - $refundedQty);
+        @endphp
+
         @if($existingReview)
           <div style="margin-top:8px;font-size:12px;color:#A16207;font-weight:700;display:flex;align-items:center;gap:4px;">
             <span>Your rating:</span>
@@ -160,6 +168,53 @@
             <input type="text" name="comment" maxlength="2000" placeholder="Write a review (optional)" style="flex:1;min-width:150px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-size:11px">
             <button type="submit" style="padding:7px 11px;border:0;border-radius:7px;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer">Submit rating</button>
           </form>
+        @endif
+
+        @if($openReturn)
+          <div style="margin-top:8px;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af">
+            <div style="font-weight:700;display:flex;align-items:center;gap:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+              Return {{ ucfirst($openReturn->status) }} ({{ $openReturn->quantity }} item{{ $openReturn->quantity > 1 ? 's' : '' }})
+            </div>
+            <div style="font-size:11px;color:#3b82f6;margin-top:2px">
+              Reason: {{ ucfirst(str_replace('_', ' ', $openReturn->reason)) }}
+              @if($openReturn->reason_details) — {{ $openReturn->reason_details }}@endif
+            </div>
+            @if($openReturn->evidence_path)
+              <div style="margin-top:6px;font-size:11px;color:#1e40af;display:flex;align-items:center;gap:6px">
+                <b>Evidence:</b>
+                <a href="{{ asset('storage/' . $openReturn->evidence_path) }}" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:underline;font-weight:600;display:inline-flex;align-items:center;gap:3px">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  View {{ $openReturn->evidence_type === 'video' ? 'Video' : 'Photo' }}
+                </a>
+              </div>
+            @endif
+            @if($openReturn->status === 'approved')
+              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">The seller approved your return. Please contact the seller via chat to arrange return handover.</div>
+            @elseif($openReturn->status === 'item_received')
+              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">The seller received the item. Refund will be settled shortly.</div>
+            @endif
+            @if($openReturn->decision_note)
+              <div style="margin-top:4px;font-size:11px;color:#1e3a8a"><b>Store note:</b> {{ $openReturn->decision_note }}</div>
+            @endif
+          </div>
+        @elseif($refundedReturn)
+          <div style="margin-top:8px;padding:8px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;color:#065f46">
+            <div style="font-weight:700;display:flex;align-items:center;gap:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Refunded (₱{{ number_format($refundedReturn->refund_amount, 2) }})
+            </div>
+            <div style="font-size:11px;margin-top:2px">{{ $refundedReturn->quantity }} item(s) refunded.</div>
+          </div>
+        @endif
+
+        @if(!$openReturn && $remainingQty > 0)
+          <div style="margin-top:8px">
+            <button type="button" onclick="openReturnModal({{ $it->id }})" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text);font-size:11px;font-weight:700;cursor:pointer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+              Request Return / Refund
+            </button>
+          </div>
         @endif
       @endif
       <div style="font-size:12px;color:var(--text2);margin-top:2px">Subtotal: ₱{{ number_format($it->subtotal ?? $it->price * $it->quantity,2) }}</div>
@@ -216,5 +271,117 @@
   <script src="{{ asset('assets/buyer/js/order.js') }}"></script>
 @elseif(! in_array($o->status, ['cancelled','delivered']))
   <div style="margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:var(--text2);font-size:12px;text-align:center">This order is {{ str_replace('_',' ',$o->status) }} and can no longer be cancelled. Contact the seller if you need help.</div>
+@endif
+
+@if($o->status === 'delivered')
+  @foreach($o->items as $it)
+    @php
+      $itemReturns = ($returns ?? collect())->get($it->id, collect());
+      $openReturn = $itemReturns->first(fn($r) => in_array($r->status, ['requested', 'approved', 'item_received']));
+      $refundedQty = (int) $itemReturns->where('status', 'refunded')->sum('quantity');
+      $remainingQty = max(0, (int)$it->quantity - $refundedQty);
+    @endphp
+    @if(!$openReturn && $remainingQty > 0)
+      <div id="return-modal-{{ $it->id }}" class="return-modal-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+        <div style="background:#fff;border-radius:14px;max-width:480px;width:100%;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);padding:20px;max-height:90vh;overflow-y:auto">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;border-bottom:1px solid var(--border-light);padding-bottom:10px">
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:var(--text)">Request Return / Refund</h3>
+            <button type="button" onclick="closeReturnModal({{ $it->id }})" style="background:none;border:none;cursor:pointer;color:var(--text2);font-size:22px;line-height:1">&times;</button>
+          </div>
+
+          <div style="font-size:13px;margin-bottom:14px;padding:10px;background:#f9fafb;border-radius:8px">
+            <div style="font-weight:700;color:var(--text)">{{ $it->product_name }}</div>
+            @if($it->variant_label)<div style="font-size:11px;color:var(--text2);margin-top:2px">{{ $it->variant_label }}</div>@endif
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Returnable quantity: up to {{ $remainingQty }}</div>
+          </div>
+
+          <form method="POST" action="{{ url('/orders/'.$o->id.'/returns') }}" enctype="multipart/form-data" onsubmit="return validateReturnForm({{ $it->id }})">
+            @csrf
+            <input type="hidden" name="order_item_id" value="{{ $it->id }}">
+
+            <div style="margin-bottom:12px">
+              <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">Reason for return</label>
+              <select name="reason" id="return-reason-{{ $it->id }}" onchange="handleReturnReasonChange({{ $it->id }})" required style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff">
+                <option value="damaged">Damaged item</option>
+                <option value="wrong_item">Wrong item</option>
+                <option value="not_as_described">Not as described</option>
+                <option value="changed_mind">Changed my mind</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div style="margin-bottom:12px">
+              <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">Quantity to return (up to {{ $remainingQty }})</label>
+              <input type="number" name="quantity" min="1" max="{{ $remainingQty }}" value="1" required style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+            </div>
+
+            <div id="return-details-wrap-{{ $it->id }}" style="margin-bottom:14px">
+              <label id="return-details-label-{{ $it->id }}" style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">Details (optional)</label>
+              <textarea name="reason_details" id="return-details-{{ $it->id }}" rows="3" maxlength="300" placeholder="Please provide additional details about the issue…" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;resize:vertical"></textarea>
+              <div id="return-details-help-{{ $it->id }}" style="font-size:11px;color:var(--text3);margin-top:3px">Max 300 characters.</div>
+            </div>
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:12px;font-weight:700;margin-bottom:4px">
+                Photo or Video Evidence <span style="color:#b91c1c">*</span>
+              </label>
+              <input type="file" name="evidence" id="return-evidence-{{ $it->id }}" accept="image/*,video/*" required style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:#fff">
+              <div style="font-size:11px;color:var(--text3);margin-top:4px">Upload a clear photo or short video showing the issue (JPG, PNG, WEBP, MP4, MOV, up to 50MB).</div>
+            </div>
+
+            <div style="display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--border-light);padding-top:12px">
+              <button type="button" onclick="closeReturnModal({{ $it->id }})" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:12px;font-weight:600;cursor:pointer">Keep Item</button>
+              <button type="submit" style="padding:8px 16px;border:none;border-radius:8px;background:var(--primary,#16697A);color:#fff;font-size:12px;font-weight:700;cursor:pointer">Send Request</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    @endif
+  @endforeach
+
+  <script>
+    function openReturnModal(itemId) {
+      var modal = document.getElementById('return-modal-' + itemId);
+      if (modal) modal.style.display = 'flex';
+    }
+    function closeReturnModal(itemId) {
+      var modal = document.getElementById('return-modal-' + itemId);
+      if (modal) modal.style.display = 'none';
+    }
+    function handleReturnReasonChange(itemId) {
+      var select = document.getElementById('return-reason-' + itemId);
+      var label = document.getElementById('return-details-label-' + itemId);
+      var textarea = document.getElementById('return-details-' + itemId);
+      if (select && label && textarea) {
+        if (select.value === 'other') {
+          label.innerHTML = 'Details <span style="color:#b91c1c">(required, at least 10 characters)</span>';
+          textarea.required = true;
+          textarea.minLength = 10;
+        } else {
+          label.textContent = 'Details (optional)';
+          textarea.required = false;
+          textarea.removeAttribute('minLength');
+        }
+      }
+    }
+    function validateReturnForm(itemId) {
+      var select = document.getElementById('return-reason-' + itemId);
+      var textarea = document.getElementById('return-details-' + itemId);
+      var fileInput = document.getElementById('return-evidence-' + itemId);
+      if (select && select.value === 'other') {
+        if (!textarea || textarea.value.trim().length < 10) {
+          alert('Please enter at least 10 characters explaining your return reason.');
+          if (textarea) textarea.focus();
+          return false;
+        }
+      }
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert('Please attach a photo or video evidence for your return request.');
+        if (fileInput) fileInput.focus();
+        return false;
+      }
+      return true;
+    }
+  </script>
 @endif
 @endsection

@@ -72,7 +72,14 @@ class RiderAccountProvisioner
                 ]);
             }
 
-            $email = $application->email;
+            $email = strtolower(trim((string) $application->email));
+
+            $existingMarketplace = User::where('email', $email)->whereIn('role', ['buyer', 'seller'])->first();
+            if ($existingMarketplace) {
+                throw ValidationException::withMessages([
+                    'email' => "This email is registered to a {$existingMarketplace->role} account on INVOIZ and cannot be used for a rider account.",
+                ]);
+            }
 
             $nameParts = array_values(array_filter(array_map('trim', explode(' ', $application->name))));
             $first = $nameParts[0] ?? $application->name;

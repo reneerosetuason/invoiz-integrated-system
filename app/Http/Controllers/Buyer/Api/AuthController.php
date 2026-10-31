@@ -32,7 +32,20 @@ class AuthController extends Controller
             'first_name' => ['required', 'string', 'max:100', new PersonName],
             'middle_initial' => ['nullable', 'string', 'max:10', new PersonName],
             'sex' => ['required', Rule::in(['male', 'female', 'other'])],
-            'email' => ['required', 'email', 'max:150', 'unique:users,email'],
+            'email' => [
+                'required',
+                'email',
+                'max:150',
+                'unique:users,email',
+                function ($attribute, $value, $fail) {
+                    $email = strtolower(trim((string) $value));
+                    if (\App\Models\Rider::where('email', $email)->exists()
+                        || \App\Models\RiderApplication::where('email', $email)->whereIn('status', ['pending', 'approved'])->exists()
+                        || \App\Models\LogisticsCenterApplication::where('email', $email)->where('status', '!=', 'rejected')->exists()) {
+                        $fail('This email is already registered with Logistics or Rider services and cannot be used for a buyer or seller account.');
+                    }
+                },
+            ],
             'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'phone' => ['required', 'string', 'max:30'],
             'birthday' => ['required', 'date', 'before_or_equal:'.now()->subYears(18)->toDateString()],

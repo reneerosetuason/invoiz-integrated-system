@@ -105,9 +105,15 @@ class Cart extends Model
         if (! $product || $product->trashed() || $product->status !== 'active') return 0;
         if ($variantId && ! $variant) return 0;
         if ($variant && ($variant->trashed() || ($variant->status ?? 'active') !== 'active' || (int) $variant->product_id !== (int) $product->id)) return 0;
-        return max(0, $variant
-            ? min((int) $variant->stock, (int) $product->stock)
-            : (int) $product->stock - (int) $product->variants()->sum('stock'));
+        if ($variant) {
+            return max(0, min((int) $variant->stock, (int) $product->stock));
+        }
+        $hasActiveVariants = $product->variants()->where('status', 'active')->exists();
+        if ($hasActiveVariants) {
+            $variantSum = (int) $product->variants()->where('status', 'active')->sum('stock');
+            return max(0, min((int) $product->stock, $variantSum));
+        }
+        return max(0, (int) $product->stock);
     }
 
     /** Serialize changes through the cart header to enforce stock and the 200-unit cap. */

@@ -82,7 +82,20 @@ class UnifiedAuthController extends Controller
                     }
                 },
             ],
-            'email' => 'required|email|max:150|unique:users,email',
+            'email' => [
+                'required',
+                'email',
+                'max:150',
+                'unique:users,email',
+                function ($attribute, $value, $fail) {
+                    $email = strtolower(trim((string) $value));
+                    if (\App\Models\Rider::where('email', $email)->exists()
+                        || \App\Models\RiderApplication::where('email', $email)->whereIn('status', ['pending', 'approved'])->exists()
+                        || \App\Models\LogisticsCenterApplication::where('email', $email)->where('status', '!=', 'rejected')->exists()) {
+                        $fail('This email is already registered with Logistics or Rider services and cannot be used for a buyer or seller account.');
+                    }
+                },
+            ],
             'password' => [
                 'required', 'string', 'min:8', 'confirmed',
                 function ($attribute, $value, $fail) {
@@ -327,9 +340,9 @@ class UnifiedAuthController extends Controller
             return back()->withErrors(['email' => 'Your account is not approved.'])->withInput();
         }
 
-        // Logistics accounts have their own dedicated login page.
-        if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
-            return back()->withErrors(['email' => 'This is a Logistics account. Please sign in on the Logistics login page.'])->withInput();
+        // Logistics and Rider accounts have their own dedicated login page / apps.
+        if (in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff', 'rider'], true) || $user->rider()->exists()) {
+            return back()->withErrors(['email' => 'This account is registered for Logistics/Rider. Please use the Logistics/Rider portal.'])->withInput();
         }
 
         if (! $user->email_verified_at) {
@@ -386,9 +399,16 @@ class UnifiedAuthController extends Controller
         }
         $state = bin2hex(random_bytes(16));
         $request->session()->put('google_oauth_state', $state);
+
+        $redirectUri = $request->getSchemeAndHttpHost() . '/auth/google/callback';
+        if (! filter_var($redirectUri, FILTER_VALIDATE_URL)) {
+            $redirectUri = config('services.google.redirect');
+        }
+        $request->session()->put('google_oauth_redirect_uri', $redirectUri);
+
         $params = http_build_query([
             'client_id' => $clientId,
-            'redirect_uri' => config('services.google.redirect'),
+            'redirect_uri' => $redirectUri,
             'response_type' => 'code',
             'scope' => 'openid email profile',
             'access_type' => 'online',
@@ -406,12 +426,16 @@ class UnifiedAuthController extends Controller
         if (! $request->filled('code')) {
             return redirect('/login')->withErrors(['email' => 'Google sign-in was cancelled.']);
         }
+        $redirectUri = $request->session()->pull('google_oauth_redirect_uri')
+            ?: ($request->getSchemeAndHttpHost() . '/auth/google/callback')
+            ?: config('services.google.redirect');
+
         try {
             $token = Http::asForm()->post('https://oauth2.googleapis.com/token', [
                 'code' => $request->input('code'),
                 'client_id' => config('services.google.client_id'),
                 'client_secret' => config('services.google.client_secret'),
-                'redirect_uri' => config('services.google.redirect'),
+                'redirect_uri' => $redirectUri,
                 'grant_type' => 'authorization_code',
             ])->throw()->json();
             $info = Http::withToken($token['access_token'])
@@ -432,9 +456,9 @@ class UnifiedAuthController extends Controller
             if ($user->hasBlockedMarketplaceApproval()) {
                 return redirect('/login')->withErrors(['email' => 'Your account is not approved.']);
             }
-            // Logistics accounts have their own dedicated login page.
-            if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
-                return redirect('/login')->withErrors(['email' => 'This is a Logistics account. Please sign in on the Logistics login page.']);
+            // Logistics and Rider accounts have their own dedicated login page / apps.
+            if (in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff', 'rider'], true) || $user->rider()->exists()) {
+                return redirect('/login')->withErrors(['email' => 'This account is registered for Logistics/Rider. Please use the Logistics/Rider portal.']);
             }
             // Google proved ownership of this email.
             $user->update(['email_verified_at' => $user->email_verified_at ?? now(), 'otp' => null, 'otp_expires_at' => null]);

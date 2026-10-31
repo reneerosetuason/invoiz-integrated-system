@@ -78,6 +78,13 @@ class CenterApplicationService
                 'required', 'email', 'max:255',
                 $notRejected('email'),
                 function ($attribute, $value, $fail) {
+                    $email = strtolower(trim((string) $value));
+                    if (\App\Models\User::where('email', $email)->whereIn('role', ['buyer', 'seller'])->exists()
+                        || \App\Models\Seller::where('email', $email)->exists()) {
+                        $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Logistics Center application.');
+                        return;
+                    }
+
                     if (is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL)
                         && ! RiderEmailVerification::isVerified($value)) {
                         $fail('Please verify your email address before submitting your application.');

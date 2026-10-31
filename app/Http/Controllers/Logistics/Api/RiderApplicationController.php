@@ -60,6 +60,13 @@ class RiderApplicationController extends Controller
                 'max:255',
                 'unique:riders,email',
                 Rule::unique('rider_applications', 'email')->where($activeApplication),
+                function ($attribute, $value, $fail) {
+                    $email = strtolower(trim((string) $value));
+                    if (\App\Models\User::where('email', $email)->whereIn('role', ['buyer', 'seller'])->exists()
+                        || \App\Models\Seller::where('email', $email)->exists()) {
+                        $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Rider account.');
+                    }
+                },
             ],
             'phone' => [
                 'required',

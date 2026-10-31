@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../services/api_service.dart';
+import '../services/psgc_service.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
@@ -42,9 +43,181 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _busy = false;
   bool _loaded = false;
 
+  late final PsgcService _psgc;
+  List<PsgcItem> _regions = const [];
+  List<PsgcItem> _provinceOptions = const [];
+  List<PsgcItem> _cityOptions = const [];
+  List<PsgcItem> _barangayOptions = const [];
+
+  PsgcItem? _region;
+  PsgcItem? _selectedProvince;
+  PsgcItem? _selectedCity;
+  PsgcItem? _selectedBarangay;
+
+  bool _provinceLevelIsCity = false;
+  bool _manual = false;
+  bool _loadingRegions = true;
+  bool _loadingProvinces = false;
+  bool _loadingCities = false;
+  bool _loadingBarangays = false;
+
   @override
   void initState() {
     super.initState();
+    _psgc = PsgcService();
+    _loadRegions();
+  }
+
+  Future<void> _loadRegions() async {
+    final regions = await _psgc.regions();
+    if (!mounted) return;
+    if (regions.isEmpty) {
+      setState(() {
+        _loadingRegions = false;
+        _manual = true;
+      });
+      return;
+    }
+    setState(() {
+      _regions = regions;
+      _loadingRegions = false;
+    });
+    await _restoreSaved();
+  }
+
+  Future<void> _restoreSaved() async {
+    final user = AuthServiceProvider.of(context).user;
+    if (user == null || _regions.isEmpty) return;
+    final savedProv = user.province ?? _province.text.trim();
+    final savedCity = user.municipality ?? _municipality.text.trim();
+    final savedBarangay = user.barangay ?? _barangay.text.trim();
+    if (savedProv.isEmpty && savedCity.isEmpty) return;
+
+    var code = _codeOf(_regions, savedProv);
+    if (code == null) {
+      code = await _psgc.regionCodeFor(
+        savedProv.isNotEmpty ? savedProv : savedCity,
+      );
+    }
+    if (!mounted) return;
+    final region = code == null ? null : _itemOf(_regions, code);
+    if (region == null) return;
+    await _selectRegion(
+      region,
+      restoreProvince: savedProv,
+      restoreCity: savedCity,
+      restoreBarangay: savedBarangay,
+    );
+  }
+
+  Future<void> _selectRegion(
+    PsgcItem region, {
+    String? restoreProvince,
+    String? restoreCity,
+    String? restoreBarangay,
+  }) async {
+    setState(() {
+      _region = region;
+      _selectedProvince = null;
+      _provinceOptions = const [];
+      _selectedCity = null;
+      _cityOptions = const [];
+      _selectedBarangay = null;
+      _barangayOptions = const [];
+      _provinceLevelIsCity = false;
+      _loadingProvinces = true;
+    });
+    var options = await _psgc.provinces(region.code);
+    if (!mounted) return;
+    var isCityLevel = false;
+    if (options.isEmpty) {
+      options = await _psgc.regionCities(region.code);
+      if (!mounted) return;
+      isCityLevel = true;
+    }
+    setState(() {
+      _provinceLevelIsCity = isCityLevel;
+      _provinceOptions = options;
+      _loadingProvinces = false;
+    });
+    final wanted = (restoreCity != null && restoreCity.isNotEmpty)
+        ? restoreCity
+        : (restoreProvince ?? '');
+    final match = _itemOf(options, _codeOf(options, wanted) ?? '');
+    if (match != null) {
+      await _selectProvince(
+        match,
+        restoreCity: restoreCity,
+        restoreBarangay: restoreBarangay,
+      );
+    }
+  }
+
+  Future<void> _selectProvince(
+    PsgcItem province, {
+    String? restoreCity,
+    String? restoreBarangay,
+  }) async {
+    setState(() {
+      _selectedProvince = province;
+      _selectedCity = null;
+      _cityOptions = const [];
+      _selectedBarangay = null;
+      _barangayOptions = const [];
+    });
+    if (_provinceLevelIsCity) {
+      setState(() => _cityOptions = [province]);
+      await _selectCity(province, restoreBarangay: restoreBarangay);
+      return;
+    }
+    setState(() => _loadingCities = true);
+    final options = await _psgc.cities(province.code);
+    if (!mounted) return;
+    setState(() {
+      _cityOptions = options;
+      _loadingCities = false;
+    });
+    final match = _itemOf(options, _codeOf(options, restoreCity ?? '') ?? '');
+    if (match != null) {
+      await _selectCity(match, restoreBarangay: restoreBarangay);
+    }
+  }
+
+  Future<void> _selectCity(PsgcItem city, {String? restoreBarangay}) async {
+    setState(() {
+      _selectedCity = city;
+      _selectedBarangay = null;
+      _barangayOptions = const [];
+      _loadingBarangays = true;
+    });
+    final options = await _psgc.barangays(city.code);
+    if (!mounted) return;
+    setState(() {
+      _barangayOptions = options;
+      _loadingBarangays = false;
+    });
+    final match = _itemOf(
+      options,
+      _codeOf(options, restoreBarangay ?? '') ?? '',
+    );
+    if (match != null) setState(() => _selectedBarangay = match);
+  }
+
+  static String? _codeOf(List<PsgcItem> items, String name) {
+    final wanted = name.trim().toLowerCase();
+    if (wanted.isEmpty) return null;
+    for (final item in items) {
+      if (item.name.toLowerCase() == wanted) return item.code;
+    }
+    return null;
+  }
+
+  static PsgcItem? _itemOf(List<PsgcItem> items, String code) {
+    if (code.isEmpty) return null;
+    for (final item in items) {
+      if (item.code == code) return item;
+    }
+    return null;
   }
 
   @override
@@ -64,6 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _barangay.text = user.barangay ?? '';
         _bio.text = user.bio ?? '';
         _sex = user.sex;
+        _restoreSaved();
       }
     }
   }
@@ -136,15 +310,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         );
       }
+      final provinceVal = _manual
+          ? _province.text.trim()
+          : (_selectedProvince?.name ?? _province.text.trim());
+      final municipalityVal = _manual
+          ? _municipality.text.trim()
+          : (_selectedCity?.name ?? _municipality.text.trim());
+      final barangayVal = _manual
+          ? _barangay.text.trim()
+          : (_selectedBarangay?.name ?? _barangay.text.trim());
+
       await api.postForm('profile', {
         'last_name': _lastName.text.trim(),
         'first_name': _firstName.text.trim(),
         'middle_initial': _middleInitial.text.trim(),
         'sex': _sex ?? '',
         'phone': _phone.text.trim(),
-        'province': _province.text.trim(),
-        'municipality': _municipality.text.trim(),
-        'barangay': _barangay.text.trim(),
+        'province': provinceVal,
+        'municipality': municipalityVal,
+        'barangay': barangayVal,
         'address_line': _street.text.trim(),
         'bio': _bio.text.trim(),
         if (_password.text.isNotEmpty)
@@ -349,23 +533,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  BuyerField.form(
-                    controller: _province,
-                    decoration: const InputDecoration(labelText: 'Province'),
-                  ),
-                  const SizedBox(height: 12),
-                  BuyerField.form(
-                    controller: _municipality,
-                    decoration: const InputDecoration(
-                      labelText: 'Municipality',
+                  if (_manual) ...[
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Text(
+                        'Address lookup is unavailable. Enter your province, city and barangay manually.',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  BuyerField.form(
-                    controller: _barangay,
-                    decoration: const InputDecoration(labelText: 'Barangay'),
-                  ),
-                  const SizedBox(height: 12),
+                    BuyerField.form(
+                      controller: _province,
+                      decoration: const InputDecoration(labelText: 'Province'),
+                    ),
+                    const SizedBox(height: 12),
+                    BuyerField.form(
+                      controller: _municipality,
+                      decoration: const InputDecoration(
+                        labelText: 'City / Municipality',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    BuyerField.form(
+                      controller: _barangay,
+                      decoration: const InputDecoration(labelText: 'Barangay'),
+                    ),
+                    const SizedBox(height: 12),
+                  ] else ...[
+                    _PsgcDropdownField(
+                      key: const ValueKey('profile-region'),
+                      label: 'Region',
+                      value: _region,
+                      items: _regions,
+                      loading: _loadingRegions,
+                      emptyHint: 'Select region…',
+                      onChanged: (item) => _selectRegion(item),
+                    ),
+                    const SizedBox(height: 12),
+                    _PsgcDropdownField(
+                      key: const ValueKey('profile-province'),
+                      label: 'Province',
+                      value: _selectedProvince,
+                      items: _provinceOptions,
+                      loading: _loadingProvinces,
+                      emptyHint: _region == null
+                          ? 'Select region first'
+                          : (_provinceLevelIsCity
+                              ? 'Select city…'
+                              : 'Select province…'),
+                      onChanged: (item) => _selectProvince(item),
+                    ),
+                    const SizedBox(height: 12),
+                    _PsgcDropdownField(
+                      key: const ValueKey('profile-city'),
+                      label: 'City / Municipality',
+                      value: _selectedCity,
+                      items: _cityOptions,
+                      loading: _loadingCities,
+                      emptyHint: _selectedProvince == null
+                          ? 'Select province first'
+                          : 'Select city / municipality…',
+                      onChanged: (item) => _selectCity(item),
+                    ),
+                    const SizedBox(height: 12),
+                    _PsgcDropdownField(
+                      key: const ValueKey('profile-barangay'),
+                      label: 'Barangay',
+                      value: _selectedBarangay,
+                      items: _barangayOptions,
+                      loading: _loadingBarangays,
+                      emptyHint: _selectedCity == null
+                          ? 'Select city first'
+                          : 'Select barangay…',
+                      onChanged: (item) => setState(() => _selectedBarangay = item),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   BuyerField.form(
                     controller: _street,
                     decoration: const InputDecoration(
@@ -499,6 +741,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _PsgcDropdownField extends StatelessWidget {
+  final String label;
+  final PsgcItem? value;
+  final List<PsgcItem> items;
+  final bool loading;
+  final String emptyHint;
+  final ValueChanged<PsgcItem> onChanged;
+
+  const _PsgcDropdownField({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.loading,
+    required this.emptyHint,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = loading ? 'Loading…' : emptyHint;
+    return BuyerPicker<String>(
+      value: value?.code,
+      hint: Text(hint, style: const TextStyle(color: AppColors.textMuted)),
+      decoration: InputDecoration(labelText: label),
+      items: items
+          .map<DropdownMenuItem<String>>(
+            (item) => DropdownMenuItem(
+              value: item.code,
+              child: Text(
+                item.name,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppColors.textPrimary),
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (code) {
+        final item = _ProfileScreenState._itemOf(items, code ?? '');
+        if (item != null) onChanged(item);
+      },
     );
   }
 }

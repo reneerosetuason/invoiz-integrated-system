@@ -99,12 +99,32 @@
 
       @php $vgroups = $p->variants->where('status','active')->groupBy('variant_type'); @endphp
       @if($vgroups->isNotEmpty())
-        <div class="vhelper">Available variations: {{ $vgroups->keys()->implode(', ') }} (choose in options)</div>
+        <div style="margin:14px 0 10px">
+          @foreach($vgroups as $type => $opts)
+            <div style="font-size:12px;font-weight:700;margin:6px 0 6px">{{ $type }}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap" data-vgroup="{{ $type }}">
+              @foreach($opts as $v)
+                @php $vOut = min((int) $p->stock, (int) $v->stock) < 1; @endphp
+                <button type="button" class="opt-pill" data-variant="{{ $v->id }}" data-adj="{{ $v->price_adjustment }}" data-stock="{{ max(0, min((int) $p->stock, (int) $v->stock)) }}" data-label="{{ $v->variant_type }}: {{ $v->variant_value }}" @if($vOut) disabled title="Out of stock" @else onclick="pickVariant(this)" @endif style="padding:7px 14px;border-radius:999px;border:1px solid var(--border);background:{{ $vOut ? '#f3f4f6' : '#fff' }};font-size:12px;font-weight:600;cursor:{{ $vOut ? 'not-allowed' : 'pointer' }};font-family:inherit;{{ $vOut ? 'opacity:.5;text-decoration:line-through;' : '' }}">{{ $v->variant_value }}{{ $v->price_adjustment > 0 ? ' (+₱'.number_format($v->price_adjustment,2).')' : '' }}</button>
+              @endforeach
+            </div>
+          @endforeach
+        </div>
       @endif
 
+      <div style="margin:12px 0 16px">
+        <div style="font-size:12px;font-weight:700;margin-bottom:6px">Quantity</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button type="button" onclick="optQty(-1)" aria-label="Decrease quantity" style="width:32px;height:32px;border-radius:50%;background:#fff;border:1px solid var(--border);font-weight:800;font-size:14px;cursor:pointer">−</button>
+          <span id="pageQtyVal" style="min-width:32px;text-align:center;font-weight:800;font-size:14px">1</span>
+          <button type="button" onclick="optQty(1)" aria-label="Increase quantity" style="width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer">+</button>
+          <span id="pageAvail" style="font-size:12px;color:var(--text3);margin-left:6px">{{ $p->stock }} available</span>
+        </div>
+      </div>
+
       <div class="p-actions">
-        <button type="button" onclick="openOpt()" class="btn-p btn-line"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Add to Cart</button>
-        <button type="button" onclick="openOpt(true)" class="btn-p btn-solid"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Buy Now</button>
+        <button type="button" onclick="confirmOpt('cart')" class="btn-p btn-line opt-btn-cart"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>Add to Cart</button>
+        <button type="button" onclick="confirmOpt('buy')" class="btn-p btn-solid opt-btn-buy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Buy Now</button>
       </div>
 
       @if($inCart)
@@ -196,7 +216,7 @@
 
 {{-- Order options retain the chosen stock, price and quantity through checkout. --}}
 <div id="optModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(10,47,58,.45);align-items:center;justify-content:center;padding:16px">
-  <div style="border-radius:20px;max-width:420px;width:100%;padding:20px;max-height:90vh;overflow:auto" role="dialog" aria-modal="true" aria-label="Order options">
+  <div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.25)" role="dialog" aria-modal="true" aria-label="Order options">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
       <div style="font-weight:800;font-size:15px">Order options</div>
       <button type="button" onclick="closeOpt()" aria-label="Close options" style="background:transparent;border:none;cursor:pointer;color:var(--text3);padding:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -229,5 +249,5 @@
     </div>
   </div>
 </div>
-<script src="{{ asset('assets/buyer/js/product.js') }}?v={{ filemtime(public_path('assets/buyer/js/product.js')) }}" data-config="{{ json_encode([($effPrice), ((int) $p->stock), ($vgroups->isNotEmpty()), (url('/buy/'.$p->id)), (url('/cart/add/'.$p->id)), (csrf_token())], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+<script id="product-config-script" src="{{ asset('assets/buyer/js/product.js') }}?v={{ filemtime(public_path('assets/buyer/js/product.js')) }}" data-config="{{ json_encode([($effPrice), ((int) $p->stock), ($vgroups->isNotEmpty()), ('/buy/'.$p->id), ('/cart/add/'.$p->id), (csrf_token()), ((int)$p->id)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
 @endsection

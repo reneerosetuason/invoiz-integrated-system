@@ -81,15 +81,15 @@
               </div>
               <div class="iact">
                 <div class="step" role="group" aria-label="Quantity for {{ $p->name }}">
-                  <form method="POST" action="{{ url('/cart/dec/'.$l['item']->id) }}">@csrf<button type="submit" aria-label="Decrease quantity">−</button></form>
+                  <form method="POST" action="/cart/dec/{{ $l['item']->id }}">@csrf<button type="submit" aria-label="Decrease quantity">−</button></form>
                   <span class="qv" aria-live="polite">{{ $qty }}</span>
                   @if($atMax)
                     <span class="stepdis" title="Only {{ $avail }} available" aria-disabled="true" aria-label="Maximum reached">+</span>
                   @else
-                    <form method="POST" action="{{ url('/cart/inc/'.$l['item']->id) }}">@csrf<button type="submit" aria-label="Increase quantity">+</button></form>
+                    <form method="POST" action="/cart/inc/{{ $l['item']->id }}">@csrf<button type="submit" aria-label="Increase quantity">+</button></form>
                   @endif
                 </div>
-                <form method="POST" action="{{ url('/cart/remove/'.$l['item']->id) }}">@csrf<button type="submit" class="rmbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Remove</button></form>
+                <form method="POST" action="/cart/remove/{{ $l['item']->id }}">@csrf<button type="submit" class="rmbtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Remove</button></form>
               </div>
             </div>
           @endforeach

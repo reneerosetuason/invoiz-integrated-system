@@ -390,6 +390,11 @@ class OrderController extends Controller
             'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
             'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'max:300', ...($request->input('reason') === 'other' ? ['min:10'] : [])],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
+            'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,mp4,mov,avi,webm,quicktime', 'max:51200'],
+        ], [
+            'evidence.required' => 'Please provide photo or video evidence for your return request.',
+            'evidence.mimes' => 'Evidence must be a photo (JPG, PNG, WEBP) or video (MP4, MOV, WEBM).',
+            'evidence.max' => 'Evidence file must not exceed 50MB.',
         ]);
 
         return DB::transaction(function () use ($request, $validated, $id) {
@@ -444,6 +449,15 @@ class OrderController extends Controller
                 ? $remainingRefund
                 : min(round($lineNet * $qty / $item->quantity, 2), $remainingRefund);
 
+            $evidenceFile = $request->file('evidence');
+            $evidencePath = null;
+            $evidenceType = null;
+            if ($evidenceFile) {
+                $mime = $evidenceFile->getMimeType() ?: '';
+                $evidenceType = str_starts_with($mime, 'video/') ? 'video' : 'image';
+                $evidencePath = $evidenceFile->store('returns', 'public');
+            }
+
             $return = ReturnRequest::create([
                 'order_id' => $order->id,
                 'order_item_id' => $item->id,
@@ -453,6 +467,8 @@ class OrderController extends Controller
                 'quantity' => $qty,
                 'reason' => $validated['reason'],
                 'reason_details' => $validated['reason_details'] ?? null,
+                'evidence_path' => $evidencePath,
+                'evidence_type' => $evidenceType,
                 'refund_amount' => $refund,
                 'status' => 'requested',
             ]);

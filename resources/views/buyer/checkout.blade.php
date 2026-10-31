@@ -16,7 +16,7 @@
 <div class="checkout-grid">
   <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px">
     <h3 style="margin:0 0 10px;font-size:14px">Payment method</h3>
-    <form method="POST" action="{{ url('/checkout') }}">
+    <form method="POST" action="/checkout">
       @csrf
       @if($single)
         <input type="hidden" name="checkout_mode" value="single">

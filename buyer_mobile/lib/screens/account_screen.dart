@@ -11,6 +11,7 @@ import 'wishlist_screen.dart';
 import 'login_screen.dart';
 import 'orders_screen.dart';
 import 'profile_screen.dart';
+import 'help_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -173,6 +174,24 @@ class _AccountScreenState extends State<AccountScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Support & Information',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 10),
+          CupertinoListSection.insetGrouped(
+            margin: EdgeInsets.zero,
+            backgroundColor: Colors.transparent,
+            children: [
+              _menuTile(CupertinoIcons.question_circle, 'Help & FAQ', () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HelpFaqScreen()),
                 );
               }),
             ],

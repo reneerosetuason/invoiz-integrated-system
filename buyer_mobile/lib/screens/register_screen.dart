@@ -239,8 +239,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return BuyerScaffold(
-      backgroundColor: AppColors.paper,
-      title: 'Create account',
+      backgroundColor: AppColors.background,
+      title: 'Create Account',
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -251,22 +251,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: EdgeInsets.zero,
               children: [
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 24, 20, 0),
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
                   child: BuyerPageHeading(
                     title: 'Create your account',
                     description:
-                        'Join Invoiz to save your finds and track every order.',
+                        'Join Invoiz to discover curated finds, save favorites, and track every order.',
                   ),
                 ),
                 FadeSlideIn(
-                  delayMs: 260,
+                  delayMs: 200,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         BuyerPanel(
-                          title: 'Your details',
+                          title: 'Personal Information',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -314,14 +314,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               const SizedBox(height: 12),
                               _field(
-                                'E-mail*',
+                                'E-mail address*',
                                 _email,
                                 icon: CupertinoIcons.mail,
                                 required: true,
                                 keyboard: TextInputType.emailAddress,
                               ),
                               _field(
-                                'Contact No.*',
+                                'Mobile Number*',
                                 _phone,
                                 icon: CupertinoIcons.phone,
                                 required: true,
@@ -333,34 +333,42 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 borderRadius: BorderRadius.circular(14),
                                 child: InputDecorator(
                                   decoration: const InputDecoration(
-                                    labelText: 'Birthday*',
+                                    labelText: 'Date of Birth*',
                                     prefixIcon: Icon(Icons.cake_outlined),
                                   ),
                                   child: Text(
                                     _birthday.text.isEmpty
-                                        ? 'YYYY-MM-DD'
+                                        ? 'Select birthday (YYYY-MM-DD)'
                                         : _birthday.text,
                                     style: TextStyle(
                                       color: _birthday.text.isEmpty
                                           ? AppColors.textSecondary
                                           : AppColors.textPrimary,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ),
                               ),
                               if (_birthDate != null)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    'Age (auto): ${_calcAge(_birthDate!)}',
-                                    style: TextStyle(
-                                      color: AppColors.success,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  padding: const EdgeInsets.only(top: 6, left: 4),
+                                  child: Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 5,
+                                    children: [
+                                      const Icon(CupertinoIcons.checkmark_circle_fill, size: 14, color: AppColors.success),
+                                      Text(
+                                        'Age (auto-computed): ${_calcAge(_birthDate!)} years old',
+                                        style: const TextStyle(
+                                          color: AppColors.success,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 14),
                               _field(
                                 'Password*',
                                 _password,
@@ -377,26 +385,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 confirmWith: _password,
                               ),
 
-                              const SizedBox(height: 18),
+                              const SizedBox(height: 12),
                             ],
                           ),
                         ),
                         const SizedBox(height: 16),
                         BuyerPanel(
-                          title: 'Delivery address',
+                          title: 'Default Delivery Address',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              SwitchListTile(
+                              SwitchListTile.adaptive(
                                 contentPadding: EdgeInsets.zero,
-                                title: const Text('Enter address manually'),
+                                activeColor: AppColors.primary,
+                                title: const Text(
+                                  'Enter address manually',
+                                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                                ),
                                 subtitle: const Text(
-                                  'Use this if your city is not listed or the address lookup is unavailable.',
+                                  'Enable this if your location is not found in the online lookup.',
+                                  style: TextStyle(fontSize: 12),
                                 ),
                                 value: _manualAddress,
                                 onChanged: (value) =>
                                     setState(() => _manualAddress = value),
                               ),
+                              const SizedBox(height: 8),
                               if (_manualAddress) ...[
                                 _field(
                                   'Province / Metro Manila',
@@ -475,7 +489,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         BuyerButton.primary(
                           onPressed: _busy ? null : _submit,
                           style: ElevatedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(46),
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
                           ),
                           child: _busy
                               ? const SizedBox(
@@ -486,20 +503,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 )
                               : const Text(
-                                  'Submit Registration',
-                                  style: TextStyle(fontSize: 15),
+                                  'Complete Registration',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                                 ),
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'After submitting your registration, please wait for the administrator\'s approval, which will be sent to your email.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceTint.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border.withValues(alpha: 0.6), width: 0.8),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(CupertinoIcons.info_circle, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'After submitting, a verification code will be sent to your email. Account review notice will be delivered upon completion.',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 6,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              'Already registered?',
+                              style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+                            ),
+                            GestureDetector(
+                              onTap: () => Navigator.pop(context),
+                              child: Text(
+                                'Sign In instead',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.primary,
+                                  decoration: TextDecoration.underline,
+                                  decorationColor: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 28),
                       ],
                     ),
                   ),

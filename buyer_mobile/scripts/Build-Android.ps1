@@ -1,4 +1,4 @@
-param([string]$ApiBaseUrl = '', [switch]$NoPub)
+param([string]$ApiBaseUrl = 'https://invoiz.store/api', [switch]$NoPub)
 
 $ErrorActionPreference = 'Stop'
 $buyerRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
