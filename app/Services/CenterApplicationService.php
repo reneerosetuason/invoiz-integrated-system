@@ -79,8 +79,9 @@ class CenterApplicationService
                 $notRejected('email'),
                 function ($attribute, $value, $fail) {
                     $email = strtolower(trim((string) $value));
-                    if (\App\Models\User::where('email', $email)->whereIn('role', ['buyer', 'seller'])->exists()
-                        || \App\Models\Seller::where('email', $email)->exists()) {
+                    if (\App\Models\User::where('email', $email)->where(function ($q) {
+                        $q->whereIn('role', ['buyer', 'seller'])->orWhereHas('seller');
+                    })->exists()) {
                         $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Logistics Center application.');
                         return;
                     }
