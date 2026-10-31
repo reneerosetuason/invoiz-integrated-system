@@ -46,6 +46,10 @@ class RiderController extends Controller
         ]);
 
         $rider = $this->rider($request);
+        if ((array_key_exists('vehicle_type', $validated) && strtolower(trim($validated['vehicle_type'])) !== strtolower(trim((string) $rider->vehicle_type)))
+            || (array_key_exists('license_plate', $validated) && $validated['license_plate'] !== $rider->license_plate)) {
+            return response()->json(['message' => 'Vehicle changes require logistics review and verification.'], 422);
+        }
         $rider->update($validated);
 
         return response()->json([
@@ -160,7 +164,8 @@ class RiderController extends Controller
             'license_expired' => $rider->licenseExpired(),
             'license_expiring_soon' => $rider->licenseExpiringSoon(),
             'vehicle_registration' => $rider->vehicle_registration,
-            'company' => $rider->logisticsCenter?->name,
+            'company' => $rider->logisticsCenter?->company?->name,
+            'hub' => $rider->logisticsCenter ? ['id' => $rider->logisticsCenter->id, 'name' => $rider->logisticsCenter->name, 'address' => $rider->logisticsCenter->address] : null,
             'service_area' => $rider->serviceArea?->name,
             'status' => $rider->status,
             'is_online' => $rider->is_online,

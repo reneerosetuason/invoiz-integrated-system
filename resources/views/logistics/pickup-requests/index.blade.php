@@ -7,14 +7,14 @@
                 </h1>
                 <p class="text-xs text-[#6E6E73] mt-0.5">
                     {{ $activeStatus === 'routing'
-                        ? 'Route unassigned pickups to a logistics center before review'
+                        ? 'Route unassigned pickups to a logistics hub before review'
                         : 'Review seller pickup requests and assign a rider to collect items from the seller' }}
                 </p>
             </div>
             @if($isAdmin)
                 <a href="{{ route('pickup-requests.index', ['status' => 'routing']) }}"
                    class="btn {{ $activeStatus === 'routing' ? 'btn-primary' : 'btn-outline' }}">
-                    Needs Center Assignment
+                    Needs Hub Assignment
                     @if($needsRoutingCount > 0)
                         <span class="badge badge-pending">{{ $needsRoutingCount }}</span>
                     @endif
@@ -34,7 +34,7 @@
                     <select name="status" class="select">
                         <option value="">All Statuses</option>
                         @if($isAdmin)
-                            <option value="routing" @selected(request('status') === 'routing')>Needs center assignment</option>
+                            <option value="routing" @selected(request('status') === 'routing')>Needs hub assignment</option>
                         @endif
                         @foreach(['pending', 'approved', 'rejected', 'completed'] as $s)
                             <option value="{{ $s }}" @selected(request('status') === $s)>{{ ucfirst($s) }}</option>

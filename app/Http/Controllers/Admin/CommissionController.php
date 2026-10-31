@@ -8,6 +8,7 @@ use App\Models\Seller;
 use App\Models\Category;
 use App\Models\SellerPayout;
 use App\Models\CommissionRate;
+use App\Support\EscrowEarnings;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -147,7 +148,7 @@ class CommissionController extends Controller
             'last_mile_rider_fee'   => 'required|numeric|min:0|max:5000',
         ]);
 
-        \App\Support\EscrowEarnings::updateRates($validated);
+        EscrowEarnings::updateRates($validated);
 
         return redirect()->back()->with('status', 'Escrow earnings distribution schedule updated successfully.');
     }

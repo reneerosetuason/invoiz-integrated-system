@@ -23,7 +23,7 @@ class MarketplaceDemoSeeder extends Seeder
 
         $buyers = DB::table('users')->where('role', 'buyer')->orderBy('id')->get();
         $adminId = DB::table('users')->where('role', 'admin')->value('id');
-        $logisticsAdminId = DB::table('users')->where('role', 'logistics_admin')->value('id');
+        $logisticsAdminId = DB::table('users')->where('id', \App\Models\User::GLOBAL_LOGISTICS_ADMIN_ID)->value('id');
 
         $addresses = [
             ['buyer' => 'maria@invoiz.test', 'line' => '12 Rizal Street', 'barangay' => 'Barangay 1', 'city' => 'Manila', 'province' => 'Metro Manila', 'postal' => '1000', 'default' => true],

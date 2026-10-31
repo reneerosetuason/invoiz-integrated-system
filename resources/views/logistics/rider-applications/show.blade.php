@@ -90,7 +90,7 @@
                 <p class="text-sm font-medium text-gray-900">{{ $application->vehicle_registration ?? '—' }}</p>
             </div>
             <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Assigned Center</p>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Assigned Logistics Hub</p>
                 <p class="text-sm font-medium text-gray-900">{{ $application->logisticsCenter?->name ?? '—' }}</p>
             </div>
             <div>
@@ -167,10 +167,10 @@
                     @csrf
                     <div class="space-y-4">
                         <div>
-                            <label for="center_id" class="block text-sm font-medium text-gray-700 mb-1.5">Logistics Center</label>
+                            <label for="center_id" class="block text-sm font-medium text-gray-700 mb-1.5">Logistics Hub</label>
                             <select name="center_id" id="center_id" required
                                     class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('center_id') border-red-500 @enderror">
-                                <option value="">Select center</option>
+                                <option value="">Select Logistics Hub</option>
                                 @foreach($centers as $center)
                                     <option value="{{ $center->id }}" @selected((int) old('center_id') === $center->id)>{{ $center->name }}</option>
                                 @endforeach
@@ -187,7 +187,7 @@
                                 @endforeach
                             </select>
                             @error('service_area_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                            <p id="service-area-hint" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Select a center to see its active service areas.</p>
+                            <p id="service-area-hint" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Select a Logistics Hub to see its active service areas.</p>
                             <a href="{{ route('service-areas.create') }}" data-create-service-area target="_blank" rel="noopener"
                                class="mt-2 inline-flex text-xs font-semibold text-teal hover:text-teal-dark">Add a service area (opens a new tab)</a>
                         </div>
@@ -306,6 +306,6 @@
         @endif
     </div>
     @push('scripts')
-        <script src="{{ asset('assets/logistics/js/rider-applications/review.js') }}?v={{ @filemtime(public_path('assets/logistics/js/rider-applications/review.js')) ?: 1 }}" defer></script>
+        <script src="{{ asset('assets/logistics/js/rider-applications/review.js') }}?v={{ filemtime(public_path('assets/logistics/js/rider-applications/review.js')) }}" defer></script>
     @endpush
 </x-app-layout>

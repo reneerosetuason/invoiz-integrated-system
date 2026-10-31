@@ -27,8 +27,8 @@
                     All time
                 @endif
             </td>
-            <td class="k">Center</td>
-            <td>{{ $centerName ?: 'All Centers' }}</td>
+            <td class="k">Logistics Hub</td>
+            <td>{{ $centerName ?: 'All Logistics Hubs' }}</td>
         </tr>
     </table>
 
@@ -71,7 +71,7 @@
             <table class="data">
                 <thead>
                     <tr>
-                        <th>Center</th>
+                        <th>Logistics Hub</th>
                         <th>City</th>
                         <th class="r">Deliveries</th>
                         <th class="r">Service Areas</th>
@@ -103,7 +103,7 @@
                 </tfoot>
             </table>
         @else
-            <div class="empty">No centers found.</div>
+            <div class="empty">No Logistics Hubs found.</div>
         @endif
     @endif
 
@@ -115,7 +115,7 @@
                 <thead>
                     <tr>
                         <th>Area</th>
-                        <th>Center</th>
+                        <th>Logistics Hub</th>
                         <th class="r">Deliveries</th>
                         <th class="r">Riders</th>
                     </tr>

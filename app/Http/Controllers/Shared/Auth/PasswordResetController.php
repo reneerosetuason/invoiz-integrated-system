@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Shared\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -26,6 +27,12 @@ class PasswordResetController extends Controller
 
         $request->validate(['email' => 'required|email']);
 
+        if (strcasecmp(trim($request->input('email')), User::GLOBAL_LOGISTICS_ADMIN_EMAIL) === 0) {
+            return back()->withErrors([
+                'email' => 'This account uses a restricted recovery process. Contact the system administrator.',
+            ]);
+        }
+
         $status = Password::sendResetLink($request->only('email'));
 
         return $status === Password::RESET_LINK_SENT
@@ -48,6 +55,12 @@ class PasswordResetController extends Controller
             'email' => 'required|email',
             'password' => 'required|string|min:8|confirmed',
         ]);
+
+        if (strcasecmp(trim($request->input('email')), User::GLOBAL_LOGISTICS_ADMIN_EMAIL) === 0) {
+            return back()->withInput($request->only('email'))->withErrors([
+                'email' => 'This account uses a restricted recovery process. Contact the system administrator.',
+            ]);
+        }
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),

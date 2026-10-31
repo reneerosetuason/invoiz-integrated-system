@@ -2,15 +2,15 @@
     @include('logistics.partials.delivery-theme')
     <div class="logistics-deliveries delivery-page-scan">
     <div class="delivery-head">
-        <a href="{{ route('deliveries.index') }}"
-           class="delivery-back" aria-label="Back to deliveries">
+        <a href="{{ route('sorting-center.index') }}"
+           class="delivery-back" aria-label="Back to Sorting Center">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
             </svg>
         </a>
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Parcel Scanner</h1>
-            <p class="text-sm text-gray-500 mt-0.5">Scan a parcel's QR code to verify and move it from Received to Scanned.</p>
+            <p class="text-sm text-gray-500 mt-0.5">Scan a parcel's QR code to verify and move it from Received to Scanned in the Sorting Center.</p>
         </div>
     </div>
 
@@ -131,25 +131,30 @@
                            class="mt-3 text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2"
                            x-text="'Scanned parcel does not match the expected parcel ' + expect + ' in the previous step. Review the details above before continuing.'"></p>
 
-                        <a x-show="result.show_url" :href="result.show_url"
-                           class="mt-4 inline-flex items-center gap-2 text-teal hover:text-teal-dark font-semibold text-sm">
-                            View delivery details
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-                        </a>
+                        <div class="mt-4 flex flex-wrap items-center gap-3">
+                            <a href="{{ route('sorting-center.index', ['tab' => 'scanned']) }}"
+                               class="btn btn-primary btn-sm">
+                                Proceed to Sort &rarr;
+                            </a>
+                            <a x-show="result.show_url" :href="result.show_url"
+                               class="btn btn-outline btn-sm">
+                                View Delivery
+                            </a>
+                        </div>
                     </div>
                 </template>
             </div>
 
             {{-- Registered parcels awaiting scan: gives the operator a valid
                  tracking number to test manual entry with, and a clear empty
-                 state when nothing is ready at this center. --}}
+                 state when nothing is ready at this Logistics Hub. --}}
             <div x-show="!result" x-cloak class="delivery-scan-queue rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
                 <div class="flex items-center justify-between gap-3 mb-2">
                     <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide">Parcels Awaiting Scan</h3>
                     <span class="text-[11px] text-gray-400">{{ $awaitingScan->count() }} shown</span>
                 </div>
                 @if($awaitingScan->isEmpty())
-                    <p class="text-sm text-gray-500">No parcels are awaiting scan right now. Receive a parcel at your center first, then scan it or enter its tracking number.</p>
+                    <p class="text-sm text-gray-500">No parcels are awaiting scan right now. Receive a parcel at your Logistics Hub first, then scan it or enter its tracking number.</p>
                 @else
                     <p class="text-xs text-gray-500 mb-2">Choose a registered parcel to fill the manual entry field:</p>
                     <ul class="space-y-1.5">

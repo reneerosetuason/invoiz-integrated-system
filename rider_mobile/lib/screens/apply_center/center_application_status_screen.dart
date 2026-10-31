@@ -5,7 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../services/center_application_service.dart';
 
-/// Dedicated logistics-center application-status screen.
+/// Dedicated Logistics Hub application-status screen.
 ///
 /// Uses `GET /api/center/application-status?email=` (lookup by email only).
 class CenterApplicationStatusScreen extends StatefulWidget {
@@ -92,7 +92,7 @@ class _CenterApplicationStatusScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Center Application Status')),
+      appBar: AppBar(title: const Text('Logistics Hub Application Status')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -100,7 +100,7 @@ class _CenterApplicationStatusScreenState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Check your center application',
+                'Check your Logistics Hub application',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
@@ -210,7 +210,7 @@ class _CenterApplicationStatusScreenState
       icon = Icons.check_circle_outline;
       title = 'Congratulations!';
       desc =
-          'Your logistics center has been approved and a staff account has been created for it. Login credentials have been sent to your registered email address for the INVOIZ Logistics Web dashboard.';
+          'Your Logistics Hub has been approved and a staff account has been created for it. Login credentials have been sent to your registered email address for the INVOIZ Logistics Web dashboard.';
     } else if (status == 'rejected') {
       color = AppColors.warning;
       icon = Icons.cancel_outlined;
@@ -222,7 +222,7 @@ class _CenterApplicationStatusScreenState
       color = AppColors.primary;
       icon = Icons.hourglass_top_outlined;
       title = 'Application Under Review';
-      desc = 'Your center application is currently being reviewed by Logistics.';
+      desc = 'Your Logistics Hub application is currently being reviewed by Logistics.';
     }
 
     return Container(

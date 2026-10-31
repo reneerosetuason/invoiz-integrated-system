@@ -22,7 +22,7 @@ class RiderApplicationController extends Controller
     public function vehicleTypes(): JsonResponse
     {
         return response()->json([
-            'vehicle_types' => VehicleType::where('is_active', true)->orderBy('sort_order')->get(['name', 'label', 'capacity_kg'])->map(fn ($t) => [
+            'vehicle_types' => VehicleType::where('is_active', true)->orderBy('sort_order')->get(['name', 'label', 'capacity_kg'])->filter(fn ($t) => $t->operationalCategory() === 'two_wheel')->map(fn ($t) => [
                 'name' => $t->name,
                 'label' => $t->label,
                 'capacity_kg' => (float) $t->capacity_kg,
@@ -81,7 +81,7 @@ class RiderApplicationController extends Controller
             'barangay' => 'nullable|string|max:255',
             'municipality' => 'nullable|string|max:255',
             'province' => 'nullable|string|max:255',
-            'vehicle_type' => 'required|in:' . implode(',', array_keys(VehicleType::activeLabels())),
+            'vehicle_type' => ['required', Rule::in(VehicleType::where('is_active', true)->get()->filter(fn ($t) => $t->operationalCategory() === 'two_wheel')->pluck('name')->all())],
             'license_plate' => [
                 'required',
                 'string',

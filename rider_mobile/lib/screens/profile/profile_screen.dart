@@ -19,6 +19,7 @@ import '../../widgets/stagger_in.dart';
 import '../../widgets/status_badge.dart';
 import 'change_password_screen.dart';
 import '../earnings/earnings_screen.dart';
+import '../onboarding/rider_tutorial_screen.dart';
 
 /// Rider profile: account info, stats, edit + logout.
 class ProfileScreen extends StatelessWidget {
@@ -309,16 +310,40 @@ class ProfileScreen extends StatelessWidget {
           child: Card(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              child: InfoTile(
-                icon: Icons.lock_outline,
-                iconColor: AppColors.textSecondary,
-                title: 'Change Password',
-                subtitle: 'Update your login password',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const ChangePasswordScreen(),
+              child: Column(
+                children: [
+                  InfoTile(
+                    icon: Icons.lock_outline,
+                    iconColor: AppColors.textSecondary,
+                    title: 'Change Password',
+                    subtitle: 'Update your login password',
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ChangePasswordScreen(),
+                      ),
+                    ),
                   ),
-                ),
+                  const Divider(height: 1, indent: 16),
+                  InfoTile(
+                    icon: Icons.help_outline,
+                    iconColor: AppColors.textSecondary,
+                    title: 'Help & Tutorial',
+                    subtitle: 'Replay the tutorial for your assigned workflow',
+                    onTap: () {
+                      final workflow = auth.courier != null
+                          ? 'hub_courier'
+                          : 'delivery_rider';
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => RiderTutorialScreen(
+                            riderId: rider.id,
+                            workflowType: workflow,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
           ),
@@ -519,8 +544,8 @@ class _LicenseNotice extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   expired
-                      ? 'You cannot go online or accept new deliveries until your license is renewed and re-verified by your logistics center.'
-                      : 'Renew your license before${expiry == null ? ' it expires' : ' $expiry'} and have your logistics center re-verify it.',
+                      ? 'You cannot go online or accept new deliveries until your license is renewed and re-verified by your Logistics Hub.'
+                      : 'Renew your license before${expiry == null ? ' it expires' : ' $expiry'} and have your Logistics Hub re-verify it.',
                   style: AppText.secondary,
                 ),
               ],
@@ -1005,7 +1030,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       Expanded(
                         child: Text(
                           'Name, email, license details and documents are '
-                          'managed by your logistics center. Contact them to '
+                          'managed by your Logistics Hub. Contact them to '
                           'update those.',
                           style: TextStyle(
                             fontSize: 12,

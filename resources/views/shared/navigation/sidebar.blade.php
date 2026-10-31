@@ -271,13 +271,17 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
 @if(($navigationVariant ?? '') === 'workspace')
 @php
     $user = Auth::user();
-    $isAdmin = in_array($user->role, ['admin', 'logistics_admin'], true);
+    $isAdmin = $user->isAdmin() || $user->isLogisticsAdmin();
     $isStaff = in_array($user->role, ['staff', 'logistics_staff'], true);
     $isRider = $user->role === 'rider';
     $logisticsCenter = null;
+    $logisticsCompany = null;
     try {
         if ($user && $user->center_id) {
             $logisticsCenter = $user->logisticsCenter;
+        }
+        if ($user && $user->logistics_company_id) {
+            $logisticsCompany = $user->logisticsCompany;
         }
     } catch (\Throwable $e) {}
     $userName = $user->name ?? 'User';
@@ -295,6 +299,8 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeScan      = request()->routeIs('deliveries.scan-page');
     $activeDeliveriesMain = $activeDeliveries && ! $activeScan;
     $activeSorting = request()->routeIs('sorting-center.*');
+    $activeTransfers = request()->routeIs('hub-transfers.*');
+    $activeFleet = request()->routeIs('fleet.*');
     $activeRiders    = request()->routeIs('riders.*');
     $activePickups   = request()->routeIs('pickup-requests.*');
     $activeStaff     = request()->routeIs('staff.*');
@@ -330,6 +336,11 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
                         <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#E6F4F1] text-[#0E4A57] border border-[#16697A]/20 truncate max-w-[170px]" title="{{ $logisticsCenter->name }}">
                             <svg class="w-3 h-3 text-[#16697A] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                             <span class="truncate">{{ $logisticsCenter->name }}</span>
+                        </span>
+                    @elseif($logisticsCompany)
+                        <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[#E6F4F1] text-[#0E4A57] border border-[#16697A]/20 truncate max-w-[170px]" title="{{ $logisticsCompany->name }}">
+                            <svg class="w-3 h-3 text-[#16697A] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                            <span class="truncate">{{ $logisticsCompany->name }}</span>
                         </span>
                     @elseif($isAdmin)
                         <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-700 truncate max-w-[170px]" title="HQ Admin · All Centers">
@@ -414,6 +425,25 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeSorting ? 'text-teal-dark' : 'text-[#1F2933]' }}">Sorting Center</span>
         </a>
 
+        @if($user->logistics_company_id && !$isRider)
+        <a href="{{ route('hub-transfers.index') }}" aria-label="Hub Transfers" data-tip="Hub Transfers"
+           @if($activeTransfers) aria-current="page" @endif
+           class="{{ $activeTransfers ? 'active' : '' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3 {{ $activeTransfers ? 'bg-teal-light text-teal-dark' : 'hover:bg-teal-light hover:text-teal-dark' }}"
+           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 flex-shrink-0 {{ $activeTransfers ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3 3m-3-3 3-3M5 12h14"/></svg>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeTransfers ? 'text-teal-dark' : 'text-[#1F2933]' }}">Hub Transfers</span>
+        </a>
+        @endif
+        @if($user->isLogisticsAdmin() && !$user->isAdmin())
+        <a href="{{ route('fleet.index') }}" aria-label="Fleet Management" data-tip="Fleet Management"
+           @if($activeFleet) aria-current="page" @endif
+           class="{{ $activeFleet ? 'active' : '' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3 {{ $activeFleet ? 'bg-teal-light text-teal-dark' : 'hover:bg-teal-light hover:text-teal-dark' }}"
+           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 flex-shrink-0 {{ $activeFleet ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20a2 2 0 100-4 2 2 0 000 4zm11 0a2 2 0 100-4 2 2 0 000 4z"/></svg>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeFleet ? 'text-teal-dark' : 'text-[#1F2933]' }}">Fleet Management</span>
+        </a>
+        @endif
+
         {{-- Riders --}}
         <a href="{{ route('riders.index') }}"
            aria-label="Riders" data-tip="Riders"
@@ -450,6 +480,18 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         {{-- Management section --}}
         <p x-show="sidebarHover" x-cloak class="nav-section">Management</p>
 
+        {{-- Logistics Hubs --}}
+        <a href="{{ route('centers.index') }}"
+           aria-label="Logistics Hubs" data-tip="Logistics Hubs"
+           @if($activeCenters) aria-current="page" @endif
+           class="{{ $activeCenters ? 'active' : '' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3 {{ $activeCenters ? 'bg-teal-light text-teal-dark' : 'hover:bg-teal-light hover:text-teal-dark' }}"
+           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 flex-shrink-0 {{ $activeCenters ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeCenters ? 'text-teal-dark' : 'text-[#1F2933]' }}">Logistics Hubs</span>
+        </a>
+
         {{-- Staff --}}
         <a href="{{ route('staff.index') }}"
            aria-label="Staff" data-tip="Staff"
@@ -465,7 +507,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         {{-- Applications (dropdown parent: the link navigates, the arrow toggles the child) --}}
         <div class="sb-parent relative group flex items-center h-10 w-full rounded-xl transition-colors {{ $activeRiderApps ? 'bg-teal-light text-teal-dark' : 'hover:bg-teal-light hover:text-teal-dark' }}"
              :class="sidebarHover ? 'ps-3 pe-1 justify-start gap-1' : 'justify-center'">
-            <a href="{{ route(Auth::user()->canManageRiders() ? 'rider-applications.index' : 'center-applications.index') }}"
+            <a href="{{ route(Auth::user()?->canManageRiders() ? 'rider-applications.index' : 'center-applications.index') }}"
                aria-label="Applications" data-tip="Applications"
                @if($activeRiderApps) aria-current="page" @endif
                class="{{ $activeRiderApps ? 'active' : '' }} flex items-center gap-3 flex-1 min-w-0 h-full"
@@ -487,27 +529,15 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             </button>
         </div>
 
-        {{-- Center Applications (child of Applications) --}}
+        {{-- Logistics Hub Applications (child of Applications) --}}
         <div class="sb-sub" id="subnav-applications" x-show="sidebarHover && applicationsOpen" x-cloak x-collapse>
             <a href="{{ route('center-applications.index') }}"
-               aria-label="Center Applications" data-tip="Center Applications"
+               aria-label="Logistics Hub Applications" data-tip="Logistics Hub Applications"
                @if($activeCenterApps) aria-current="page" @endif
                class="{{ $activeCenterApps ? 'active' : '' }} relative group flex items-center h-10 w-full rounded-xl transition-colors pl-14 pr-3 {{ $activeCenterApps ? 'bg-teal-light text-teal-dark' : 'hover:bg-teal-light/60' }}">
-                <span class="text-[13px] font-medium whitespace-nowrap block {{ $activeCenterApps ? 'text-teal-dark' : 'text-gray-600' }}">Center Applications</span>
+                <span class="text-[13px] font-medium whitespace-nowrap block {{ $activeCenterApps ? 'text-teal-dark' : 'text-gray-600' }}">Logistics Hub Applications</span>
             </a>
         </div>
-
-        {{-- Centers --}}
-        <a href="{{ route('centers.index') }}"
-           aria-label="Centers" data-tip="Centers"
-           @if($activeCenters) aria-current="page" @endif
-           class="{{ $activeCenters ? 'active' : '' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3 {{ $activeCenters ? 'bg-teal-light text-teal-dark' : 'hover:bg-teal-light hover:text-teal-dark' }}"
-           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $activeCenters ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
-            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeCenters ? 'text-teal-dark' : 'text-[#1F2933]' }}">Centers</span>
-        </a>
 
         {{-- Service Areas --}}
         <a href="{{ route('service-areas.index') }}"
@@ -608,6 +638,11 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
                             <span class="inline-flex items-center gap-1 text-[11px] text-[#16697A] font-semibold truncate max-w-[140px]" title="{{ $logisticsCenter->name }}">
                                 <svg class="w-3 h-3 text-[#16697A] shrink-0 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                 <span class="truncate">{{ $logisticsCenter->name }}</span>
+                            </span>
+                        @elseif($logisticsCompany)
+                            <span class="inline-flex items-center gap-1 text-[11px] text-[#16697A] font-semibold truncate max-w-[140px]" title="{{ $logisticsCompany->name }}">
+                                <svg class="w-3 h-3 text-[#16697A] shrink-0 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+                                <span class="truncate">{{ $logisticsCompany->name }}</span>
                             </span>
                         @endif
                     </span>

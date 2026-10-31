@@ -50,7 +50,7 @@ class CenterDocPicker {
   }
 }
 
-/// "Open a Logistics Center" application form.
+/// "Open a Logistics Hub" application form.
 ///
 /// Submits to `POST /api/center/apply` (business + owner, structured PSGC
 /// address, and supporting documents). After submission the applicant is
@@ -316,7 +316,7 @@ class _ApplyCenterScreenState extends State<ApplyCenterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Open a Logistics Center')),
+      appBar: AppBar(title: const Text('Open a Logistics Hub')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -324,7 +324,7 @@ class _ApplyCenterScreenState extends State<ApplyCenterScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Apply to open an INVOIZ Logistics Center',
+                'Apply to open an INVOIZ Logistics Hub',
                 style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
@@ -420,7 +420,7 @@ class _ApplyCenterScreenState extends State<ApplyCenterScreen> {
               ),
               const SizedBox(height: 20),
               const Text(
-                'Center Address *',
+                'Logistics Hub Address *',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -555,7 +555,7 @@ class _CenterApplySuccess extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               const Text(
-                'Your center application has been submitted!',
+                'Your Logistics Hub application has been submitted!',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
               ),

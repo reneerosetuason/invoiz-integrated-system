@@ -7,6 +7,7 @@ use App\Models\Rider;
 use App\Models\Seller;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
@@ -67,13 +68,20 @@ class AdminAuthorizationTest extends TestCase
 
     public function test_non_admin_roles_are_forbidden_from_web_admin_routes(): void
     {
-        foreach (['buyer', 'seller', 'rider', 'staff', 'logistics_staff', 'logistics_admin'] as $role) {
+        foreach (['buyer', 'seller', 'rider', 'staff', 'logistics_staff'] as $role) {
             $user = $this->user(['role' => $role]);
 
             $this->actingAs($user)
                 ->get('/admin/manage-accounts')
                 ->assertForbidden();
         }
+
+        $duplicate = $this->user(['role' => 'buyer']);
+        DB::table('users')->where('id', $duplicate->id)->update(['role' => 'logistics_admin']);
+
+        $this->actingAs($duplicate->fresh())
+            ->get('/admin/manage-accounts')
+            ->assertForbidden();
     }
 
     public function test_role_admin_without_is_admin_flag_is_forbidden_on_web_and_api(): void

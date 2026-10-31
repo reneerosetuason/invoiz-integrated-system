@@ -40,10 +40,10 @@ void main() {
 
   test('tutorial completion is installation-wide and persists', () async {
     const store = TutorialCompletionStore();
-    expect(await store.isCompleted(12), isFalse);
-    await store.markCompleted(12);
-    expect(await store.isCompleted(12), isTrue);
-    expect(await store.isCompleted(13), isTrue);
+    expect(await store.isCompleted(riderId: 12), isFalse);
+    await store.markCompleted(riderId: 12);
+    expect(await store.isCompleted(riderId: 12), isTrue);
+    expect(await store.isCompleted(riderId: 13), isTrue);
     expect(await const TutorialCompletionStore().isCompleted(), isTrue);
   });
 
@@ -54,40 +54,38 @@ void main() {
     const store = TutorialCompletionStore();
     expect(await store.isCompleted(), isTrue);
     final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getBool('invoiz_rider_tutorial_completed'), isTrue);
+    expect(prefs.getBool('invoiz_delivery_rider_tutorial_completed'), isTrue);
   });
 
-  testWidgets('first launch shows tutorial before login and Skip continues', (
-    tester,
-  ) async {
-    final channel = MethodChannel(
-      'plugins.it_nomads.com/flutter_secure_storage',
-    );
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async => null);
-    addTearDown(() => TestDefaultBinaryMessengerBinding.instance
-        .defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null));
-    final auth = AuthProvider(
-      api: ApiClient(client: MockClient((_) async => http.Response('', 404))),
-      storage: TokenStorage(),
-    );
+  testWidgets(
+    'first launch reaches login before an authenticated workflow tutorial',
+    (tester) async {
+      final channel = MethodChannel(
+        'plugins.it_nomads.com/flutter_secure_storage',
+      );
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async => null);
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
+      final auth = AuthProvider(
+        api: ApiClient(client: MockClient((_) async => http.Response('', 404))),
+        storage: TokenStorage(),
+      );
 
-    await tester.pumpWidget(
-      ChangeNotifierProvider<AuthProvider>.value(
-        value: auth,
-        child: const MaterialApp(home: SplashScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Welcome to INVOIZ Rider!'), findsOneWidget);
-    expect(find.text('Rider Login'), findsNothing);
-
-    await tester.tap(find.text('Skip'));
-    await tester.pumpAndSettle();
-    expect(find.text('Rider Login'), findsOneWidget);
-    expect(await const TutorialCompletionStore().isCompleted(), isTrue);
-  });
+      await tester.pumpWidget(
+        ChangeNotifierProvider<AuthProvider>.value(
+          value: auth,
+          child: const MaterialApp(home: SplashScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Rider Login'), findsOneWidget);
+      expect(find.text('Welcome to INVOIZ Rider!'), findsNothing);
+      expect(await const TutorialCompletionStore().isCompleted(), isFalse);
+    },
+  );
 
   testWidgets('completed installation skips tutorial and restores login flow', (
     tester,
@@ -98,9 +96,10 @@ void main() {
     );
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async => null);
-    addTearDown(() => TestDefaultBinaryMessengerBinding.instance
-        .defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null));
+    addTearDown(
+      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, null),
+    );
     final auth = AuthProvider(
       api: ApiClient(client: MockClient((_) async => http.Response('', 404))),
       storage: TokenStorage(),
@@ -117,23 +116,29 @@ void main() {
     expect(find.text('Welcome to INVOIZ Rider!'), findsNothing);
   });
 
-  testWidgets('all five tutorial pages render and Next/Previous navigate', (
+  testWidgets('delivery tutorial pages render and Back/Next navigate', (
     tester,
   ) async {
     await _openTutorial(tester, 4);
-    expect(find.text('Welcome to INVOIZ Rider!'), findsOneWidget);
+    expect(find.text('Check Your Vehicle'), findsOneWidget);
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
-    expect(find.text('Control Your Availability'), findsOneWidget);
-    await tester.tap(find.text('Previous'));
+    expect(find.text('Delivery Rider Dashboard'), findsOneWidget);
+    await tester.tap(find.text('Back'));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome to INVOIZ Rider!'), findsOneWidget);
+    expect(find.text('Check Your Vehicle'), findsOneWidget);
 
     for (final title in [
-      'Control Your Availability',
-      'Manage Your Deliveries',
-      'Deliver and Confirm',
-      'Track Your Work',
+      'Delivery Rider Dashboard',
+      'My Deliveries',
+      'Check Pickup and Destination',
+      'Go to the Shop',
+      'Confirm Pickup',
+      'Go to the Buyer',
+      'Contact the Buyer',
+      'Complete Delivery',
+      'Report Failed Delivery',
+      'Delivery History',
     ]) {
       await tester.tap(
         find.text(_indexFor(title) == 1 ? 'Get Started' : 'Next'),
@@ -154,18 +159,24 @@ void main() {
     await _openTutorial(tester, 21);
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
-    expect(await const TutorialCompletionStore().isCompleted(21), isTrue);
+    expect(
+      await const TutorialCompletionStore().isCompleted(riderId: 21),
+      isTrue,
+    );
   });
 
   testWidgets('Finish Tutorial saves completion', (tester) async {
     await _openTutorial(tester, 22);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 10; i++) {
       await tester.tap(find.text(i == 0 ? 'Get Started' : 'Next'));
       await tester.pumpAndSettle();
     }
     await tester.tap(find.text('Finish Tutorial'));
     await tester.pumpAndSettle();
-    expect(await const TutorialCompletionStore().isCompleted(22), isTrue);
+    expect(
+      await const TutorialCompletionStore().isCompleted(riderId: 22),
+      isTrue,
+    );
   });
 
   testWidgets('tutorial scrolls on small screens and supports large text', (
@@ -199,12 +210,50 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Get Started'), findsOneWidget);
   });
+
+  testWidgets('hub courier sees its own tutorial and separate progress', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: RiderTutorialScreen(workflowType: 'hub_courier')),
+    );
+    expect(find.text('Hub Courier Tutorial'), findsOneWidget);
+    expect(find.textContaining('four-wheel vehicle'), findsOneWidget);
+    expect(find.text('1  /  13'), findsOneWidget);
+    await tester.tap(find.text('Get Started'));
+    await tester.pumpAndSettle();
+    expect(find.text('Hub Courier Dashboard'), findsOneWidget);
+    expect(find.text('2  /  13'), findsOneWidget);
+    await tester.tap(find.text('Back'));
+    await tester.pumpAndSettle();
+    expect(find.text('Check Your Vehicle'), findsOneWidget);
+    await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    expect(
+      await const TutorialCompletionStore().isCompleted(
+        workflow: 'hub_courier',
+      ),
+      isTrue,
+    );
+    expect(
+      await const TutorialCompletionStore().isCompleted(
+        workflow: 'delivery_rider',
+      ),
+      isFalse,
+    );
+  });
 }
 
 int _indexFor(String title) => switch (title) {
-  'Control Your Availability' => 1,
-  'Manage Your Deliveries' => 2,
-  'Deliver and Confirm' => 3,
-  'Track Your Work' => 4,
+  'Delivery Rider Dashboard' => 1,
+  'My Deliveries' => 2,
+  'Check Pickup and Destination' => 3,
+  'Go to the Shop' => 4,
+  'Confirm Pickup' => 5,
+  'Go to the Buyer' => 6,
+  'Contact the Buyer' => 7,
+  'Complete Delivery' => 8,
+  'Report Failed Delivery' => 9,
+  'Delivery History' => 10,
   _ => 0,
 };

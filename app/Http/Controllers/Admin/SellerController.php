@@ -59,6 +59,8 @@ class SellerController extends Controller
     public function approve(Request $request, Seller $seller)
     {
         $seller->loadMissing('user');
+        $this->protectDesignatedLogisticsAdmin($seller);
+
         DB::transaction(function () use ($seller) {
             $seller->approval_status = 'approved';
             $seller->rejection_reason = null;
@@ -106,6 +108,7 @@ class SellerController extends Controller
         ]);
         $reason = trim($data['reason']);
         $seller->loadMissing('user');
+        $this->protectDesignatedLogisticsAdmin($seller);
 
         DB::transaction(function () use ($seller, $reason) {
             $seller->approval_status = 'rejected';
@@ -183,6 +186,9 @@ class SellerController extends Controller
 
     public function suspend(Request $request, Seller $seller)
     {
+        $seller->loadMissing('user');
+        $this->protectDesignatedLogisticsAdmin($seller);
+
         // Shared schema has no 'suspended' for sellers.status -> use inactive.
         $seller->status = 'inactive';
         $seller->save();
@@ -212,6 +218,9 @@ class SellerController extends Controller
 
     public function reinstate(Request $request, Seller $seller)
     {
+        $seller->loadMissing('user');
+        $this->protectDesignatedLogisticsAdmin($seller);
+
         $seller->approval_status = 'approved';
         $seller->status = 'active';
         $seller->save();
@@ -235,6 +244,15 @@ class SellerController extends Controller
             return response()->json(['message' => 'Seller reinstated', 'seller' => $seller]);
         }
         return redirect()->back()->with('status', "Seller \"{$seller->store_name}\" has been reinstated and is active again.");
+    }
+
+    private function protectDesignatedLogisticsAdmin(Seller $seller): void
+    {
+        abort_if(
+            $seller->user?->isDesignatedLogisticsAdminAccount(),
+            403,
+            'The designated global Logistics Admin account cannot be changed through seller management.'
+        );
     }
 
     public function show(Request $request, Seller $seller)
@@ -277,4 +295,3 @@ class SellerController extends Controller
         ])->setPrivate();
     }
 }
-

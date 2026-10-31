@@ -27,8 +27,8 @@
                     All time
                 @endif
             </td>
-            <td class="k">Center</td>
-            <td>{{ $centerName ?: 'All Centers' }}</td>
+            <td class="k">Logistics Hub</td>
+            <td>{{ $centerName ?: 'All Logistics Hubs' }}</td>
         </tr>
     </table>
 
@@ -66,15 +66,15 @@
         </table>
     </div>
 
-    {{-- 2. Logistics Center Report --}}
+    {{-- 2. Logistics Hub Report --}}
     <div class="section">
-        <div class="section-title">2. Logistics Center Report</div>
+        <div class="section-title">2. Logistics Hub Report</div>
         @php $s = $stats['center']; $totalD = $totalA = $totalR = 0; @endphp
         @if(count($s))
             <table class="data">
                 <thead>
                     <tr>
-                        <th>Center</th>
+                        <th>Logistics Hub</th>
                         <th>City</th>
                         <th class="r">Deliveries</th>
                         <th class="r">Service Areas</th>
@@ -106,7 +106,7 @@
                 </tfoot>
             </table>
         @else
-            <div class="empty">No centers found.</div>
+            <div class="empty">No Logistics Hubs found.</div>
         @endif
     </div>
 
@@ -119,7 +119,7 @@
                 <thead>
                     <tr>
                         <th>Area</th>
-                        <th>Center</th>
+                        <th>Logistics Hub</th>
                         <th class="r">Deliveries</th>
                         <th class="r">Riders</th>
                     </tr>

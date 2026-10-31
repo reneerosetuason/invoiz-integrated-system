@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>Check a Logistics Center Application Status</title>
+    <title>Check a Logistics Hub Application Status</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="{{ asset('assets/logistics/js/auth/forgot-password.js') }}"></script>
@@ -26,7 +26,7 @@
                 <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Logo" class="h-12 w-12 rounded-xl object-cover ring-1 ring-white/25 shadow-lg">
                 <div>
                     <p class="text-xl font-extrabold tracking-tight">Logistics</p>
-                    <p class="text-[11px] font-semibold tracking-[0.25em] uppercase text-white/70 mt-0.5">Logistics Center</p>
+                    <p class="text-[11px] font-semibold tracking-[0.25em] uppercase text-white/70 mt-0.5">Logistics Hub</p>
                 </div>
             </a>
 
@@ -36,7 +36,7 @@
             </h1>
 
             <p class="mt-4 text-sm sm:text-[15px] text-white/75 leading-relaxed">
-                Enter the email address you used when applying to see the current status of your Logistics Center application.
+                Enter the email address you used when applying to see the current status of your Logistics Hub application.
             </p>
         </div>
 
@@ -126,7 +126,7 @@
                         <div class="min-w-0">
                             <h3 class="text-base font-bold text-gray-900">No application found</h3>
                             <p class="mt-1 text-sm text-gray-500 break-words">
-                                We could not find a Logistics Center application for
+                                We could not find a Logistics Hub application for
                                 <span class="font-semibold text-gray-700 break-all">{{ $email }}</span>.
                                 Double-check the email address you registered with.
                             </p>
@@ -160,7 +160,7 @@
                             <svg class="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                             </svg>
-                            <p>Your Logistics Center has been approved. Login credentials were sent to your registered email address.</p>
+                            <p>Your Logistics Hub has been approved. Login credentials were sent to your registered email address.</p>
                         </div>
                     @elseif ($application->status === 'rejected')
                         <div class="mt-6 flex items-start gap-3 border-s-4 border-red-400 bg-red-50 text-red-700 px-4 py-4 rounded-xl text-sm">
@@ -191,7 +191,7 @@
             <p class="mt-5 text-center text-sm text-gray-500">
                 Have not applied yet?
                 <a href="{{ route('center-application.apply') }}" class="font-semibold text-teal hover:text-teal-dark hover:underline hover:underline-offset-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-teal focus-visible:ring-offset-1">
-                    Open a Logistics Center
+                    Open a Logistics Hub
                 </a>
             </p>
 

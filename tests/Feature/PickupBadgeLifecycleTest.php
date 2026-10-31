@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\Delivery;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCenterApplication;
-use App\Models\Order;
+use App\Models\LogisticsCompany;
 use App\Models\PickupRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -20,14 +20,14 @@ class PickupBadgeLifecycleTest extends TestCase
 
     private function adminUser(): User
     {
-        return $this->user('logistics_admin');
+        return $this->user('admin', null, ['is_admin' => true]);
     }
 
-    private function user(string $role, ?int $centerId = null): User
+    private function user(string $role, ?int $centerId = null, array $overrides = []): User
     {
         $this->seq++;
 
-        return User::create([
+        return User::create(array_merge([
             'name' => ucfirst($role).' '.$this->seq,
             'email' => "pickup-badge-{$role}-{$this->seq}@test.local",
             'password' => Hash::make('secret123'),
@@ -36,7 +36,7 @@ class PickupBadgeLifecycleTest extends TestCase
             'account_status' => 'active',
             'center_id' => $centerId,
             'email_verified_at' => now(),
-        ]);
+        ], $overrides));
     }
 
     private function center(string $name): LogisticsCenter
@@ -55,7 +55,9 @@ class PickupBadgeLifecycleTest extends TestCase
 
         return Delivery::create(array_merge([
             'tracking_number' => 'TRK-20261020-8'.str_pad((string) $this->seq, 3, '0', STR_PAD_LEFT),
-            'order_id' => Order::query()->value('id'),
+            // Keep fixtures independent of order rows left in a shared test
+            // database: a cancelled/pending order makes a delivery non-actionable.
+            'order_id' => null,
             'sender_name' => 'Test Sender',
             'recipient_name' => 'Test Recipient',
             'sender_address' => 'Sender Address',
@@ -371,9 +373,9 @@ class PickupBadgeLifecycleTest extends TestCase
         $this->assertSame($staffA->id, $pickupA->fresh()->reviewed_by);
     }
 
-    public function test_admin_role_retains_global_pickup_access(): void
+    public function test_platform_administrator_retains_global_pickup_access(): void
     {
-        $admin = $this->user('admin');
+        $admin = $this->adminUser();
         $centerA = $this->center('Admin Role Center A');
         $centerB = $this->center('Admin Role Center B');
         $pickupA = $this->pickupRequest($this->delivery($centerA), $centerA);
@@ -389,25 +391,32 @@ class PickupBadgeLifecycleTest extends TestCase
         $this->assertSame($admin->id, $pickupB->fresh()->reviewed_by);
     }
 
-    public function test_legacy_is_admin_flag_does_not_grant_global_scope_to_center_staff(): void
+    public function test_company_manager_without_the_platform_flag_is_not_global(): void
     {
-        $centerA = $this->center('Legacy Flag Center A');
-        $centerB = $this->center('Legacy Flag Center B');
+        $companyA = LogisticsCompany::create([
+            'name' => 'Pickup Manager Company A', 'registration_number' => 'PKM-A-'.uniqid(), 'status' => 'active',
+        ]);
+        $companyB = LogisticsCompany::create([
+            'name' => 'Pickup Manager Company B', 'registration_number' => 'PKM-B-'.uniqid(), 'status' => 'active',
+        ]);
+        $centerA = $this->center('Manager Scope Center A');
+        $centerA->update(['logistics_company_id' => $companyA->id]);
+        $centerB = $this->center('Manager Scope Center B');
+        $centerB->update(['logistics_company_id' => $companyB->id]);
         $deliveryA = $this->delivery($centerA);
         $deliveryB = $this->delivery($centerB);
         $this->pickupRequest($deliveryA, $centerA);
         $pickupB = $this->pickupRequest($deliveryB, $centerB);
-        $staff = $this->user('logistics_staff', $centerA->id);
-        $staff->update(['is_admin' => true]);
+        $manager = $this->user('admin', null, ['is_admin' => false, 'logistics_company_id' => $companyA->id]);
 
-        $this->actingAs($staff)
+        $this->actingAs($manager)
             ->get('/logistics/pickup-requests')
             ->assertOk()
             ->assertSee('data-pickup-count="1"', false)
             ->assertSee($deliveryA->tracking_number)
             ->assertDontSee($deliveryB->tracking_number);
 
-        $this->actingAs($staff)
+        $this->actingAs($manager)
             ->get("/logistics/pickup-requests/{$pickupB->id}")
             ->assertForbidden();
     }

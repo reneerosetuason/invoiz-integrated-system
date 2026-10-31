@@ -85,7 +85,10 @@ class RiderAccountProvisioner
             $first = $nameParts[0] ?? $application->name;
             $last = $nameParts[1] ?? $application->name;
 
-            $user = User::where('email', $email)->first();
+            $user = User::query()
+                ->select(['id', 'name', 'email', 'first_name', 'last_name', 'role', 'is_admin', 'status', 'account_status'])
+                ->where('email', $email)
+                ->first();
             if (! $user) {
                 $user = User::create([
                     'name' => $application->name,

@@ -236,6 +236,9 @@ class UnifiedAuthController extends Controller
         if (! $user) {
             return back()->withErrors(['code' => 'Account not found.'])->withInput();
         }
+        if ($user->isDesignatedLogisticsAdminAccount()) {
+            return back()->withErrors(['email' => 'This account uses the restricted Logistics authentication process.'])->withInput();
+        }
         if (! $user->isActive()) {
             return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
         }
@@ -299,6 +302,9 @@ class UnifiedAuthController extends Controller
         if (! $user) {
             return back()->withErrors(['email' => 'Account not found.']);
         }
+        if ($user->isDesignatedLogisticsAdminAccount()) {
+            return back()->withErrors(['email' => 'This account uses the restricted Logistics authentication process.']);
+        }
         if ($user->email_verified_at) {
             return redirect('/login')->with('success', 'Already verified — you can log in.');
         }
@@ -336,12 +342,16 @@ class UnifiedAuthController extends Controller
             return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
         }
 
+        if ($user->isDesignatedLogisticsAdminAccount()) {
+            return back()->withErrors(['email' => 'This is a Logistics account. Please sign in on the Logistics login page.'])->withInput();
+        }
+
         if ($user->hasBlockedMarketplaceApproval()) {
             return back()->withErrors(['email' => 'Your account is not approved.'])->withInput();
         }
 
         // Logistics and Rider accounts have their own dedicated login page / apps.
-        if (in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff', 'rider'], true) || $user->rider()->exists()) {
+        if (in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff', 'rider'], true) || $user->rider()->exists() || $user->isLogisticsAdmin() || $user->isStaff() || $user->isDesignatedLogisticsAdminAccount()) {
             return back()->withErrors(['email' => 'This account is registered for Logistics/Rider. Please use the Logistics/Rider portal.'])->withInput();
         }
 
@@ -372,6 +382,12 @@ class UnifiedAuthController extends Controller
     /** Issue (or reuse) a 10-minute OTP and email it. */
     protected function sendOtp(User $user): void
     {
+        abort_if(
+            $user->isDesignatedLogisticsAdminAccount(),
+            403,
+            'The designated global Logistics Admin cannot use marketplace email verification.'
+        );
+
         if (! $user->otp || ! $user->otp_expires_at || $user->otp_expires_at->isPast()) {
             $user->update([
                 'otp' => $otp = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT),
@@ -457,7 +473,7 @@ class UnifiedAuthController extends Controller
                 return redirect('/login')->withErrors(['email' => 'Your account is not approved.']);
             }
             // Logistics and Rider accounts have their own dedicated login page / apps.
-            if (in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff', 'rider'], true) || $user->rider()->exists()) {
+            if (in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff', 'rider'], true) || $user->rider()->exists() || $user->isLogisticsAdmin() || $user->isStaff() || $user->isDesignatedLogisticsAdminAccount()) {
                 return redirect('/login')->withErrors(['email' => 'This account is registered for Logistics/Rider. Please use the Logistics/Rider portal.']);
             }
             // Google proved ownership of this email.
@@ -507,6 +523,12 @@ class UnifiedAuthController extends Controller
     {
         if ($user->isAdmin()) {
             return redirect()->intended('/admin/dashboard');
+        }
+
+        // Logistics company managers (`role=admin` without the platform
+        // flag) stay inside their logistics company, never the platform.
+        if ($user->isCompanyManager()) {
+            return redirect()->intended('/logistics/dashboard');
         }
 
         $seller = Seller::where('user_id', $user->id)->first();

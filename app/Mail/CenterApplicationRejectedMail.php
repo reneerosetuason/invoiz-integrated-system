@@ -26,7 +26,7 @@ class CenterApplicationRejectedMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'INVOIZ Logistics Center Application Not Approved',
+            subject: 'INVOIZ Logistics Hub Application Not Approved',
         );
     }
 

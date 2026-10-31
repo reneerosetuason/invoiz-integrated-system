@@ -37,6 +37,12 @@ class NewPasswordController extends Controller
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
+        if (strcasecmp(trim($request->input('email')), User::GLOBAL_LOGISTICS_ADMIN_EMAIL) === 0) {
+            return back()->withInput($request->only('email'))->withErrors([
+                'email' => 'This account uses a restricted recovery process. Contact the system administrator.',
+            ]);
+        }
+
         // Here we will attempt to reset the user's password. If it is successful we
         // will update the password on an actual user model and persist it to the
         // database. Otherwise we will parse the error and return the response.
@@ -61,8 +67,6 @@ class NewPasswordController extends Controller
                         ->withErrors(['email' => __($status)]);
     }
 }
-
-
 
 
 

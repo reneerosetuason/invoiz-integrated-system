@@ -22,6 +22,9 @@ use App\Http\Controllers\Logistics\CenterApplicationAdminController;
 use App\Http\Controllers\Logistics\CenterApplicationPublicController;
 use App\Http\Controllers\Logistics\CenterEmailVerificationController;
 use App\Http\Controllers\Logistics\PickupRequestController;
+use App\Http\Controllers\Logistics\HubTransferController;
+use App\Http\Controllers\Logistics\FleetController;
+use App\Http\Controllers\Logistics\CompanyStructureController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('logistics')->group(function () {
@@ -54,6 +57,27 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 Route::middleware(['auth', 'verified', 'staff'])->group(function () {
+
+    Route::get('hub-transfers', [HubTransferController::class, 'index'])->name('hub-transfers.index');
+    Route::get('hub-transfers/create', [HubTransferController::class, 'create'])->name('hub-transfers.create');
+    Route::post('hub-transfers', [HubTransferController::class, 'store'])->name('hub-transfers.store');
+    Route::get('hub-transfers/{hubTransfer}', [HubTransferController::class, 'show'])->name('hub-transfers.show');
+    Route::post('hub-transfers/{hubTransfer}/load', [HubTransferController::class, 'loadParcel'])->name('hub-transfers.load');
+    Route::delete('hub-transfers/{hubTransfer}/parcels/{parcel}', [HubTransferController::class, 'removeParcel'])->name('hub-transfers.parcels.remove');
+    Route::post('hub-transfers/{hubTransfer}/dispatch', [HubTransferController::class, 'dispatch'])->name('hub-transfers.dispatch');
+    Route::post('hub-transfers/{hubTransfer}/arrive', [HubTransferController::class, 'arrive'])->name('hub-transfers.arrive');
+    Route::post('hub-transfers/{hubTransfer}/receive', [HubTransferController::class, 'receiveParcel'])->name('hub-transfers.receive');
+    Route::post('hub-transfers/{hubTransfer}/complete', [HubTransferController::class, 'complete'])->name('hub-transfers.complete');
+    Route::post('hub-transfers/{hubTransfer}/cancel', [HubTransferController::class, 'cancel'])->name('hub-transfers.cancel');
+    Route::post('hub-transfers/{hubTransfer}/hold', [HubTransferController::class, 'hold'])->name('hub-transfers.hold');
+    Route::post('hub-transfers/{hubTransfer}/resume', [HubTransferController::class, 'resume'])->name('hub-transfers.resume');
+    Route::post('hub-transfers/{hubTransfer}/reassign', [HubTransferController::class, 'reassign'])->name('hub-transfers.reassign');
+    Route::post('hub-transfers/{hubTransfer}/reroute', [HubTransferController::class, 'reroute'])->name('hub-transfers.reroute');
+    Route::get('fleet', [FleetController::class, 'index'])->name('fleet.index');
+    Route::post('fleet/trucks', [FleetController::class, 'storeTruck'])->name('fleet.trucks.store');
+    Route::put('fleet/trucks/{truck}', [FleetController::class, 'updateTruck'])->name('fleet.trucks.update');
+    Route::post('fleet/drivers', [FleetController::class, 'storeDriver'])->name('fleet.drivers.store');
+    Route::put('fleet/drivers/{driver}', [FleetController::class, 'updateDriver'])->name('fleet.drivers.update');
 
     // Sorting Center operational hub (read-only aggregation; mutations
     // post to the existing deliveries.* routes).
@@ -117,6 +141,9 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
 
     // Logistics Center Applications (Admin Only: review & provision)
     Route::middleware('admin')->group(function () {
+        Route::get('companies', [CompanyStructureController::class, 'index'])->name('companies.index');
+        Route::post('companies', [CompanyStructureController::class, 'store'])->name('companies.store');
+        Route::put('centers/{center}/ownership', [CompanyStructureController::class, 'assignCenter'])->name('companies.centers.assign');
         Route::get('center-applications', [CenterApplicationAdminController::class, 'index'])->name('center-applications.index');
         Route::get('center-applications/documents/{document}/view', [CenterApplicationAdminController::class, 'viewDocument'])->name('center-applications.documents.view');
         Route::get('center-applications/documents/{document}/download', [CenterApplicationAdminController::class, 'downloadDocument'])->name('center-applications.documents.download');

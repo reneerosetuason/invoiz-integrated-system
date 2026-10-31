@@ -93,16 +93,16 @@
                         <x-th-sort field="vehicle" label="Vehicle"/>
                         <x-th-sort field="status" label="Status"/>
                         <th>Availability</th>
-                        <th>Active Deliveries</th>
-                        <th class="text-right">Actions</th>
+                        <x-th-sort field="active_jobs" label="Active Jobs"/>
+                        <th class="text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($riders as $rider)
+                    @forelse($riders as $rider)
                         <tr>
                             <td>
-                                <div class="flex items-center gap-3">
-                                    <div class="h-8 w-8 rounded-full bg-[#16697A] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-8 h-8 rounded-full bg-[#EAF4F3] text-[#0E4A57] font-bold text-xs flex items-center justify-center shrink-0">
                                         {{ strtoupper(substr($rider->name, 0, 1)) }}
                                     </div>
                                     <div>

@@ -26,7 +26,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-bold text-[#1B1B1E]">Deliveries</h1>
-                <p class="text-xs text-[#6E6E73] mt-0.5">Track each shipment, assign riders and keep deliveries moving.</p>
+                <p class="text-xs text-[#6E6E73] mt-0.5">Manage shipments, assign riders, and monitor delivery progress.</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <a href="{{ route('deliveries.archived') }}" class="btn btn-outline">

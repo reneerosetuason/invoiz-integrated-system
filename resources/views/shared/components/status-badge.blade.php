@@ -26,7 +26,10 @@
         'suspended'            => ['bg-red-50 text-red-700 ring-red-200', 'Suspended'],
         'inactive'             => ['bg-gray-100 text-gray-600 ring-gray-200', 'Inactive'],
         // parcel / sorting / finance statuses
+        'pending_arrival'      => ['bg-amber-50 text-amber-700 ring-amber-200', 'Pending Arrival'],
+        'received'             => ['bg-sky-50 text-sky-700 ring-sky-200', 'Received'],
         'received_at_center'   => ['bg-sky-50 text-sky-700 ring-sky-200', 'Received at Center'],
+        'scanned'              => ['bg-cyan-50 text-cyan-700 ring-cyan-200', 'Scanned'],
         'sorted'               => ['bg-indigo-50 text-indigo-700 ring-indigo-200', 'Sorted'],
         'dispatched'           => ['bg-purple-50 text-purple-700 ring-purple-200', 'Dispatched'],
         'confirmed'            => ['bg-emerald-50 text-emerald-700 ring-emerald-200', 'Confirmed'],

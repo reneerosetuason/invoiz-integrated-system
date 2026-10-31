@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\PaymentTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class PaymentController extends Controller
 {
@@ -17,8 +18,8 @@ class PaymentController extends Controller
             'order.items.product.seller'
         );
 
-        $hasEscrowBreakdown = \Illuminate\Support\Facades\Schema::hasColumn('payment_transactions', 'origin_hub_fee');
-        $hasEscrowTable = \Illuminate\Support\Facades\Schema::hasTable('escrow_remittances');
+        $hasEscrowBreakdown = Schema::hasColumn('payment_transactions', 'origin_hub_fee');
+        $hasEscrowTable = Schema::hasTable('escrow_remittances');
 
         $stats = [
             'all' => (clone $txQuery)->count(),
@@ -57,9 +58,9 @@ class PaymentController extends Controller
             : null;
 
         $escrowTotals = $hasEscrowTable ? [
-            'held'    => (float) \App\Models\EscrowRemittance::where('status', 'held_in_escrow')->sum('amount'),
+            'held' => (float) \App\Models\EscrowRemittance::where('status', 'held_in_escrow')->sum('amount'),
             'pending' => (float) \App\Models\EscrowRemittance::where('status', 'pending_remittance')->sum('amount'),
-            'remitted'=> (float) \App\Models\EscrowRemittance::where('status', 'remitted')->sum('amount'),
+            'remitted' => (float) \App\Models\EscrowRemittance::where('status', 'remitted')->sum('amount'),
         ] : ['held' => 0, 'pending' => 0, 'remitted' => 0];
 
         return view('admin.payments', compact('stats', 'transactions', 'status', 'escrowRemittances', 'escrowTotals'));

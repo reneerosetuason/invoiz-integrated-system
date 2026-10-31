@@ -375,6 +375,7 @@ class DashboardController extends Controller
         $query = Delivery::notArchived();
 
         if ($staffCenterId === null) {
+            $user = Auth::user();
             return $query;
         }
 
@@ -507,7 +508,9 @@ class DashboardController extends Controller
         if ($staffCenterId !== null) {
             $centers = LogisticsCenter::where('id', $staffCenterId)->where('is_active', true)->get(['id', 'name']);
         } else {
-            $centers = LogisticsCenter::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+            $centerQuery = LogisticsCenter::where('is_active', true);
+            $user = Auth::user();
+            $centers = $centerQuery->orderBy('name')->get(['id', 'name']);
         }
 
         if ($centers->isEmpty()) {

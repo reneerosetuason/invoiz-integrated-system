@@ -40,7 +40,12 @@ class UserManagementController extends Controller
 
     public function index(Request $request)
     {
-        $query = User::query()->withExists('rider');
+        $query = User::query()
+            ->select([
+                'id', 'name', 'first_name', 'last_name', 'email', 'role', 'is_admin',
+                'status', 'account_status', 'approval_status', 'created_at',
+            ])
+            ->withExists('rider');
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -55,8 +60,18 @@ class UserManagementController extends Controller
         return view('admin.manage-accounts', compact('users'));
     }
 
-    public function toggleStatus(Request $request, User $user)
+    public function toggleStatus(Request $request, int $user)
     {
+        $user = User::query()
+            ->select(['id', 'role', 'status', 'account_status'])
+            ->findOrFail($user);
+
+        abort_if(
+            $user->isDesignatedLogisticsAdminAccount(),
+            403,
+            'The designated global Logistics Admin account cannot be deactivated or suspended through ordinary user management.'
+        );
+
         abort_if(
             $user->role === 'rider' || $user->rider()->exists(),
             403,

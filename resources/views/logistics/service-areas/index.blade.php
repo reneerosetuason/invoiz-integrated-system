@@ -3,7 +3,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-[#1B1B1E]">Service Areas</h1>
-                <p class="text-xs text-[#6E6E73] mt-0.5">Define where each center can collect and deliver parcels.</p>
+                <p class="text-xs text-[#6E6E73] mt-0.5">Define where each logistics hub can collect and deliver parcels.</p>
             </div>
             <a href="{{ route('service-areas.create') }}" class="btn btn-primary">
                 <x-icon name="plus" class="w-4 h-4" />
@@ -18,9 +18,9 @@
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Search by area name or description..." class="input">
                 </div>
                 <div class="sm:w-52">
-                    <label class="field-label">Center</label>
+                    <label class="field-label">Logistics Hub</label>
                     <select name="center_id" class="select">
-                        <option value="">All Centers</option>
+                        <option value="">All Logistics Hubs</option>
                         @foreach($centers as $center)
                             <option value="{{ $center->id }}" @selected((int) request('center_id') === $center->id)>{{ $center->name }}</option>
                         @endforeach
@@ -43,12 +43,13 @@
             </form>
         </div>
 
+        {{-- Service Areas Table (No Horizontal Scroll) --}}
         <div class="card overflow-hidden">
             <table class="table">
                 <thead>
                     <tr>
                         <th>Area</th>
-                        <th>Center</th>
+                        <th>Logistics Hub</th>
                         <th>Status</th>
                         <th class="text-right">Actions</th>
                     </tr>
@@ -58,9 +59,9 @@
                         <tr>
                             <td>
                                 <a href="{{ route('service-areas.show', $area) }}" class="font-bold text-[#16697A] hover:underline">{{ $area->name }}</a>
-                                @if($area->description)<p class="text-[11px] text-[#6E6E73] mt-0.5">{{ $area->description }}</p>@endif
+                                @if($area->description)<p class="text-[11px] text-[#6E6E73] mt-0.5 max-w-xs truncate">{{ $area->description }}</p>@endif
                             </td>
-                            <td class="text-[#1B1B1E]">{{ $area->logisticsCenter?->name ?? '—' }}</td>
+                            <td class="text-[#6E6E73]">{{ $area->logisticsCenter?->name ?? '—' }}</td>
                             <td>
                                 <x-status-badge :status="$area->is_active ? 'active' : 'inactive'" />
                             </td>

@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,11 @@ class AdminSeeder extends Seeder
         if ($isLocal) {
             $email ??= 'admin@invoiz.test';
             $password ??= substr(hash('sha256', (string) config('app.key').'|admin-seed'), 0, 32);
+        }
+
+        if (strcasecmp(trim($email), User::GLOBAL_LOGISTICS_ADMIN_EMAIL) === 0
+            || (int) DB::table('users')->where('email', $email)->value('id') === User::GLOBAL_LOGISTICS_ADMIN_ID) {
+            throw new \RuntimeException('AdminSeeder cannot create or replace the designated global Logistics Admin.');
         }
 
         // Compatible with shared invoizdb schema (buyer/seller apps require

@@ -3,14 +3,17 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\EscrowRemittance;
 use App\Models\PaymentDispute;
 use App\Models\Order;
 use App\Models\Seller;
 use Illuminate\Support\Facades\DB;
 use App\Models\SellerPayout;
 use App\Models\WithdrawalRequest;
+use App\Support\AuditLogger;
 use App\Support\Payments;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class PaymentActionController extends Controller
 {
@@ -27,71 +30,124 @@ class PaymentActionController extends Controller
         return back()->with('status', 'Payout marked as paid.');
     }
 
+    /**
+     * Release one escrow remittance. Only rows already marked ready
+     * (pending_remittance) are payable; held-in-escrow money must stay
+     * locked until the logistics workflow marks it earned.
+     */
     public function remitEscrow(Request $request, $id)
     {
-        $remittance = \App\Models\EscrowRemittance::findOrFail($id);
-        if ($remittance->status === 'remitted') {
-            return back()->with('status', 'This remittance has already been released.');
+        $released = DB::transaction(function () use ($request, $id): ?array {
+            $remittance = EscrowRemittance::query()->lockForUpdate()->findOrFail($id);
+            if ($remittance->status !== 'pending_remittance') {
+                return null;
+            }
+
+            $reference = $request->input('bank_reference') ?: ('REMIT-' . strtoupper(Str::random(8)));
+            $remittance->update([
+                'status'         => 'remitted',
+                'bank_reference' => $reference,
+                'remitted_at'    => now(),
+                'remitted_by'    => auth()->id(),
+            ]);
+
+            // Auto-approve and collect the admin's 10% commission for this order
+            if ($remittance->order_id) {
+                EscrowRemittance::where('order_id', $remittance->order_id)
+                    ->where('recipient_role', EscrowRemittance::ROLE_ADMIN)
+                    ->where('status', '!=', 'remitted')
+                    ->update([
+                        'status'         => 'remitted',
+                        'bank_reference' => 'ADMIN-COMM-' . $remittance->order_id,
+                        'remitted_at'    => now(),
+                        'remitted_by'    => auth()->id(),
+                        'notes'          => 'Automatically collected 10% platform commission upon payout release.',
+                    ]);
+            }
+
+            (new AuditLogger)->record(
+                auth()->user(),
+                'escrow.remit',
+                'escrow_remittance',
+                $remittance->id,
+                ['status' => 'pending_remittance'],
+                ['status' => 'remitted', 'bank_reference' => $reference],
+                'Escrow bank remittance released'
+            );
+
+            return [
+                'amount' => (float) $remittance->amount,
+                'name' => $remittance->recipient_name,
+                'reference' => $reference,
+            ];
+        });
+
+        if ($released === null) {
+            return back()->with('status', 'That remittance is not ready for release.');
         }
 
-        $ref = $request->input('bank_reference') ?: ('REMIT-' . strtoupper(\Illuminate\Support\Str::random(8)));
-        $remittance->update([
-            'status'         => 'remitted',
-            'bank_reference' => $ref,
-            'remitted_at'    => now(),
-            'remitted_by'    => auth()->id(),
-        ]);
-
-        // Auto-approve and collect the admin's 10% commission for this order
-        if ($remittance->order_id) {
-            \App\Models\EscrowRemittance::where('order_id', $remittance->order_id)
-                ->where('recipient_role', \App\Models\EscrowRemittance::ROLE_ADMIN)
-                ->where('status', '!=', 'remitted')
-                ->update([
-                    'status'         => 'remitted',
-                    'bank_reference' => 'ADMIN-COMM-' . $remittance->order_id,
-                    'remitted_at'    => now(),
-                    'remitted_by'    => auth()->id(),
-                    'notes'          => 'Automatically collected 10% platform commission upon payout release.',
-                ]);
-        }
-
-        return back()->with('status', "Remittance of ₱" . number_format((float) $remittance->amount, 2) . " released to {$remittance->recipient_name} (Ref: {$ref}). Admin 10% commission booked.");
+        return back()->with('status', 'Remittance of ₱' . number_format($released['amount'], 2)
+            . " released to {$released['name']} (Ref: {$released['reference']}). Admin 10% commission booked.");
     }
 
     public function remitAllPendingEscrow(Request $request)
     {
-        $pending = \App\Models\EscrowRemittance::where('status', 'pending_remittance')->get();
-        $count = 0;
-        $total = 0.0;
-        foreach ($pending as $r) {
-            $ref = 'BATCH-REMIT-' . strtoupper(\Illuminate\Support\Str::random(8));
-            $r->update([
-                'status'         => 'remitted',
-                'bank_reference' => $ref,
-                'remitted_at'    => now(),
-                'remitted_by'    => auth()->id(),
-            ]);
-            $count++;
-            $total += (float) $r->amount;
-        }
+        $batch = 'BATCH-REMIT-' . strtoupper(Str::random(8));
 
-        // Auto-approve and collect platform commission for all orders in this batch
-        $orderIds = $pending->pluck('order_id')->filter()->unique();
-        if ($orderIds->isNotEmpty()) {
-            \App\Models\EscrowRemittance::whereIn('order_id', $orderIds)
-                ->where('recipient_role', \App\Models\EscrowRemittance::ROLE_ADMIN)
-                ->where('status', '!=', 'remitted')
-                ->update([
+        $result = DB::transaction(function () use ($batch): array {
+            $rows = EscrowRemittance::query()
+                ->where('status', 'pending_remittance')
+                ->lockForUpdate()
+                ->get();
+
+            $count = 0;
+            $total = 0.0;
+            foreach ($rows as $row) {
+                $row->update([
                     'status'         => 'remitted',
-                    'bank_reference' => 'ADMIN-COMM-BATCH',
+                    'bank_reference' => $batch,
                     'remitted_at'    => now(),
                     'remitted_by'    => auth()->id(),
-                    'notes'          => 'Automatically collected 10% platform commission upon batch payout release.',
                 ]);
+
+                (new AuditLogger)->record(
+                    auth()->user(),
+                    'escrow.remit',
+                    'escrow_remittance',
+                    $row->id,
+                    ['status' => 'pending_remittance'],
+                    ['status' => 'remitted', 'bank_reference' => $batch],
+                    'Batch escrow bank remittance released'
+                );
+
+                $count++;
+                $total += (float) $row->amount;
+            }
+
+            // Auto-approve and collect platform commission for all orders in this batch
+            $orderIds = $rows->pluck('order_id')->filter()->unique();
+            if ($orderIds->isNotEmpty()) {
+                EscrowRemittance::whereIn('order_id', $orderIds)
+                    ->where('recipient_role', EscrowRemittance::ROLE_ADMIN)
+                    ->where('status', '!=', 'remitted')
+                    ->update([
+                        'status'         => 'remitted',
+                        'bank_reference' => 'ADMIN-COMM-BATCH',
+                        'remitted_at'    => now(),
+                        'remitted_by'    => auth()->id(),
+                        'notes'          => 'Automatically collected 10% platform commission upon batch payout release.',
+                    ]);
+            }
+
+            return ['count' => $count, 'total' => $total];
+        });
+
+        if ($result['count'] === 0) {
+            return back()->with('status', 'No escrow remittances are ready for release.');
         }
 
-        return back()->with('status', "Successfully remitted {$count} pending payouts totalling ₱" . number_format($total, 2) . " to recipient accounts. Admin 10% commissions booked.");
+        return back()->with('status', "Released {$result['count']} escrow remittance(s) totalling ₱"
+            . number_format($result['total'], 2) . " (Batch: {$batch}). Admin 10% commissions booked.");
     }
 
     public function approveWithdrawal($id)

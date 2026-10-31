@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 
 /**
- * Email-verification OTP for the public "Open a Logistics Center"
+ * Email-verification OTP for the public "Open a Logistics Hub"
  * application form (pre-submission gate).
  *
  * Mirrors the rider-application OTP flow without touching it: the same

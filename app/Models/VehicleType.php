@@ -46,4 +46,9 @@ class VehicleType extends Model
             ->pluck('label', 'name')
             ->all();
     }
+
+    public function operationalCategory(): ?string
+    {
+        return \App\Support\LogisticsVehicleCategory::for($this->name);
+    }
 }

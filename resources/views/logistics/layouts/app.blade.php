@@ -29,7 +29,7 @@
         @if(!request()->routeIs('dashboard', 'deliveries.*'))
             @include('logistics.partials.workspace-theme')
         @endif
-        <script src="{{ asset('assets/shared/js/app-sidebar.js') }}?v={{ @filemtime(public_path('assets/shared/js/app-sidebar.js')) ?: 1 }}" defer></script>
+        <script src="{{ asset('assets/shared/js/app-sidebar.js') }}?v={{ filemtime(public_path('assets/shared/js/app-sidebar.js')) }}" defer></script>
         @stack('styles')
     </head>
     <body class="logistics-shell font-sans bg-[#F7F6F2] text-[#1B1B1E] antialiased">
@@ -122,15 +122,20 @@
                             <div class="logistics-page-header mb-5">{{ $header }}</div>
                         @endisset
 
-                        {{ $slot }}
+                        {{-- Support both @extends('...app') sections and <x-app-layout> component slots. --}}
+                        @hasSection('content')
+                            @yield('content')
+                        @elseif (isset($slot))
+                            {{ $slot }}
+                        @endif
                     </div>
                 </main>
             </div>
         </div>
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app-2.css') }}">
         @include('logistics.layouts.partials.form-controls')
-        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-density.css') }}?v={{ @filemtime(public_path('assets/logistics/css/logistics-density.css')) ?: 1 }}">
-        <script src="{{ asset('assets/logistics/js/logistics-density.js') }}?v={{ @filemtime(public_path('assets/logistics/js/logistics-density.js')) ?: 1 }}" defer></script>
+        <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-density.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-density.css')) }}">
+        <script src="{{ asset('assets/logistics/js/logistics-density.js') }}?v={{ filemtime(public_path('assets/logistics/js/logistics-density.js')) }}" defer></script>
         @stack('scripts')
     </body>
 </html>

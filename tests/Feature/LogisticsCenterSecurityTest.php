@@ -118,7 +118,7 @@ class LogisticsCenterSecurityTest extends TestCase
     {
         $centerA = $this->center('Auto Center A');
         $centerB = $this->center('Auto Center B');
-        $admin = $this->user('logistics_admin');
+        $admin = User::where('email', 'logistics_admin@test.com')->firstOrFail();
         $delivery = $this->delivery($centerA, [
             'status' => 'waiting_for_rider',
             'destination_center_id' => null,
@@ -139,7 +139,7 @@ class LogisticsCenterSecurityTest extends TestCase
     public function test_global_admin_can_still_assign_a_completely_unrouted_delivery(): void
     {
         $center = $this->center('Onboarding Center');
-        $admin = $this->user('logistics_admin');
+        $admin = User::where('email', 'logistics_admin@test.com')->firstOrFail();
         $delivery = $this->delivery(null, [
             'status' => 'waiting_for_rider',
             'destination_center_id' => null,
@@ -160,7 +160,7 @@ class LogisticsCenterSecurityTest extends TestCase
     {
         $center = $this->center('Unrouted Guard Center');
         $staff = $this->user('logistics_staff', $center->id);
-        $admin = $this->user('logistics_admin');
+        $admin = User::where('email', 'logistics_admin@test.com')->firstOrFail();
         $delivery = $this->delivery(null);
 
         $this->actingAs($staff)
@@ -253,7 +253,7 @@ class LogisticsCenterSecurityTest extends TestCase
     {
         $centerA = $this->center('Global Admin A');
         $centerB = $this->center('Global Admin B');
-        $admin = $this->user('logistics_admin');
+        $admin = User::where('email', 'logistics_admin@test.com')->firstOrFail();
         $deliveryA = $this->delivery($centerA);
         $deliveryB = $this->delivery($centerB);
         $unrouted = $this->delivery(null);

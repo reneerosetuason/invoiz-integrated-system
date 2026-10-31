@@ -8,6 +8,7 @@ use App\Models\PaymentTransaction;
 use App\Models\Seller;
 use App\Models\SellerPayout;
 use App\Models\WithdrawalRequest;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Single home for payment money wiring so orders, payments,
@@ -69,36 +70,42 @@ class Payments
     }
 
     /**
-     * Per-seller money split for one order, recomputed from live data so
-     * ledger, dashboard and reports can never disagree.
+     * Per-seller money split for one order. Delegates to EscrowEarnings so
+     * settlement, escrow rows, transaction details and stakeholder earnings
+     * always share one allocation formula.
      *
-     * @return array [sellerKey => ['merch' => net merch, 'commission' => cut, 'waived' => absorbed shipping, 'earning' => payable]]
+     * @return array [sellerKey => ['merch' => net merch, 'commission' => cut, 'waived' => absorbed shipping, 'earning' => payable, ...]]
      */
     public static function splitForSellers(Order $order, ?float $rate = null): array
     {
         $order->loadMissing(['items', 'orderVouchers.voucher']);
-        $rate = $rate ?? self::defaultCommissionRate();
 
-        $groups = $order->shippingGroupIds();
         $out = [];
-        foreach ($groups as $sid) {
-            $sid = (int) $sid;
-            $calc = \App\Support\EscrowEarnings::calculateForSeller($order, $sid, null, $rate);
-
+        foreach ($order->shippingGroupIds() as $sellerId) {
+            $sid = (int) $sellerId;
+            $calc = EscrowEarnings::calculateForSeller($order, $sid, null, $rate);
+            if (! $calc['has_group']) {
+                continue;
+            }
             $out[$sid] = [
-                'merch'                => $calc['net_merch'],
-                'commission'           => $calc['admin_commission'],
-                'waived'               => $calc['shipping_waived'],
-                'logistics'            => $calc['merch_logistics_deducted'],
-                'earning'              => $calc['seller_earning'],
-                'origin_hub_fee'       => $calc['origin_hub_fee'],
-                'pickup_rider_fee'     => $calc['pickup_rider_fee'],
-                'inter_hub_driver_fee' => $calc['inter_hub_driver_fee'],
-                'destination_hub_fee'  => $calc['destination_hub_fee'],
-                'last_mile_rider_fee'  => $calc['last_mile_rider_fee'],
-                'seller_deficit'       => $calc['seller_deficit'],
+                'merch'                  => $calc['net_merch'],
+                'commission'             => $calc['admin_commission'],
+                'waived'                 => $calc['shipping_waived'],
+                'logistics'              => $calc['merch_logistics_deducted'],
+                'earning'                => $calc['seller_earning'],
+                'deficit'                => $calc['seller_deficit'],
+                'origin_hub_fee'         => $calc['origin_hub_fee'],
+                'pickup_rider_fee'       => $calc['pickup_rider_fee'],
+                'inter_hub_driver_fee'   => $calc['inter_hub_driver_fee'],
+                'destination_hub_fee'    => $calc['destination_hub_fee'],
+                'last_mile_rider_fee'    => $calc['last_mile_rider_fee'],
+                'admin_commission'       => $calc['admin_commission'],
+                'buyer_total_payable'    => $calc['buyer_total_payable'],
+                'cod_escrow_remittance'  => $calc['cod_escrow_remittance'],
+                'seller_deficit'         => $calc['seller_deficit'],
             ];
         }
+
         return $out;
     }
 
@@ -113,16 +120,16 @@ class Payments
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $order->loadMissing(['items', 'orderVouchers.voucher']);
             $split = self::splitForSellers($order);
-            $sellerEarning = round(array_sum(array_column($split, 'earning')), 2);
-            $commission = round(array_sum(array_column($split, 'commission')), 2);
-            $riderFee = round(array_sum(array_column($split, 'last_mile_rider_fee')), 2);
-            $originHubFee = round(array_sum(array_column($split, 'origin_hub_fee')), 2);
-            $pickupRiderFee = round(array_sum(array_column($split, 'pickup_rider_fee')), 2);
-            $interHubDriverFee = round(array_sum(array_column($split, 'inter_hub_driver_fee')), 2);
-            $destinationHubFee = round(array_sum(array_column($split, 'destination_hub_fee')), 2);
-            $lastMileRiderFee = $riderFee;
-            $logisticsFee = round(array_sum(array_column($split, 'logistics')), 2);
-            $sellerDeficit = round(array_sum(array_column($split, 'seller_deficit')), 2);
+            $sum = fn (string $key): float => round(array_sum(array_map(
+                fn (array $share): float => (float) ($share[$key] ?? 0),
+                $split
+            )), 2);
+
+            $sellerEarning = $sum('earning');
+            $commission = $sum('commission');
+            $riderFee = $sum('last_mile_rider_fee');
+            $logisticsFee = $sum('logistics');
+            $sellerDeficit = $sum('seller_deficit');
 
             $tx = self::transactionFor($order);
             if (! $tx) {
@@ -135,10 +142,12 @@ class Payments
                 ]);
             }
             if ($tx->status === 'successful' && ! $force) {
+                EscrowEarnings::syncRemittancesForOrder($order, $tx);
+
                 return;
             }
 
-            $updateData = [
+            $payload = [
                 'status'              => 'successful',
                 'seller_earning'      => $sellerEarning,
                 'platform_commission' => $commission,
@@ -146,19 +155,20 @@ class Payments
                 'logistics_fee'       => $logisticsFee,
                 'paid_at'             => now(),
             ];
-
-            if (\Illuminate\Support\Facades\Schema::hasColumn('payment_transactions', 'origin_hub_fee')) {
-                $updateData += [
-                    'origin_hub_fee'       => $originHubFee,
-                    'pickup_rider_fee'     => $pickupRiderFee,
-                    'inter_hub_driver_fee' => $interHubDriverFee,
-                    'destination_hub_fee'  => $destinationHubFee,
-                    'last_mile_rider_fee'  => $lastMileRiderFee,
-                    'seller_deficit'       => $sellerDeficit,
-                ];
+            foreach ([
+                'origin_hub_fee'       => $sum('origin_hub_fee'),
+                'pickup_rider_fee'     => $sum('pickup_rider_fee'),
+                'inter_hub_driver_fee' => $sum('inter_hub_driver_fee'),
+                'destination_hub_fee'  => $sum('destination_hub_fee'),
+                'last_mile_rider_fee'  => $riderFee,
+                'seller_deficit'       => $sellerDeficit,
+            ] as $column => $value) {
+                if (Schema::hasColumn('payment_transactions', $column)) {
+                    $payload[$column] = $value;
+                }
             }
 
-            $tx->update($updateData);
+            $tx->update($payload);
             $order->update([
                 'payment_status'    => 'paid',
                 'commission_amount' => $commission,
@@ -167,7 +177,7 @@ class Payments
                 $order->payment->update(['status' => 'paid', 'paid_at' => now()]);
             }
 
-            \App\Support\EscrowEarnings::syncRemittancesForOrder($order, $tx);
+            EscrowEarnings::syncRemittancesForOrder($order, $tx);
         });
     }
 
@@ -187,7 +197,7 @@ class Payments
                     'status'          => 'failed',
                 ]);
             }
-            \App\Support\EscrowEarnings::syncRemittancesForOrder($order, $tx);
+            EscrowEarnings::syncRemittancesForOrder($order);
         } catch (\Throwable $e) {
             if ($strict) {
                 throw $e;

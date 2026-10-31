@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Notifications\ResetPasswordMail;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -11,6 +12,10 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
+
+    public const GLOBAL_LOGISTICS_ADMIN_ID = 18;
+
+    public const GLOBAL_LOGISTICS_ADMIN_EMAIL = 'logistics_admin@test.com';
 
     protected $fillable = [
         // Unified schema: supports BOTH admin-style and buyer-style columns
@@ -44,6 +49,7 @@ class User extends Authenticatable
         'otp_expires_at',
         'email_verified_at',
         'center_id',
+        'logistics_company_id',
     ];
 
     protected $hidden = [
@@ -66,9 +72,64 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
+        static::creating(function (User $user): void {
+            $isDesignatedAccount = (int) $user->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID
+                && $user->email === self::GLOBAL_LOGISTICS_ADMIN_EMAIL
+                && $user->role === 'logistics_admin'
+                && ! $user->is_admin
+                && $user->status === 'active'
+                && $user->account_status === 'active'
+                && $user->center_id === null
+                && $user->logistics_company_id === null;
+
+            if ($user->role === 'logistics_admin' && ! $isDesignatedAccount) {
+                throw new AuthorizationException('Only the designated account may be assigned the global Logistics Admin role.');
+            }
+
+            if ((int) $user->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID && ! $isDesignatedAccount) {
+                throw new AuthorizationException('The designated global Logistics Admin identity cannot be created with different account details.');
+            }
+        });
+
         // Keep every identity pair in sync so buyer/seller/admin
         // always show the same name, status and role.
         static::saving(function (User $user) {
+            $originalId = (int) $user->getOriginal($user->getKeyName());
+            $currentId = (int) $user->getKey();
+            if (
+                $user->exists
+                && ($originalId === self::GLOBAL_LOGISTICS_ADMIN_ID || $currentId === self::GLOBAL_LOGISTICS_ADMIN_ID)
+            ) {
+                foreach ([
+                    'id',
+                    'email',
+                    'password',
+                    'remember_token',
+                    'email_verified_at',
+                    'role',
+                    'is_admin',
+                    'status',
+                    'account_status',
+                    'approval_status',
+                    'otp',
+                    'otp_expires_at',
+                    'center_id',
+                    'logistics_company_id',
+                ] as $protectedField) {
+                    if ($user->isDirty($protectedField)) {
+                        throw new AuthorizationException('The designated global Logistics Admin account is protected from ordinary account changes.');
+                    }
+                }
+            }
+
+            if (
+                $user->isDirty('role')
+                && $user->role === 'logistics_admin'
+                && (int) $user->getKey() !== self::GLOBAL_LOGISTICS_ADMIN_ID
+            ) {
+                throw new AuthorizationException('Only the designated account may be assigned the global Logistics Admin role.');
+            }
+
             $mapToLegacy = ['active' => 'active', 'suspended' => 'suspended', 'deactivated' => 'inactive'];
             $mapToAdmin = ['active' => 'active', 'suspended' => 'suspended', 'inactive' => 'deactivated'];
             if ($user->isDirty('account_status') && isset($mapToLegacy[$user->account_status])) {
@@ -104,6 +165,12 @@ class User extends Authenticatable
                 $user->account_status = 'active';
             }
         });
+
+        static::deleting(function (User $user): void {
+            if ((int) $user->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID) {
+                throw new AuthorizationException('The designated global Logistics Admin account cannot be deleted through ordinary account management.');
+            }
+        });
     }
 
     public function seller()
@@ -124,6 +191,11 @@ class User extends Authenticatable
         return $this->belongsTo(LogisticsCenter::class, 'center_id');
     }
 
+    public function logisticsCompany()
+    {
+        return $this->belongsTo(LogisticsCompany::class, 'logistics_company_id');
+    }
+
     public function isStaff(): bool
     {
         // Both legacy 'staff' and 'logistics_staff' work the counter:
@@ -138,7 +210,7 @@ class User extends Authenticatable
     {
         return match ($this->role) {
             'admin' => 'Logistics Manager',
-            'logistics_admin' => 'Logistics Admin',
+            'logistics_admin' => $this->isLogisticsAdmin() ? 'Logistics Admin' : 'Unassigned Logistics Admin',
             'staff' => 'Logistics Staff',
             'logistics_staff' => 'Logistics Staff',
             'rider' => 'Rider',
@@ -148,15 +220,36 @@ class User extends Authenticatable
 
     public function isLogisticsAdmin(): bool
     {
-        return in_array($this->role, ['admin', 'logistics_admin'], true);
+        return $this->isDesignatedLogisticsAdminAccount()
+            && $this->email === self::GLOBAL_LOGISTICS_ADMIN_EMAIL
+            && $this->role === 'logistics_admin'
+            && ! $this->isAdmin();
+    }
+
+    public function isDesignatedLogisticsAdminAccount(): bool
+    {
+        return (int) $this->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID;
+    }
+
+    /**
+     * Company manager: the legacy `role=admin` account that is NOT flagged
+     * as a Platform Administrator. Managers operate only inside their own
+     * logistics company and never receive global admin privileges.
+     */
+    public function isCompanyManager(): bool
+    {
+        return ! $this->isAdmin() && $this->role === 'admin';
     }
 
     public function isLogisticsStaff(): bool
     {
-        // Role-based staff plus center-assigned accounts: a buyer/seller
-        // approved for a center keeps its marketplace role (single role
-        // column), and the center assignment carries logistics access.
-        return in_array($this->role, ['admin', 'staff', 'logistics_admin', 'logistics_staff'], true)
+        // Keep company manager entry to shared logistics surfaces while
+        // keeping the global Logistics Admin predicate distinct from raw
+        // role strings.
+        return $this->isAdmin()
+            || $this->isLogisticsAdmin()
+            || $this->isCompanyManager()
+            || in_array($this->role, ['staff', 'logistics_staff'], true)
             || $this->hasProvisionedCenterAssignment();
     }
 
@@ -209,12 +302,15 @@ class User extends Authenticatable
     /**
      * True when approval/provisioning flows must NOT replace this account's
      * role or password (one email keeps working everywhere): marketplace
-     * roles and real admins keep their own login; only role-less or
-     * logistics-only accounts are converted.
+     * roles, real admins, and the designated global Logistics Admin keep
+     * their own login; only role-less or logistics-only accounts are converted.
      */
     public function keepsOwnLogin(): bool
     {
-        return in_array($this->role, ['buyer', 'seller', 'admin'], true) || $this->isAdmin();
+        return in_array($this->role, ['buyer', 'seller', 'admin'], true)
+            || $this->isAdmin()
+            || $this->isDesignatedLogisticsAdminAccount()
+            || $this->isLogisticsAdmin();
     }
 
     /**
@@ -299,9 +395,20 @@ class User extends Authenticatable
         return $this->hasMany(Message::class, 'receiver_id');
     }
 
+    /**
+     * Platform Administrator = the explicit `is_admin` flag only.
+     *
+     * `role=admin` without the flag is a logistics company manager and must
+     * never inherit platform-wide authorization.
+     */
     public function isAdmin()
     {
-        return (bool) $this->is_admin || $this->role === 'admin';
+        return (bool) $this->is_admin;
+    }
+
+    public function isPlatformAdministrator(): bool
+    {
+        return $this->isAdmin();
     }
 
     public function sendPasswordResetNotification($token)

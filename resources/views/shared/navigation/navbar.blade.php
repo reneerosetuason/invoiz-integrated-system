@@ -224,17 +224,21 @@
 <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
                     <div class="flex items-center justify-between px-4 sm:px-6 h-16">
                         <div class="flex items-center gap-3">
-                                <button type="button" class="ld-mobile-menu" @click="toggleSidebar()" :aria-expanded="sidebarVisible.toString()" aria-label="Toggle logistics menu" aria-controls="app-sidebar">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-                                </button>
+                            <button type="button" class="ld-mobile-menu" @click="toggleSidebar()" :aria-expanded="sidebarVisible.toString()" aria-label="Toggle logistics menu" aria-controls="app-sidebar">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                            </button>
                             <div class="flex items-center gap-2">
                                 <span class="text-lg font-bold text-gray-900">Logistics</span>
                                 @php
                                     $navUser = Auth::user();
                                     $navCenter = null;
+                                    $navCompany = null;
                                     try {
                                         if ($navUser && $navUser->center_id) {
                                             $navCenter = $navUser->logisticsCenter;
+                                        }
+                                        if ($navUser && $navUser->logistics_company_id) {
+                                            $navCompany = $navUser->logisticsCompany;
                                         }
                                     } catch (\Throwable $e) {}
                                 @endphp
@@ -242,6 +246,11 @@
                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E6F4F1] text-[#0E4A57] border border-[#16697A]/20" title="{{ $navCenter->name }} ({{ $navCenter->code }})">
                                         <span class="w-1.5 h-1.5 rounded-full bg-[#16697A]"></span>
                                         <span class="max-w-[220px] truncate">{{ $navCenter->name }}</span>
+                                    </span>
+                                @elseif($navCompany)
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E6F4F1] text-[#0E4A57] border border-[#16697A]/20" title="{{ $navCompany->name }}">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-[#16697A]"></span>
+                                        <span class="max-w-[220px] truncate">{{ $navCompany->name }}</span>
                                     </span>
                                 @elseif($navUser && in_array($navUser->role, ['admin', 'logistics_admin'], true))
                                     <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200" title="HQ Administrator - All Logistics Centers">

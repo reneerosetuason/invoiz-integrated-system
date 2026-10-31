@@ -16,9 +16,9 @@
             @method('PUT')
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label for="logistics_center_id" class="block text-sm font-medium text-gray-700 mb-1">Logistics Center <span class="text-red-500">*</span></label>
+                    <label for="logistics_center_id" class="block text-sm font-medium text-gray-700 mb-1">Logistics Hub <span class="text-red-500">*</span></label>
                     <select name="logistics_center_id" id="logistics_center_id" required class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                        <option value="">— Select center —</option>
+                        <option value="">— Select Logistics Hub —</option>
                         @foreach($centers as $center)
                             <option value="{{ $center->id }}" @selected((int) old('logistics_center_id', $area->logistics_center_id) === $center->id)>{{ $center->name }}</option>
                         @endforeach

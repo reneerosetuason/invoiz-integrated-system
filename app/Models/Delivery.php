@@ -41,37 +41,13 @@ class Delivery extends Model
         return self::STATUS_GROUPS[$key] ?? null;
     }
 
-    public function isIncomingTransfer(?int $centerId = null): bool
-    {
-        return $this->status === 'waiting_for_rider' && $this->parcel_status === 'dispatched' && $this->rider_id === null
-            && $this->destination_center_id && (int) $this->destination_center_id !== (int) $this->center_id
-            && ($centerId === null || (int) $this->destination_center_id === $centerId);
-    }
-
-    public function scopeAtOrIncomingTo($query, int $centerId)
-    {
-        return $query->where(fn ($q) => $q->where('deliveries.center_id', $centerId)->orWhere(fn ($incoming) => $incoming
-            ->where('deliveries.destination_center_id', $centerId)->whereColumn('deliveries.destination_center_id', '!=', 'deliveries.center_id')
-            ->where('deliveries.status', 'waiting_for_rider')->where('deliveries.parcel_status', 'dispatched')->whereNull('deliveries.rider_id')));
-    }
-
-    public function scopeIncoming($query, ?int $centerId = null)
-    {
-        return $query->where(fn ($q) => $q->where('deliveries.parcel_status', 'pending_arrival')->orWhere(fn ($transfer) => $transfer
-            ->where('deliveries.status', 'waiting_for_rider')->where('deliveries.parcel_status', 'dispatched')->whereNull('deliveries.rider_id')->whereColumn('deliveries.destination_center_id', '!=', 'deliveries.center_id')
-            ->when($centerId !== null, fn ($dest) => $dest->where('deliveries.destination_center_id', $centerId))));
-    }
-
     protected $fillable = [
         'tracking_number',
         'order_id',
         'seller_id',
         'rider_id',
         'center_id',
-        'origin_center_id',
         'destination_center_id',
-        'inter_hub_rider_id',
-        'inter_hub_dispatched_at',
         'service_area_id',
         'sender_name',
         'sender_phone',
@@ -121,6 +97,9 @@ class Delivery extends Model
         'sorting_center_handoff_rider_id',
         'sorting_center_pickup_at',
         'sorting_center_pickup_rider_id',
+        'origin_center_id',
+        'inter_hub_rider_id',
+        'inter_hub_dispatched_at',
     ];
 
     protected $hidden = [
@@ -151,12 +130,12 @@ class Delivery extends Model
             'accepted_at' => 'datetime',
             'picked_up_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'inter_hub_dispatched_at' => 'datetime',
             'cancelled_at' => 'datetime',
             'failed_at' => 'datetime',
             'reattempt_requested_at' => 'datetime',
             'returned_at' => 'datetime',
             'estimated_delivery_at' => 'datetime',
-            'inter_hub_dispatched_at' => 'datetime',
             'archived_at' => 'datetime',
             'received_at' => 'datetime',
             'scanned_at' => 'datetime',
@@ -293,6 +272,71 @@ class Delivery extends Model
         return $this->hasOne(PickupRequest::class);
     }
 
+    public function hubTransferParcels(): HasMany
+    {
+        return $this->hasMany(HubTransferParcel::class, 'delivery_id');
+    }
+
+    /** Parcel is inside an active fleet transfer toward the given hub. */
+    public function isIncomingTransferTo(int $centerId): bool
+    {
+        return (int) $this->center_id !== $centerId
+            && $this->hubTransferParcels()
+                ->where('loading_status', '!=', 'removed')
+                ->whereHas('transfer', fn ($query) => $query
+                    ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                    ->where('destination_center_id', $centerId))
+                ->exists();
+    }
+
+    /** Latest manifest entry while an active fleet transfer still holds the parcel. */
+    public function incomingTransferParcel(): HasOne
+    {
+        return $this->hasOne(HubTransferParcel::class, 'delivery_id')
+            ->where('loading_status', '!=', 'removed')
+            ->whereHas('transfer', fn ($query) => $query->whereIn('status', HubTransfer::ACTIVE_STATUSES))
+            ->orderByDesc('id');
+    }
+
+    /** Center's own parcels plus parcels the fleet is bringing to it. */
+    public function scopeAtOrIncomingToHub($query, int $centerId)
+    {
+        return $query->where(function ($inner) use ($centerId): void {
+            $inner->where('deliveries.center_id', $centerId)
+                ->orWhere(function ($incoming) use ($centerId): void {
+                    $incoming->whereHas('hubTransferParcels', fn ($parcel) => $parcel
+                        ->where('loading_status', '!=', 'removed')
+                        ->whereHas('transfer', fn ($transfer) => $transfer
+                            ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                            ->where('destination_center_id', $centerId)));
+                });
+        });
+    }
+
+    /**
+     * Incoming parcels for the receiving screens.
+     *
+     * Two sources feed a hub's incoming queue: pickups the seller has handed
+     * to a delivery rider (still pending_arrival) and parcels an active fleet
+     * transfer is bringing to the hub. Both are hub-scoped when a hub is
+     * supplied so staff never see another hub's expected parcels.
+     */
+    public function scopeIncomingViaHub($query, ?int $centerId = null)
+    {
+        return $query->where(function ($outer) use ($centerId): void {
+            $outer->where(function ($expected) use ($centerId): void {
+                $expected->where('deliveries.parcel_status', 'pending_arrival')
+                    ->when($centerId !== null, fn ($hub) => $hub->where('deliveries.center_id', $centerId));
+            })->orWhere(function ($incoming) use ($centerId): void {
+                $incoming->whereHas('hubTransferParcels', fn ($parcel) => $parcel
+                    ->where('loading_status', '!=', 'removed')
+                    ->whereHas('transfer', fn ($transfer) => $transfer
+                        ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                        ->when($centerId !== null, fn ($dest) => $dest->where('destination_center_id', $centerId))));
+            });
+        });
+    }
+
     public function sortingCenterHandoffRider(): BelongsTo
     {
         return $this->belongsTo(Rider::class, 'sorting_center_handoff_rider_id');
@@ -303,14 +347,14 @@ class Delivery extends Model
         return $this->belongsTo(Rider::class, 'sorting_center_pickup_rider_id');
     }
 
-    public function interHubRider(): BelongsTo
-    {
-        return $this->belongsTo(Rider::class, 'inter_hub_rider_id');
-    }
-
     public function originCenter(): BelongsTo
     {
         return $this->belongsTo(LogisticsCenter::class, 'origin_center_id');
+    }
+
+    public function interHubRider(): BelongsTo
+    {
+        return $this->belongsTo(Rider::class, 'inter_hub_rider_id');
     }
 
     public function escrowRemittances(): HasMany
@@ -318,16 +362,39 @@ class Delivery extends Model
         return $this->hasMany(EscrowRemittance::class);
     }
 
-    public function scopeNotArchived($query)
+    public function isIncomingTransfer(?int $centerId = null): bool
     {
-        return $query->whereNull('deliveries.archived_at');
+        return $this->status === 'waiting_for_rider' && $this->parcel_status === 'dispatched' && $this->rider_id === null
+            && $this->destination_center_id && (int) $this->destination_center_id !== (int) $this->center_id
+            && ($centerId === null || (int) $this->destination_center_id === $centerId);
     }
 
-    /**
-     * Suggest the hub that serves the buyer: the first active service area
-     * whose name appears in the recipient address. Returns
-     * ['center_id' => ?int, 'service_area_id' => ?int].
-     */
+    public function isInterHubRoute(): bool
+    {
+        $origin = $this->routeOriginId();
+        return $origin !== null && $this->destination_center_id && (int) $this->destination_center_id !== $origin;
+    }
+
+    public function routeOriginId(): ?int
+    {
+        $id = $this->origin_center_id ?: $this->center_id;
+        return $id ? (int) $id : null;
+    }
+
+    public function scopeAtOrIncomingTo($query, int $centerId)
+    {
+        return $query->where(fn ($q) => $q->where('deliveries.center_id', $centerId)->orWhere(fn ($incoming) => $incoming
+            ->where('deliveries.destination_center_id', $centerId)->whereColumn('deliveries.destination_center_id', '!=', 'deliveries.center_id')
+            ->where('deliveries.status', 'waiting_for_rider')->where('deliveries.parcel_status', 'dispatched')->whereNull('deliveries.rider_id')));
+    }
+
+    public function scopeIncoming($query, ?int $centerId = null)
+    {
+        return $query->where(fn ($q) => $q->where('deliveries.parcel_status', 'pending_arrival')->orWhere(fn ($transfer) => $transfer
+            ->where('deliveries.status', 'waiting_for_rider')->where('deliveries.parcel_status', 'dispatched')->whereNull('deliveries.rider_id')->whereColumn('deliveries.destination_center_id', '!=', 'deliveries.center_id')
+            ->when($centerId !== null, fn ($dest) => $dest->where('deliveries.destination_center_id', $centerId))));
+    }
+
     public function suggestedDestination(?\Illuminate\Support\Collection $areas = null): array
     {
         $address = mb_strtolower((string) $this->recipient_address);
@@ -345,17 +412,8 @@ class Delivery extends Model
         ];
     }
 
-    /** Origin hub (where the seller's parcel entered the network). */
-    public function routeOriginId(): ?int
+    public function scopeNotArchived($query)
     {
-        $id = $this->origin_center_id ?: $this->center_id;
-        return $id ? (int) $id : null;
-    }
-
-    /** True when the parcel must move between two different hubs. */
-    public function isInterHubRoute(): bool
-    {
-        $origin = $this->routeOriginId();
-        return $origin !== null && $this->destination_center_id && (int) $this->destination_center_id !== $origin;
+        return $query->whereNull('archived_at');
     }
 }

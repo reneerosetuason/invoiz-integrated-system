@@ -12,6 +12,8 @@ use App\Models\SellerPayout;
 use App\Models\WithdrawalRequest;
 use App\Models\PaymentDispute;
 use App\Models\CommissionRate;
+use App\Models\EscrowRemittance;
+use App\Support\EscrowEarnings;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
@@ -142,6 +144,101 @@ class AdminSmokeTest extends TestCase
             ->assertRedirect();
 
         $this->assertEquals(9.5, $rate->fresh()->rate);
+    }
+
+    public function test_earnings_schedule_can_be_updated_from_admin(): void
+    {
+        $this->seedData();
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->post('/admin/commission/earnings', [
+                'origin_hub_fee' => 31,
+                'pickup_rider_per_item' => 32,
+                'inter_hub_driver_fee' => 21,
+                'destination_hub_fee' => 33,
+                'last_mile_rider_fee' => 51,
+            ])
+            ->assertRedirect();
+
+        $rates = EscrowEarnings::rates();
+        $this->assertSame(31.0, $rates['origin_hub_fee']);
+        $this->assertSame(32.0, $rates['pickup_rider_per_item']);
+        $this->assertSame(21.0, $rates['inter_hub_driver_fee']);
+        $this->assertSame(33.0, $rates['destination_hub_fee']);
+        $this->assertSame(51.0, $rates['last_mile_rider_fee']);
+    }
+
+    public function test_escrow_release_is_idempotent_and_keeps_held_rows_locked(): void
+    {
+        $this->seedData();
+        $admin = $this->admin();
+        $order = Order::firstOrFail();
+        $sellerId = $order->items()->value('seller_id') ?? $order->buyer_id;
+
+        $pending = EscrowRemittance::create([
+            'order_id' => $order->id,
+            'seller_id' => $sellerId,
+            'recipient_role' => EscrowRemittance::ROLE_ORIGIN_HUB,
+            'recipient_name' => 'Release Test Hub',
+            'amount' => 30,
+            'settlement_mode' => 'escrow_bank_remittance',
+            'status' => 'pending_remittance',
+        ]);
+        $held = EscrowRemittance::create([
+            'order_id' => $order->id,
+            'seller_id' => $sellerId,
+            'recipient_role' => EscrowRemittance::ROLE_DESTINATION_HUB,
+            'recipient_name' => 'Held Test Hub',
+            'amount' => 30,
+            'settlement_mode' => 'escrow_bank_remittance',
+            'status' => 'held_in_escrow',
+        ]);
+
+        $this->actingAs($admin)->post("/admin/payments/escrow-remittances/{$pending->id}/remit")->assertRedirect();
+        $this->assertSame('remitted', $pending->fresh()->status);
+        $this->assertNotNull($pending->fresh()->bank_reference);
+
+        $this->actingAs($admin)->post("/admin/payments/escrow-remittances/{$pending->id}/remit")->assertRedirect();
+        $this->assertSame('remitted', $pending->fresh()->status);
+
+        $this->actingAs($admin)->post("/admin/payments/escrow-remittances/{$held->id}/remit")->assertRedirect();
+        $this->assertSame('held_in_escrow', $held->fresh()->status, 'Held escrow must not be releasable from the admin page.');
+
+        $this->actingAs($admin)->get('/admin/payments')->assertStatus(200)->assertSee('Release Test Hub');
+    }
+
+    public function test_release_all_only_touches_pending_remittances(): void
+    {
+        $this->seedData();
+        $admin = $this->admin();
+        $order = Order::firstOrFail();
+        $sellerId = $order->items()->value('seller_id') ?? $order->buyer_id;
+
+        $pending = EscrowRemittance::create([
+            'order_id' => $order->id,
+            'seller_id' => $sellerId,
+            'recipient_role' => EscrowRemittance::ROLE_PICKUP_RIDER,
+            'recipient_name' => 'Batch Pickup Rider',
+            'amount' => 60,
+            'settlement_mode' => 'escrow_bank_remittance',
+            'status' => 'pending_remittance',
+        ]);
+        $held = EscrowRemittance::create([
+            'order_id' => $order->id,
+            'seller_id' => $sellerId,
+            'recipient_role' => EscrowRemittance::ROLE_LAST_MILE_RIDER,
+            'recipient_name' => 'Batch Held Rider',
+            'amount' => 50,
+            'settlement_mode' => 'cod_retained',
+            'status' => 'held_in_escrow',
+        ]);
+
+        $this->actingAs($admin)->post('/admin/payments/escrow-remittances/remit-all')->assertRedirect();
+
+        $this->assertSame('remitted', $pending->fresh()->status);
+        $this->assertStringStartsWith('BATCH-REMIT-', (string) $pending->fresh()->bank_reference);
+        $this->assertSame('held_in_escrow', $held->fresh()->status);
     }
 
     public function test_category_archive_and_restore(): void

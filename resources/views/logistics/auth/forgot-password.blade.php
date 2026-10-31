@@ -17,7 +17,7 @@
             <div class="flex flex-col items-center">
                 <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Logo" class="h-14 w-14 rounded-2xl object-cover ring-1 ring-gray-100">
                 <p class="mt-3 text-lg font-extrabold tracking-tight text-gray-900">Logistics</p>
-                <p class="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-400 mt-0.5">Logistics Center</p>
+                <p class="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-400 mt-0.5">Logistics Hub</p>
             </div>
 
             {{-- Icon --}}

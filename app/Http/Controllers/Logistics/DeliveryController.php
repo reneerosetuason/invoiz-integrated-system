@@ -21,6 +21,7 @@ use App\Services\ReturnToSellerService;
 use App\Services\ShipmentExceptionService;
 use App\Support\Cod;
 use App\Support\CsvExport;
+use App\Support\LogisticsAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -46,19 +47,19 @@ class DeliveryController extends Controller
 
         $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
         $query->where(function ($w) use ($like, $search) {
-            $w->where('deliveries.tracking_number', 'like', $like)
-              ->orWhere('deliveries.sender_name', 'like', $like)
-              ->orWhere('deliveries.recipient_name', 'like', $like)
-              ->orWhere('deliveries.sender_phone', 'like', $like)
-              ->orWhere('deliveries.recipient_phone', 'like', $like)
-              ->orWhere('deliveries.sender_address', 'like', $like)
-              ->orWhere('deliveries.recipient_address', 'like', $like)
-              ->orWhere('deliveries.notes', 'like', $like)
+            $w->where('tracking_number', 'like', $like)
+              ->orWhere('sender_name', 'like', $like)
+              ->orWhere('recipient_name', 'like', $like)
+              ->orWhere('sender_phone', 'like', $like)
+              ->orWhere('recipient_phone', 'like', $like)
+              ->orWhere('sender_address', 'like', $like)
+              ->orWhere('recipient_address', 'like', $like)
+              ->orWhere('notes', 'like', $like)
               ->orWhereHas('rider', fn ($r) => $r->where('name', 'like', $like));
 
             if (ctype_digit($search)) {
-                $w->orWhere('deliveries.id', (int) $search)
-                  ->orWhere('deliveries.order_id', (int) $search);
+                $w->orWhere('id', (int) $search)
+                  ->orWhere('order_id', (int) $search);
             }
         });
     }
@@ -84,45 +85,47 @@ class DeliveryController extends Controller
         // is enforced at the query level so a query parameter can never bypass
         // it. A staff account without a center is scoped to no rows, never all.
         $staffCenterId = $this->centerScopeId();
+        $this->applyCompanyScope($query);
         $this->applyCenterScope($query);
 
         $this->applySearch($query, $search);
 
         if ($status === 'exceptions') {
-            $query->whereIn('deliveries.status', ['delivery_failed', 'lost', 'damaged']);
+            $query->whereIn('status', ['delivery_failed', 'lost', 'damaged']);
         } elseif (($group = Delivery::statusGroup($status)) !== null) {
-            $query->whereIn('deliveries.status', $group);
+            $query->whereIn('status', $group);
         } elseif ($status !== '' && in_array($status, ['waiting_for_rider', 'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop', 'picked_up', 'out_for_delivery', 'arrived_at_customer', 'delivered', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'cancelled'])) {
-            $query->where('deliveries.status', $status);
+            $query->where('status', $status);
         }
 
         if ($dateFrom !== '' && strtotime($dateFrom)) {
-            $query->whereDate('deliveries.created_at', '>=', $dateFrom);
+            $query->whereDate('created_at', '>=', $dateFrom);
         }
 
         if ($dateTo !== '' && strtotime($dateTo)) {
-            $query->whereDate('deliveries.created_at', '<=', $dateTo);
+            $query->whereDate('created_at', '<=', $dateTo);
         }
 
         if ($riderId > 0) {
-            $query->where('deliveries.rider_id', $riderId);
+            $query->where('rider_id', $riderId);
         }
 
         if ($vehicle !== '') {
             $query->whereHas('rider', fn ($r) => $r->whereRaw('LOWER(vehicle_type) = ?', [strtolower($vehicle)]));
         }
 
-        // Center filter is only applied for admins; staff are already scoped above.
-        if ($centerId > 0 && $this->isLogisticsManager()) {
-            $query->where('deliveries.center_id', $centerId);
+        // The requested center can only narrow an already company/center
+        // scoped query, so a forged id can never widen access.
+        if ($centerId > 0) {
+            $query->where('center_id', $centerId);
         }
 
         if ($serviceAreaId > 0) {
-            $query->where('deliveries.service_area_id', $serviceAreaId);
+            $query->where('service_area_id', $serviceAreaId);
         }
 
         if ($priority !== '' && in_array($priority, ['normal', 'high', 'urgent'])) {
-            $query->where('deliveries.priority', $priority);
+            $query->where('priority', $priority);
         }
 
         $sort = (string) $request->query('sort', '');
@@ -225,26 +228,26 @@ class DeliveryController extends Controller
 
         $deliveries = $query->paginate($filters['perPage'])->withQueryString();
 
-        // Company isolation: staff never receive another center's rider or
-        // service-area options, even though the filters are not required to
-        // make the request work.
+        // Company isolation: accounts only receive rider, service-area, and
+        // center options from their own company (and own hub when assigned).
         $riderOptions = Rider::query();
         $serviceAreaOptions = ServiceArea::query();
+        $user = Auth::user();
+        LogisticsAccess::scopeRiders($riderOptions, $user);
+        LogisticsAccess::scopeServiceAreas($serviceAreaOptions, $user);
 
+        $filterCenters = LogisticsCenter::orderBy('name');
+        LogisticsAccess::scopeCenters($filterCenters, $user);
         if ($staffCenterId !== null) {
             if ($staffCenterId === 0) {
-                $riderOptions->whereRaw('1 = 0');
-                $serviceAreaOptions->whereRaw('1 = 0');
+                $filterCenters->whereRaw('1 = 0');
             } else {
-                $riderOptions->where('center_id', $staffCenterId);
-                $serviceAreaOptions->where('logistics_center_id', $staffCenterId);
+                $filterCenters->whereKey($staffCenterId);
             }
         }
 
-        $filterCenters = LogisticsCenter::orderBy('name');
-        $this->applyCenterScope($filterCenters, 'id');
-
-        $archivedQuery = Delivery::query()->whereNotNull('deliveries.archived_at');
+        $archivedQuery = Delivery::query()->whereNotNull('archived_at');
+        $this->applyCompanyScope($archivedQuery);
         $this->applyCenterScope($archivedQuery);
 
         return view('logistics.deliveries.index', [
@@ -308,15 +311,15 @@ class DeliveryController extends Controller
 
             default:
                 $column = match ($sortKey) {
-                    'tracking_number' => 'deliveries.tracking_number',
-                    'sender' => 'deliveries.sender_name',
-                    'recipient' => 'deliveries.recipient_name',
-                    'status' => 'deliveries.status',
-                    'date' => 'deliveries.created_at',
-                    'priority' => 'deliveries.priority',
-                    default => 'deliveries.created_at',
+                    'tracking_number' => 'tracking_number',
+                    'sender' => 'sender_name',
+                    'recipient' => 'recipient_name',
+                    'status' => 'status',
+                    'date' => 'created_at',
+                    'priority' => 'priority',
+                    default => 'created_at',
                 };
-                $query->orderBy($column, $dir)->orderBy('deliveries.id', $dir);
+                $query->orderBy($column, $dir)->orderBy('id', $dir);
                 break;
         }
     }
@@ -325,74 +328,100 @@ class DeliveryController extends Controller
     {
         $user = Auth::user();
 
-        // Managers are global. Every other logistics staff account is
-        // center-scoped, including misconfigured accounts with no center:
-        // those accounts must see no deliveries, never every delivery.
+        // Center-scoped accounts are logistics staff with an assigned hub.
+        // Company managers are company-wide, not center-scoped, and global
+        // accounts are unrestricted.
         return (bool) ($user
             && $user->isLogisticsStaff()
-            && !$this->isLogisticsManager());
+            && ! $this->isLogisticsManager()
+            && ! $user->isCompanyManager());
     }
 
     /**
-     * Null means global access, 0 means a scoped account with no center, and a
-     * positive id means that account's assigned center.
+     * Null means no center restriction (global or company-wide manager),
+     * 0 means a scoped account with no center, and a positive id means that
+     * account's assigned center.
      */
     private function centerScopeId(): ?int
     {
-        if (!$this->isCenterScopedStaff()) {
-            return null;
-        }
+        return LogisticsAccess::centerId(Auth::user());
+    }
 
-        $centerId = (int) (Auth::user()->center_id ?? 0);
-
-        return $centerId > 0 ? $centerId : 0;
+    private function applyCompanyScope(Builder $query, string $column = 'center_id'): void
+    {
+        LogisticsAccess::applyCompanyScope($query, Auth::user(), $column);
     }
 
     private function applyCenterScope(Builder $query, string $column = 'center_id'): void
     {
-        $centerId = $this->centerScopeId();
+        LogisticsAccess::applyCenterScope($query, Auth::user(), $column);
+    }
 
-        if ($centerId === null) {
+    /**
+     * Deny cross-company actions on a logistics center. Center-scoped staff
+     * are restricted to their own hub by the caller (receiving) or by the
+     * existing delivery-center checks; a destination may be any hub inside
+     * the same company so intra-company routing keeps working.
+     */
+    private function assertCompanyCenter(int $centerId): void
+    {
+        $user = Auth::user();
+        abort_unless($user !== null, 403, 'You do not have access to this logistics center.');
+
+        if (LogisticsAccess::isGlobal($user)) {
             return;
         }
 
-        if ($centerId === 0) {
-            $query->whereRaw('1 = 0');
+        $companyId = LogisticsAccess::companyId($user);
 
+        if ($companyId <= 0) {
+            // Staff at a hub without a company assignment may only use their
+            // own hub; unowned hubs cannot reach into any company's network.
+            $ownCenterId = LogisticsAccess::centerId($user);
+            abort_unless($ownCenterId !== null && $ownCenterId > 0 && (int) $ownCenterId === $centerId,
+                403, 'Your account is not assigned to a logistics company.');
             return;
         }
 
-        if (in_array($column, ['center_id', 'deliveries.center_id'], true)) { $query->atOrIncomingTo($centerId); }
-        else { $query->where($column, $centerId); }
+        $centerCompanyId = (int) (LogisticsCenter::query()
+            ->whereKey($centerId)
+            ->value('logistics_company_id') ?? 0);
+
+        abort_unless($centerCompanyId > 0 && $centerCompanyId === $companyId, 403,
+            'This logistics center belongs to another logistics company.');
+    }
+
+    /**
+     * Company-wide rider check: a rider may serve any hub inside the same
+     * company, but never another company's parcels.
+     */
+    private function riderBelongsToUserCompany(?Rider $rider): bool
+    {
+        return LogisticsAccess::canAccessRider(Auth::user(), $rider);
+    }
+
+    private function hasActiveHubTransfer(Delivery $delivery): bool
+    {
+        return FulfillmentWorkflow::hasActiveHubTransfer($delivery);
     }
 
     private function ensureCenterAccess(Delivery $delivery, bool $allowIncoming = false): void
     {
-        if ($allowIncoming && $delivery->isIncomingTransfer((int) Auth::user()->center_id)) { return; }
-        if (!$this->isCenterScopedStaff()) {
+        if ($allowIncoming && $delivery->isIncomingTransfer((int) (Auth::user()?->center_id ?? 0))) {
             return;
         }
 
-        $centerId = (int) (Auth::user()->center_id ?? 0);
-
-        // Unrouted deliveries (null center) belong to the global routing queue,
-        // not to every center. A centerless staff account has no valid scope.
-        if ($centerId === 0
-            || $delivery->center_id === null
-            || $centerId !== (int) $delivery->center_id) {
-            abort(403, 'You do not have access to deliveries from this logistics center.');
-        }
+        abort_unless(LogisticsAccess::canAccessDelivery(Auth::user(), $delivery), 403,
+            'You do not have access to deliveries from this logistics center.');
     }
 
     /**
-     * Admin-equivalent for the logistics back office: the site 'admin' role
-     * (or is_admin flag) plus 'logistics_admin'. isAdmin() alone does not
-     * cover logistics_admin, so archive flows check this instead.
+     * Admin-equivalent for the logistics back office: Platform Administrators
+     * and the designated global Logistics Admin.
      */
     private function isLogisticsManager(): bool
     {
-        $user = Auth::user();
-        return (bool) ($user && ($user->isAdmin() || in_array($user->role, ['admin', 'logistics_admin'], true)));
+        return LogisticsAccess::isGlobal(Auth::user());
     }
 
     public function show(Delivery $delivery): View
@@ -417,31 +446,22 @@ class DeliveryController extends Controller
             'transaction',
         ]);
 
-        // Read-only order-side context for the unified shipping waybill
-        // (shared with the seller "Print Waybill" page).
-        $waybill = \App\Support\Waybill::context($delivery);
-        $waybillOrder = $waybill['waybillOrder'];
-        $waybillAddress = $waybill['waybillAddress'];
-        $waybillPayment = $waybill['waybillPayment'];
-        $waybillDiscount = $waybill['waybillDiscount'];
-        $waybillStores = $waybill['waybillStores'];
+        // Read-only order-side context for the unified shipping waybill via Waybill helper.
+        $wbContext = \App\Support\Waybill::context($delivery);
+        $waybillOrder = $wbContext['waybillOrder'];
+        $waybillAddress = $wbContext['waybillAddress'];
+        $waybillPayment = $wbContext['waybillPayment'];
+        $waybillDiscount = $wbContext['waybillDiscount'];
+        $waybillStores = $wbContext['waybillStores'];
 
         $riderEligibility = $this->riderEligibilityFor($delivery);
+        $hasActiveHubTransfer = $this->hasActiveHubTransfer($delivery);
 
         $centerOptions = LogisticsCenter::where('is_active', true)->orderBy('name');
         $serviceAreaOptions = ServiceArea::where('is_active', true)->orderBy('name');
-        $staffCenterId = $this->centerScopeId();
-
-        if ($staffCenterId !== null) {
-            if ($staffCenterId === 0) {
-                $centerOptions->whereRaw('1 = 0');
-                $serviceAreaOptions->whereRaw('1 = 0');
-            } else {
-                $centerOptions->whereKey($staffCenterId);
-                $serviceAreaOptions->where('logistics_center_id', $staffCenterId);
-            }
-        }
-
+        $user = Auth::user();
+        LogisticsAccess::scopeCenters($centerOptions, $user);
+        LogisticsAccess::scopeServiceAreas($serviceAreaOptions, $user);
         return view('logistics.deliveries.show', [
             'delivery' => $delivery,
             'waybillOrder' => $waybillOrder,
@@ -450,6 +470,7 @@ class DeliveryController extends Controller
             'waybillDiscount' => $waybillDiscount,
             'waybillStores' => $waybillStores,
             'riderEligibility' => $riderEligibility,
+            'hasActiveHubTransfer' => $hasActiveHubTransfer,
             'failureReasons' => config('logistics.failure_reasons'),
             'cancellationReasons' => config('logistics.cancellation_reasons'),
             'exceptionReasons' => config('logistics.exception_reasons'),
@@ -457,8 +478,6 @@ class DeliveryController extends Controller
             'transitions' => config('logistics.transitions'),
             'centers' => $centerOptions->get(),
             'serviceAreas' => $serviceAreaOptions->get(),
-            'destinationCenters' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
-            'destinationAreas' => ServiceArea::where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -478,15 +497,7 @@ class DeliveryController extends Controller
     {
         $weight = (float) ($delivery->weight ?? 0);
         $riderQuery = Rider::query();
-        $staffCenterId = $this->centerScopeId();
-
-        if ($staffCenterId !== null) {
-            if ($staffCenterId === 0) {
-                $riderQuery->whereRaw('1 = 0');
-            } else {
-                $riderQuery->where('center_id', $staffCenterId);
-            }
-        }
+        LogisticsAccess::scopeRiders($riderQuery, Auth::user());
 
         $targetLat = $delivery->sender_lat !== null ? (float) $delivery->sender_lat : null;
         $targetLng = $delivery->sender_lng !== null ? (float) $delivery->sender_lng : null;
@@ -538,6 +549,8 @@ class DeliveryController extends Controller
                     $reason = 'Vehicle not verified';
                 } elseif (!$rider->vehicleTypeIsActive()) {
                     $reason = 'Vehicle type deactivated';
+                } elseif (!$rider->isLastMileVehicle()) {
+                    $reason = 'Only approved two-wheel vehicles can receive last-mile deliveries';
                 } elseif ($rider->licenseExpired()) {
                     $reason = "Driver's license expired";
                 } elseif ($activeDeliveries >= Rider::MAX_ACTIVE_DELIVERIES) {
@@ -548,7 +561,9 @@ class DeliveryController extends Controller
                     $reason = 'Different service area';
                 } else {
                     $capacity = $rider->capacityLimit();
-                    if ($capacity > 0 && $weight > $capacity) {
+                    if ($capacity <= 0) {
+                        $reason = 'Vehicle capacity is not configured';
+                    } elseif ($weight > $capacity) {
                         $reason = "Vehicle capacity insufficient ({$capacity} kg)";
                     }
                 }
@@ -656,7 +671,7 @@ class DeliveryController extends Controller
             'type' => 'new_delivery_request',
             'title' => 'New Delivery Request',
             'message' => "Order #{$delivery->id} is ready for pickup and needs a rider.",
-            'icon' => 'package',
+            'icon' => '📦',
             'priority' => 'high',
             'center_id' => $delivery->center_id,
             'audience' => $delivery->center_id ? 'center' : 'admin',
@@ -720,6 +735,7 @@ class DeliveryController extends Controller
         $riderId = (int) $validated['rider_id'];
 
         $deliveries = Delivery::query()->whereIn('id', $ids);
+        $this->applyCompanyScope($deliveries);
         $this->applyCenterScope($deliveries);
         $deliveries = $deliveries->get()->keyBy('id');
 
@@ -830,10 +846,9 @@ class DeliveryController extends Controller
             // Lock both rows so concurrent assignment posts cannot give a
             // rider two active deliveries or reset a delivery mid-transition.
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
+            if ($this->hasActiveHubTransfer($lockedDelivery)) return ['error' => 'This parcel is reserved for hub-to-hub transfer.'];
             FulfillmentWorkflow::assertReady($lockedDelivery);
-            $inCustodyRetry = $lockedDelivery->status === 'delivery_failed' && (int) $lockedDelivery->rider_id === $riderId
-                && $lockedDelivery->sorting_center_pickup_at && ! $lockedDelivery->returned_at;
-            if ($lockedDelivery->order_id && $lockedDelivery->status === 'delivery_failed' && ! $inCustodyRetry) {
+            if ($lockedDelivery->order_id && $lockedDelivery->status === 'delivery_failed') {
                 abort_unless($lockedDelivery->returned_at && $lockedDelivery->received_at, 409, 'A different rider can only be assigned after the failed parcel is returned to its center.');
             }
             $riderIds = collect([$riderId, $lockedDelivery->rider_id])
@@ -853,16 +868,16 @@ class DeliveryController extends Controller
                 return ['error' => 'The selected rider is no longer available. Refresh and choose another rider.'];
             }
 
-            // Recheck the staff scope against the locked row so a concurrent
-            // center change cannot be bypassed after the route-level check.
-            if ($this->isCenterScopedStaff()) {
-                $staffCenterId = (int) (Auth::user()->center_id ?? 0);
+            // Recheck the company/center scope against the locked row so a
+            // concurrent ownership change cannot be bypassed after the
+            // route-level check.
+            abort_unless(LogisticsAccess::canAccessDelivery(Auth::user(), $lockedDelivery), 403,
+                'You do not have access to deliveries from this logistics center.');
 
-                if ($staffCenterId === 0
-                    || $lockedDelivery->center_id === null
-                    || (int) $lockedDelivery->center_id !== $staffCenterId) {
-                    abort(403, 'You do not have access to deliveries from this logistics center.');
-                }
+            // Riders are company-owned through their center; never allow a
+            // delivery to be handed to another company's rider.
+            if (! $this->riderBelongsToUserCompany($rider)) {
+                return ['error' => 'Cannot assign delivery. The selected rider belongs to a different logistics company.'];
             }
 
             if ($lockedDelivery->archived_at) {
@@ -907,6 +922,10 @@ class DeliveryController extends Controller
                 return ['error' => 'Cannot assign delivery. The rider\'s vehicle type has been deactivated.'];
             }
 
+            if (!$rider->isLastMileVehicle()) {
+                return ['error' => 'Cannot assign delivery. Last-mile delivery requires an approved two-wheel vehicle.'];
+            }
+
             if ($rider->licenseExpired()) {
                 return ['error' => 'Cannot assign delivery. The rider\'s driver\'s license expired on '
                     .$rider->license_expiry->format('M d, Y').'. Ask the rider to renew and re-verify it.'];
@@ -939,6 +958,9 @@ class DeliveryController extends Controller
 
             $weight = (float) ($lockedDelivery->weight ?? 0);
             $capacity = $rider->capacityLimit();
+            if ($capacity <= 0) {
+                return ['error' => 'Cannot assign delivery. Rider vehicle capacity is not configured.'];
+            }
             if ($weight > 0 && $capacity > 0 && $weight > $capacity) {
                 return ['error' => 'Vehicle capacity exceeded. Please assign a suitable vehicle.'];
             }
@@ -952,13 +974,8 @@ class DeliveryController extends Controller
             }
 
             $previousRiderId = $lockedDelivery->rider_id;
-            if ($lockedDelivery->status === 'delivery_failed') { $lockedDelivery->reattempt_requested_at = null; }
-            if ($lockedDelivery->order_id && $lockedDelivery->received_at && ! $inCustodyRetry) {
+            if ($lockedDelivery->order_id && $lockedDelivery->received_at) {
                 abort_if($lockedDelivery->sorting_center_pickup_at && ! $lockedDelivery->returned_at, 409, 'The current rider still has this parcel. Record its return to center before reassignment.');
-                if ($lockedDelivery->parcel_status === 'dispatched') {
-                    $lockedDelivery->parcel_status = 'sorted';
-                    $lockedDelivery->dispatched_at = null;
-                }
                 $lockedDelivery->sorting_center_pickup_at = null;
                 $lockedDelivery->sorting_center_pickup_rider_id = null;
                 $lockedDelivery->accepted_at = null;
@@ -997,7 +1014,7 @@ class DeliveryController extends Controller
             'type' => 'rider_accepted_delivery',
             'title' => 'Rider Assigned to Delivery',
             'message' => "Rider {$rider->name} was assigned to Order #{$delivery->id}.",
-            'icon' => 'truck',
+            'icon' => '🛵',
             'priority' => 'normal',
             'center_id' => $delivery->center_id,
             'audience' => $delivery->center_id ? 'center' : 'admin',
@@ -1013,18 +1030,8 @@ class DeliveryController extends Controller
             'delivery_assigned',
             ['delivery_id' => $delivery->id, 'tracking_number' => $delivery->tracking_number],
             'New Delivery Assignment',
-            "You have been assigned delivery {$delivery->tracking_number}."
+            "You have been assigned delivery {$delivery->tracking_number}.",
         );
-
-        if ($delivery->order_id && $delivery->seller_id && $delivery->picked_up_at === null) {
-            \App\Models\SellerNotification::create([
-                'seller_id' => $delivery->seller_id,
-                'order_id' => $delivery->order_id,
-                'type' => 'status',
-                'title' => 'Pickup rider assigned',
-                'body' => "Rider {$rider->name} has been assigned by logistics to pick up Order #{$delivery->order_id} ({$delivery->tracking_number}).",
-            ]);
-        }
     }
 
     public function updateStatus(Request $request, Delivery $delivery): RedirectResponse
@@ -1045,7 +1052,6 @@ class DeliveryController extends Controller
         FulfillmentWorkflow::assertActiveOrder($delivery);
         if ($isOverride) {
             abort_unless(Auth::user()->canManageRiders() && Auth::user()->isLogisticsAdmin(), 403, 'Only a logistics administrator can override a rider milestone.');
-            $request->validate(['override_reason' => ['required', 'string', 'min:10', 'max:300']]);
         }
         if ($delivery->order_id && ! in_array($target, ['cancelled', 'delivery_failed'], true) && ! $isOverride) {
             return back()->with('error', 'Use rider actions for collection and delivery. A logistics administrator may use a documented exception override.');
@@ -1140,7 +1146,7 @@ class DeliveryController extends Controller
                 $delivery = $locked;
                 FulfillmentWorkflow::assertActiveOrder($delivery);
                 if ($delivery->order_id && $target === 'cancelled') {
-                    \App\Support\OrderCancellation::byLogistics($delivery->order, $reasonText ?: 'Cancelled by logistics.', (int) Auth::id());
+                    \App\Support\OrderCancellation::bySeller($delivery->order, $reasonText ?: 'Cancelled by logistics.', (int) $delivery->seller_id);
                     $delivery->refresh();
                     return;
                 }
@@ -1204,9 +1210,7 @@ class DeliveryController extends Controller
                     // Cash is with the rider now: open the handoff the seller
                     // must verify before the sale settles. Settlement failure
                     // rolls back the delivery transition and status log.
-                    if ($delivery->order_id !== null || Cod::isCod($delivery)) {
-                        \App\Support\Remittances::ensureForDeliveryOrFail($delivery->fresh());
-                    }
+                    \App\Support\Remittances::ensureForDeliveryOrFail($delivery->fresh());
 
                     if ($delivery->rider_id) {
                         $earned = round((float) ($delivery->delivery_fee ?? Order::SHIPPING_FEE_PER_SELLER), 2);
@@ -1245,8 +1249,6 @@ class DeliveryController extends Controller
                     }
                 }
             });
-        } catch (\Symfony\Component\HttpKernel\Exception\HttpExceptionInterface $e) {
-            throw $e;
         } catch (\Throwable $e) {
             report($e);
 
@@ -1262,11 +1264,11 @@ class DeliveryController extends Controller
 
         $riderName = $rider->name ?? 'Rider';
         $statusMessages = [
-            'picked_up' => ['Rider Picked Up Order', "{$riderName} has picked up Order #{$delivery->id} from sender.", 'package', 'normal'],
-            'out_for_delivery' => ['Out for Delivery', "Order #{$delivery->id} is now out for delivery.", 'truck', 'normal'],
-            'delivered' => ['Delivery Completed', "Order #{$delivery->id} was successfully delivered.", 'check-circle', 'normal'],
-            'delivery_failed' => ['Delivery Failed', "Order #{$delivery->id} failed. Reason: {$reasonText}", 'alert-triangle', 'high'],
-            'cancelled' => ['Delivery Cancelled', "Order #{$delivery->id} was cancelled. Reason: {$reasonText}", 'x-circle', 'high'],
+            'picked_up' => ['Rider Picked Up Order', "{$riderName} has picked up Order #{$delivery->id} from sender.", '📦', 'normal'],
+            'out_for_delivery' => ['Out for Delivery', "Order #{$delivery->id} is now out for delivery.", '🚚', 'normal'],
+            'delivered' => ['Delivery Completed', "Order #{$delivery->id} was successfully delivered.", '✅', 'normal'],
+            'delivery_failed' => ['Delivery Failed', "Order #{$delivery->id} failed. Reason: {$reasonText}", '⚠️', 'high'],
+            'cancelled' => ['Delivery Cancelled', "Order #{$delivery->id} was cancelled. Reason: {$reasonText}", '❌', 'high'],
         ];
 
         if (isset($statusMessages[$target])) {
@@ -1362,6 +1364,7 @@ class DeliveryController extends Controller
 
         $eligible = $rider->vehicle_verification === 'verified'
             && $rider->vehicleTypeIsActive()
+            && $rider->isLastMileVehicle()
             && $rider->approved_at !== null
             && !$rider->licenseExpired();
 
@@ -1448,6 +1451,7 @@ class DeliveryController extends Controller
         ]);
 
         $user = Auth::user();
+        $this->assertCompanyCenter((int) $validated['center_id']);
         if ($this->isCenterScopedStaff()
             && (!$user->center_id
                 || (int) $user->center_id !== (int) $validated['center_id']
@@ -1457,11 +1461,20 @@ class DeliveryController extends Controller
 
         $received = DB::transaction(function () use ($delivery, $validated): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
+            abort_if(FulfillmentWorkflow::hasActiveHubTransfer($lockedDelivery), 409, 'Confirm receipt on the active fleet transfer manifest.');
+            abort_if($lockedDelivery->status === 'delivered', 409, 'This parcel has already been delivered.');
+
             if ($lockedDelivery->parcel_status !== 'pending_arrival' && ! $lockedDelivery->isIncomingTransfer((int) $validated['center_id'])) {
                 return false;
             }
 
             if ($lockedDelivery->isIncomingTransfer((int) $validated['center_id'])) {
+                $lockedDelivery->update([
+                    'center_id' => $validated['center_id'],
+                    'scanned_at' => null,
+                    'sorted_at' => null,
+                    'dispatched_at' => null,
+                ]);
                 FulfillmentWorkflow::receive($lockedDelivery, (int) Auth::id());
             } else {
                 abort_if($lockedDelivery->center_id && (int) $lockedDelivery->center_id !== (int) $validated['center_id'], 409, 'Receive this parcel at its assigned handling center.');
@@ -1483,15 +1496,13 @@ class DeliveryController extends Controller
     public function scan(Delivery $delivery): RedirectResponse
     {
         $user = Auth::user();
-        if ($this->isCenterScopedStaff()
-            && (!$user->center_id || $delivery->center_id === null || (int) $delivery->center_id !== (int) $user->center_id)) {
-            abort(403, 'You can only scan parcels at your assigned logistics center.');
-        }
+        abort_unless(LogisticsAccess::canAccessDelivery($user, $delivery), 403,
+            'You can only scan parcels at your assigned logistics center.');
 
         $scanned = DB::transaction(function () use ($delivery): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
-            $this->ensureCenterAccess($lockedDelivery);
-            FulfillmentWorkflow::assertActiveOrder($lockedDelivery);
+            abort_if($this->hasActiveHubTransfer($lockedDelivery), 409,
+                'This parcel remains in fleet-transfer custody until receiving is finalized.');
             if ($lockedDelivery->parcel_status !== 'received') {
                 return false;
             }
@@ -1526,11 +1537,8 @@ class DeliveryController extends Controller
         $expected = null;
         if ($expect !== '' && preg_match('/^TRK-\d{8}-[A-Z0-9]{4}$/', $expect)) {
             $expected = Delivery::notArchived()->where('tracking_number', $expect)->first();
-            if ($expected) {
-                if ($this->isCenterScopedStaff()
-                    && (!$user->center_id || $expected->center_id === null || (int) $user->center_id !== (int) $expected->center_id)) {
-                    $expected = null;
-                }
+            if ($expected && ! LogisticsAccess::canAccessDelivery($user, $expected)) {
+                $expected = null;
             }
         }
 
@@ -1539,6 +1547,7 @@ class DeliveryController extends Controller
         // state, so no one has to guess a tracking number.
         $awaitingScanQuery = Delivery::notArchived()
             ->where('parcel_status', 'received');
+        $this->applyCompanyScope($awaitingScanQuery);
         $this->applyCenterScope($awaitingScanQuery);
         $awaitingScan = $awaitingScanQuery
             ->orderByDesc('received_at')
@@ -1575,8 +1584,7 @@ class DeliveryController extends Controller
         }
 
         $user = Auth::user();
-        if ($this->isCenterScopedStaff()
-            && (!$user->center_id || $delivery->center_id === null || (int) $user->center_id !== (int) $delivery->center_id)) {
+        if (! LogisticsAccess::canAccessDelivery($user, $delivery)) {
             return response()->json([
                 'ok' => false,
                 'error' => 'forbidden',
@@ -1599,13 +1607,20 @@ class DeliveryController extends Controller
                 ], 404);
             }
 
-            if ($this->isCenterScopedStaff()
-                && (!$user->center_id || $fresh->center_id === null || (int) $user->center_id !== (int) $fresh->center_id)) {
+            if (! LogisticsAccess::canAccessDelivery($user, $fresh)) {
                 return response()->json([
                     'ok' => false,
                     'error' => 'forbidden',
                     'message' => 'This parcel belongs to another logistics center.',
                 ], 403);
+            }
+
+            if ($this->hasActiveHubTransfer($fresh)) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'transfer_in_progress',
+                    'message' => 'This parcel remains in fleet-transfer custody until receiving is finalized.',
+                ], 409);
             }
 
             if ($fresh->parcel_status === 'scanned') {
@@ -1673,6 +1688,8 @@ class DeliveryController extends Controller
                     ->where('is_active', true)),
             ],
         ]);
+        $this->assertCompanyCenter((int) $validated['destination_center_id']);
+        $this->ensureCenterAccess($delivery);
 
         if ($delivery->parcel_status !== 'scanned') {
             return back()->with('error', 'Parcel must be received and scanned before sorting.');
@@ -1687,8 +1704,7 @@ class DeliveryController extends Controller
         $destinationName = LogisticsCenter::whereKey($validated['destination_center_id'])->value('name');
         $sortedDelivery = DB::transaction(function () use ($delivery, $validated, $destinationName): ?Delivery {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
-            $this->ensureCenterAccess($lockedDelivery);
-            FulfillmentWorkflow::assertActiveOrder($lockedDelivery);
+            abort_if($this->hasActiveHubTransfer($lockedDelivery), 409, 'This parcel is reserved for hub-to-hub transfer.');
             if ($lockedDelivery->parcel_status !== 'scanned') {
                 return null;
             }
@@ -1732,36 +1748,35 @@ class DeliveryController extends Controller
         return redirect()->back()->with('success', 'Parcel sorted successfully.');
     }
 
-    public function dispatch(Request $request, Delivery $delivery): RedirectResponse
+    public function dispatch(Delivery $delivery): RedirectResponse
     {
         $user = Auth::user();
-        $isCenterStaff = $user->isLogisticsStaff() && ! $user->isLogisticsAdmin() && ! $user->is_admin;
-        $validatedDispatch = $request->validate([
-            // Optional linehaul driver; must be a real, non-inactive rider.
-            'inter_hub_rider_id' => ['nullable', 'integer', Rule::exists('riders', 'id')->where(fn ($q) => $q->where('status', '!=', 'inactive'))],
-        ]);
-        $interHubRiderId = $validatedDispatch['inter_hub_rider_id'] ?? null;
-        if ($interHubRiderId) {
-            // The transfer driver must belong to the hub releasing the parcel.
-            $driverCenterId = \App\Models\Rider::whereKey($interHubRiderId)->value('center_id');
-            abort_if($delivery->center_id && $driverCenterId && (int) $driverCenterId !== (int) $delivery->center_id, 422, 'The transfer driver must belong to the dispatching hub.');
-        }
-
-        $dispatched = DB::transaction(function () use ($delivery, $user, $isCenterStaff, $interHubRiderId): bool {
+        $dispatched = DB::transaction(function () use ($delivery, $user): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
-            if ($isCenterStaff && (! $user->center_id || ! $lockedDelivery->center_id || $lockedDelivery->center_id != $user->center_id)) {
-                abort(403, 'You can only dispatch parcels at your assigned logistics center.');
+            abort_if($this->hasActiveHubTransfer($lockedDelivery), 409, 'This parcel is reserved for hub-to-hub transfer.');
+            abort_unless(LogisticsAccess::canAccessDelivery($user, $lockedDelivery), 403,
+                'You do not have access to dispatches from this logistics center.');
+
+            // A parcel may only be dispatched with a rider from the same
+            // company, even if the assignment was written before this rule.
+            if ($lockedDelivery->rider_id) {
+                abort_unless($this->riderBelongsToUserCompany($lockedDelivery->rider), 403,
+                    'This delivery is assigned to a rider from another logistics company.');
             }
 
             FulfillmentWorkflow::assertActiveOrder($lockedDelivery);
+
+            // Routing decision: a parcel sorted for another Logistics Hub must
+            // move on a fleet transfer, never as a last-mile dispatch.
+            if ($lockedDelivery->destination_center_id
+                && (int) $lockedDelivery->destination_center_id !== (int) $lockedDelivery->center_id) {
+                abort(409, 'This parcel is routed to another Logistics Hub. Create a fleet hub transfer instead of dispatching it for last-mile delivery.');
+            }
+
             if ($lockedDelivery->order_id) {
                 abort_unless($lockedDelivery->received_at && $lockedDelivery->scanned_at && $lockedDelivery->sorted_at, 409, 'Receive, scan and sort this parcel first.');
-                if ($lockedDelivery->destination_center_id && (int) $lockedDelivery->destination_center_id !== (int) $lockedDelivery->center_id) {
-                    abort_if($lockedDelivery->rider_id || $lockedDelivery->status !== 'waiting_for_rider', 409, 'Close pickup custody before dispatching a center transfer.');
-                } else {
                 abort_unless($lockedDelivery->rider_id && in_array($lockedDelivery->status, ['assigned', 'accepted'], true), 409, 'Assign a delivery rider before dispatch.');
                 FulfillmentWorkflow::assertReady($lockedDelivery);
-                }
             }
             if ($lockedDelivery->parcel_status === 'dispatched') { return true; }
 
@@ -1769,31 +1784,15 @@ class DeliveryController extends Controller
                 return false;
             }
 
-            $isTransfer = $lockedDelivery->destination_center_id && (int) $lockedDelivery->destination_center_id !== (int) $lockedDelivery->center_id;
-            $updates = [
+            $lockedDelivery->update([
                 'parcel_status' => 'dispatched',
                 'dispatched_at' => now(),
-            ];
-
-            if ($isTransfer) {
-                $updates['origin_center_id'] = $lockedDelivery->origin_center_id ?? $lockedDelivery->center_id;
-                if ($interHubRiderId) {
-                    $updates['inter_hub_rider_id'] = (int) $interHubRiderId;
-                    $updates['inter_hub_dispatched_at'] = now();
-                }
-            }
-
-            $lockedDelivery->update($updates);
+            ]);
 
             DeliveryStatusLog::create([
                 'delivery_id' => $lockedDelivery->id,
                 'status' => 'dispatched',
-                'notes' => $isTransfer
-                    ? 'Inter-hub transfer released from ' . (LogisticsCenter::whereKey($lockedDelivery->center_id)->value('name') ?? 'origin hub')
-                        . ' to ' . (LogisticsCenter::whereKey($lockedDelivery->destination_center_id)->value('name') ?? 'destination hub')
-                        . ($interHubRiderId ? ' with driver ' . (\App\Models\Rider::whereKey($interHubRiderId)->value('name') ?? '#'.$interHubRiderId) : ' via shared hub van')
-                        . '. Destination staff must confirm receipt.'
-                    : 'Parcel released to the assigned delivery rider; waiting for rider collection acknowledgement.',
+                'notes' => 'Parcel dispatched from handling center.',
                 'changed_by' => Auth::id(),
             ]);
 
@@ -1817,26 +1816,25 @@ class DeliveryController extends Controller
         $search = trim((string) $request->query('search', ''));
         $status = trim((string) $request->query('status', ''));
 
-        $query = Delivery::with(['rider', 'archiver'])->whereNotNull('deliveries.archived_at');
+        $query = Delivery::with(['rider', 'archiver'])->whereNotNull('archived_at');
 
         // Staff only ever see their own center's archive; centerless staff
         // accounts receive an empty archive rather than every center's.
+        $this->applyCompanyScope($query);
         $this->applyCenterScope($query);
 
         $this->applySearch($query, $search);
 
         if ($status !== '') {
-            $query->where('deliveries.status', $status);
+            $query->where('status', $status);
         }
 
-        $deliveries = $query->orderByDesc('deliveries.archived_at')->paginate($perPage)->withQueryString();
+        $deliveries = $query->orderByDesc('archived_at')->paginate($perPage)->withQueryString();
 
         return view('logistics.deliveries.archived', [
             'deliveries' => $deliveries,
         ]);
     }
 }
-
-
 
 

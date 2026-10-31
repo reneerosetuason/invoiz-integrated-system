@@ -9,7 +9,7 @@ use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 /**
- * Logistics Center application email-verification code.
+ * Logistics Hub application email-verification code.
  *
  * Mirrors RiderEmailVerificationMail: carries the plaintext OTP in memory
  * ONLY for this single send (it must appear in the email body). It is never
@@ -31,7 +31,7 @@ class CenterEmailVerificationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Verify Your Email ? INVOIZ Logistics Center Application',
+            subject: 'Verify Your Email ? INVOIZ Logistics Hub Application',
         );
     }
 

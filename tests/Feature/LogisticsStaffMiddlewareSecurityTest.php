@@ -44,6 +44,23 @@ class LogisticsStaffMiddlewareSecurityTest extends TestCase
         ], $overrides));
     }
 
+    private function designatedAdmin(): User
+    {
+        $admin = new User([
+            'name' => 'INVOIZ Global Logistics Admin',
+            'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
+            'password' => Hash::make('secret123'),
+            'role' => 'logistics_admin',
+            'is_admin' => false,
+            'status' => 'active',
+            'account_status' => 'active',
+            'email_verified_at' => now(),
+        ]);
+        $admin->id = User::GLOBAL_LOGISTICS_ADMIN_ID;
+
+        return $admin;
+    }
+
     private function rider(LogisticsCenter $center): Rider
     {
         $this->seq++;
@@ -95,53 +112,61 @@ class LogisticsStaffMiddlewareSecurityTest extends TestCase
         $staff = $this->user('logistics_staff', $center->id);
 
         $this->actingAs($staff)
-            ->get('/logistics/dashboard')
+            ->get('/logistics/pickup-requests')
             ->assertOk();
     }
 
-    public function test_logistics_admins_remain_allowed(): void
+    public function test_platform_administrator_and_designated_global_admin_are_allowed(): void
     {
-        foreach (['admin', 'logistics_admin'] as $role) {
-            $admin = $this->user($role);
+        $platformAdmin = $this->user('admin', null, ['is_admin' => true]);
+        $this->actingAs($platformAdmin)
+            ->get('/logistics/pickup-requests')
+            ->assertOk();
 
-            $this->actingAs($admin)
-                ->get('/logistics/dashboard')
-                ->assertOk();
-        }
+        $this->actingAs($this->designatedAdmin())
+            ->get('/logistics/pickup-requests')
+            ->assertOk();
     }
 
-    public function test_active_logistics_admins_can_access_admin_routes(): void
+    public function test_global_accounts_can_access_admin_routes_but_company_managers_cannot(): void
     {
-        foreach (['admin', 'logistics_admin'] as $role) {
-            $admin = $this->user($role);
+        $platformAdmin = $this->user('admin', null, ['is_admin' => true]);
+        $this->actingAs($platformAdmin)
+            ->get('/logistics/centers')
+            ->assertOk();
 
-            $this->actingAs($admin)
-                ->get('/logistics/centers')
-                ->assertOk();
-        }
+        $this->actingAs($this->designatedAdmin())
+            ->get('/logistics/centers')
+            ->assertOk();
+
+        // `role=admin` without the platform flag is a company manager and
+        // must never inherit network administration.
+        $this->actingAs($this->user('admin'))
+            ->get('/logistics/centers')
+            ->assertForbidden();
     }
 
-    public function test_suspended_logistics_admins_are_denied_by_the_admin_middleware(): void
+    public function test_suspended_platform_administrators_are_denied_by_the_admin_middleware(): void
     {
-        foreach (['admin', 'logistics_admin'] as $role) {
-            $admin = $this->user($role, null, [
-                'account_status' => 'suspended',
-                'status' => 'suspended',
-            ]);
+        $admin = $this->user('admin', null, [
+            'is_admin' => true,
+            'account_status' => 'suspended',
+            'status' => 'suspended',
+        ]);
 
-            $this->actingAs($admin)
-                ->withoutMiddleware(EnsureLogisticsStaff::class)
-                ->get('/logistics/centers')
-                ->assertRedirect('/logistics/login')
-                ->assertSessionHas('error');
+        $this->actingAs($admin)
+            ->withoutMiddleware(EnsureLogisticsStaff::class)
+            ->get('/logistics/centers')
+            ->assertRedirect('/logistics/login')
+            ->assertSessionHas('error');
 
-            $this->assertGuest();
-        }
+        $this->assertGuest();
     }
 
-    public function test_suspended_logistics_admins_receive_json_403_from_the_admin_middleware(): void
+    public function test_suspended_platform_administrators_receive_json_403_from_the_admin_middleware(): void
     {
-        $admin = $this->user('logistics_admin', null, [
+        $admin = $this->user('admin', null, [
+            'is_admin' => true,
             'account_status' => 'suspended',
             'status' => 'suspended',
         ]);

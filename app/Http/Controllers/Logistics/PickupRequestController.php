@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers\Logistics;
 
-use App\Models\CourierPickup;
 use App\Models\Delivery;
 use App\Models\LogisticsCenter;
 use App\Models\Notification;
 use App\Models\PickupRequest;
 use App\Models\User;
-use App\Services\FulfillmentWorkflow;
+use App\Support\LogisticsAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +19,7 @@ class PickupRequestController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        $isAdmin = $this->isGlobalAdmin($user);
+        $isAdmin = LogisticsAccess::isGlobal($user);
 
         $status = $request->input('status');
 
@@ -29,8 +28,7 @@ class PickupRequestController extends Controller
         }
 
         $pickupRequests = PickupRequest::query()
-            ->whereHas('delivery')
-            ->with(['delivery.rider', 'delivery.logisticsCenter', 'center'])
+            ->with(['delivery', 'center'])
             ->visibleTo($user)
             ->when($status === 'routing', function ($query) use ($user) {
                 // Dedicated admin queue: actionable pending requests that
@@ -75,38 +73,12 @@ class PickupRequestController extends Controller
         $user = $request->user();
         $this->authorizeView($user, $pickupRequest);
 
-        $pickupRequest->load([
-            'delivery.rider',
-            'delivery.logisticsCenter',
-            'delivery.destinationCenter',
-            'delivery.serviceArea',
-            'delivery.items',
-            'delivery.order',
-            'center',
-            'reviewer',
-        ]);
-
-        abort_if(! $pickupRequest->delivery, 404);
-
-        $courierPickup = $pickupRequest->delivery?->order_id
-            ? CourierPickup::where('order_id', $pickupRequest->delivery->order_id)
-                ->when($pickupRequest->delivery->seller_id, fn ($q) => $q->where('seller_id', $pickupRequest->delivery->seller_id))
-                ->latest('id')
-                ->first()
-            : null;
-
-        $riderEligibility = $pickupRequest->delivery
-            ? app(DeliveryController::class)->riderEligibilityFor($pickupRequest->delivery)
-            : collect();
-
         return view('logistics.pickup-requests.show', [
-            'pickupRequest' => $pickupRequest,
-            'courierPickup' => $courierPickup,
-            'riderEligibility' => $riderEligibility,
-            'canReview' => $this->canReview($user, $pickupRequest) && $pickupRequest->center_id !== null && $this->isActionableDelivery($pickupRequest->delivery),
+            'pickupRequest' => $pickupRequest->load(['delivery', 'delivery.items', 'center', 'reviewer']),
+            'canReview' => $this->canReview($user, $pickupRequest) && $pickupRequest->center_id !== null,
             'canRoute' => $this->canRoute($user, $pickupRequest),
             'centers' => $this->canRoute($user, $pickupRequest)
-                ? LogisticsCenter::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
+            ? LogisticsCenter::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])
                 : collect(),
         ]);
     }
@@ -128,8 +100,6 @@ class PickupRequestController extends Controller
         ]);
 
         $result = DB::transaction(function () use ($pickupRequest, $validated): string {
-            $linkedDelivery = Delivery::findOrFail($pickupRequest->delivery_id);
-            $delivery = FulfillmentWorkflow::lock($linkedDelivery);
             $lockedPickup = PickupRequest::query()->whereKey($pickupRequest->id)->lockForUpdate()->firstOrFail();
 
             if ($lockedPickup->status !== 'pending') {
@@ -140,12 +110,13 @@ class PickupRequestController extends Controller
                 return 'already_routed';
             }
 
+            $delivery = Delivery::query()->whereKey($lockedPickup->delivery_id)->lockForUpdate()->firstOrFail();
+
             if ($delivery->center_id !== null) {
                 return 'delivery_has_center';
             }
 
-            if (! $this->isActionableDelivery($delivery)
-                || $delivery->picked_up_at !== null
+            if ($delivery->picked_up_at !== null
                 || $delivery->archived_at !== null
                 || in_array($delivery->status, ['cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'delivered'], true)) {
                 return 'not_actionable';
@@ -193,13 +164,7 @@ class PickupRequestController extends Controller
         $user = $request->user();
         $this->authorizeView($user, $pickupRequest);
 
-        $request->validate([
-            'rider_id' => ['nullable', 'integer', 'exists:riders,id'],
-        ]);
-
         $result = DB::transaction(function () use ($pickupRequest, $user): string {
-            $linkedDelivery = Delivery::findOrFail($pickupRequest->delivery_id);
-            $delivery = FulfillmentWorkflow::lock($linkedDelivery);
             $lockedPickup = PickupRequest::query()->whereKey($pickupRequest->id)->lockForUpdate()->firstOrFail();
 
             if (! $this->canReview($user, $lockedPickup)) {
@@ -214,15 +179,10 @@ class PickupRequestController extends Controller
                 return 'unrouted';
             }
 
+            $delivery = Delivery::query()->whereKey($lockedPickup->delivery_id)->lockForUpdate()->first();
+
             if (! $delivery || ! $this->isActionableDelivery($delivery)) {
                 return 'not_actionable';
-            }
-
-            if ($delivery->center_id === null && $lockedPickup->center_id !== null) {
-                $delivery->update([
-                    'center_id' => $lockedPickup->center_id,
-                    'origin_center_id' => $delivery->origin_center_id ?? $lockedPickup->center_id,
-                ]);
             }
 
             $lockedPickup->update([
@@ -251,12 +211,6 @@ class PickupRequestController extends Controller
             return back()->with('error', 'This pickup request is no longer actionable because the parcel has already moved past pickup.');
         }
 
-        if ($request->filled('rider_id') && $user->canManageRiders()) {
-            $delivery = Delivery::findOrFail($pickupRequest->delivery_id);
-
-            return app(DeliveryController::class)->assignRider($request, $delivery);
-        }
-
         return back()->with('success', 'Pickup request approved. Assigning a rider is a separate step on the delivery page.');
     }
 
@@ -270,8 +224,6 @@ class PickupRequestController extends Controller
         ]);
 
         $result = DB::transaction(function () use ($pickupRequest, $user, $validated): string {
-            $linkedDelivery = Delivery::findOrFail($pickupRequest->delivery_id);
-            $delivery = FulfillmentWorkflow::lock($linkedDelivery);
             $lockedPickup = PickupRequest::query()->whereKey($pickupRequest->id)->lockForUpdate()->firstOrFail();
 
             if (! $this->canReview($user, $lockedPickup)) {
@@ -285,6 +237,8 @@ class PickupRequestController extends Controller
             if ($lockedPickup->center_id === null) {
                 return 'unrouted';
             }
+
+            $delivery = Delivery::query()->whereKey($lockedPickup->delivery_id)->lockForUpdate()->first();
 
             if (! $delivery || ! $this->isActionableDelivery($delivery)) {
                 return 'not_actionable';
@@ -318,40 +272,48 @@ class PickupRequestController extends Controller
 
         $pickupRequest->refresh()->load('delivery');
 
-        try {
-            Notification::create([
-                'type' => 'pickup_failed',
-                'title' => 'Pickup Failed',
-                'message' => "Pickup request #{$pickupRequest->id} was rejected. Reason: {$validated['rejection_reason']}",
-                'icon' => 'alert-triangle',
-                'priority' => 'high',
-                'center_id' => $pickupRequest->center_id,
-                'audience' => 'center',
-                'link' => route('pickup-requests.show', $pickupRequest),
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-        }
+        Notification::create([
+            'type' => 'pickup_failed',
+            'title' => 'Pickup Failed',
+            'message' => "Pickup request #{$pickupRequest->id} was rejected. Reason: {$validated['rejection_reason']}",
+            'icon' => '⚠️',
+            'priority' => 'high',
+            'center_id' => $pickupRequest->center_id,
+            'audience' => 'center',
+            'link' => route('pickup-requests.show', $pickupRequest),
+        ]);
 
         return back()->with('success', 'Pickup request rejected. The delivery was not modified.');
     }
 
     public function canReview(User $user, PickupRequest $pickupRequest): bool
     {
-        if ($this->isGlobalAdmin($user)) {
+        if (LogisticsAccess::isGlobal($user)) {
             return true;
         }
 
-        if (! $user->isLogisticsStaff()) {
+        if (! $user->isLogisticsStaff() || ! $pickupRequest->center_id) {
             return false;
         }
 
-        return $pickupRequest->center_id && $pickupRequest->center_id == $user->center_id;
+        $centerId = LogisticsAccess::centerId($user);
+
+        // Company managers may review every hub in their company.
+        if ($centerId === null) {
+            $centerCompanyId = (int) (LogisticsCenter::query()
+                ->whereKey((int) $pickupRequest->center_id)
+                ->value('logistics_company_id') ?? 0);
+
+            return LogisticsAccess::canAccessCompany($user, $centerCompanyId);
+        }
+
+        // Center-scoped staff: own hub only. A centerless account matches none.
+        return $centerId > 0 && (int) $pickupRequest->center_id === $centerId;
     }
 
     private function canRoute(User $user, PickupRequest $pickupRequest): bool
     {
-        if (! $this->isGlobalAdmin($user) || $pickupRequest->status !== 'pending') {
+        if (! LogisticsAccess::isGlobal($user) || $pickupRequest->status !== 'pending') {
             return false;
         }
 
@@ -359,7 +321,6 @@ class PickupRequestController extends Controller
 
         return $pickupRequest->center_id === null
             && $delivery !== null
-            && $this->isActionableDelivery($delivery)
             && $delivery->center_id === null
             && $delivery->picked_up_at === null
             && $delivery->archived_at === null
@@ -372,12 +333,8 @@ class PickupRequestController extends Controller
      * by the pickup queue and sidebar badge so a direct POST cannot revive a
      * stale row.
      */
-    private function isActionableDelivery(?Delivery $delivery): bool
+    private function isActionableDelivery(Delivery $delivery): bool
     {
-        if (! $delivery) {
-            return false;
-        }
-
         return (! $delivery->order_id || $delivery->order()->value('status') === 'ready_for_delivery')
             && $delivery->picked_up_at === null
             && $delivery->archived_at === null
@@ -395,14 +352,12 @@ class PickupRequestController extends Controller
     }
 
     /**
-     * Global logistics oversight is role-based: the admin and logistics_admin
-     * roles see and review every center. A legacy is_admin flag alone must not
-     * widen pickup scope, and a center assignment on an oversight account must
-     * not narrow it.
+     * Platform Administrators and the designated global Logistics Admin can
+     * see and review every center. Company staff remain center-scoped.
      */
     private function isGlobalAdmin(User $user): bool
     {
-        return $user->isLogisticsAdmin();
+        return $user->isAdmin() || $user->isLogisticsAdmin();
     }
 
     private function authorizeView(User $user, PickupRequest $pickupRequest): void
@@ -412,3 +367,5 @@ class PickupRequestController extends Controller
         }
     }
 }
+
+

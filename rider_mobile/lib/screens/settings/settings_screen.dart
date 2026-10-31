@@ -97,14 +97,21 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.help_outline,
                       iconColor: AppColors.textSecondary,
                       title: 'Help & Tutorial',
-                      subtitle: 'Replay the rider app introduction',
+                      subtitle:
+                          'Replay the tutorial for your assigned workflow',
                       onTap: () {
-                        final rider = context.read<AuthProvider>().rider;
-                        if (rider == null) return;
+                        final auth = context.read<AuthProvider>();
+                        final rider = auth.rider;
+                        final workflow = auth.courier != null
+                            ? 'hub_courier'
+                            : 'delivery_rider';
+                        if (rider == null && auth.courier == null) return;
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) =>
-                                RiderTutorialScreen(riderId: rider.id),
+                            builder: (_) => RiderTutorialScreen(
+                              riderId: rider?.id,
+                              workflowType: workflow,
+                            ),
                           ),
                         );
                       },

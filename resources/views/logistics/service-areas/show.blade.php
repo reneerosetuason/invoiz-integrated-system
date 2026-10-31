@@ -45,7 +45,7 @@
         <h3 class="text-base font-bold text-gray-900 mb-5">Area Information</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Name</p><p class="text-sm font-medium text-gray-900">{{ $area->name }}</p></div>
-            <div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Logistics Center</p><p class="text-sm font-medium text-gray-900">{{ $area->logisticsCenter?->name ?? '—' }}</p></div>
+            <div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Logistics Hub</p><p class="text-sm font-medium text-gray-900">{{ $area->logisticsCenter?->name ?? '—' }}</p></div>
             <div><p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Description</p><p class="text-sm font-medium text-gray-900">{{ $area->description ?? '—' }}</p></div>
         </div>
     </div>

@@ -90,7 +90,7 @@ class _FailedDeliveryScreenState extends State<FailedDeliveryScreen> {
     final ok = await provider.returnToCenter(widget.deliveryId);
     if (!mounted) return;
     if (ok) {
-      _snack('Parcel marked as returned to the sorting center.');
+      _snack('Parcel marked as returned to the Logistics Hub.');
       Navigator.of(context).popUntil((route) => route.isFirst);
     } else {
       _snack(provider.error ?? 'Unable to return the parcel.');
@@ -245,7 +245,7 @@ class _FailedDeliveryScreenState extends State<FailedDeliveryScreen> {
 }
 
 /// Next step after a failure is reported: ask Logistics for a re-attempt
-/// or hand the parcel back to the sorting center. The failure record,
+/// or hand the parcel back to the Logistics Hub. The failure record,
 /// tracking, and history stay intact either way.
 class _NextStepSection extends StatelessWidget {
   const _NextStepSection({
@@ -320,7 +320,7 @@ class _NextStepSection extends StatelessWidget {
                   const SizedBox(height: AppGaps.md),
                   const Text(
                     'After the 3rd failed attempt the parcel must be returned to '
-                    'the sorting center for Return to Sender.',
+                    'the Logistics Hub for Return to Sender.',
                     style: AppText.secondary,
                   ),
                 ],
@@ -334,7 +334,7 @@ class _NextStepSection extends StatelessWidget {
                 if (alreadyReturned) ...[
                   const SizedBox(height: AppGaps.md),
                   const Text(
-                    'Parcel already returned to the sorting center.',
+                    'Parcel already returned to the Logistics Hub.',
                     style: AppText.secondary,
                   ),
                 ],
@@ -365,7 +365,7 @@ class _NextStepSection extends StatelessWidget {
         OutlinedButton.icon(
           onPressed: busy || alreadyReturned ? null : onReturn,
           icon: const Icon(Icons.warehouse_outlined),
-          label: const Text('Return to Sorting Center (RTS)'),
+          label: const Text('Return to Logistics Hub (RTS)'),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
             shape: RoundedRectangleBorder(

@@ -3,7 +3,7 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <h1 class="text-2xl font-bold text-[#1B1B1E]">Staff</h1>
-                <p class="text-xs text-[#6E6E73] mt-0.5">Add staff, assign their center, and manage account access.</p>
+                <p class="text-xs text-[#6E6E73] mt-0.5">Manage logistics staff accounts, assigned hubs, and operational responsibilities.</p>
             </div>
             <a href="{{ route('staff.create') }}" class="btn btn-primary">
                 <x-icon name="plus" class="w-4 h-4" />
@@ -19,9 +19,9 @@
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Search by name, email, or phone..." class="input">
                 </div>
                 <div class="sm:w-56">
-                    <label class="field-label">Center</label>
+                    <label class="field-label">Logistics Hub</label>
                     <select name="center_id" class="select">
-                        <option value="">All Centers</option>
+                        <option value="">All Logistics Hubs</option>
                         @foreach($centers as $center)
                             <option value="{{ $center->id }}" @selected((int) request('center_id') === $center->id)>{{ $center->name }}</option>
                         @endforeach
@@ -36,13 +36,14 @@
             </form>
         </div>
 
-        {{-- Staff Table (No Horizontal Scroll) --}}
+        {{-- Staff Table --}}
         <div class="card overflow-hidden">
             <table class="table">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Center</th>
+                        <th>Staff Member</th>
+                        <th>Assigned Hub</th>
+                        <th>Operational Scope</th>
                         <th>Status</th>
                         <th class="text-right">Actions</th>
                     </tr>
@@ -52,23 +53,44 @@
                         <tr>
                             <td>
                                 <div class="flex items-center gap-3">
-                                    <div class="h-8 w-8 rounded-full bg-[#16697A] flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                    <div class="h-9 w-9 rounded-full bg-[#16697A] flex items-center justify-center text-white text-xs font-bold shrink-0">
                                         {{ strtoupper(substr($member->name, 0, 1)) }}
                                     </div>
-                                    <a href="{{ route('staff.show', $member) }}" class="font-semibold text-[#1B1B1E] hover:text-[#16697A]">{{ $member->name }}</a>
+                                    <div class="min-w-0">
+                                        <a href="{{ route('staff.show', $member) }}" class="font-semibold text-[#1B1B1E] hover:text-[#16697A] block truncate">{{ $member->name }}</a>
+                                        <p class="text-xs text-[#6E6E73] truncate">{{ $member->email }}</p>
+                                    </div>
                                 </div>
                             </td>
-                            <td class="text-[#6E6E73]">{{ $member->logisticsCenter?->name ?? '—' }}</td>
+                            <td>
+                                @if($member->logisticsCenter)
+                                    <span class="inline-flex items-center gap-1.5 text-xs font-medium text-[#1B1B1E]">
+                                        <svg class="w-3.5 h-3.5 text-[#16697A] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                        {{ $member->logisticsCenter->name }}
+                                    </span>
+                                @else
+                                    <span class="text-xs text-[#6E6E73] italic">Unassigned</span>
+                                @endif
+                            </td>
+                            <td>
+                                <div class="text-xs font-medium text-[#1B1B1E]">Hub Operations</div>
+                                <div class="text-[11px] text-[#6E6E73]">Intake, Scan, Sort, & Dispatch</div>
+                            </td>
                             <td>
                                 <x-status-badge :status="$member->status" />
                             </td>
                             <td class="text-right">
-                                <a href="{{ route('staff.show', $member) }}" class="btn btn-soft btn-xs">View</a>
+                                <div class="inline-flex items-center justify-end gap-1.5">
+                                    <a href="{{ route('staff.show', $member) }}" class="btn btn-soft btn-xs">View</a>
+                                    <a href="{{ route('staff.edit', $member) }}" class="btn btn-soft btn-xs">Edit</a>
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="py-12 text-center">
+                            <td colspan="5" class="py-12 text-center">
                                 <p class="text-sm font-bold text-[#1B1B1E]">No staff found</p>
                                 <p class="mt-1 text-xs text-[#6E6E73]">No staff accounts match the current filters.</p>
                             </td>
