@@ -35,3 +35,6 @@ yarn-error.log
 # IDE and local development files
 **/.idea/
 **/.vscode/
+
+*.apk
+/public/*.apk
