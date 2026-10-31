@@ -117,15 +117,39 @@
                     @csrf
                     <div class="md:col-span-2">
                         <label class="field-label" for="pickup-street">Street address</label>
-                        <input id="pickup-street" name="address_line" class="input" value="{{ old('address_line', auth()->user()->seller->address_line) }}" maxlength="255" required>
+                        <input id="pickup-street" name="address_line" class="input" value="{{ old('address_line', auth()->user()->seller?->address_line) }}" maxlength="255" required placeholder="e.g. Balinghoy Street">
+                        @error('address_line')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
                     </div>
-                    @foreach(['barangay' => 'Barangay', 'city' => 'City / Municipality', 'province' => 'Province', 'region' => 'Region (optional)', 'postal_code' => 'Postal code (optional)'] as $field => $label)
-                        <div>
-                            <label class="field-label" for="pickup-{{ $field }}">{{ $label }}</label>
-                            <input id="pickup-{{ $field }}" name="{{ $field }}" class="input" value="{{ old($field, auth()->user()->seller->{$field}) }}" maxlength="{{ $field === 'postal_code' ? 20 : 100 }}" @required(in_array($field, ['barangay', 'city', 'province']))>
-                        </div>
-                    @endforeach
-                    <div class="md:col-span-2"><button type="submit" class="btn btn-primary">Save Pickup Address</button></div>
+
+                    @include('shared.partials.psgc-address-fields', [
+                        'prefix' => '',
+                        'uid' => 'seller_pickup',
+                        'values' => [
+                            'region' => old('region', auth()->user()->seller?->region ?? ''),
+                            'province' => old('province', auth()->user()->seller?->province ?? ''),
+                            'city' => old('city', auth()->user()->seller?->city ?? ''),
+                            'barangay' => old('barangay', auth()->user()->seller?->barangay ?? ''),
+                        ],
+                        'controlClass' => 'select',
+                        'labelClass' => 'field-label',
+                        'fields' => ['region', 'province', 'city', 'barangay'],
+                        'required' => ['region', 'province', 'city', 'barangay'],
+                        'regionFromProvince' => true,
+                    ])
+
+                    <div>
+                        <label class="field-label" for="pickup-postal_code">Postal code (optional)</label>
+                        <input id="pickup-postal_code" name="postal_code" class="input" value="{{ old('postal_code', auth()->user()->seller?->postal_code) }}" maxlength="20" placeholder="e.g. 1000">
+                        @error('postal_code')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                    </div>
+
+                    <div class="md:col-span-2">
+                        @error('region')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                        @error('province')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                        @error('city')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                        @error('barangay')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+                        <button type="submit" class="btn btn-primary">Save Pickup Address</button>
+                    </div>
                 </form>
             </div>
 
