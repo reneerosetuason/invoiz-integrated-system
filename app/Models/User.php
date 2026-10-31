@@ -73,8 +73,7 @@ class User extends Authenticatable
     protected static function booted(): void
     {
         static::creating(function (User $user): void {
-            $isDesignatedAccount = (int) $user->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID
-                && $user->email === self::GLOBAL_LOGISTICS_ADMIN_EMAIL
+            $isDesignatedAccount = $user->isDesignatedLogisticsAdminAccount()
                 && $user->role === 'logistics_admin'
                 && ! $user->is_admin
                 && $user->status === 'active'
@@ -98,7 +97,7 @@ class User extends Authenticatable
             $currentId = (int) $user->getKey();
             if (
                 $user->exists
-                && ($originalId === self::GLOBAL_LOGISTICS_ADMIN_ID || $currentId === self::GLOBAL_LOGISTICS_ADMIN_ID)
+                && ($user->isDesignatedLogisticsAdminAccount() || $originalId === self::GLOBAL_LOGISTICS_ADMIN_ID || $currentId === self::GLOBAL_LOGISTICS_ADMIN_ID)
             ) {
                 foreach ([
                     'id',
@@ -125,7 +124,7 @@ class User extends Authenticatable
             if (
                 $user->isDirty('role')
                 && $user->role === 'logistics_admin'
-                && (int) $user->getKey() !== self::GLOBAL_LOGISTICS_ADMIN_ID
+                && ! $user->isDesignatedLogisticsAdminAccount()
             ) {
                 throw new AuthorizationException('Only the designated account may be assigned the global Logistics Admin role.');
             }
@@ -167,7 +166,7 @@ class User extends Authenticatable
         });
 
         static::deleting(function (User $user): void {
-            if ((int) $user->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID) {
+            if ($user->isDesignatedLogisticsAdminAccount()) {
                 throw new AuthorizationException('The designated global Logistics Admin account cannot be deleted through ordinary account management.');
             }
         });
@@ -221,14 +220,14 @@ class User extends Authenticatable
     public function isLogisticsAdmin(): bool
     {
         return $this->isDesignatedLogisticsAdminAccount()
-            && $this->email === self::GLOBAL_LOGISTICS_ADMIN_EMAIL
             && $this->role === 'logistics_admin'
             && ! $this->isAdmin();
     }
 
     public function isDesignatedLogisticsAdminAccount(): bool
     {
-        return (int) $this->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID;
+        return $this->email === self::GLOBAL_LOGISTICS_ADMIN_EMAIL
+            || (int) $this->getKey() === self::GLOBAL_LOGISTICS_ADMIN_ID;
     }
 
     /**

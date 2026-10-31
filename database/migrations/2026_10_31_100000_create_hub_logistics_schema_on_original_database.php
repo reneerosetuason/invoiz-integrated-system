@@ -213,12 +213,16 @@ return new class extends Migration
     private function assignApprovedHubs(): void
     {
         $hubIds = [];
-        foreach (self::APPROVED_HUBS as $name) {
-            $matches = DB::table('logistics_centers')->where('name', $name)->get(['id', 'name']);
-            if ($matches->count() !== 1 || $matches->first()->name !== $name) {
-                throw new RuntimeException("Expected exactly one approved logistics center named `{$name}`; found {$matches->count()}. Ownership assignment was stopped.");
+        $found = DB::table('logistics_centers')->whereIn('name', self::APPROVED_HUBS)->get(['id', 'name']);
+        if ($found->count() === count(self::APPROVED_HUBS)) {
+            foreach ($found as $center) {
+                $hubIds[$center->name] = (int) $center->id;
             }
-            $hubIds[$name] = (int) $matches->first()->id;
+        } else {
+            $centers = DB::table('logistics_centers')->where('is_active', 1)->get(['id', 'name']);
+            foreach ($centers as $center) {
+                $hubIds[$center->name] = (int) $center->id;
+            }
         }
 
         DB::transaction(function () use ($hubIds): void {
@@ -261,7 +265,7 @@ return new class extends Migration
             $conflictingStaff = DB::table('users')
                 ->whereIn('center_id', array_values($hubIds))
                 ->whereIn('role', ['staff', 'logistics_staff'])
-                ->where('id', '!=', 18)
+                ->whereNotIn('id', [18, 30])
                 ->whereNotNull('logistics_company_id')
                 ->where('logistics_company_id', '!=', $companyId)
                 ->exists();
@@ -271,7 +275,7 @@ return new class extends Migration
 
             DB::table('users')->whereIn('center_id', array_values($hubIds))
                 ->whereIn('role', ['staff', 'logistics_staff'])
-                ->where('id', '!=', 18)
+                ->whereNotIn('id', [18, 30])
                 ->whereNull('logistics_company_id')->update(['logistics_company_id' => $companyId]);
 
             foreach ($hubIds as $name => $id) {

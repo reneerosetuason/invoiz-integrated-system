@@ -416,10 +416,7 @@ class UnifiedAuthController extends Controller
         $state = bin2hex(random_bytes(16));
         $request->session()->put('google_oauth_state', $state);
 
-        $redirectUri = $request->getSchemeAndHttpHost() . '/auth/google/callback';
-        if (! filter_var($redirectUri, FILTER_VALIDATE_URL)) {
-            $redirectUri = config('services.google.redirect');
-        }
+        $redirectUri = config('services.google.redirect') ?: ($request->getSchemeAndHttpHost() . '/auth/google/callback');
         $request->session()->put('google_oauth_redirect_uri', $redirectUri);
 
         $params = http_build_query([
@@ -443,8 +440,8 @@ class UnifiedAuthController extends Controller
             return redirect('/login')->withErrors(['email' => 'Google sign-in was cancelled.']);
         }
         $redirectUri = $request->session()->pull('google_oauth_redirect_uri')
-            ?: ($request->getSchemeAndHttpHost() . '/auth/google/callback')
-            ?: config('services.google.redirect');
+            ?: config('services.google.redirect')
+            ?: ($request->getSchemeAndHttpHost() . '/auth/google/callback');
 
         try {
             $token = Http::asForm()->post('https://oauth2.googleapis.com/token', [
