@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class LogisticsTruck extends Model
@@ -21,6 +22,11 @@ class LogisticsTruck extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(LogisticsCompany::class, 'logistics_company_id');
+    }
+
+    public function driver(): HasOne
+    {
+        return $this->hasOne(HubTransportDriver::class, 'logistics_truck_id');
     }
 
     public function transfers(): HasMany

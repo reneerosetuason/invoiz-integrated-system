@@ -3,7 +3,7 @@
         <div>
             <p class="text-xs font-bold uppercase tracking-wider text-[#16697A]">Fleet &amp; Transport Linehaul</p>
             <h1 class="text-2xl font-bold text-[#1B1B1E] mt-0.5">Fleet Management</h1>
-            <p class="text-xs text-[#6E6E73] mt-0.5">Trucks and Hub Transport Drivers are company-owned and separate from last-mile Delivery Riders.</p>
+            <p class="text-xs text-[#6E6E73] mt-0.5">Four-wheel trucks and Hub Transport Drivers operate inter-hub logistics transfers across all INVOIZ facilities.</p>
         </div>
 
         @if(session('success'))
@@ -12,68 +12,54 @@
             </div>
         @endif
 
-        <div class="card p-4">
-            <form method="GET" class="flex flex-col sm:flex-row sm:items-end gap-3">
-                <div class="flex-1">
-                    <label class="field-label">Filter by Company</label>
-                    <select name="logistics_company_id" class="select">
-                        <option value="">All companies</option>
-                        @foreach($companies as $company)
-                            <option value="{{ $company->id }}" @selected($companyId === $company->id)>{{ $company->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-primary">Filter</button>
-            </form>
-        </div>
+        @if($errors->any())
+            <div class="card p-4 bg-red-50 border-red-200 text-red-800 text-xs">
+                <ul class="list-disc list-inside space-y-1">
+                    @foreach($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div class="grid gap-5 lg:grid-cols-2">
-            {{-- Trucks Section --}}
+            {{-- Four-Wheel Trucks Section --}}
             <section class="card p-5 space-y-4">
                 <div>
                     <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Four-Wheel Trucks</h2>
-                    <p class="text-xs text-[#6E6E73] mt-0.5">Inter-hub fleet vehicles managed by your logistics company.</p>
+                    <p class="text-xs text-[#6E6E73] mt-0.5">Inter-hub fleet vehicles managed by INVOIZ Logistics.</p>
                 </div>
 
                 <form method="POST" action="{{ route('fleet.trucks.store') }}" class="card p-4 bg-[#FAF9F6] border-[#E8E6E0] space-y-3">
                     @csrf
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="sm:col-span-2">
-                            <label class="field-label">Company <span class="text-red-500">*</span></label>
-                            <select name="logistics_company_id" required class="select">
-                                <option value="">Select company</option>
-                                @foreach($companies as $company)
-                                    <option value="{{ $company->id }}" @selected($companyId === $company->id)>{{ $company->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
                         <div>
                             <label class="field-label">Plate Number <span class="text-red-500">*</span></label>
-                            <input name="plate_number" required placeholder="e.g. ABC 1234" class="input">
+                            <input name="plate_number" value="{{ old('plate_number') }}" required placeholder="e.g. ABC 1234" class="input">
                         </div>
                         <div>
                             <label class="field-label">Vehicle Name</label>
-                            <input name="name" placeholder="e.g. Van-01" class="input">
+                            <input name="name" value="{{ old('name') }}" placeholder="e.g. Linehaul Van 01" class="input">
                         </div>
                         <div>
                             <label class="field-label">Vehicle Type <span class="text-red-500">*</span></label>
-                            <input name="vehicle_type" required value="truck" placeholder="Type" class="input">
+                            <input name="vehicle_type" required value="{{ old('vehicle_type', 'truck') }}" placeholder="truck / closed_van / forwarder" class="input">
                         </div>
                         <div>
                             <label class="field-label">Brand / Model</label>
-                            <input name="model" placeholder="e.g. Isuzu Elf" class="input">
+                            <input name="model" value="{{ old('model') }}" placeholder="e.g. Isuzu Elf / Hino 300" class="input">
                         </div>
                         <div>
                             <label class="field-label">Parcel Capacity <span class="text-red-500">*</span></label>
-                            <input name="parcel_capacity" type="number" min="1" required placeholder="e.g. 150" class="input">
+                            <input name="parcel_capacity" type="number" min="1" value="{{ old('parcel_capacity') }}" required placeholder="e.g. 150" class="input">
                         </div>
                         <div>
                             <label class="field-label">Weight Capacity (kg) <span class="text-red-500">*</span></label>
-                            <input name="capacity_kg" type="number" step="0.01" min="0.01" required placeholder="e.g. 2000" class="input">
+                            <input name="capacity_kg" type="number" step="0.01" min="0.01" value="{{ old('capacity_kg') }}" required placeholder="e.g. 2000" class="input">
                         </div>
                         <div class="sm:col-span-2">
                             <label class="field-label">Remarks</label>
-                            <input name="remarks" placeholder="Optional notes..." class="input">
+                            <input name="remarks" value="{{ old('remarks') }}" placeholder="Optional notes (maintenance, garage, etc.)..." class="input">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary w-full">Register Truck</button>
@@ -84,7 +70,8 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Company / Truck</th>
+                                    <th>Vehicle / Plate</th>
+                                    <th>Capacity</th>
                                     <th>Status</th>
                                     <th class="text-right">Action</th>
                                 </tr>
@@ -94,7 +81,14 @@
                                     <tr>
                                         <td>
                                             <div class="font-bold text-[#1B1B1E]">{{ $truck->plate_number }}</div>
-                                            <div class="text-[11px] text-[#6E6E73]">{{ $truck->company?->name }} · {{ $truck->name ?: $truck->model }}</div>
+                                            <div class="text-[11px] text-[#6E6E73]">{{ $truck->name ?: $truck->model }} &middot; {{ ucfirst($truck->vehicle_type) }}</div>
+                                            @if($truck->driver)
+                                                <div class="text-[10px] text-[#16697A] font-semibold mt-0.5">Driver: {{ $truck->driver->name }}</div>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            <div class="text-xs font-medium text-[#1B1B1E]">{{ $truck->parcel_capacity }} pcs</div>
+                                            <div class="text-[10px] text-[#6E6E73]">{{ number_format($truck->capacity_kg, 1) }} kg</div>
                                         </td>
                                         <td>
                                             <span class="badge {{ $truck->status === 'available' ? 'badge-delivered' : 'badge-inactive' }}">{{ str($truck->status)->title() }}</span>
@@ -121,7 +115,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="3" class="text-center py-6 text-xs text-[#6E6E73]">No trucks registered yet.</td>
+                                        <td colspan="4" class="text-center py-6 text-xs text-[#6E6E73]">No trucks registered yet.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
@@ -135,36 +129,27 @@
             <section class="card p-5 space-y-4">
                 <div>
                     <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Hub Transport Drivers</h2>
-                    <p class="text-xs text-[#6E6E73] mt-0.5">Courier credentials are separate from Delivery Rider accounts.</p>
+                    <p class="text-xs text-[#6E6E73] mt-0.5">Linehaul transport credentials are separate from last-mile Delivery Rider accounts.</p>
                 </div>
 
                 <form method="POST" action="{{ route('fleet.drivers.store') }}" class="card p-4 bg-[#FAF9F6] border-[#E8E6E0] space-y-3">
                     @csrf
                     <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="sm:col-span-2">
-                            <label class="field-label">Company <span class="text-red-500">*</span></label>
-                            <select name="logistics_company_id" required class="select">
-                                <option value="">Select company</option>
-                                @foreach($companies as $company)
-                                    <option value="{{ $company->id }}" @selected($companyId === $company->id)>{{ $company->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
                         <div>
                             <label class="field-label">Full Name <span class="text-red-500">*</span></label>
-                            <input name="name" required placeholder="Driver full name" class="input">
+                            <input name="name" value="{{ old('name') }}" required placeholder="Driver full name" class="input">
                         </div>
                         <div>
                             <label class="field-label">Contact Phone</label>
-                            <input name="phone" placeholder="e.g. 09171234567" class="input">
+                            <input name="phone" value="{{ old('phone') }}" placeholder="e.g. 09171234567" class="input">
                         </div>
                         <div>
                             <label class="field-label">Courier Email (Login) <span class="text-red-500">*</span></label>
-                            <input name="email" type="email" required placeholder="email@example.com" class="input">
+                            <input name="email" type="email" value="{{ old('email') }}" required placeholder="email@example.com" class="input">
                         </div>
                         <div>
                             <label class="field-label">License Number</label>
-                            <input name="license_number" placeholder="Driver's license #" class="input">
+                            <input name="license_number" value="{{ old('license_number') }}" placeholder="Driver's license #" class="input">
                         </div>
                         <div>
                             <label class="field-label">Temporary Password <span class="text-red-500">*</span></label>
@@ -177,11 +162,17 @@
                         <div class="sm:col-span-2">
                             <label class="field-label">Assigned Four-Wheel Truck <span class="text-red-500">*</span></label>
                             <select name="logistics_truck_id" required class="select">
-                                <option value="">Select truck</option>
+                                <option value="">Select available truck</option>
                                 @foreach($allTrucks as $truck)
-                                    <option value="{{ $truck->id }}">{{ $truck->plate_number }} — {{ $truck->company?->name }} ({{ $truck->vehicle_type }})</option>
+                                    <option value="{{ $truck->id }}" @selected(old('logistics_truck_id') == $truck->id)>
+                                        {{ $truck->plate_number }} — {{ $truck->name ?: $truck->model }} ({{ ucfirst($truck->vehicle_type) }})
+                                    </option>
                                 @endforeach
                             </select>
+                        </div>
+                        <div class="sm:col-span-2">
+                            <label class="field-label">Remarks</label>
+                            <input name="remarks" value="{{ old('remarks') }}" placeholder="Optional driver notes..." class="input">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary w-full">Register Driver Account</button>
@@ -192,8 +183,9 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Driver / Company</th>
-                                    <th>Phone</th>
+                                    <th>Driver</th>
+                                    <th>Contact</th>
+                                    <th>Assigned Truck</th>
                                     <th>Status</th>
                                     <th class="text-right">Action</th>
                                 </tr>
@@ -203,9 +195,22 @@
                                     <tr>
                                         <td>
                                             <div class="font-bold text-[#1B1B1E]">{{ $driver->name }}</div>
-                                            <div class="text-[11px] text-[#6E6E73]">{{ $driver->company?->name }}</div>
+                                            <div class="text-[11px] text-[#6E6E73]">{{ $driver->email }}</div>
                                         </td>
-                                        <td class="text-xs text-[#6E6E73]">{{ $driver->phone ?: '—' }}</td>
+                                        <td class="text-xs text-[#6E6E73]">
+                                            <div>{{ $driver->phone ?: '—' }}</div>
+                                            @if($driver->license_number)
+                                                <div class="text-[10px] text-[#6E6E73]">Lic: {{ $driver->license_number }}</div>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($driver->truck)
+                                                <span class="text-xs font-semibold text-[#16697A]">{{ $driver->truck->plate_number }}</span>
+                                                <div class="text-[10px] text-[#6E6E73]">{{ $driver->truck->name ?: $driver->truck->model }}</div>
+                                            @else
+                                                <span class="text-xs text-[#6E6E73] italic">Unassigned</span>
+                                            @endif
+                                        </td>
                                         <td>
                                             <span class="badge {{ $driver->status === 'available' ? 'badge-delivered' : 'badge-inactive' }}">{{ str($driver->status)->title() }}</span>
                                         </td>
@@ -227,7 +232,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="4" class="text-center py-6 text-xs text-[#6E6E73]">No transport drivers registered yet.</td>
+                                        <td colspan="5" class="text-center py-6 text-xs text-[#6E6E73]">No transport drivers registered yet.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

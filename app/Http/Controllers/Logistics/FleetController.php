@@ -21,9 +21,9 @@ class FleetController extends Controller
         if ($companyId) {
             abort_unless($companies->contains('id', $companyId), 404);
         }
-        $trucks = LogisticsTruck::query()->with('company')->when($companyId, fn ($q) => $q->where('logistics_company_id', $companyId))->orderBy('plate_number')->paginate(10, ['*'], 'trucks_page');
+        $trucks = LogisticsTruck::query()->with(['company', 'driver'])->when($companyId, fn ($q) => $q->where('logistics_company_id', $companyId))->orderBy('plate_number')->paginate(10, ['*'], 'trucks_page');
         $allTrucks = LogisticsTruck::query()->with('company')->where('status', 'available')->orderBy('plate_number')->get();
-        $drivers = HubTransportDriver::query()->with('company')->when($companyId, fn ($q) => $q->where('logistics_company_id', $companyId))->orderBy('name')->paginate(10, ['*'], 'drivers_page');
+        $drivers = HubTransportDriver::query()->with(['company', 'truck'])->when($companyId, fn ($q) => $q->where('logistics_company_id', $companyId))->orderBy('name')->paginate(10, ['*'], 'drivers_page');
 
         return view('logistics.fleet.index', compact('companies', 'companyId', 'trucks', 'drivers', 'allTrucks'));
     }
@@ -31,14 +31,21 @@ class FleetController extends Controller
     public function storeTruck(Request $request): RedirectResponse
     {
         $this->authorizeManager($request);
+        $company = $this->resolveCentralCompany($request);
+
         $data = $request->validate([
-            'logistics_company_id' => 'required|exists:logistics_companies,id',
-            'plate_number' => ['required', 'string', 'max:40', Rule::unique('logistics_trucks')->where('logistics_company_id', $request->input('logistics_company_id'))],
-            'name' => 'nullable|string|max:120', 'vehicle_type' => 'required|string|max:80', 'model' => 'nullable|string|max:120',
-            'parcel_capacity' => 'required|integer|min:1', 'capacity_kg' => 'required|numeric|min:0.01', 'remarks' => 'nullable|string|max:2000',
+            'plate_number' => ['required', 'string', 'max:40', Rule::unique('logistics_trucks')->where('logistics_company_id', $company->id)],
+            'name' => 'nullable|string|max:120',
+            'vehicle_type' => 'required|string|max:80',
+            'model' => 'nullable|string|max:120',
+            'parcel_capacity' => 'required|integer|min:1',
+            'capacity_kg' => 'required|numeric|min:0.01',
+            'remarks' => 'nullable|string|max:2000',
         ]);
+
         abort_unless(LogisticsVehicleCategory::for($data['vehicle_type']) === 'four_wheel', 422, 'Fleet transfer vehicles must be approved four-wheel types.');
-        $company = LogisticsCompany::whereKey($data['logistics_company_id'])->where('status', 'active')->firstOrFail();
+
+        $data['logistics_company_id'] = $company->id;
         $company->trucks()->create($data);
 
         return back()->with('success', 'Truck registered.');
@@ -62,19 +69,24 @@ class FleetController extends Controller
     public function storeDriver(Request $request): RedirectResponse
     {
         $this->authorizeManager($request);
+        $company = $this->resolveCentralCompany($request);
+
         $data = $request->validate([
-            'logistics_company_id' => 'required|exists:logistics_companies,id',
-            'name' => 'required|string|max:160', 'phone' => 'nullable|string|max:30',
-            'license_number' => ['nullable', 'string', 'max:100', Rule::unique('hub_transport_drivers')->where('logistics_company_id', $request->input('logistics_company_id'))],
+            'name' => 'required|string|max:160',
+            'phone' => 'nullable|string|max:30',
+            'license_number' => ['nullable', 'string', 'max:100', Rule::unique('hub_transport_drivers')->where('logistics_company_id', $company->id)],
             'email' => ['required', 'email', 'max:255', 'unique:hub_transport_drivers,email'],
             'password' => 'required|string|min:8|confirmed',
             'logistics_truck_id' => 'required|integer|exists:logistics_trucks,id',
             'remarks' => 'nullable|string|max:2000',
         ]);
-        $company = LogisticsCompany::whereKey($data['logistics_company_id'])->where('status', 'active')->firstOrFail();
+
+        $data['logistics_company_id'] = $company->id;
+
         $truck = LogisticsTruck::whereKey($data['logistics_truck_id'])->where('logistics_company_id', $company->id)->where('status', 'available')->firstOrFail();
         abort_unless(LogisticsVehicleCategory::for($truck->vehicle_type) === 'four_wheel' && $truck->parcel_capacity > 0 && $truck->capacity_kg > 0, 422, 'Select an available four-wheel truck with registered capacity.');
         abort_if(HubTransportDriver::where('logistics_truck_id', $truck->id)->exists(), 422, 'This truck already has an assigned Hub Transport Driver.');
+
         $company->transportDrivers()->create($data);
 
         return back()->with('success', 'Hub Transport Driver registered.');
@@ -105,5 +117,41 @@ class FleetController extends Controller
     {
         abort_unless($request->user()->isAdmin() || $request->user()->isLogisticsAdmin(), 403,
             'Only the Platform Administrator or global Logistics Admin can manage logistics fleet records.');
+    }
+
+    private function resolveCentralCompany(?Request $request = null): LogisticsCompany
+    {
+        // 1. If explicitly provided in the request by a caller/test, validate that company
+        $requestedCompanyId = $request?->input('logistics_company_id');
+        if ($requestedCompanyId) {
+            $company = LogisticsCompany::whereKey($requestedCompanyId)->where('status', 'active')->first();
+            if ($company) {
+                return $company;
+            }
+        }
+
+        $user = $request?->user() ?? request()->user();
+
+        // 2. Check user's assigned company if active
+        if ($user?->logistics_company_id) {
+            $company = LogisticsCompany::whereKey($user->logistics_company_id)->where('status', 'active')->first();
+            if ($company) {
+                return $company;
+            }
+        }
+
+        // 3. Resolve the primary active logistics company
+        $company = LogisticsCompany::where('status', 'active')->orderBy('id')->first();
+        if ($company) {
+            return $company;
+        }
+
+        // 4. Fallback to ID 1 if active
+        $company = LogisticsCompany::find(1);
+        if ($company && $company->status === 'active') {
+            return $company;
+        }
+
+        abort(422, 'Unable to resolve the active central INVOIZ Logistics organization.');
     }
 }
