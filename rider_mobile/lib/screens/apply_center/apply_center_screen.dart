@@ -40,12 +40,14 @@ class CenterDocPicker {
   ];
 
   Future<CenterPickedDoc?> pickSingle() async {
-    final file = await FilePicker.pickFile(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: supportedExtensions,
+      withData: true,
     );
-    if (file == null) return null;
-    final bytes = await file.readAsBytes();
+    if (result == null || result.files.isEmpty) return null;
+    final file = result.files.first;
+    final bytes = file.bytes ?? (file.path != null ? await file.xFile.readAsBytes() : Uint8List(0));
     return CenterPickedDoc(name: file.name, bytes: bytes);
   }
 }

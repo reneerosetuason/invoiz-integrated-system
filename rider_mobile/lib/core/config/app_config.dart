@@ -51,10 +51,10 @@ class AppConfig {
     if (Platform.isAndroid) {
       return environment == 'production'
           ? prodHost
-          : 'http://10.0.2.2:8000/api/logistics';
+          : 'https://invoiz.store/api/logistics';
     }
     return environment == 'production'
         ? prodHost
-        : 'http://127.0.0.1:8000/api/logistics';
+        : 'https://invoiz.store/api/logistics';
   }
 }

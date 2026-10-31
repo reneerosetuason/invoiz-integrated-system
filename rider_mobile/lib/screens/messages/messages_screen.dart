@@ -284,16 +284,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Future<void> _pickFile() async {
-    final files = await FilePicker.pickFiles(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const [
         'jpg', 'jpeg', 'png', 'webp', 'pdf',
         'doc', 'docx', 'xls', 'xlsx', 'csv',
       ],
+      withData: true,
     );
-    if (files.isEmpty) return;
-    final file = files.first;
-    final bytes = await file.readAsBytes();
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    final bytes = file.bytes ?? (file.path != null ? await file.xFile.readAsBytes() : Uint8List(0));
     if (bytes.lengthInBytes > 5 * 1024 * 1024) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

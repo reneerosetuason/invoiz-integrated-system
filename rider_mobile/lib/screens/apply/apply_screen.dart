@@ -44,12 +44,13 @@ class DocFilePicker {
   const DocFilePicker();
 
   Future<PickedDoc?> pickSingle(List<String> allowedExtensions) async {
-    final file = await FilePicker.pickFile(
+    final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: allowedExtensions,
     );
-    if (file == null) return null;
-    return PickedDoc(name: file.name, readBytes: file.readAsBytes);
+    if (result == null || result.files.isEmpty) return null;
+    final file = result.files.first;
+    return PickedDoc(name: file.name, readBytes: () async => file.bytes ?? (file.path != null ? await file.xFile.readAsBytes() : Uint8List(0)));
   }
 }
 

@@ -148,6 +148,7 @@
                       verifiedEmail: @js($verifiedEmail ?? ''),
                       documentLabels: @js($documentLabels),
                       regions: @js($regions ?? []),
+                      initialRegion: @js(old('region', '')),
                       municipalities: @js($municipalities),
                       barangays: @js($barangays),
                       provincePicked: @js(old('province', '') !== ''),
@@ -373,7 +374,7 @@
                     <div class="mt-6 grid gap-x-5 gap-y-6 sm:grid-cols-2">
                         <div class="sm:col-span-2 min-w-0">
                             <label for="region" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Region <span class="text-red-500" aria-hidden="true">*</span></label>
-                            <select id="region" name="region" x-ref="region" x-on:change="selectRegion"
+                            <select id="region" name="region" x-ref="region" x-model="selectedRegionCode" x-on:change="selectRegion"
                                     class="block mt-2 h-[52px] w-full rounded-xl border-gray-300 bg-white px-4 text-[15px] text-gray-900 focus:border-teal focus:ring-4 focus:ring-teal/15 @error('region') border-red-400 focus:border-red-500 focus:ring-red-500 @enderror"
                                     autocomplete="address-level1"
                                     aria-invalid="@error('region') true @enderror">
@@ -680,7 +681,7 @@
                 </div>
             </form>
 
-            <script src="{{ asset('assets/logistics/js/center-application-apply-3.js') }}"></script>
+            <script src="{{ asset('assets/logistics/js/center-application-apply-3.js') }}?v={{ filemtime(public_path('assets/logistics/js/center-application-apply-3.js')) }}"></script>
 
             <p class="mt-6 text-center text-sm text-gray-500">
                 Already applied?

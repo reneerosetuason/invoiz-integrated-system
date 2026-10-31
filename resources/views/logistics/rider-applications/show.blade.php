@@ -172,7 +172,7 @@
                                     class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('center_id') border-red-500 @enderror">
                                 <option value="">Select Logistics Hub</option>
                                 @foreach($centers as $center)
-                                    <option value="{{ $center->id }}" @selected((int) old('center_id') === $center->id)>{{ $center->name }}</option>
+                                    <option value="{{ $center->id }}" @selected((int) old('center_id', $application->center_id) === $center->id)>{{ $center->name }}</option>
                                 @endforeach
                             </select>
                             @error('center_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
@@ -183,7 +183,7 @@
                                     class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('service_area_id') border-red-500 @enderror">
                                 <option value="">Select service area</option>
                                 @foreach($areas as $area)
-                                    <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) old('service_area_id') === $area->id)>{{ $area->name }} ({{ $area->logisticsCenter?->name ?? 'Center' }})</option>
+                                    <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) old('service_area_id', $application->service_area_id) === $area->id)>{{ $area->name }} ({{ $area->logisticsCenter?->name ?? 'Center' }})</option>
                                 @endforeach
                             </select>
                             @error('service_area_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror

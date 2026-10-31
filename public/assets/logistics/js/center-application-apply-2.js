@@ -9,6 +9,8 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                 errorSteps: opts.errorSteps ?? [],
                 documentLabels: opts.documentLabels ?? {},
                 regions: opts.regions ?? {},
+                selectedRegionCode: opts.initialRegion ?? '',
+                selectedRegionName: '',
                 submitting: false,
                 termsAccepted: false,
                 clientErrors: {},
@@ -246,6 +248,12 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                 onFileChange(type, el) {
                     const f = el.files && el.files[0];
                     if (f) {
+                        if (f.size > 5 * 1024 * 1024) {
+                            el.value = '';
+                            delete this.files[type];
+                            this.setFieldError('documents.' + type, 'The selected file exceeds 5 MB. Please choose a smaller file.');
+                            return;
+                        }
                         this.files[type] = { name: f.name, size: f.size };
                     } else {
                         delete this.files[type];
@@ -263,10 +271,27 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                 },
                 // ── Review helpers ─────────────────────────────────────────
                 regionName() {
-                    const sel = document.getElementById('region');
-                    if (!sel || !sel.value) return 'Not provided';
-                    const opt = sel.options[sel.selectedIndex];
-                    return (opt ? opt.textContent.trim() : sel.value) || 'Not provided';
+                    void this.step;
+                    const sel = document.getElementById('region') || this.$refs?.region;
+                    if (sel && sel.value) {
+                        const opt = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+                        const txt = opt ? opt.textContent.trim() : '';
+                        if (txt && txt !== 'Select a region...') {
+                            return txt;
+                        }
+                        if (this.regions && this.regions[sel.value]) {
+                            return this.regions[sel.value];
+                        }
+                        return sel.value;
+                    }
+                    if (this.selectedRegionName) return this.selectedRegionName;
+                    if (this.selectedRegionCode) {
+                        if (this.regions && this.regions[this.selectedRegionCode]) {
+                            return this.regions[this.selectedRegionCode];
+                        }
+                        return this.selectedRegionCode;
+                    }
+                    return 'Not provided';
                 },
                 locationSummary() {
                     const parts = ['house_number', 'street', 'barangay', 'municipality', 'province']
@@ -311,7 +336,12 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     return html;
                 },
                 async selectRegion() {
-                    const regionSel = document.getElementById('region');
+                    const regionSel = document.getElementById('region') || this.$refs?.region;
+                    if (regionSel) {
+                        this.selectedRegionCode = regionSel.value;
+                        const opt = regionSel.selectedIndex >= 0 ? regionSel.options[regionSel.selectedIndex] : null;
+                        this.selectedRegionName = (opt ? opt.textContent.trim() : '') || (this.regions && this.regions[regionSel.value]) || '';
+                    }
                     const provSel = document.getElementById('province');
                     const muniSel = document.getElementById('municipality');
                     const brgySel = document.getElementById('barangay');

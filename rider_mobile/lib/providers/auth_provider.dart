@@ -15,8 +15,9 @@ enum AuthStatus { unknown, authenticated, unauthenticated }
 
 /// Global authentication state.
 class AuthProvider extends ChangeNotifier {
-  AuthProvider({required ApiClient api, required this._storage})
+  AuthProvider({required ApiClient api, required TokenStorage storage})
     : _api = api,
+      _storage = storage,
       _authService = AuthService(api),
       _riderService = RiderService(api),
       _courierService = HubCourierService(api);

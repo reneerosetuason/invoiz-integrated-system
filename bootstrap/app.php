@@ -26,6 +26,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: [
             'cart/*',
             'buy/*',
+            'logistics/logistics-center/apply',
+            'logistics/logistics-center/verification/*',
         ]);
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         $middleware->redirectGuestsTo('/login');
@@ -72,6 +74,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 // back-button resubmits): send them back to the list with a fresh
                 // token instead of stranding them on a 419 page. Nothing was changed.
                 return redirect()->route('deliveries.index')->with('error', 'Your session had expired, so nothing was archived. Please try again.');
+            } elseif ($request->is('logistics/logistics-center/apply')) {
+                return redirect()->route('center-application.apply')->withInput()->with('error', 'Your session timed out. Please verify your email and try submitting again.');
             } else {
                 return null;
             }

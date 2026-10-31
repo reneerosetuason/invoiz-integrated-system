@@ -19,6 +19,10 @@
                                 if (rg.code === cur) o.selected = true;
                                 sel.appendChild(o);
                             });
+                            if (cur) {
+                                sel.value = cur;
+                                sel.dispatchEvent(new Event('change', { bubbles: true }));
+                            }
                         })
                         .catch(function () { /* keep the fallback options */ });
                 }
