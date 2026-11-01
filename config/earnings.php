@@ -17,6 +17,7 @@ return [
     'origin_hub_fee'        => 30.00, // ₱30 per seller shipment
     'pickup_rider_per_item' => 30.00, // ₱30 per item picked up from seller
     'inter_hub_driver_fee'  => 20.00, // ₱20 per seller shipment for shared inter-hub transport
+    'inter_hub_driver_vehicle_allowance' => 15.00, // ₱15 per shipment vehicle-use allowance for driver-owned trucks
     'destination_hub_fee'   => 30.00, // ₱30 per seller shipment when transferred to destination hub
     'last_mile_rider_fee'   => 50.00, // ₱50 per seller shipment (also base buyer shipping fee)
 ];

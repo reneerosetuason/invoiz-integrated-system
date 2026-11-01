@@ -15,8 +15,11 @@ class VehicleType {
 class VehicleService {
   VehicleService(this._api);
   final ApiClient _api;
-  Future<List<VehicleType>> getActive() async {
-    final data = await _api.get('/vehicle-types');
+  Future<List<VehicleType>> getActive({String? applicationType}) async {
+    final data = await _api.get(
+      '/vehicle-types',
+      query: applicationType != null ? {'application_type': applicationType} : null,
+    );
     final list = data['vehicle_types'] as List? ?? [];
     return list.whereType<Map<String, dynamic>>().map(VehicleType.fromJson).toList();
   }

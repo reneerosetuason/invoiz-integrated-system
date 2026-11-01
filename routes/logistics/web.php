@@ -73,12 +73,6 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('hub-transfers/{hubTransfer}/resume', [HubTransferController::class, 'resume'])->name('hub-transfers.resume');
     Route::post('hub-transfers/{hubTransfer}/reassign', [HubTransferController::class, 'reassign'])->name('hub-transfers.reassign');
     Route::post('hub-transfers/{hubTransfer}/reroute', [HubTransferController::class, 'reroute'])->name('hub-transfers.reroute');
-    Route::get('fleet', [FleetController::class, 'index'])->name('fleet.index');
-    Route::post('fleet/trucks', [FleetController::class, 'storeTruck'])->name('fleet.trucks.store');
-    Route::put('fleet/trucks/{truck}', [FleetController::class, 'updateTruck'])->name('fleet.trucks.update');
-    Route::post('fleet/drivers', [FleetController::class, 'storeDriver'])->name('fleet.drivers.store');
-    Route::put('fleet/drivers/{driver}', [FleetController::class, 'updateDriver'])->name('fleet.drivers.update');
-
     // Sorting Center operational hub (read-only aggregation; mutations
     // post to the existing deliveries.* routes).
     Route::get('sorting-center', [SortingCenterController::class, 'index'])->name('sorting-center.index');
@@ -103,12 +97,6 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('deliveries/{delivery}/sort', [DeliveryController::class, 'sort'])->name('deliveries.sort');
     Route::post('deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->name('deliveries.dispatch');
 
-    // Archived Deliveries (Admin Only)
-    Route::get('deliveries-archived', [DeliveryController::class, 'archived'])->name('deliveries.archived');
-    Route::post('deliveries/{delivery}/archive', [DeliveryController::class, 'archive'])->name('deliveries.archive');
-    Route::post('deliveries/{delivery}/restore', [DeliveryController::class, 'restore'])->name('deliveries.restore');
-    Route::delete('deliveries/{delivery}', [DeliveryController::class, 'destroy'])->name('deliveries.destroy');
-
     // Riders (Directory + Management)
     Route::get('riders', [RiderController::class, 'index'])->name('riders.index');
     Route::get('riders/{rider}', [RiderController::class, 'show'])->name('riders.show');
@@ -126,6 +114,29 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
         ->name('pickup-requests.route');
     Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->name('pickup-requests.approve');
     Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->name('pickup-requests.reject');
+
+    // Fleet Management (Admin Only)
+    Route::middleware('admin')->group(function () {
+        Route::get('fleet', [FleetController::class, 'index'])->name('fleet.index');
+        Route::post('fleet/trucks', [FleetController::class, 'storeTruck'])->name('fleet.trucks.store');
+        Route::put('fleet/trucks/{truck}', [FleetController::class, 'updateTruck'])->name('fleet.trucks.update');
+        Route::post('fleet/trucks/{truck}/approve', [FleetController::class, 'approveVehicle'])->name('fleet.trucks.approve');
+        Route::post('fleet/trucks/{truck}/reject', [FleetController::class, 'rejectVehicle'])->name('fleet.trucks.reject');
+        Route::post('fleet/drivers', [FleetController::class, 'storeDriver'])->name('fleet.drivers.store');
+        Route::put('fleet/drivers/{driver}', [FleetController::class, 'updateDriver'])->name('fleet.drivers.update');
+        Route::post('fleet/incidents', [FleetController::class, 'storeIncident'])->name('fleet.incidents.store');
+        Route::put('fleet/incidents/{incident}', [FleetController::class, 'updateIncident'])->name('fleet.incidents.update');
+        Route::post('fleet/maintenance', [FleetController::class, 'storeMaintenanceRecord'])->name('fleet.maintenance.store');
+        Route::put('fleet/maintenance/{maintenanceRecord}', [FleetController::class, 'updateMaintenanceRecord'])->name('fleet.maintenance.update');
+    });
+
+    // Archived Deliveries (Admin Only)
+    Route::middleware('admin')->group(function () {
+        Route::get('deliveries-archived', [DeliveryController::class, 'archived'])->name('deliveries.archived');
+        Route::post('deliveries/{delivery}/archive', [DeliveryController::class, 'archive'])->name('deliveries.archive');
+        Route::post('deliveries/{delivery}/restore', [DeliveryController::class, 'restore'])->name('deliveries.restore');
+        Route::delete('deliveries/{delivery}', [DeliveryController::class, 'destroy'])->name('deliveries.destroy');
+    });
 
     // Rider Applications (Logistics Admin Only: review & provision)
     Route::middleware(['admin', 'rider.manager'])->group(function () {
@@ -176,19 +187,19 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::get('tracking', [TrackingController::class, 'index'])->name('tracking.index');
     Route::get('tracking/search', [TrackingController::class, 'search'])->name('tracking.search');
 
-    // Transactions
-    Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
+    // Finance and Network Reports (Admin Only)
+    Route::middleware('admin')->group(function () {
+        Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
+        Route::get('remittances', [RemittanceController::class, 'index'])->name('remittances.index');
+        Route::get('remittances/export', [RemittanceController::class, 'export'])->name('remittances.export');
+        Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
+        Route::get('reports/export/csv', [ReportController::class, 'exportCsv'])->name('reports.export.csv');
+    });
 
-    // Remittances (read-only: COD cash handoffs rider -> seller, center-scoped)
-    Route::get('remittances', [RemittanceController::class, 'index'])->name('remittances.index');
-    Route::get('remittances/export', [RemittanceController::class, 'export'])->name('remittances.export');
+    // Remittance Operational Actions (Staff & Admin at assigned center)
     Route::post('remittances/{remittance}/confirm-received', [RemittanceController::class, 'confirmReceived'])->name('remittances.confirm-received');
     Route::post('remittances/hub-payouts/{id}/accept', [RemittanceController::class, 'acceptHubPayout'])->name('remittances.hub-payouts.accept');
-
-    // Reports
-    Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::get('reports/export', [ReportController::class, 'export'])->name('reports.export');
-    Route::get('reports/export/csv', [ReportController::class, 'exportCsv'])->name('reports.export.csv');
 
     // Settings
     // (Profile editing lives only on the Profile page; Settings manages

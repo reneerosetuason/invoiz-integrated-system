@@ -39,6 +39,7 @@ class EscrowEarnings
         'origin_hub_fee' => 'earnings_origin_hub_fee',
         'pickup_rider_per_item' => 'earnings_pickup_rider_per_item',
         'inter_hub_driver_fee' => 'earnings_inter_hub_driver_fee',
+        'inter_hub_driver_vehicle_allowance' => 'earnings_inter_hub_driver_vehicle_allowance',
         'destination_hub_fee' => 'earnings_destination_hub_fee',
         'last_mile_rider_fee' => 'earnings_last_mile_rider_fee',
     ];
@@ -50,6 +51,7 @@ class EscrowEarnings
             'origin_hub_fee' => round((float) config('earnings.origin_hub_fee', 30.00), 2),
             'pickup_rider_per_item' => round((float) config('earnings.pickup_rider_per_item', 30.00), 2),
             'inter_hub_driver_fee' => round((float) config('earnings.inter_hub_driver_fee', 20.00), 2),
+            'inter_hub_driver_vehicle_allowance' => round((float) config('earnings.inter_hub_driver_vehicle_allowance', 15.00), 2),
             'destination_hub_fee' => round((float) config('earnings.destination_hub_fee', 30.00), 2),
             'last_mile_rider_fee' => round((float) config('earnings.last_mile_rider_fee', 50.00), 2),
         ];
@@ -94,6 +96,11 @@ class EscrowEarnings
     public static function interHubDriverFee(): float
     {
         return self::rates()['inter_hub_driver_fee'];
+    }
+
+    public static function interHubDriverVehicleAllowance(): float
+    {
+        return self::rates()['inter_hub_driver_vehicle_allowance'] ?? 15.00;
     }
 
     public static function destinationHubFee(): float
@@ -452,9 +459,24 @@ class EscrowEarnings
                 return null;
             }
 
-            return HubTransferEarning::where('delivery_id', $delivery->id)
+            // Check for direct historical per-delivery record first
+            $earning = HubTransferEarning::where('delivery_id', $delivery->id)
                 ->where('recipient_role', HubTransferEarning::ROLE_INTER_HUB_DRIVER)
                 ->first();
+
+            if ($earning) {
+                return $earning;
+            }
+
+            // Or look up via the parcel's hub transfer leg
+            $activeParcel = $delivery->incomingTransferParcel ?? $delivery->hubTransferParcels()->latest('id')->first();
+            if ($activeParcel && $activeParcel->hub_transfer_id) {
+                return HubTransferEarning::where('hub_transfer_id', $activeParcel->hub_transfer_id)
+                    ->where('recipient_role', HubTransferEarning::ROLE_INTER_HUB_DRIVER)
+                    ->first();
+            }
+
+            return null;
         } catch (\Throwable $e) {
             return null;
         }
@@ -566,6 +588,9 @@ class EscrowEarnings
                 return null;
             }
 
+            // Note: Inter-hub drivers are compensated on a flat trip basis upon transfer completion via
+            // creditInterHubDriverForCompletedTrip(). This method remains as an idempotency-safe adapter
+            // for historical per-shipment records and legacy test scenarios.
             if (! Schema::hasTable('hub_transfer_earnings')) {
                 return null;
             }
@@ -573,8 +598,8 @@ class EscrowEarnings
                 return null;
             }
 
-            $amount = self::interHubDriverFee();
-            if ($amount <= 0) {
+            $baseAmount = self::interHubDriverFee();
+            if ($baseAmount <= 0) {
                 return null;
             }
 
@@ -582,23 +607,89 @@ class EscrowEarnings
                 'delivery_id' => $delivery->id,
                 'recipient_role' => HubTransferEarning::ROLE_INTER_HUB_DRIVER,
             ];
-            // One ₱20 credit for the whole route: a later leg must never
+            // One credit for the whole route: a later leg must never
             // reassign or duplicate the driver's earning.
             $existing = HubTransferEarning::where($keys)->first();
             if ($existing) {
                 return $existing;
             }
 
+            $truck = $transfer->truck;
+            $isDriverOwned = $truck && ($truck->ownership_type === 'driver_owned' || (int) $truck->hub_transport_driver_id === (int) $transfer->driver_id);
+            $vehicleAllowance = $isDriverOwned ? self::interHubDriverVehicleAllowance() : 0.00;
+            $totalAmount = round($baseAmount + $vehicleAllowance, 2);
+
             return HubTransferEarning::create($keys + [
                 'logistics_company_id' => $transfer->logistics_company_id,
                 'hub_transfer_id' => $transfer->id,
                 'hub_transport_driver_id' => $transfer->driver_id,
-                'amount' => $amount,
+                'base_amount' => $baseAmount,
+                'vehicle_allowance' => $vehicleAllowance,
+                'vehicle_ownership' => $isDriverOwned ? 'driver_owned' : 'company',
+                'amount' => $totalAmount,
                 'earned_on' => now()->toDateString(),
-                'description' => "Inter-hub transport {$delivery->tracking_number} (one fee per shipment for the full route)",
+                'description' => "Inter-hub transport {$delivery->tracking_number}" . ($isDriverOwned ? " (Includes ₱{$vehicleAllowance} vehicle allowance)" : ""),
             ]);
         } catch (\Throwable $e) {
             \Log::warning('Inter-hub driver earning credit failed: '.$e->getMessage());
+
+            return null;
+        }
+    }
+
+    /**
+     * Credit the Hub Transport Driver once per completed Hub Transfer trip.
+     *
+     * Rules:
+     * - Flat base trip compensation regardless of whether 1 or 40+ parcels are in the manifest.
+     * - If driver-owned truck: adds configured vehicle-use allowance once for the trip.
+     * - Idempotent: keyed by unique (hub_transfer_id, recipient_role).
+     * - Called only upon successful finalization in HubTransferService::complete().
+     */
+    public static function creditInterHubDriverForCompletedTrip(HubTransfer $transfer): ?HubTransferEarning
+    {
+        try {
+            if (! Schema::hasTable('hub_transfer_earnings')) {
+                return null;
+            }
+            if (! $transfer->driver_id || ! $transfer->logistics_company_id) {
+                return null;
+            }
+
+            $baseAmount = self::interHubDriverFee();
+            if ($baseAmount <= 0) {
+                return null;
+            }
+
+            $keys = [
+                'hub_transfer_id' => $transfer->id,
+                'recipient_role' => HubTransferEarning::ROLE_INTER_HUB_DRIVER,
+            ];
+
+            // Idempotent check
+            $existing = HubTransferEarning::where($keys)->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            $truck = $transfer->truck;
+            $isDriverOwned = $truck && ($truck->ownership_type === 'driver_owned' || (int) $truck->hub_transport_driver_id === (int) $transfer->driver_id);
+            $vehicleAllowance = $isDriverOwned ? self::interHubDriverVehicleAllowance() : 0.00;
+            $totalAmount = round($baseAmount + $vehicleAllowance, 2);
+
+            return HubTransferEarning::create($keys + [
+                'logistics_company_id' => $transfer->logistics_company_id,
+                'delivery_id' => null,
+                'hub_transport_driver_id' => $transfer->driver_id,
+                'base_amount' => $baseAmount,
+                'vehicle_allowance' => $vehicleAllowance,
+                'vehicle_ownership' => $isDriverOwned ? 'driver_owned' : 'company',
+                'amount' => $totalAmount,
+                'earned_on' => now()->toDateString(),
+                'description' => "Inter-hub transfer trip {$transfer->reference}" . ($isDriverOwned ? " (Includes ₱{$vehicleAllowance} vehicle allowance)" : ""),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::warning('Inter-hub driver trip earning credit failed: '.$e->getMessage());
 
             return null;
         }

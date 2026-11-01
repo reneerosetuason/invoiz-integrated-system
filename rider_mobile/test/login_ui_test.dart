@@ -17,6 +17,9 @@ import '../lib/core/storage/token_storage.dart';
 import '../lib/providers/auth_provider.dart';
 import '../lib/providers/delivery_provider.dart';
 import '../lib/providers/rider_provider.dart';
+import '../lib/screens/apply/application_type_select_screen.dart';
+import '../lib/screens/apply/apply_screen.dart';
+import '../lib/screens/apply/hub_transport_driver_apply_screen.dart';
 import '../lib/screens/auth/login_screen.dart';
 import '../lib/screens/dashboard/dashboard_screen.dart';
 import '../lib/services/delivery_service.dart';
@@ -185,6 +188,79 @@ void main() {
       // Rider-only secondary actions remain.
       expect(find.text('Apply as a Rider'), findsOneWidget);
       expect(find.text('Check Application Status'), findsOneWidget);
+    });
+
+    testWidgets('tapping Apply as a Rider on login navigates to ApplicationTypeSelectScreen and continues to Delivery Rider flow', (
+      tester,
+    ) async {
+      _setSurface(tester, 412, 915);
+      await _pumpLogin(tester, _StubClient());
+
+      // Tap main login screen "Apply as a Rider" button
+      await tester.ensureVisible(find.text('Apply as a Rider'));
+      await tester.tap(find.text('Apply as a Rider'));
+      await tester.pumpAndSettle();
+
+      // Verify ApplicationTypeSelectScreen is reached with both roles
+      expect(find.byType(ApplicationTypeSelectScreen), findsOneWidget);
+      expect(find.text('Delivery Rider'), findsOneWidget);
+      expect(find.text('Hub Transport Driver'), findsOneWidget);
+      expect(find.text('Handles seller pickups.'), findsOneWidget);
+      expect(find.text('Handles inter-hub parcel transfers.'), findsOneWidget);
+
+      // Tap Delivery Rider option
+      await tester.ensureVisible(find.text('Apply as Delivery Rider'));
+      await tester.tap(find.text('Apply as Delivery Rider'));
+      await tester.pumpAndSettle();
+
+      // Confirms existing ApplyScreen is reached
+      expect(find.byType(ApplyScreen), findsOneWidget);
+      expect(find.text('Tell us about yourself'), findsOneWidget);
+    });
+
+    testWidgets('tapping Apply as a Rider and selecting Hub Transport Driver navigates to HubTransportDriverApplyScreen', (
+      tester,
+    ) async {
+      _setSurface(tester, 412, 915);
+      await _pumpLogin(tester, _StubClient());
+
+      await tester.ensureVisible(find.text('Apply as a Rider'));
+      await tester.tap(find.text('Apply as a Rider'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ApplicationTypeSelectScreen), findsOneWidget);
+
+      // Tap Hub Transport Driver option
+      await tester.ensureVisible(find.text('Apply as Hub Transport Driver'));
+      await tester.tap(find.text('Apply as Hub Transport Driver'));
+      await tester.pumpAndSettle();
+
+      // Confirms dedicated HubTransportDriverApplyScreen is reached
+      expect(find.byType(HubTransportDriverApplyScreen), findsOneWidget);
+      expect(find.text('Apply as Hub Transport Driver'), findsWidgets);
+      expect(find.text('Tell us about yourself'), findsOneWidget);
+    });
+
+    testWidgets('tapping Apply as a Rider from forgot password sheet navigates to ApplicationTypeSelectScreen', (
+      tester,
+    ) async {
+      _setSurface(tester, 412, 915);
+      await _pumpLogin(tester, _StubClient());
+
+      await tester.tap(find.text('Forgot password?'));
+      await tester.pumpAndSettle();
+
+      // In bottom sheet
+      expect(find.text('Reset Password via Email'), findsOneWidget);
+      expect(find.text('Apply as a Rider'), findsNWidgets(2));
+
+      await tester.tap(find.widgetWithText(OutlinedButton, 'Apply as a Rider').last);
+      await tester.pumpAndSettle();
+
+      // Bottom sheet was dismissed and ApplicationTypeSelectScreen is pushed
+      expect(find.byType(ApplicationTypeSelectScreen), findsOneWidget);
+      expect(find.text('Delivery Rider'), findsOneWidget);
+      expect(find.text('Hub Transport Driver'), findsOneWidget);
     });
   });
 

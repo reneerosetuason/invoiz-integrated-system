@@ -338,6 +338,7 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
                   color: AppColors.textSecondary, height: 1.5)),
           const Divider(height: 28),
           _row('Applicant', app.name),
+          _row('Application Role', app.roleLabel),
           _row('Email', app.email),
           if (app.riderType != null)
             _row('Rider type',

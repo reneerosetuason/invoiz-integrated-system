@@ -28,9 +28,14 @@ const applyStepLabels = [
 /// Mobile progress indicator: primary for the current step, success green
 /// for completed steps, soft accent connectors.
 class ApplyProgressIndicator extends StatelessWidget {
-  const ApplyProgressIndicator({super.key, required this.step});
+  const ApplyProgressIndicator({
+    super.key,
+    required this.step,
+    this.labels = applyStepLabels,
+  });
 
   final int step;
+  final List<String> labels;
 
   @override
   Widget build(BuildContext context) {
@@ -38,15 +43,15 @@ class ApplyProgressIndicator extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          for (int i = 0; i < applyStepLabels.length; i++) ...[
+          for (int i = 0; i < labels.length; i++) ...[
             _Node(
               index: i,
-              label: applyStepLabels[i],
+              label: labels[i],
               state: i < step
                   ? _NodeState.done
                   : (i == step ? _NodeState.current : _NodeState.todo),
             ),
-            if (i < applyStepLabels.length - 1)
+            if (i < labels.length - 1)
               Container(
                 width: 20,
                 height: 2,

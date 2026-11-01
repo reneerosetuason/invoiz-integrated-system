@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Logistics;
 
 use App\Mail\RiderAccountApprovedMail;
 use App\Mail\RiderApplicationRejectedMail;
+use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
 use App\Models\RiderApplication;
 use App\Models\RiderApplicationDocument;
 use App\Models\ServiceArea;
 use App\Models\User;
+use App\Services\HubTransportDriverProvisioner;
 use App\Services\RiderAccountProvisioner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -22,15 +24,17 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 /**
- * Logistics Web ??? Rider Application review & account provisioning.
+ * Logistics Web — Rider Application review & account provisioning.
  *
- * Admins review mobile/web rider applications and, on approval, provision a
- * working rider login. This is the counterpart to the mobile apply flow and
- * closes the gap where an approved application had no login.
+ * Admins review mobile/web applications (Delivery Riders and Hub Transport Drivers)
+ * and, on approval, provision a working account.
  */
 class RiderApplicationAdminController extends Controller
 {
-    public function __construct(private readonly RiderAccountProvisioner $provisioner) {}
+    public function __construct(
+        private readonly RiderAccountProvisioner $provisioner,
+        private readonly HubTransportDriverProvisioner $hubProvisioner,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -38,6 +42,7 @@ class RiderApplicationAdminController extends Controller
 
         $perPage = in_array((int) $request->query('per_page'), [10, 25, 50]) ? (int) $request->query('per_page') : 10;
         $status = $request->query('status', '');
+        $type = $request->query('type', '');
         $search = trim((string) $request->query('search', ''));
 
         $query = RiderApplication::with(['logisticsCenter', 'serviceArea'])
@@ -45,6 +50,10 @@ class RiderApplicationAdminController extends Controller
 
         if ($status !== '' && in_array($status, ['pending', 'approved', 'rejected'])) {
             $query->where('status', $status);
+        }
+
+        if ($type !== '' && in_array($type, ['delivery_rider', 'hub_transport_driver'])) {
+            $query->where('application_type', $type);
         }
 
         if ($search !== '') {
@@ -61,6 +70,7 @@ class RiderApplicationAdminController extends Controller
         return view('logistics.rider-applications.index', [
             'applications' => $applications,
             'status' => $status,
+            'type' => $type,
         ]);
     }
 
@@ -72,13 +82,19 @@ class RiderApplicationAdminController extends Controller
             'logisticsCenter',
             'serviceArea',
             'approver',
+            'truck',
+            'hubTransportDriver',
             'supportingDocuments',
             'logs.changer',
         ]);
 
+        $keepsExistingLogin = $application->isHubTransportDriver()
+            ? HubTransportDriver::whereRaw('LOWER(email) = ?', [strtolower(trim((string) $application->email))])->exists()
+            : (User::where('email', $application->email)->first()?->keepsOwnLogin() ?? false);
+
         return view('logistics.rider-applications.show', [
             'application' => $application,
-            'keepsExistingLogin' => User::where('email', $application->email)->first()?->keepsOwnLogin() ?? false,
+            'keepsExistingLogin' => $keepsExistingLogin,
             'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
             'areas' => ServiceArea::with('logisticsCenter')->where('is_active', true)
                 ->whereHas('logisticsCenter', fn ($query) => $query->where('is_active', true))
@@ -90,6 +106,41 @@ class RiderApplicationAdminController extends Controller
     {
         $admin = $request->user();
         $this->ensureAdministrator($admin);
+
+        if ($application->isHubTransportDriver()) {
+            $validated = $request->validate([
+                'password' => ['nullable', 'confirmed', Password::min(8)],
+                'center_id' => ['bail', 'required', 'integer',
+                    Rule::exists('logistics_centers', 'id')->where('is_active', true)],
+                'notes' => 'nullable|string|max:1000',
+            ], [
+                'center_id.exists' => 'Choose an active logistics center.',
+            ]);
+
+            $outcome = $this->hubProvisioner->approve($application, $admin, [
+                'password' => $validated['password'] ?? null,
+                'center_id' => (int) $validated['center_id'],
+                'notes' => $validated['notes'] ?? null,
+            ]);
+
+            $driver = $outcome['driver'];
+            $mailSent = $outcome['mail_sent'];
+            $kept = $outcome['kept_password'];
+
+            if ($kept) {
+                $success = $mailSent
+                    ? "Hub Transport Driver approved. Approval notice sent to {$driver->email}; existing password is unchanged. Vehicle assignment can be made in Fleet Management."
+                    : "Hub Transport Driver approved. Existing password is unchanged. Vehicle assignment can be made in Fleet Management.";
+            } else {
+                $success = $mailSent
+                    ? "Hub Transport Driver approved successfully. Login credentials sent to: {$driver->email}. Assign an available four-wheel truck in Fleet Management."
+                    : "Hub Transport Driver registered. Credentials email could not be sent; retry sending credentials below. Assign an available four-wheel truck in Fleet Management.";
+            }
+
+            return redirect()
+                ->route('rider-applications.show', $application)
+                ->with($mailSent ? 'success' : 'warning', $success);
+        }
 
         $validated = $request->validate([
             'password' => ['nullable', 'confirmed', Password::min(8)],
@@ -170,8 +221,21 @@ class RiderApplicationAdminController extends Controller
         abort_unless(
             $application->status === 'approved' && $application->provisioned_at !== null,
             422,
-            'Only approved and provisioned rider accounts can have their credentials resent.'
+            'Only approved and provisioned accounts can have credentials resent.'
         );
+
+        if ($application->isHubTransportDriver()) {
+            $rotate = $request->boolean('rotate_password');
+            $outcome = $this->hubProvisioner->resendNotification($application, $rotate);
+            $mailSent = $outcome['mail_sent'];
+            $msg = $mailSent
+                ? ($rotate ? "New temporary password generated and sent to {$application->email}." : "Approval notice resent to {$application->email}. Existing password remains unchanged.")
+                : 'The email could not be sent. Please retry when the mail service is available.';
+
+            return redirect()
+                ->route('rider-applications.show', $application)
+                ->with($mailSent ? 'success' : 'warning', $msg);
+        }
 
         $user = User::with('rider')->where('email', $application->email)->first();
 

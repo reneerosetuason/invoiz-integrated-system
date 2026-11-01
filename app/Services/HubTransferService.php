@@ -189,8 +189,7 @@ class HubTransferService
                     'changed_by' => $actor?->id,
                 ]);
 
-                // One credit per seller shipment for the entire route.
-                EscrowEarnings::creditInterHubDriverOnTransferReceipt($locked, $delivery);
+                // Inter-hub transport compensation is trip-based, credited upon complete() below.
             }
 
             self::event(
@@ -240,6 +239,9 @@ class HubTransferService
             LogisticsTruck::whereKey($locked->truck_id)->update(['status' => 'available']);
             HubTransportDriver::whereKey($locked->driver_id)->update(['status' => 'available']);
             self::event($locked, 'completed', $previous, 'received', 'Receiving was finalized.', $actor);
+
+            // Credit the Hub Transport Driver once per completed transfer trip
+            EscrowEarnings::creditInterHubDriverForCompletedTrip($locked);
 
             return $locked;
         });

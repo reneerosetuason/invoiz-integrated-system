@@ -37,6 +37,7 @@ class RiderApplicationStatus {
     required this.email,
     required this.status,
     this.submittedVia,
+    this.applicationType,
     this.riderType,
     this.vehicleOwnership,
     this.createdAt,
@@ -49,6 +50,7 @@ class RiderApplicationStatus {
   final String email;
   final String status;
   final String? submittedVia;
+  final String? applicationType;
   final String? riderType;
   final String? vehicleOwnership;
   final String? createdAt;
@@ -57,6 +59,8 @@ class RiderApplicationStatus {
   final List<ApplicationStatusDoc> documents;
 
   String get referenceNumber => ApplicationReference.forId(id);
+  bool get isHubTransportDriver => applicationType == 'hub_transport_driver';
+  String get roleLabel => isHubTransportDriver ? 'Hub Transport Driver' : 'Delivery Rider';
 
   factory RiderApplicationStatus.fromJson(Map<String, dynamic> j) {
     List<ApplicationStatusDoc> docs = [];
@@ -72,6 +76,7 @@ class RiderApplicationStatus {
       email: j['email'] as String? ?? '',
       status: j['status'] as String? ?? 'pending',
       submittedVia: j['submitted_via'] as String?,
+      applicationType: j['application_type'] as String? ?? 'delivery_rider',
       riderType: j['rider_type'] as String?,
       vehicleOwnership: j['vehicle_ownership'] as String?,
       createdAt: j['created_at'] as String?,
@@ -114,6 +119,11 @@ class ApplicationService {
     required String vehicleOwnership,
     required bool acceptedTerms,
     required Map<String, ({Uint8List bytes, String filename})> documents,
+    String applicationType = 'delivery_rider',
+    String? vehicleName,
+    String? vehicleModel,
+    int? parcelCapacity,
+    double? capacityKg,
     String? middleInitial,
     String? sex,
     String? birthday,
@@ -128,6 +138,7 @@ class ApplicationService {
       'email': email,
       'phone': phone,
       'address': address,
+      'application_type': applicationType,
       'vehicle_type': vehicleType,
       'license_plate': licensePlate,
       'license_number': licenseNumber,
@@ -136,6 +147,14 @@ class ApplicationService {
       'rider_type': riderType,
       'vehicle_ownership': vehicleOwnership,
       'accepted_terms': acceptedTerms ? '1' : '0',
+      if (vehicleName != null && vehicleName.trim().isNotEmpty)
+        'vehicle_name': vehicleName.trim(),
+      if (vehicleModel != null && vehicleModel.trim().isNotEmpty)
+        'vehicle_model': vehicleModel.trim(),
+      if (parcelCapacity != null)
+        'parcel_capacity': parcelCapacity.toString(),
+      if (capacityKg != null)
+        'capacity_kg': capacityKg.toString(),
       if (middleInitial != null && middleInitial.trim().isNotEmpty)
         'middle_initial': NameValidation.normalize(middleInitial),
       if (sex != null && sex.trim().isNotEmpty) 'sex': sex.trim(),

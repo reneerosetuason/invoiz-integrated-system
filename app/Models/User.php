@@ -185,6 +185,11 @@ class User extends Authenticatable
         return $this->hasOne(Rider::class);
     }
 
+    public function hubTransportDriver()
+    {
+        return $this->hasOne(HubTransportDriver::class, 'user_id');
+    }
+
     public function logisticsCenter()
     {
         return $this->belongsTo(LogisticsCenter::class, 'center_id');

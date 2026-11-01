@@ -23,32 +23,165 @@ class HubCourierController extends Controller
         $driver = HubTransportDriver::whereRaw('LOWER(email) = ?', [strtolower($data['email'])])->first();
         abort_unless($driver && $driver->password && Hash::check($data['password'], $driver->password), 401, 'Invalid courier credentials.');
         abort_unless($driver->status !== 'inactive' && $driver->company?->status === 'active', 403, 'Hub transport driver account is not active.');
-        abort_unless($this->validVehicle($driver), 403, 'An active, approved four-wheel vehicle with registered capacity must be assigned before sign-in.');
         $driver->tokens()->delete();
         $token = $driver->createToken('hub-courier-mobile', ['hub-courier'])->plainTextToken;
 
-        return response()->json(['token' => $token, 'courier' => $this->profilePayload($driver->fresh(['company', 'truck']))]);
+        return response()->json(['token' => $token, 'courier' => $this->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck']))]);
     }
 
     public function profile(Request $request): JsonResponse
     {
-        $driver = $this->driver($request)->load(['company', 'truck']);
+        $driver = $this->driver($request)->load(['company', 'truck', 'ownedTruck']);
 
         return response()->json(['courier' => $this->profilePayload($driver)]);
     }
 
     public function dashboard(Request $request): JsonResponse
     {
-        $driver = $this->driver($request);
+        $driver = $this->driver($request)->load(['company', 'truck', 'ownedTruck']);
         $transfers = HubTransfer::with(['origin', 'destination', 'truck', 'parcels.delivery'])
             ->where('driver_id', $driver->id)->where('logistics_company_id', $driver->logistics_company_id)
             ->latest()->limit(50)->get();
 
+        $earnings = \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)
+            ->whereIn('recipient_role', ['driver', \App\Models\HubTransferEarning::ROLE_INTER_HUB_DRIVER])
+            ->get();
+
+        $recentIncidents = \App\Models\VehicleIncident::where('hub_transport_driver_id', $driver->id)
+            ->latest('incident_date')
+            ->take(5)
+            ->get();
+
         return response()->json([
-            'courier' => $this->profilePayload($driver->fresh(['company', 'truck'])),
+            'courier' => $this->profilePayload($driver),
             'active_transfer' => $this->transferPayload($transfers->first(fn ($t) => in_array($t->status, HubTransfer::ACTIVE_STATUSES, true))),
             'available_transfers' => $transfers->filter(fn ($t) => ! in_array($t->status, ['received', 'cancelled'], true))->map(fn ($t) => $this->transferPayload($t))->values(),
             'completed_transfers' => $transfers->where('status', 'received')->take(10)->map(fn ($t) => $this->transferPayload($t))->values(),
+            'earnings_summary' => [
+                'total_earnings' => (float) $earnings->sum('amount'),
+                'base_earnings' => (float) $earnings->sum('base_amount'),
+                'vehicle_allowance' => (float) $earnings->sum('vehicle_allowance'),
+                'completed_trips_count' => $transfers->where('status', 'received')->count(),
+            ],
+            'recent_incidents' => $recentIncidents->map(fn ($inc) => [
+                'id' => $inc->id,
+                'reference' => $inc->reference,
+                'incident_type' => $inc->incident_type,
+                'severity' => $inc->severity,
+                'status' => $inc->status,
+                'incident_date' => $inc->incident_date?->toIso8601String(),
+                'description' => $inc->description,
+            ]),
+        ]);
+    }
+
+    public function earnings(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $roles = ['driver', \App\Models\HubTransferEarning::ROLE_INTER_HUB_DRIVER];
+        $earnings = \App\Models\HubTransferEarning::with('hubTransfer')
+            ->where('hub_transport_driver_id', $driver->id)
+            ->whereIn('recipient_role', $roles)
+            ->latest()
+            ->paginate(20);
+
+        $total = (float) \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('amount');
+        $base = (float) \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('base_amount');
+        $allowance = (float) \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('vehicle_allowance');
+
+        return response()->json([
+            'summary' => [
+                'total_earnings' => $total,
+                'base_earnings' => $base,
+                'vehicle_allowance' => $allowance,
+            ],
+            'earnings' => $earnings->items(),
+            'pagination' => [
+                'current_page' => $earnings->currentPage(),
+                'last_page' => $earnings->lastPage(),
+                'per_page' => $earnings->perPage(),
+                'total' => $earnings->total(),
+            ],
+        ]);
+    }
+
+    public function reportIncident(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request)->load(['truck', 'ownedTruck']);
+        $truck = $driver->truck ?: $driver->ownedTruck;
+        abort_unless($truck !== null, 422, 'You must have an assigned or registered truck to report an incident.');
+
+        $data = $request->validate([
+            'incident_type' => 'required|string|max:50',
+            'severity' => 'required|in:minor,moderate,severe,total_loss',
+            'incident_date' => 'nullable|date',
+            'location' => 'nullable|string|max:255',
+            'description' => 'required|string|max:5000',
+            'damage_details' => 'nullable|string|max:5000',
+            'hub_transfer_id' => 'nullable|integer|exists:hub_transfers,id',
+            'photos' => 'nullable|array',
+            'photos.*' => 'file|image|max:10240',
+        ]);
+
+        $reference = 'INC-'.now()->format('Ymd').'-'.\Illuminate\Support\Str::upper(\Illuminate\Support\Str::random(6));
+
+        $storedPhotos = [];
+        if ($request->hasFile('photos')) {
+            foreach ($request->file('photos') as $photo) {
+                if ($photo->isValid()) {
+                    $storedPhotos[] = $photo->store("incident-evidence/{$reference}");
+                }
+            }
+        }
+
+        $actionTaken = 'none';
+        if (in_array($data['severity'], ['severe', 'total_loss', 'moderate'], true)) {
+            // Vehicle becomes unavailable (marked damaged) pending admin assessment.
+            // A reported incident must never automatically permanently retire a vehicle without admin review.
+            $actionTaken = 'marked_damaged';
+            $truck->update(['status' => 'damaged']);
+            HubTransportDriver::where('logistics_truck_id', $truck->id)->update(['logistics_truck_id' => null]);
+        }
+
+        $incident = \App\Models\VehicleIncident::create([
+            'reference' => $reference,
+            'logistics_company_id' => $driver->logistics_company_id,
+            'logistics_truck_id' => $truck->id,
+            'hub_transport_driver_id' => $driver->id,
+            'hub_transfer_id' => $data['hub_transfer_id'] ?? null,
+            'incident_type' => $data['incident_type'],
+            'severity' => $data['severity'],
+            'status' => 'reported',
+            'incident_date' => $data['incident_date'] ?? now(),
+            'location' => $data['location'] ?? null,
+            'description' => $data['description'],
+            'damage_details' => $data['damage_details'] ?? null,
+            'vehicle_action_taken' => $actionTaken,
+            'evidence_photos' => $storedPhotos,
+            'reported_by_id' => $driver->user_id,
+        ]);
+
+        return response()->json([
+            'message' => 'Incident reported successfully.',
+            'incident' => $incident,
+        ], 201);
+    }
+
+    public function incidents(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $incidents = \App\Models\VehicleIncident::where('hub_transport_driver_id', $driver->id)
+            ->latest('incident_date')
+            ->paginate(20);
+
+        return response()->json([
+            'incidents' => $incidents->items(),
+            'pagination' => [
+                'current_page' => $incidents->currentPage(),
+                'last_page' => $incidents->lastPage(),
+                'per_page' => $incidents->perPage(),
+                'total' => $incidents->total(),
+            ],
         ]);
     }
 
@@ -194,17 +327,45 @@ class HubCourierController extends Controller
             && LogisticsVehicleCategory::for($truck->vehicle_type) === 'four_wheel'
             && (int) $truck->parcel_capacity > 0
             && (float) $truck->capacity_kg > 0
-            && ! in_array($truck->status, ['inactive', 'maintenance'], true);
+            && ! in_array($truck->status, ['inactive', 'maintenance', 'damaged', 'retired'], true)
+            && $truck->verification_status === 'approved';
     }
 
     private function profilePayload(HubTransportDriver $driver): array
     {
-        $truck = $driver->truck;
+        $assignedTruck = $driver->truck;
+        $ownedTruck = $driver->ownedTruck;
+        $activeTruck = $assignedTruck ?: $ownedTruck;
 
-        return ['id' => $driver->id, 'name' => $driver->name, 'email' => $driver->email, 'phone' => $driver->phone,
-            'company' => $driver->company?->name, 'status' => $driver->status, 'is_online' => $driver->is_online,
-            'vehicle' => $truck ? ['name' => $truck->name, 'type' => $truck->vehicle_type, 'plate_number' => $truck->plate_number,
-                'parcel_capacity' => (int) $truck->parcel_capacity, 'capacity_kg' => (float) $truck->capacity_kg, 'status' => $truck->status] : null];
+        $ownershipType = $ownedTruck ? 'driver_owned' : ($assignedTruck ? $assignedTruck->ownership_type : 'company');
+        $verificationStatus = $ownedTruck ? $ownedTruck->verification_status : ($assignedTruck ? $assignedTruck->verification_status : 'approved');
+
+        return [
+            'id' => $driver->id,
+            'name' => $driver->name,
+            'email' => $driver->email,
+            'phone' => $driver->phone,
+            'company' => $driver->company?->name,
+            'status' => $driver->status,
+            'is_online' => $driver->is_online,
+            'vehicle_arrangement' => $ownershipType,
+            'verification_status' => $verificationStatus,
+            'verification_notes' => $ownedTruck?->verification_notes,
+            'has_assigned_truck' => $assignedTruck !== null,
+            'vehicle' => $activeTruck ? [
+                'id' => $activeTruck->id,
+                'name' => $activeTruck->name,
+                'type' => $activeTruck->vehicle_type,
+                'model' => $activeTruck->model,
+                'plate_number' => $activeTruck->plate_number,
+                'parcel_capacity' => (int) $activeTruck->parcel_capacity,
+                'capacity_kg' => (float) $activeTruck->capacity_kg,
+                'status' => $activeTruck->status,
+                'ownership_type' => $activeTruck->ownership_type,
+                'verification_status' => $activeTruck->verification_status,
+                'is_assignable' => $activeTruck->isAssignable(),
+            ] : null,
+        ];
     }
 
     private function transferPayload(?HubTransfer $transfer): ?array

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../lib/core/network/api_client.dart';
 import '../lib/core/storage/token_storage.dart';
 import '../lib/providers/auth_provider.dart';
+import '../lib/screens/apply/application_type_select_screen.dart';
 import '../lib/screens/apply/apply_screen.dart';
 import '../lib/screens/auth/login_screen.dart';
 
@@ -87,6 +88,18 @@ void main() {
       expect(find.text('Sign In'), findsOneWidget);
       expect(find.text('Apply as a Rider'), findsOneWidget);
       expect(find.text('Check Application Status'), findsOneWidget);
+    });
+
+    testWidgets('tapping Apply as a Rider opens ApplicationTypeSelectScreen', (tester) async {
+      await pumpLogin(tester);
+      await tester.ensureVisible(find.text('Apply as a Rider'));
+      await tester.tap(find.text('Apply as a Rider'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ApplicationTypeSelectScreen), findsOneWidget);
+      expect(find.text('Choose Application Type'), findsOneWidget);
+      expect(find.text('Delivery Rider'), findsOneWidget);
+      expect(find.text('Hub Transport Driver'), findsOneWidget);
     });
   });
 }

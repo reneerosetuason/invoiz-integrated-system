@@ -50,7 +50,14 @@ class DocFilePicker {
     );
     if (result == null || result.files.isEmpty) return null;
     final file = result.files.first;
-    return PickedDoc(name: file.name, readBytes: () async => file.bytes ?? (file.path != null ? await file.xFile.readAsBytes() : Uint8List(0)));
+    return PickedDoc(
+      name: file.name,
+      readBytes: () async =>
+          file.bytes ??
+          (file.path != null
+              ? await file.xFile.readAsBytes()
+              : Uint8List(0)),
+    );
   }
 }
 
@@ -59,7 +66,11 @@ class ApplyScreen extends StatefulWidget {
     super.key,
     this.picker = const DocFilePicker(),
     this.apiClient,
+    this.initialApplicationType = 'delivery_rider',
   });
+
+  /// The role applied for: 'delivery_rider' (default) or 'hub_transport_driver'.
+  final String initialApplicationType;
 
   /// Shared API client (injectable in tests; defaults to a live client).
   final ApiClient? apiClient;
@@ -115,7 +126,11 @@ class _ApplyScreenState extends State<ApplyScreen> {
   int _resendIn = 0;
   Timer? _resendTimer;
 
-  // Step 2 — rider type (backend values).
+  // Step 2 — application role & rider type (backend values).
+  late String _applicationType;
+  bool get _isHubTransportDriver => _applicationType == 'hub_transport_driver';
+  String _hubVehicleArrangement = 'company';
+  bool get _isDriverOwnedHub => _isHubTransportDriver && _hubVehicleArrangement == 'driver_owned';
   String _riderType = 'full_time';
 
   // Step 3 — vehicle (backend values).
@@ -126,6 +141,10 @@ class _ApplyScreenState extends State<ApplyScreen> {
   final _plate = TextEditingController();
   final _licenseNo = TextEditingController();
   final _vehicleReg = TextEditingController();
+  final _vehicleName = TextEditingController();
+  final _vehicleModel = TextEditingController();
+  final _parcelCapacity = TextEditingController();
+  final _weightCapacity = TextEditingController();
   DateTime? _licenseExpiry;
 
   // Steps 4–5 — staged document files (uploaded on submit).
@@ -141,6 +160,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
     'borrowed': 'Borrowed',
     'second_hand': 'Second-hand',
     'financing': 'Installment',
+    'company': 'Company Fleet',
   };
 
   static const _baseDocs = [
@@ -164,9 +184,63 @@ class _ApplyScreenState extends State<ApplyScreen> {
     ),
   ];
 
+  static const _hubDocs = [
+    _DocSlot(
+      'drivers_license',
+      "Driver's License",
+      'Front and back, clear and readable',
+      Icons.badge_outlined,
+    ),
+    _DocSlot(
+      'valid_id',
+      'Valid Government ID',
+      'Government-issued ID with photo',
+      Icons.credit_card_outlined,
+    ),
+    _DocSlot(
+      'other',
+      'Police or Barangay Clearance',
+      'Valid clearance issued within the last 6 months',
+      Icons.verified_outlined,
+    ),
+  ];
+
+  static const _hubDriverOwnedDocs = [
+    _DocSlot(
+      'drivers_license',
+      "Driver's License",
+      'Front and back, clear and readable',
+      Icons.badge_outlined,
+    ),
+    _DocSlot(
+      'valid_id',
+      'Valid Government ID',
+      'Government-issued ID with photo',
+      Icons.credit_card_outlined,
+    ),
+    _DocSlot(
+      'vehicle_registration',
+      'OR/CR (Vehicle Registration)',
+      'Official Receipt / Certificate of Registration',
+      Icons.directions_car_outlined,
+    ),
+    _DocSlot(
+      'other',
+      'Police or Barangay Clearance',
+      'Valid clearance issued within the last 6 months',
+      Icons.verified_outlined,
+    ),
+  ];
+
   @override
   void initState() {
     super.initState();
+    _applicationType = widget.initialApplicationType;
+    if (_isHubTransportDriver) {
+      _riderType = 'full_time';
+      _hubVehicleArrangement = 'company';
+      _ownership = 'company';
+    }
     _email.addListener(_onEmailChanged);
     _loadVehicles();
   }
@@ -194,10 +268,14 @@ class _ApplyScreenState extends State<ApplyScreen> {
       _emailVerifiedFor!.isNotEmpty;
 
   Future<void> _loadVehicles() async {
+    setState(() => _loadingVehicles = true);
     try {
-      final list = await VehicleService(ApiClient()).getActive();
+      final list = await VehicleService(ApiClient()).getActive(
+        applicationType: _applicationType,
+      );
       if (!mounted) return;
-      final usable = list.isEmpty ? _fallbackVehicles : list;
+      final fallback = _isHubTransportDriver ? _fallbackHubVehicles : _fallbackVehicles;
+      final usable = list.isEmpty ? fallback : list;
       setState(() {
         _vehicles = usable;
         _vehicleType = usable.first.name;
@@ -205,19 +283,24 @@ class _ApplyScreenState extends State<ApplyScreen> {
       });
     } catch (_) {
       if (!mounted) return;
+      final fallback = _isHubTransportDriver ? _fallbackHubVehicles : _fallbackVehicles;
       setState(() {
-        _vehicles = _fallbackVehicles;
-        _vehicleType = _fallbackVehicles.first.name;
+        _vehicles = fallback;
+        _vehicleType = fallback.first.name;
         _loadingVehicles = false;
       });
     }
   }
 
   List<VehicleType> get _fallbackVehicles => const [
-    VehicleType(name: 'motorcycle', label: 'Motorcycle', capacityKg: 30),
-    VehicleType(name: 'car', label: 'Car / Sedan', capacityKg: 100),
-    VehicleType(name: 'van', label: 'Van', capacityKg: 300),
-    VehicleType(name: 'truck', label: 'Truck', capacityKg: 500),
+    VehicleType(name: 'motorcycle', label: 'Motorcycle', capacityKg: 20),
+    VehicleType(name: 'tricycle', label: 'Tricycle', capacityKg: 100),
+    VehicleType(name: 'bicycle', label: 'Bicycle', capacityKg: 10),
+  ];
+
+  List<VehicleType> get _fallbackHubVehicles => const [
+    VehicleType(name: 'van', label: 'Van', capacityKg: 500),
+    VehicleType(name: 'truck', label: 'Truck', capacityKg: 2000),
   ];
 
   int get _age => _dob == null ? 0 : AgeValidation.ageOn(_dob!);
@@ -231,6 +314,10 @@ class _ApplyScreenState extends State<ApplyScreen> {
       _phone.text.trim().isNotEmpty ||
       _otpCode.text.isNotEmpty ||
       _plate.text.trim().isNotEmpty ||
+      _vehicleName.text.trim().isNotEmpty ||
+      _vehicleModel.text.trim().isNotEmpty ||
+      _parcelCapacity.text.trim().isNotEmpty ||
+      _weightCapacity.text.trim().isNotEmpty ||
       _licenseNo.text.trim().isNotEmpty ||
       _vehicleReg.text.trim().isNotEmpty ||
       _dob != null ||
@@ -279,13 +366,25 @@ class _ApplyScreenState extends State<ApplyScreen> {
   }
 
   String? get _plateError =>
-      _showErrors ? LicensePlate.validate(_plate.text) : null;
+      _showErrors && (!_isHubTransportDriver || _isDriverOwnedHub)
+          ? LicensePlate.validate(_plate.text)
+          : null;
+
+  String? get _vehicleNameError => null;
+
+  String? get _vehicleModelError => null;
+
+  String? get _parcelCapacityError => null;
+
+  String? get _weightCapacityError => null;
 
   String? get _licenseError =>
       _showErrors ? LicenseNumber.validate(_licenseNo.text) : null;
 
   String? get _vehicleRegistrationError =>
-      _showErrors ? VehicleRegistration.validate(_vehicleReg.text) : null;
+      _showErrors && (!_isHubTransportDriver || _isDriverOwnedHub)
+          ? VehicleRegistration.validate(_vehicleReg.text)
+          : null;
 
   String _fullDisplayName() {
     final first = NameValidation.normalize(_firstName.text);
@@ -302,6 +401,9 @@ class _ApplyScreenState extends State<ApplyScreen> {
   /// Documents required for the current rider type + ownership, using only
   /// keys the backend accepts (`documents.<key>`).
   List<_DocSlot> get _requiredDocs {
+    if (_isHubTransportDriver) {
+      return _isDriverOwnedHub ? _hubDriverOwnedDocs : _hubDocs;
+    }
     final docs = [..._baseDocs];
     docs.add(
       _isFullTime
@@ -374,6 +476,17 @@ class _ApplyScreenState extends State<ApplyScreen> {
   String get _ownershipLabel => _ownershipOptions[_ownership] ?? _ownership;
 
   String get _vehicleLabel {
+    if (_isHubTransportDriver) {
+      if (_isDriverOwnedHub) {
+        for (final v in _vehicles) {
+          if (v.name == _vehicleType) {
+            return '${v.label} (Driver-Owned)';
+          }
+        }
+        return 'Driver-Owned Four-Wheel Truck';
+      }
+      return 'Company Four-Wheel Truck (Fleet Management)';
+    }
     for (final v in _vehicles) {
       if (v.name == _vehicleType) {
         return '${v.label} (${v.capacityKg.toStringAsFixed(0)} kg capacity)';
@@ -402,6 +515,10 @@ class _ApplyScreenState extends State<ApplyScreen> {
       _emailError,
       _phoneError,
       _plateError,
+      _vehicleNameError,
+      _vehicleModelError,
+      _parcelCapacityError,
+      _weightCapacityError,
       _licenseError,
       _vehicleRegistrationError,
     ].contains(error);
@@ -562,6 +679,27 @@ class _ApplyScreenState extends State<ApplyScreen> {
   }
 
   String? _validateVehicle() {
+    if (_isHubTransportDriver) {
+      if (_isDriverOwnedHub) {
+        if (_loadingVehicles || _vehicleType == null) {
+          return 'Please wait while vehicle types load.';
+        }
+        final plateError = LicensePlate.validate(_plate.text);
+        if (plateError != null) return plateError;
+        final registrationError = VehicleRegistration.validate(_vehicleReg.text);
+        if (registrationError != null) return registrationError;
+      }
+      final licenseError = LicenseNumber.validate(_licenseNo.text);
+      if (licenseError != null) return licenseError;
+      if (_licenseExpiry == null) {
+        return 'Please select the license expiry date.';
+      }
+      if (_licenseExpiry!.isBefore(DateTime.now())) {
+        return 'License expiry date must be today or in the future.';
+      }
+      return null;
+    }
+
     if (_loadingVehicles || _vehicleType == null) {
       return 'Please wait while vehicle types load.';
     }
@@ -692,17 +830,22 @@ class _ApplyScreenState extends State<ApplyScreen> {
         email: _email.text.trim(),
         phone: PhilippineMobile.normalize(_phone.text),
         address: _addressSel?.composed ?? '',
-        vehicleType: _vehicleType ?? '',
-        licensePlate: LicensePlate.normalize(_plate.text),
+        vehicleType: _isHubTransportDriver ? (_isDriverOwnedHub ? (_vehicleType ?? 'truck') : '') : (_vehicleType ?? ''),
+        licensePlate: _isHubTransportDriver ? (_isDriverOwnedHub ? LicensePlate.normalize(_plate.text) : '') : LicensePlate.normalize(_plate.text),
         licenseNumber: LicenseNumber.normalize(_licenseNo.text),
         licenseExpiry: _licenseExpiry == null
             ? ''
             : '${_licenseExpiry!.year.toString().padLeft(4, '0')}-'
                   '${_licenseExpiry!.month.toString().padLeft(2, '0')}-'
                   '${_licenseExpiry!.day.toString().padLeft(2, '0')}',
-        vehicleRegistration: VehicleRegistration.normalize(_vehicleReg.text),
-        riderType: _riderType,
-        vehicleOwnership: _ownership,
+        vehicleRegistration: _isHubTransportDriver ? (_isDriverOwnedHub ? VehicleRegistration.normalize(_vehicleReg.text) : '') : VehicleRegistration.normalize(_vehicleReg.text),
+        applicationType: _applicationType,
+        vehicleName: _isDriverOwnedHub ? _vehicleName.text.trim() : null,
+        vehicleModel: _isDriverOwnedHub ? _vehicleModel.text.trim() : null,
+        parcelCapacity: _isDriverOwnedHub && _parcelCapacity.text.trim().isNotEmpty ? int.tryParse(_parcelCapacity.text.trim()) : null,
+        capacityKg: _isDriverOwnedHub && _weightCapacity.text.trim().isNotEmpty ? double.tryParse(_weightCapacity.text.trim()) : null,
+        riderType: _isHubTransportDriver ? 'full_time' : _riderType,
+        vehicleOwnership: _isHubTransportDriver ? (_isDriverOwnedHub ? 'driver_owned' : 'company') : _ownership,
         acceptedTerms: _confirm,
         documents: _docs,
         middleInitial: _middleInitial.text.trim(),
@@ -722,7 +865,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) =>
-              _ApplySuccessScreen(result: result, email: _email.text.trim()),
+              ApplySuccessScreen(result: result, email: _email.text.trim()),
         ),
       );
     } on ApiException catch (e) {
@@ -762,6 +905,10 @@ class _ApplyScreenState extends State<ApplyScreen> {
     _otpCode.dispose();
     _phone.dispose();
     _plate.dispose();
+    _vehicleName.dispose();
+    _vehicleModel.dispose();
+    _parcelCapacity.dispose();
+    _weightCapacity.dispose();
     _licenseNo.dispose();
     _vehicleReg.dispose();
     super.dispose();
@@ -1243,7 +1390,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
     );
   }
 
-  // ── Step 2: Rider type ──────────────────────────────────────────────
+  // ── Step 2: Role & schedule ─────────────────────────────────────────
 
   Widget _riderTypeStep({required Key key}) {
     return Column(
@@ -1251,21 +1398,24 @@ class _ApplyScreenState extends State<ApplyScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const ApplyStepHeader(
-          title: 'Choose your Rider Type',
-          subtitle: 'Pick the schedule that fits you best',
+          title: 'Rider Type',
+          subtitle: 'Choose your Rider Type',
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         SelectableCard(
-          selected: _riderType == 'full_time',
+          selected: _applicationType == 'delivery_rider',
           onTap: () {
-            setState(() => _riderType = 'full_time');
+            setState(() {
+              _applicationType = 'delivery_rider';
+            });
+            _loadVehicles();
             _pruneStaleDocs();
           },
           child: const Row(
             children: [
               Icon(
-                Icons.local_shipping_outlined,
-                size: 36,
+                Icons.two_wheeler_outlined,
+                size: 34,
                 color: AppTheme.primary,
               ),
               SizedBox(width: 14),
@@ -1274,7 +1424,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Full-time Rider',
+                      'Delivery Rider',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -1283,7 +1433,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Work regularly as a delivery rider',
+                      'Pick up parcels from sellers and deliver to customers (2-wheel)',
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
@@ -1297,21 +1447,29 @@ class _ApplyScreenState extends State<ApplyScreen> {
         ),
         const SizedBox(height: 12),
         SelectableCard(
-          selected: _riderType == 'part_time',
+          selected: _applicationType == 'hub_transport_driver',
           onTap: () {
-            setState(() => _riderType = 'part_time');
+            setState(() {
+              _applicationType = 'hub_transport_driver';
+              _riderType = 'full_time';
+            });
+            _loadVehicles();
             _pruneStaleDocs();
           },
           child: const Row(
             children: [
-              Icon(Icons.schedule_outlined, size: 36, color: AppTheme.primary),
+              Icon(
+                Icons.local_shipping_outlined,
+                size: 34,
+                color: AppTheme.primary,
+              ),
               SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Part-time Rider',
+                      'Hub Transport Driver',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
@@ -1320,7 +1478,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      'Deliver during your available time',
+                      'Transport bulk shipments between Logistics Hubs (4-wheel truck/van)',
                       style: TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
@@ -1332,24 +1490,132 @@ class _ApplyScreenState extends State<ApplyScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceSoft,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Text(
-            _isFullTime
-                ? 'Full-time riders receive regular daily schedules and priority assignments.'
-                : 'Part-time riders deliver during their available time with flexible scheduling.',
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
+        const SizedBox(height: 20),
+        if (!_isHubTransportDriver) ...[
+          const Text(
+            'Work Schedule',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
             ),
           ),
-        ),
+          const SizedBox(height: 12),
+          SelectableCard(
+            selected: _riderType == 'full_time',
+            onTap: () {
+              setState(() => _riderType = 'full_time');
+              _pruneStaleDocs();
+            },
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.access_time_filled,
+                  size: 32,
+                  color: AppTheme.primary,
+                ),
+                SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Full-time Rider',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Work regularly as a delivery rider with priority dispatches',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          SelectableCard(
+            selected: _riderType == 'part_time',
+            onTap: () {
+              setState(() => _riderType = 'part_time');
+              _pruneStaleDocs();
+            },
+            child: const Row(
+              children: [
+                Icon(Icons.schedule_outlined, size: 32, color: AppTheme.primary),
+                SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Part-time Rider',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Deliver during your available time with flexible scheduling',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ] else ...[
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 20, color: AppTheme.primary),
+                    SizedBox(width: 8),
+                    Text(
+                      'Hub-to-Hub Transport Role',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 6),
+                Text(
+                  'Hub Transport Drivers operate four-wheel transport vehicles (vans, trucks) moving bulk shipments between INVOIZ Logistics Hubs. Approved drivers coordinate through Fleet Management.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1357,6 +1623,235 @@ class _ApplyScreenState extends State<ApplyScreen> {
   // ── Step 3: Vehicle ─────────────────────────────────────────────────
 
   Widget _vehicleStep({required Key key}) {
+    if (_isHubTransportDriver) {
+      return Column(
+        key: key,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ApplyStepHeader(
+            title: "Driver's License",
+            subtitle: 'Professional license and vehicle arrangement for inter-hub transport',
+          ),
+          const SizedBox(height: 16),
+          SelectableCard(
+            selected: _hubVehicleArrangement == 'company',
+            onTap: () => setState(() {
+              _hubVehicleArrangement = 'company';
+              _ownership = 'company';
+              _pruneStaleDocs();
+            }),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.business_outlined,
+                  size: 26,
+                  color: Color(0xFF16697A),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Company Fleet Assignment',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Apply without owning a truck. An available company-owned four-wheel truck will be assigned by Logistics Admin upon approval.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          SelectableCard(
+            selected: _hubVehicleArrangement == 'driver_owned',
+            onTap: () => setState(() {
+              _hubVehicleArrangement = 'driver_owned';
+              _ownership = 'driver_owned';
+              _pruneStaleDocs();
+            }),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.directions_car_filled_outlined,
+                  size: 26,
+                  color: Color(0xFF16697A),
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Driver-Owned Vehicle (My Own Truck)',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Provide your own four-wheel truck (van, L300, light truck). Earn standard trip compensation plus separate vehicle-use allowance upon vehicle review.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (_isDriverOwnedHub) ...[
+            const Text(
+              'Four-Wheel Vehicle Type *',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_loadingVehicles)
+              const LinearProgressIndicator()
+            else
+              ..._vehicles.map(
+                (v) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SelectableCard(
+                    selected: _vehicleType == v.name,
+                    onTap: () => setState(() => _vehicleType = v.name),
+                    child: Row(
+                      children: [
+                        Icon(
+                          vehicleIconFor(v.name),
+                          size: 28,
+                          color: AppTheme.primary,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                v.label,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              Text(
+                                '${v.capacityKg.toStringAsFixed(0)} kg capacity',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 12),
+            _field(
+              _plate,
+              'License Plate *',
+              Icons.confirmation_number_outlined,
+              maxLength: 20,
+              errorText: _plateError,
+              hint: 'ABC 1234',
+              capitalization: TextCapitalization.characters,
+              formatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9 -]')),
+                UpperCaseTextFormatter(),
+              ],
+            ),
+            _field(
+              _vehicleModel,
+              'Brand / Model (optional)',
+              Icons.directions_car_outlined,
+              maxLength: 100,
+              hint: 'e.g. Isuzu Elf / Mitsubishi L300',
+            ),
+            _field(
+              _vehicleReg,
+              'Vehicle Registration (OR/CR Number) *',
+              Icons.description_outlined,
+              maxLength: 100,
+              errorText: _vehicleRegistrationError,
+              hint: 'Official Receipt / Certificate of Registration',
+              capitalization: TextCapitalization.characters,
+            ),
+            const SizedBox(height: 12),
+          ],
+          _field(
+            _licenseNo,
+            'License Number *',
+            Icons.badge_outlined,
+            maxLength: 20,
+            errorText: _licenseError,
+            hint: 'N01-23-456789',
+            capitalization: TextCapitalization.characters,
+            formatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9 -]')),
+              UpperCaseTextFormatter(),
+            ],
+          ),
+          _licenseExpiryField(),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceSoft,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.info_outline,
+                  size: 16,
+                  color: AppColors.textSecondary,
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Ensure your driver’s license is valid and not expired. You will upload photos of required documents in the next step.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Column(
       key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1569,9 +2064,11 @@ class _ApplyScreenState extends State<ApplyScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  _isFullTime
-                      ? 'Requirements for Full-time Riders'
-                      : 'Requirements for Part-time Riders',
+                  _isHubTransportDriver
+                      ? 'Requirements for Hub Transport Drivers'
+                      : (_isFullTime
+                          ? 'Requirements for Full-time Riders'
+                          : 'Requirements for Part-time Riders'),
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -1722,27 +2219,47 @@ class _ApplyScreenState extends State<ApplyScreen> {
         ),
         const SizedBox(height: 12),
         ReviewSection(
-          title: 'RIDER TYPE',
+          title: 'ROLE & WORK TYPE',
           onEdit: () => _jumpTo(1),
-          rows: [MapEntry('Type', _riderTypeLabel)],
+          rows: [
+            MapEntry('Role', _isHubTransportDriver ? 'Hub Transport Driver' : 'Delivery Rider'),
+            MapEntry('Work Type', _riderTypeLabel),
+          ],
         ),
         const SizedBox(height: 12),
         ReviewSection(
-          title: 'VEHICLE',
+          title: _isHubTransportDriver ? 'DRIVER LICENSE & VEHICLE DETAILS' : 'VEHICLE',
           onEdit: () => _jumpTo(2),
-          rows: [
-            MapEntry('Vehicle type', _vehicleLabel),
-            MapEntry('Ownership', _ownershipLabel),
-            MapEntry('License plate', _plate.text.trim()),
-            MapEntry('License number', _licenseNo.text.trim()),
-            MapEntry(
-              'License expiry',
-              _licenseExpiry == null
-                  ? '-'
-                  : '${_licenseExpiry!.year}-${_licenseExpiry!.month.toString().padLeft(2, '0')}-${_licenseExpiry!.day.toString().padLeft(2, '0')}',
-            ),
-            MapEntry('Vehicle registration', _vehicleReg.text.trim()),
-          ],
+          rows: _isHubTransportDriver
+              ? [
+                  const MapEntry('Role', 'Hub Transport Driver (Linehaul)'),
+                  MapEntry('Arrangement', _isDriverOwnedHub ? 'Driver-Owned Truck' : 'Company-Provided Truck'),
+                  if (_isDriverOwnedHub) ...[
+                    MapEntry('Vehicle Type', _vehicleLabel),
+                    MapEntry('License Plate', _plate.text.trim()),
+                    MapEntry('Vehicle Registration', _vehicleReg.text.trim()),
+                  ],
+                  MapEntry('License Number', _licenseNo.text.trim()),
+                  MapEntry(
+                    'License Expiry',
+                    _licenseExpiry == null
+                        ? '-'
+                        : '${_licenseExpiry!.year}-${_licenseExpiry!.month.toString().padLeft(2, '0')}-${_licenseExpiry!.day.toString().padLeft(2, '0')}',
+                  ),
+                ]
+              : [
+                  MapEntry('Vehicle type', _vehicleLabel),
+                  MapEntry('Ownership', _ownershipLabel),
+                  MapEntry('License plate', _plate.text.trim()),
+                  MapEntry('License number', _licenseNo.text.trim()),
+                  MapEntry(
+                    'License expiry',
+                    _licenseExpiry == null
+                        ? '-'
+                        : '${_licenseExpiry!.year}-${_licenseExpiry!.month.toString().padLeft(2, '0')}-${_licenseExpiry!.day.toString().padLeft(2, '0')}',
+                  ),
+                  MapEntry('Vehicle registration', _vehicleReg.text.trim()),
+                ],
         ),
         const SizedBox(height: 12),
         ReviewSection(
@@ -1854,8 +2371,8 @@ class _ApplyScreenState extends State<ApplyScreen> {
 /// Confirmation screen after a successful submission. The reference number is
 /// derived from the application id returned by Laravel
 /// (`ApplicationReference.forId`), matching the status screen.
-class _ApplySuccessScreen extends StatelessWidget {
-  const _ApplySuccessScreen({required this.result, required this.email});
+class ApplySuccessScreen extends StatelessWidget {
+  const ApplySuccessScreen({super.key, required this.result, required this.email});
 
   final RiderApplicationSubmitResult result;
   final String email;

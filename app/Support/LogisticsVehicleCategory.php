@@ -4,9 +4,9 @@ namespace App\Support;
 
 final class LogisticsVehicleCategory
 {
-    private const TWO_WHEEL = ['motorcycle', 'motorbike', 'scooter', 'moped'];
+    private const TWO_WHEEL = ['motorcycle', 'motorbike', 'scooter', 'moped', 'tricycle', 'bicycle'];
 
-    private const FOUR_WHEEL = ['van', 'delivery van', 'utility vehicle', 'light delivery truck', 'light truck', 'truck', 'car', 'sedan', 'pickup', 'cargo van'];
+    private const FOUR_WHEEL = ['van', 'delivery van', 'utility vehicle', 'light delivery truck', 'light truck', 'light_truck', 'truck', 'car', 'sedan', 'pickup', 'cargo van', 'l300'];
 
     public static function for(?string $name): ?string
     {

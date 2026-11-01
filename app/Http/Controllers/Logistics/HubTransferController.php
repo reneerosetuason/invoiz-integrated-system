@@ -87,19 +87,40 @@ class HubTransferController extends Controller
             }
         }
 
+        $selectedOriginId = $request->integer('origin_center_id') ?: $centerId ?: ($company?->centers()->value('id'));
+
+        $parcelsQuery = Delivery::query()
+            ->with(['logisticsCenter', 'destinationCenter'])
+            ->when($selectedOriginId, fn ($q) => $q->where('center_id', $selectedOriginId))
+            ->whereNotNull('destination_center_id')
+            ->whereColumn('destination_center_id', '!=', 'center_id')
+            ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
+            ->whereNotIn('status', ['delivered', 'cancelled'])
+            ->whereNull('rider_id')
+            ->whereNotIn('status', Delivery::ACTIVE_STATUSES)
+            ->whereNull('archived_at')
+            ->whereDoesntHave('hubTransferParcels', function ($q): void {
+                $q->where('loading_status', '!=', 'removed')
+                    ->whereHas('transfer', fn ($t) => $t->whereIn('status', HubTransfer::ACTIVE_STATUSES));
+            })
+            ->orderBy('destination_center_id')
+            ->orderBy('tracking_number');
+
+        $parcels = $parcelsQuery->limit(300)->get();
+        $parcelsByDestination = $parcels->groupBy('destination_center_id');
+        $destinationHubs = LogisticsCenter::whereIn('id', $parcelsByDestination->keys())->get()->keyBy('id');
+
         return view('logistics.hub-transfers.create', [
             'company' => $company,
             'companies' => $companies,
             'global' => $global,
             'centers' => $company ? $this->centersFor($company) : collect(),
-            'originCenterId' => $centerId,
+            'originCenterId' => $centerId ?: $selectedOriginId,
             'trucks' => $company?->trucks()->where('status', 'available')->orderBy('plate_number')->get() ?? collect(),
             'drivers' => $company?->transportDrivers()->where('status', 'available')->orderBy('name')->get() ?? collect(),
-            'parcels' => Delivery::query()->with(['logisticsCenter', 'destinationCenter'])->when($company, fn ($q) => $q->whereIn('center_id', $company->centers()->select('id')))
-                ->when(! $global && $centerId !== null, fn ($q) => $q->where('center_id', $centerId > 0 ? $centerId : 0))
-                ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
-                ->whereNotIn('status', ['delivered', 'cancelled'])
-                ->whereNull('archived_at')->orderBy('tracking_number')->limit(200)->get(),
+            'parcels' => $parcels,
+            'parcelsByDestination' => $parcelsByDestination,
+            'destinationHubs' => $destinationHubs,
         ]);
     }
 
@@ -135,6 +156,7 @@ class HubTransferController extends Controller
             $truck = LogisticsTruck::query()->whereKey($validated['truck_id'])->lockForUpdate()->firstOrFail();
             $driver = HubTransportDriver::query()->whereKey($validated['driver_id'])->lockForUpdate()->firstOrFail();
             abort_unless($truck->logistics_company_id === $company->id && $truck->status === 'available', 422, 'Truck is not available to this company.');
+            abort_unless($truck->isAssignable(), 422, 'This vehicle is not assignable to hub transfers.');
             abort_unless($driver->logistics_company_id === $company->id && $driver->status === 'available', 422, 'Driver is not available to this company.');
             abort_unless(LogisticsVehicleCategory::for($truck->vehicle_type) === 'four_wheel', 422, 'Hub transfers require an approved four-wheel vehicle.');
             abort_unless((int) $truck->parcel_capacity > 0 && (float) $truck->capacity_kg > 0, 422, 'Truck parcel and weight capacities must be registered.');
@@ -156,22 +178,43 @@ class HubTransferController extends Controller
 
             $totalWeight = 0.0;
             $hasCompleteWeightData = true;
+            $selectedDestId = (int) $validated['destination_center_id'];
+            $originId = (int) $validated['origin_center_id'];
+
             foreach ($validated['parcels'] as $deliveryId) {
                 $parcel = Delivery::query()->whereKey($deliveryId)->lockForUpdate()->firstOrFail();
-                abort_unless((int) $parcel->center_id === (int) $transfer->origin_center_id, 422, "Parcel {$parcel->tracking_number} is not at the origin hub.");
+                abort_unless((int) $parcel->center_id === $originId, 422, "Parcel {$parcel->tracking_number} is not at the origin hub.");
                 abort_unless(in_array($parcel->parcel_status, ['received', 'scanned', 'sorted'], true), 422, "Parcel {$parcel->tracking_number} is not eligible for transfer.");
                 abort_unless(! in_array($parcel->status, ['delivered', 'cancelled'], true) && $parcel->archived_at === null, 422, "Parcel {$parcel->tracking_number} cannot be transferred.");
                 abort_if($parcel->rider_id !== null || in_array($parcel->status, Delivery::ACTIVE_STATUSES, true), 422, "Parcel {$parcel->tracking_number} is assigned to last-mile delivery and cannot be transferred.");
-                if ($parcel->destination_center_id) {
-                    abort_unless((int) $parcel->destination_center_id === (int) $transfer->destination_center_id, 422, "Parcel {$parcel->tracking_number} is routed to a different hub.");
+
+                // Re-validate destination: parcels for different destinations cannot be combined in one transfer leg
+                abort_unless($parcel->destination_center_id !== null, 422, "Parcel {$parcel->tracking_number} has no destination hub assigned.");
+                abort_unless((int) $parcel->destination_center_id === $selectedDestId, 422, "Parcel {$parcel->tracking_number} is routed to a different hub (" . ($parcel->destinationCenter?->name ?? $parcel->destination_center_id) . "). All parcels in a single transfer must share the destination hub.");
+
+                // Backend duplicate transfer prevention
+                $active = HubTransferService::hasActiveLeg($parcel->id, $transfer->id);
+                abort_if($active, 422, "Parcel {$parcel->tracking_number} is already included in an active transfer.");
+
+                // Sequential transfer rule: parcel must be received at intermediate hub before next transfer leg can be dispatched
+                $latestTransferParcel = $parcel->hubTransferParcels()
+                    ->where('hub_transfer_id', '!=', $transfer->id)
+                    ->latest('id')
+                    ->first();
+                if ($latestTransferParcel) {
+                    abort_unless(
+                        $latestTransferParcel->receiving_status === 'received' && $parcel->parcel_status === 'received',
+                        422,
+                        "Parcel {$parcel->tracking_number} has not completed its previous transfer leg."
+                    );
                 }
+
                 if ($parcel->weight === null) {
                     $hasCompleteWeightData = false;
                 } else {
                     $totalWeight += (float) $parcel->weight;
                 }
-                $active = HubTransferService::hasActiveLeg($parcel->id, $transfer->id);
-                abort_if($active, 422, "Parcel {$parcel->tracking_number} is already in an active transfer.");
+
                 $manifestEntry = HubTransferParcel::firstOrNew(['hub_transfer_id' => $transfer->id, 'delivery_id' => $parcel->id]);
                 $manifestEntry->fill(['loading_status' => 'pending', 'receiving_status' => 'pending', 'condition' => null, 'exception_reason' => null]);
                 $manifestEntry->save();
@@ -361,6 +404,7 @@ class HubTransferController extends Controller
             'truck_id' => ['required', 'integer', 'exists:logistics_trucks,id'],
         ]);
         $truck = LogisticsTruck::whereKey($data['truck_id'])->firstOrFail();
+        abort_unless($truck->isAssignable(), 422, 'This vehicle is not assignable to hub transfers.');
         $driver = HubTransportDriver::query()
             ->where('logistics_truck_id', $truck->id)
             ->where(fn ($query) => $query->where('status', 'available')->orWhere('id', $hubTransfer->driver_id))

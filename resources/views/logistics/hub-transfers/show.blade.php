@@ -1,4 +1,7 @@
 <x-app-layout>
+@php
+    $isTransferAdmin = auth()->user()->isAdmin() || auth()->user()->isLogisticsAdmin();
+@endphp
     <div class="space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div class="flex items-start gap-3">
@@ -59,7 +62,9 @@
                             <th>Loading</th>
                             <th>Receiving</th>
                             <th>Condition / Exception</th>
-                            <th class="text-right">Action</th>
+                            @if(!$isTransferAdmin)
+                                <th class="text-right">Action</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
@@ -89,6 +94,7 @@
                                         @endif
                                     </div>
                                 </td>
+                                @if(!$isTransferAdmin)
                                 <td class="text-right">
                                     @if($entry->loading_status === 'removed')
                                         <span class="text-xs text-[#6E6E73] italic">Removed</span>
@@ -124,6 +130,7 @@
                                         <span class="text-xs text-[#6E6E73]">—</span>
                                     @endif
                                 </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
@@ -131,7 +138,8 @@
             </div>
         </div>
 
-        {{-- Workflow Controls --}}
+        {{-- Workflow Controls / Admin Monitoring --}}
+        @if(!$isTransferAdmin)
         <div class="card p-5 space-y-4">
             <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Transfer Actions &amp; Lifecycle</h2>
 
@@ -206,6 +214,19 @@
                 </div>
             @endif
         </div>
+        @else
+        <div class="card p-5 bg-[#FAF9F6] border-[#E8E6E0] space-y-2">
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E6F4F1] text-[#0E4A57]">
+                    Administrative Oversight Mode
+                </span>
+                <span class="text-xs text-[#6E6E73]">&middot; Transfer Status: <strong class="text-[#1B1B1E]">{{ str($transfer->status)->replace('_', ' ')->title() }}</strong></span>
+            </div>
+            <p class="text-xs text-[#6E6E73]">
+                Inter-hub transfers are executed by assigned Logistics Staff at the origin ({{ $transfer->origin?->name }}) and destination ({{ $transfer->destination?->name }}) hubs. Administrators retain network-wide monitoring without performing local loading, dispatch, or parcel receiving scans.
+            </p>
+        </div>
+        @endif
 
         {{-- Event History Timeline --}}
         <div class="card p-5">

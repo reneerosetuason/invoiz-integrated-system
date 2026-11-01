@@ -17,6 +17,11 @@
                     <input type="text" name="search" value="{{ request('search') }}" placeholder="Search by name, email, or phone..."
                            class="w-full pl-10 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                 </div>
+                <select name="type" class="rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                    <option value="">All Application Types</option>
+                    <option value="delivery_rider" @selected(request('type') === 'delivery_rider')>Delivery Rider</option>
+                    <option value="hub_transport_driver" @selected(request('type') === 'hub_transport_driver')>Hub Transport Driver</option>
+                </select>
                 <select name="status" class="rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
                     <option value="">All Statuses</option>
                     @foreach(['pending', 'approved', 'rejected'] as $s)
@@ -27,7 +32,7 @@
                     Apply
                 </button>
             </form>
-            @if(request('search') || request('status'))
+            @if(request('search') || request('status') || request('type'))
                 <a href="{{ route('rider-applications.index') }}" class="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 hover:border-teal hover:text-teal-dark rounded-xl text-sm font-semibold text-gray-600 transition self-start lg:self-auto">
                     Clear Filters
                 </a>
@@ -41,6 +46,7 @@
                     <thead class="bg-gray-50/50">
                         <tr>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                            <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Role / Type</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Phone</th>
                             <th class="px-6 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vehicle</th>
@@ -60,9 +66,29 @@
                                         <span class="text-sm font-semibold text-gray-900">{{ $application->name }}</span>
                                     </div>
                                 </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($application->isHubTransportDriver())
+                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200">Hub Transport Driver</span>
+                                    @else
+                                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-teal-50 text-teal-700 ring-1 ring-inset ring-teal-200">Delivery Rider</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $application->email }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $application->phone }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ ucfirst($application->vehicle_type) }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    @if($application->isHubTransportDriver())
+                                        @if($application->vehicle_ownership === 'driver_owned' || $application->vehicle_ownership === 'own')
+                                            <span class="inline-flex items-center gap-1 text-emerald-800 font-medium">
+                                                <span>Driver-Owned</span>
+                                                <span class="text-xs text-gray-500">({{ $application->license_plate ?? ucfirst($application->vehicle_type ?? 'Truck') }})</span>
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center gap-1 text-sky-800 font-medium">Company-Provided Truck</span>
+                                        @endif
+                                    @else
+                                        {{ ucfirst($application->vehicle_type) }}
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @if($application->status === 'pending')
                                         <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200">Pending</span>
@@ -79,7 +105,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-16 text-center">
+                                <td colspan="8" class="px-6 py-16 text-center">
                                     <div class="flex flex-col items-center">
                                         <p class="text-sm font-semibold text-gray-900">No applications found</p>
                                         <p class="mt-1 text-sm text-gray-500">No rider applications match the current filters.</p>

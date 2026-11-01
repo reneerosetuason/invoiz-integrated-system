@@ -29,6 +29,9 @@ Route::middleware('auth:sanctum')->prefix('courier')->group(function () {
     Route::get('/profile', [HubCourierController::class, 'profile']);
     Route::get('/dashboard', [HubCourierController::class, 'dashboard']);
     Route::patch('/status', [HubCourierController::class, 'status']);
+    Route::get('/earnings', [HubCourierController::class, 'earnings']);
+    Route::get('/incidents', [HubCourierController::class, 'incidents']);
+    Route::post('/incidents', [HubCourierController::class, 'reportIncident']);
     Route::get('/transfers/{transfer}', [HubCourierController::class, 'show']);
     Route::post('/transfers/{transfer}/origin-arrival', [HubCourierController::class, 'originArrival']);
     Route::post('/transfers/{transfer}/load', [HubCourierController::class, 'loadParcel']);
