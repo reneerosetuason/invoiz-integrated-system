@@ -32,8 +32,15 @@ Route::get('/home', function () {
     return redirect('/shop');
 });
 
-// Email code verification (Gmail OTP)
+// Email code verification & signed link verification
 Route::get('/verify', [UnifiedAuthController::class, 'showVerify'])->name('verify');
+Route::get('/verify-email', [UnifiedAuthController::class, 'showVerify'])->name('verification.notice');
+Route::get('/verify-email/{id}/{hash}', [\App\Http\Controllers\Shared\Auth\VerifyEmailController::class, 'verify'])
+    ->name('verification.verify')
+    ->middleware(['signed', 'throttle:6,1']);
+Route::post('/email/verification-notification', [\App\Http\Controllers\Shared\Auth\VerifyEmailController::class, 'resend'])
+    ->name('verification.send')
+    ->middleware('throttle:6,1');
 Route::post('/verify', [UnifiedAuthController::class, 'verifyCode'])->name('verify.post');
 Route::post('/verify/resend', [UnifiedAuthController::class, 'resendCode'])->name('verify.resend');
 

@@ -12,7 +12,6 @@ use App\Models\DeliveryStatusLog;
 use App\Models\Order;
 use App\Models\Rider;
 use App\Models\RiderEarning;
-use App\Services\DeliveryOtpService;
 use App\Services\FulfillmentWorkflow;
 use App\Services\ShipmentExceptionService;
 use App\Support\Cod;
@@ -237,8 +236,8 @@ class RiderDeliveryController extends Controller
 
             $delivery->update(['status' => $next]);
 
-            if (in_array($next, DeliveryOtpService::ELIGIBLE_STATUSES, true)) {
-                app(DeliveryOtpService::class)->ensureFor($delivery);
+            if ($next === 'out_for_delivery') {
+                FulfillmentWorkflow::syncOrder($delivery, 'out_for_delivery', 'Parcel is out for delivery with your courier.');
             }
 
             $this->logStatus($delivery, $next, $this->transitionNote($next));
@@ -288,7 +287,7 @@ class RiderDeliveryController extends Controller
                 'status' => 'picked_up',
                 'picked_up_at' => now(),
             ]);
-            FulfillmentWorkflow::syncOrder($delivery, 'out_for_delivery', 'Parcel picked up from the seller by the assigned pickup rider.');
+            FulfillmentWorkflow::syncOrder($delivery, 'shipped', 'Parcel picked up from the seller and in transit to sorting facility.');
 
             $this->logStatus($delivery, 'picked_up', 'Package picked up from shop.');
 
@@ -300,33 +299,26 @@ class RiderDeliveryController extends Controller
     }
 
     /**
-     * Complete the delivery with optional proof of delivery + COD settlement.
+     * Complete the delivery with a required live photo proof + COD settlement.
      */
-    public function complete(
-        Request $request,
-        Delivery $delivery,
-        DeliveryOtpService $otpService,
-    ): JsonResponse {
+    public function complete(Request $request, Delivery $delivery): JsonResponse
+    {
         $this->authorizeDelivery($request, $delivery);
 
         if (! in_array($delivery->status, ['out_for_delivery', 'arrived_at_customer'])) {
             return $this->invalidTransition($delivery);
         }
 
-        $otpRequired = $otpService->requiredFor($delivery);
-
         $validated = $request->validate([
-            'proof_type' => 'sometimes|string|in:photo,signature,otp',
-            'photo' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'photo' => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
             'signature_name' => 'sometimes|string|max:255',
-            'otp' => $otpRequired ? 'required|string|digits:6' : 'sometimes|string|max:10',
             'amount_received' => 'sometimes|numeric|min:0',
             'latitude' => 'sometimes|numeric',
             'longitude' => 'sometimes|numeric',
-        ], $otpRequired ? [
-            'otp.required' => 'Enter the 6-digit delivery OTP provided by the buyer.',
-            'otp.digits' => 'The delivery OTP must be exactly 6 digits.',
-        ] : []);
+        ], [
+            'photo.required' => 'Take a live delivery photo before completing the delivery.',
+            'photo.image' => 'The delivery photo must be a valid image.',
+        ]);
 
 
         if (Cod::isCod($delivery)) {
@@ -355,7 +347,7 @@ class RiderDeliveryController extends Controller
         $proofPath = null;
 
         try {
-            $result = DB::transaction(function () use ($request, $delivery, $validated, $otpService, $otpRequired, &$proofPath) {
+            $result = DB::transaction(function () use ($request, $delivery, $validated, &$proofPath) {
                 $locked = FulfillmentWorkflow::lock($delivery);
 
                 $this->authorizeDelivery($request, $locked);
@@ -364,31 +356,19 @@ class RiderDeliveryController extends Controller
                     return ['conflict' => $this->invalidTransition($locked)];
                 }
 
-                $otpResult = $otpService->verify($locked, $validated['otp'] ?? null);
+                $proofPath = $request->file('photo')->store('delivery-proofs', 'public');
 
-                if (! $otpResult['ok']) {
-                    return ['otp_error' => $this->otpFailure($otpResult)];
-                }
-
-                if (! empty($validated['photo'])) {
-                    $proofPath = $request->file('photo')->store('delivery-proofs', 'public');
-                }
-
-                if ($otpRequired || ! empty($validated['proof_type']) || ! empty($validated['photo']) || $locked->payment_method === 'cash_on_delivery') {
-                    DeliveryProof::create([
-                        'delivery_id' => $locked->id,
-                        'rider_id' => $locked->rider_id,
-                        'type' => $validated['proof_type'] ?? ($proofPath ? 'photo' : (! empty($validated['signature_name']) ? 'signature' : ($otpRequired ? 'otp' : 'signature'))),
-                        'file_path' => $proofPath,
-                        'signature_name' => $validated['signature_name'] ?? $locked->recipient_name,
-                        'otp' => $otpRequired ? null : ($validated['otp'] ?? null),
-                        'latitude' => $validated['latitude'] ?? null,
-                        'longitude' => $validated['longitude'] ?? null,
-                        'verified_at' => now(),
-                    ]);
-                }
-
-                $otpService->consume($locked);
+                DeliveryProof::create([
+                    'delivery_id' => $locked->id,
+                    'rider_id' => $locked->rider_id,
+                    'type' => 'photo',
+                    'file_path' => $proofPath,
+                    'signature_name' => $validated['signature_name'] ?? $locked->recipient_name,
+                    'otp' => null,
+                    'latitude' => $validated['latitude'] ?? null,
+                    'longitude' => $validated['longitude'] ?? null,
+                    'verified_at' => now(),
+                ]);
 
                 $isCod = Cod::isCod($locked);
                 $codExpected = $isCod ? Cod::expected($locked) : null;
@@ -406,7 +386,7 @@ class RiderDeliveryController extends Controller
                 }
 
                 $locked->update($updates);
-                FulfillmentWorkflow::syncOrder($locked, 'delivered', 'Delivery completed by the assigned rider with buyer verification.');
+                FulfillmentWorkflow::syncOrder($locked, 'delivered', 'Delivery completed by the assigned rider with photo proof of delivery.');
 
                 $this->logStatus($locked, 'delivered', 'Package delivered to customer.');
 
@@ -469,10 +449,6 @@ class RiderDeliveryController extends Controller
             return response()->json([
                 'message' => 'Delivery completion failed. No changes were saved.',
             ], 500);
-        }
-
-        if (isset($result['otp_error'])) {
-            return $result['otp_error'];
         }
 
         if (isset($result['conflict'])) {
@@ -852,17 +828,6 @@ class RiderDeliveryController extends Controller
             ],
         ], 409);
     }
-
-    private function otpFailure(array $result): JsonResponse
-    {
-        return response()->json([
-            'message' => $result['message'],
-            'errors' => [
-                'otp' => [$result['message']],
-            ],
-        ], 422);
-    }
-
 
     private function logStatus(Delivery $delivery, string $status, ?string $note): void
     {

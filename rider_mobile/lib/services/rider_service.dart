@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import '../core/network/api_client.dart';
 import '../models/delivery.dart';
 import '../models/rider.dart';
@@ -45,6 +47,20 @@ class RiderService {
       'vehicle_type': ?vehicleType,
       'license_plate': ?licensePlate,
     });
+    return Rider.fromJson(
+        Map<String, dynamic>.from(data['rider'] as Map? ?? {}));
+  }
+
+  Future<Rider> uploadPhoto({
+    required Uint8List fileBytes,
+    required String filename,
+  }) async {
+    final data = await _api.postMultipart(
+      '/rider/profile/photo',
+      fileField: 'photo',
+      fileBytes: fileBytes,
+      filename: filename,
+    );
     return Rider.fromJson(
         Map<String, dynamic>.from(data['rider'] as Map? ?? {}));
   }

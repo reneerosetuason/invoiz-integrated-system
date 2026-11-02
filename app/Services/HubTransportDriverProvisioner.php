@@ -251,4 +251,85 @@ class HubTransportDriverProvisioner
             'kept_password' => $keptPassword,
         ];
     }
+
+    /**
+     * Resend the approval notification for an already provisioned Hub Transport Driver.
+     *
+     * Never creates or duplicates a user, driver, application, or profile. The
+     * existing password is kept by default; when a rotation is requested a new
+     * temporary password is generated, hashed, and reverted if delivery fails.
+     *
+     * @return array{mail_sent: bool, kept_password: bool, recipient: string|null, error: string|null}
+     */
+    public function resendNotification(RiderApplication $application, bool $rotatePassword = false): array
+    {
+        abort_unless($application->isHubTransportDriver(), 422,
+            'This application is not a Hub Transport Driver application.');
+
+        abort_unless($application->status === 'approved' && $application->provisioned_at !== null, 422,
+            'Only approved and provisioned Hub Transport Driver accounts can receive a resent approval email.');
+
+        $driver = null;
+        if ($application->hub_transport_driver_id) {
+            $driver = HubTransportDriver::whereKey($application->hub_transport_driver_id)->first();
+        }
+        if (! $driver) {
+            $driver = HubTransportDriver::whereRaw('LOWER(email) = ?', [
+                strtolower(trim((string) $application->email)),
+            ])->first();
+        }
+
+        abort_unless($driver, 422, 'No provisioned Hub Transport Driver account exists for this application.');
+
+        // Prefer the registered application email, falling back to the
+        // driver's login email for older records.
+        $recipient = strtolower(trim((string) $application->email));
+        if ($recipient === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+            $recipient = strtolower(trim((string) $driver->email));
+        }
+        if ($recipient === '' || filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
+            return [
+                'mail_sent' => false,
+                'kept_password' => ! $rotatePassword,
+                'recipient' => null,
+                'error' => 'This application has no valid email address. Update the applicant email and try again.',
+            ];
+        }
+
+        $plainPassword = null;
+        $previousDriverPassword = $driver->password;
+        $previousUserPassword = $driver->user?->password;
+
+        if ($rotatePassword) {
+            $plainPassword = Str::random(12);
+            $driver->update(['password' => $plainPassword]);
+            if ($driver->user_id) {
+                User::whereKey($driver->user_id)->update(['password' => $plainPassword]);
+            }
+        }
+
+        $mailSent = false;
+        try {
+            Mail::to($recipient)->send(
+                new RiderAccountApprovedMail($application->fresh(), $plainPassword)
+            );
+            $mailSent = true;
+        } catch (\Throwable $e) {
+            if ($rotatePassword) {
+                // A failed retry must not invalidate a working login.
+                HubTransportDriver::whereKey($driver->id)->update(['password' => $previousDriverPassword]);
+                if ($driver->user_id && $previousUserPassword !== null) {
+                    User::whereKey($driver->user_id)->update(['password' => $previousUserPassword]);
+                }
+            }
+            report($e);
+        }
+
+        return [
+            'mail_sent' => $mailSent,
+            'kept_password' => ! $rotatePassword,
+            'recipient' => $recipient,
+            'error' => $mailSent ? null : 'The approval email could not be sent. Please retry when the mail service is available.',
+        ];
+    }
 }

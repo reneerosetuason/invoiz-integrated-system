@@ -307,7 +307,9 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeSorting = request()->routeIs('sorting-center.*');
     $activeTransfers = request()->routeIs('hub-transfers.*');
     $activeFleet = request()->routeIs('fleet.*');
-    $activeRiders    = request()->routeIs('riders.*');
+    $activeDeliveryRiders = request()->routeIs('riders.*');
+    $activeHubDrivers = request()->routeIs('hub-transport-drivers.*');
+    $activeRidersGroup = $activeDeliveryRiders || $activeHubDrivers;
     $activePickups   = request()->routeIs('pickup-requests.*');
     $activeStaff     = request()->routeIs('staff.*');
     $activeRiderApps = request()->routeIs('rider-applications.*');
@@ -468,17 +470,41 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeFleet ? 'text-teal-dark' : 'text-[#1F2933]' }}">Fleet Management</span>
         </a>
 
-        {{-- Riders (Admin Only) --}}
-        <a href="{{ route('riders.index') }}"
-           aria-label="Riders" data-tip="Riders"
-           @if($activeRiders) aria-current="page" @endif
-           class="{{ $activeRiders ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
-           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $activeRiders ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        {{-- Riders (collapsible parent, Admin Only) --}}
+        <button type="button"
+                @click="if(!sidebarHover){ sidebarHover = true; ridersOpen = true; } else { ridersOpen = !ridersOpen; }"
+                :aria-expanded="ridersOpen ? 'true' : 'false'"
+                aria-controls="subnav-riders"
+                aria-label="Riders" data-tip="Riders"
+                class="sb-nav-parent {{ $activeRidersGroup ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3 text-left"
+                :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 flex-shrink-0 {{ $activeRidersGroup ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeRiders ? 'text-teal-dark' : 'text-[#1F2933]' }}">Riders</span>
-        </a>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeRidersGroup ? 'text-teal-dark' : 'text-[#1F2933]' }}">Riders</span>
+            <svg x-show="sidebarHover" x-cloak class="ml-auto h-4 w-4 transition-transform motion-safe:transition-transform flex-shrink-0 {{ $activeRidersGroup ? 'text-teal-dark' : 'text-[#16697A]/70 group-hover:text-teal-dark' }}" :class="ridersOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </button>
+
+        {{-- Riders Submenus --}}
+        <div class="sb-sub space-y-0.5 my-1" id="subnav-riders" x-show="sidebarHover && ridersOpen" x-cloak x-collapse>
+            {{-- Delivery Riders --}}
+            <a href="{{ route('riders.index') }}"
+               aria-label="Delivery Riders" data-tip="Delivery Riders"
+               @if($activeDeliveryRiders) aria-current="page" @endif
+               class="{{ $activeDeliveryRiders ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
+                <span>Delivery Riders</span>
+            </a>
+
+            {{-- Hub Transport Drivers --}}
+            <a href="{{ route('hub-transport-drivers.index') }}"
+               aria-label="Hub Transport Drivers" data-tip="Hub Transport Drivers"
+               @if($activeHubDrivers) aria-current="page" @endif
+               class="{{ $activeHubDrivers ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
+                <span>Hub Transport Drivers</span>
+            </a>
+        </div>
         @endif
 
         {{-- Pickup Requests --}}

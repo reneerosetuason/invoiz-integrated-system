@@ -41,48 +41,73 @@
 
                 <div class="card p-6">
                     <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide mb-4">Route &amp; Fleet Assignment</h2>
+                    @if($trucks->isEmpty())
+                        <div class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900">
+                            <p class="font-bold">{{ $fleetBlockReason ?? 'No eligible truck and driver pair is available right now.' }}</p>
+                            <p class="mt-1">
+                                A transfer needs a company-owned approved four-wheel truck with registered parcel and weight capacity, paired with a Hub Transport Driver whose license is approved and unexpired and who is not already on another active transfer.
+                            </p>
+                            @if(($fleetTruckIssues ?? collect())->isNotEmpty())
+                                <ul class="mt-2 space-y-0.5">
+                                    @foreach($fleetTruckIssues as $issue)
+                                        <li>• <span class="font-semibold">{{ $issue['plate'] }}</span> — {{ $issue['reason'] }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                            <a href="{{ route('fleet.index', ['logistics_company_id' => $company?->id]) }}" class="mt-2 inline-flex items-center gap-1 font-bold text-[#16697A] underline">
+                                Open Fleet Management to review trucks and drivers
+                            </a>
+                        </div>
+                    @endif
                     <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <label class="field-label">Origin Logistics Hub <span class="text-red-500">*</span></label>
                             <select name="origin_center_id" id="origin-center-select" required class="select">
                                 @foreach($centers as $center)
-                                    @if(!$originCenterId || $originCenterId == $center->id)
+                                    @if($originSelectable || !$originCenterId || $originCenterId == $center->id)
                                         <option value="{{ $center->id }}" @selected(old('origin_center_id', $originCenterId ?? auth()->user()->center_id) == $center->id)>{{ $center->name }}</option>
                                     @endif
                                 @endforeach
                             </select>
+                            @if($originSelectable)
+                                <p class="text-[11px] text-[#6E6E73] mt-1">Changing the origin hub refreshes the eligible parcel list.</p>
+                            @endif
                         </div>
                         <div>
-                            <label class="field-label">Destination Logistics Hub <span class="text-red-500">*</span></label>
+                            <label class="field-label">Next-Hop Destination Hub (this leg) <span class="text-red-500">*</span></label>
                             <select name="destination_center_id" id="destination-center-select" required class="select">
-                                <option value="">Select destination</option>
+                                <option value="">Select next-hop hub</option>
                                 @foreach($centers as $center)
                                     @if(!$originCenterId || $originCenterId != $center->id)
                                         <option value="{{ $center->id }}" @selected(old('destination_center_id') == $center->id)>{{ $center->name }}</option>
                                     @endif
                                 @endforeach
                             </select>
-                            <p class="text-[11px] text-[#6E6E73] mt-1">Parcels selected below must all share this destination hub.</p>
+                            <p class="text-[11px] text-[#6E6E73] mt-1">
+                                Where this leg unloads next. Any active hub in this company can be used, including an intermediate hub. This does not change the final destination of the parcels.
+                            </p>
                         </div>
                         <div>
-                            <label class="field-label">Available Truck (4-Wheel) <span class="text-red-500">*</span></label>
-                            <select name="truck_id" id="truck-select" required class="select">
+                            <label class="field-label">Available Truck &amp; Assigned Driver <span class="text-red-500">*</span></label>
+                            <select name="truck_id" id="truck-select" required class="select" @disabled($trucks->isEmpty())>
                                 <option value="">Select truck</option>
                                 @foreach($trucks as $truck)
-                                    <option value="{{ $truck->id }}" data-capacity="{{ $truck->parcel_capacity }}" data-kg="{{ $truck->capacity_kg }}" @selected(old('truck_id') == $truck->id)>
-                                        {{ $truck->plate_number }} — {{ $truck->model ?: $truck->name ?: $truck->vehicle_type }} (Max: {{ $truck->parcel_capacity }} pcs / {{ number_format($truck->capacity_kg, 1) }} kg)
+                                    <option value="{{ $truck->id }}" data-driver-id="{{ $truck->driver?->id }}" data-capacity="{{ $truck->parcel_capacity }}" data-kg="{{ $truck->capacity_kg }}" @selected(old('truck_id') == $truck->id)>
+                                        {{ $truck->plate_number }} — {{ $truck->driver?->name ?? 'No driver' }} (Max: {{ $truck->parcel_capacity }} pcs / {{ number_format($truck->capacity_kg, 1) }} kg)
                                     </option>
                                 @endforeach
                             </select>
+                            <p class="text-[11px] text-[#6E6E73] mt-1">Only approved four-wheel trucks paired with an available, licensed Hub Transport Driver and no other active transfer are listed.</p>
                         </div>
                         <div>
                             <label class="field-label">Hub Transport Driver <span class="text-red-500">*</span></label>
-                            <select name="driver_id" id="driver-select" required class="select">
+                            <select name="driver_id" id="driver-select" required class="select" @disabled($drivers->isEmpty())>
                                 <option value="">Select driver</option>
                                 @foreach($drivers as $driver)
-                                    <option value="{{ $driver->id }}" @selected(old('driver_id') == $driver->id)>{{ $driver->name }} ({{ $driver->phone ?: $driver->email }})</option>
+                                    <option value="{{ $driver->id }}" data-truck-id="{{ $driver->logistics_truck_id }}" @selected(old('driver_id') == $driver->id)>{{ $driver->name }} ({{ $driver->phone ?: $driver->email }})</option>
                                 @endforeach
                             </select>
+                            <p class="text-[11px] text-[#6E6E73] mt-1">Selected automatically from the paired truck. Only drivers with an approved, unexpired license are listed.</p>
                         </div>
                         <div>
                             <label class="field-label">Planned Dispatch</label>
@@ -105,12 +130,18 @@
                             <div class="text-xs font-bold text-[#0E4A57] uppercase tracking-wide">Selected Transfer Manifest</div>
                             <div class="text-sm font-extrabold text-[#1B1B1E]">
                                 <span id="selected-count-text">0 parcels selected</span>
-                                <span class="text-[#6E6E73] font-normal">for</span>
-                                <span id="selected-dest-text" class="text-[#16697A] font-bold">No destination selected</span>
+                                <span class="text-[#6E6E73] font-normal">· Final destination:</span>
+                                <span id="selected-final-dest-text" class="text-[#1B1B1E] font-bold">None</span>
                             </div>
                             <div class="text-[11px] text-[#6E6E73] mt-0.5">
+                                Next hop: <span id="selected-next-hop-text" class="font-bold text-[#16697A]">Select below</span>
+                                <span class="mx-1">·</span>
                                 Total Manifest Weight: <span id="selected-weight-text" class="font-bold text-[#1B1B1E]">0.00 kg</span>
                             </div>
+                            <div class="text-[11px] text-[#6E6E73] mt-0.5">
+                                Capacity: <span id="selected-capacity-text" class="font-bold text-[#1B1B1E]">Select a truck to check this manifest</span>
+                            </div>
+                            <div id="capacity-warning" class="hidden text-[11px] font-bold text-red-600 mt-0.5"></div>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
@@ -123,8 +154,8 @@
                 <div class="card p-6 space-y-6">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                         <div>
-                            <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Eligible Parcels Grouped by Destination Hub</h2>
-                            <p class="text-xs text-[#6E6E73] mt-0.5">Parcels physically received at the origin hub, filtered for transfer and separated by destination.</p>
+                            <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Eligible Parcels Grouped by Final Destination Hub</h2>
+                            <p class="text-xs text-[#6E6E73] mt-0.5">Parcels received and sorted at the origin hub, grouped by final destination (the buyer's hub). The next-hop hub is chosen separately above and never changes the final destination.</p>
                         </div>
                         <div class="sm:w-64">
                             <input type="search" id="parcel-search" placeholder="Filter by tracking #..." class="input text-xs">
@@ -152,7 +183,7 @@
                                             <input type="checkbox" class="group-select-all rounded border-[#E8E6E0] text-[#16697A] focus:ring-[#16697A] w-4 h-4" data-dest-id="{{ $destCenterId }}">
                                             <span class="text-xs font-bold uppercase tracking-wider text-[#16697A]">Select All ({{ $groupParcels->count() }})</span>
                                         </label>
-                                        <span class="text-sm font-bold text-[#1B1B1E]">To: {{ $destName }}</span>
+                                        <span class="text-sm font-bold text-[#1B1B1E]">Final destination: {{ $destName }}</span>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#16697A]/10 text-[#16697A]">
@@ -174,7 +205,7 @@
                                                 <th>Status</th>
                                                 <th>Weight</th>
                                                 <th>Current Custody Hub</th>
-                                                <th>Recipient / Destination</th>
+                                                <th>Final Destination (Buyer Area)</th>
                                             </tr>
                                         </thead>
                                         <tbody class="parcel-group-rows">
@@ -186,6 +217,7 @@
                                                             data-dest-id="{{ $destCenterId }}"
                                                             data-dest-name="{{ $destName }}"
                                                             data-weight="{{ $parcel->weight ?? 0 }}"
+                                                            data-weighed="{{ $parcel->weight !== null ? '1' : '0' }}"
                                                             data-tracking="{{ $parcel->tracking_number }}"
                                                             @checked(in_array($parcel->id, old('parcels', [])))>
                                                     </td>
@@ -231,8 +263,12 @@
                                 <span id="modal-origin-hub" class="font-bold text-[#1B1B1E]">—</span>
                             </div>
                             <div>
-                                <span class="text-[#6E6E73] block">Destination Hub:</span>
-                                <span id="modal-dest-hub" class="font-bold text-[#16697A]">—</span>
+                                <span class="text-[#6E6E73] block">Next-Hop Hub (this leg):</span>
+                                <span id="modal-next-hop-hub" class="font-bold text-[#16697A]">—</span>
+                            </div>
+                            <div>
+                                <span class="text-[#6E6E73] block">Final Destination (buyer area):</span>
+                                <span id="modal-final-dest" class="font-bold text-[#1B1B1E]">—</span>
                             </div>
                             <div>
                                 <span class="text-[#6E6E73] block">Assigned Truck:</span>
@@ -251,6 +287,10 @@
                                 <span id="modal-total-weight" class="font-extrabold text-[#1B1B1E]">0.00 kg</span>
                             </div>
                         </div>
+
+                        <p class="text-[11px] text-[#6E6E73]">
+                            This manifest only moves the parcels to the next hop. Their final destination and buyer service area stay unchanged.
+                        </p>
 
                         <div>
                             <div class="text-xs font-bold text-[#1B1B1E] uppercase tracking-wide mb-1">Manifest Parcels</div>
@@ -280,13 +320,52 @@
             const parcelCheckboxes = document.querySelectorAll('.parcel-checkbox');
             const summaryBadge = document.getElementById('selected-count-badge');
             const summaryText = document.getElementById('selected-count-text');
-            const summaryDest = document.getElementById('selected-dest-text');
+            const summaryFinal = document.getElementById('selected-final-dest-text');
+            const summaryNextHop = document.getElementById('selected-next-hop-text');
             const summaryWeight = document.getElementById('selected-weight-text');
+            const summaryCapacity = document.getElementById('selected-capacity-text');
+            const capacityWarning = document.getElementById('capacity-warning');
             const openReviewBtn = document.getElementById('open-review-modal-btn');
             const clearSelectionBtn = document.getElementById('clear-selection-btn');
             const reviewModal = document.getElementById('manifest-review-modal');
 
+            // The company-selection screen renders without the transfer form.
+            // Bail out instead of dereferencing missing elements.
+            if (!summaryBadge || !summaryText || !summaryFinal || !summaryNextHop || !summaryWeight || !openReviewBtn) {
+                return;
+            }
+
             let currentActiveDestId = null;
+
+            function selectedNextHopName() {
+                if (!destSelect || !destSelect.value) return 'Select below';
+                return destSelect.options[destSelect.selectedIndex]?.text ?? 'Select below';
+            }
+
+            // Network admins and company-wide managers can pick any hub as
+            // origin; reload so the parcel list reflects the new origin.
+            @if($originSelectable)
+            originSelect?.addEventListener('change', () => {
+                const params = new URLSearchParams(window.location.search);
+                params.set('origin_center_id', originSelect.value);
+                window.location.search = params.toString();
+            });
+            @endif
+
+            // Fleet pairs are fixed: choosing a truck automatically selects the
+            // Hub Transport Driver assigned to it in Fleet Management.
+            function syncDriverFromTruck() {
+                if (!truckSelect || !driverSelect) return;
+                const selected = truckSelect.options[truckSelect.selectedIndex];
+                if (!selected || !selected.value) return;
+                const driverId = selected.dataset.driverId;
+                if (driverId) driverSelect.value = driverId;
+            }
+            truckSelect?.addEventListener('change', () => {
+                syncDriverFromTruck();
+                updateSummary();
+            });
+            syncDriverFromTruck();
 
             function updateSummary() {
                 const checkedBoxes = Array.from(parcelCheckboxes).filter(cb => cb.checked);
@@ -295,27 +374,54 @@
                 summaryText.textContent = `${count} parcel${count === 1 ? '' : 's'} selected`;
 
                 let totalWeight = 0;
-                let activeDestName = 'No destination selected';
-                let activeDestId = null;
+                let unweighed = 0;
+                let finalDestId = null;
+                let finalDestName = 'None';
+
+                checkedBoxes.forEach(cb => {
+                    totalWeight += parseFloat(cb.dataset.weight || 0);
+                    if (cb.dataset.weighed === '0') unweighed++;
+                });
 
                 if (count > 0) {
-                    activeDestId = checkedBoxes[0].dataset.destId;
-                    activeDestName = checkedBoxes[0].dataset.destName;
-                    checkedBoxes.forEach(cb => {
-                        totalWeight += parseFloat(cb.dataset.weight || 0);
-                    });
-                    summaryDest.textContent = activeDestName;
-                    currentActiveDestId = activeDestId;
-                    if (destSelect) {
-                        destSelect.value = activeDestId;
-                    }
-                } else {
-                    summaryDest.textContent = 'No destination selected';
-                    currentActiveDestId = null;
+                    finalDestId = checkedBoxes[0].dataset.destId;
+                    finalDestName = checkedBoxes[0].dataset.destName;
                 }
 
+                summaryFinal.textContent = finalDestName;
+                summaryNextHop.textContent = selectedNextHopName();
                 summaryWeight.textContent = `${totalWeight.toFixed(2)} kg`;
-                openReviewBtn.disabled = count === 0;
+
+                // Validate the combined manifest against the selected truck,
+                // not each parcel on its own.
+                const selectedTruck = truckSelect && truckSelect.value
+                    ? truckSelect.options[truckSelect.selectedIndex]
+                    : null;
+                const capacityParcels = selectedTruck ? parseInt(selectedTruck.dataset.capacity || '0', 10) : 0;
+                const capacityKg = selectedTruck ? parseFloat(selectedTruck.dataset.kg || '0') : 0;
+                const overCapacity = count > 0
+                    && ((capacityParcels > 0 && count > capacityParcels)
+                        || (capacityKg > 0 && totalWeight > capacityKg));
+
+                if (summaryCapacity) {
+                    summaryCapacity.textContent = selectedTruck && selectedTruck.value
+                        ? `${count} / ${capacityParcels} parcels · ${totalWeight.toFixed(2)} / ${capacityKg.toFixed(2)} kg`
+                        : 'Select a truck to check this manifest';
+                }
+                if (capacityWarning) {
+                    const warnings = [];
+                    if (count > 0 && unweighed > 0) {
+                        warnings.push(`${unweighed} selected parcel${unweighed === 1 ? '' : 's'} ${unweighed === 1 ? 'has' : 'have'} no recorded weight. Record weights before creating the manifest.`);
+                    }
+                    if (overCapacity) {
+                        warnings.push("Manifest exceeds the selected truck's parcel or weight capacity.");
+                    }
+                    capacityWarning.textContent = warnings.join(' ');
+                    capacityWarning.classList.toggle('hidden', warnings.length === 0);
+                }
+
+                currentActiveDestId = finalDestId;
+                openReviewBtn.disabled = count === 0 || overCapacity || unweighed > 0;
 
                 // Sync group select all checkboxes
                 groupSelectAlls.forEach(gsa => {
@@ -327,6 +433,11 @@
                     }
                 });
             }
+
+            // The next hop is chosen independently of the parcel grouping.
+            // Changing it only refreshes the summary; it never rewrites the
+            // final destination carried by the selected parcels.
+            destSelect?.addEventListener('change', updateSummary);
 
             // Group Select All behavior
             groupSelectAlls.forEach(gsa => {
@@ -389,7 +500,6 @@
             clearSelectionBtn?.addEventListener('click', () => {
                 parcelCheckboxes.forEach(cb => cb.checked = false);
                 groupSelectAlls.forEach(gsa => gsa.checked = false);
-                if (destSelect) destSelect.value = '';
                 updateSummary();
             });
 
@@ -397,9 +507,22 @@
             openReviewBtn?.addEventListener('click', () => {
                 const checkedBoxes = Array.from(parcelCheckboxes).filter(cb => cb.checked);
                 if (checkedBoxes.length === 0) return;
+                if (!destSelect || !destSelect.value) {
+                    alert('Select the next-hop destination hub for this leg before creating the transfer.');
+                    return;
+                }
+                if (truckSelect && !truckSelect.value) {
+                    alert('Select a truck with an assigned Hub Transport Driver before creating this transfer.');
+                    return;
+                }
+                if (driverSelect && !driverSelect.value) {
+                    alert('Assign an approved Hub Transport Driver to the selected truck in Fleet Management first.');
+                    return;
+                }
 
                 const originText = originSelect?.options[originSelect.selectedIndex]?.text ?? '—';
-                const destText = destSelect?.options[destSelect.selectedIndex]?.text ?? checkedBoxes[0].dataset.destName ?? '—';
+                const nextHopText = selectedNextHopName();
+                const finalDestText = checkedBoxes[0].dataset.destName ?? '—';
                 const truckText = truckSelect?.options[truckSelect.selectedIndex]?.text ?? 'Not selected';
                 const driverText = driverSelect?.options[driverSelect.selectedIndex]?.text ?? 'Not selected';
 
@@ -418,7 +541,8 @@
                 }
 
                 document.getElementById('modal-origin-hub').textContent = originText;
-                document.getElementById('modal-dest-hub').textContent = destText;
+                document.getElementById('modal-next-hop-hub').textContent = nextHopText;
+                document.getElementById('modal-final-dest').textContent = finalDestText;
                 document.getElementById('modal-truck').textContent = truckText;
                 document.getElementById('modal-driver').textContent = driverText;
                 document.getElementById('modal-parcel-count').textContent = `${checkedBoxes.length} pcs`;

@@ -21,7 +21,7 @@ import 'apply_widgets.dart';
 
 /// Guided multi-step "Apply as a Rider" flow.
 ///
-/// Steps: Personal → Rider Type → Vehicle → Requirements → Documents → Review.
+/// Steps: Personal → Work Schedule → Vehicle → Requirements → Documents → Review.
 /// Uses the existing `POST /api/rider/apply` contract (single `name` field,
 /// backend document keys). First/last/middle name are combined into `name`;
 /// sex, date of birth and the PSGC structured address (house number, street,
@@ -270,7 +270,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
   Future<void> _loadVehicles() async {
     setState(() => _loadingVehicles = true);
     try {
-      final list = await VehicleService(ApiClient()).getActive(
+      final list = await VehicleService(widget.apiClient ?? ApiClient()).getActive(
         applicationType: _applicationType,
       );
       if (!mounted) return;
@@ -857,9 +857,14 @@ class _ApplyScreenState extends State<ApplyScreen> {
                   '${_dob!.day.toString().padLeft(2, '0')}',
         houseNumber: _addressSel?.houseNumber ?? '',
         street: _addressSel?.street ?? '',
-        barangay: _addressSel?.barangay?.name ?? '',
-        municipality: _addressSel?.municipality?.name ?? '',
+        region: _addressSel?.region ?? '',
+        regionCode: _addressSel?.regionCode ?? '',
         province: _addressSel?.province?.name ?? '',
+        provinceCode: _addressSel?.province?.code ?? '',
+        municipality: _addressSel?.municipality?.name ?? '',
+        municipalityCode: _addressSel?.municipality?.code ?? '',
+        barangay: _addressSel?.barangay?.name ?? '',
+        barangayCode: _addressSel?.barangay?.code ?? '',
       );
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
@@ -1398,43 +1403,97 @@ class _ApplyScreenState extends State<ApplyScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const ApplyStepHeader(
-          title: 'Rider Type',
-          subtitle: 'Choose your Rider Type',
+          title: 'Work Schedule',
+          subtitle: 'Choose your work schedule',
         ),
         const SizedBox(height: 16),
-        SelectableCard(
-          selected: _applicationType == 'delivery_rider',
-          onTap: () {
-            setState(() {
-              _applicationType = 'delivery_rider';
-            });
-            _loadVehicles();
-            _pruneStaleDocs();
-          },
-          child: const Row(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: AppTheme.primary.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+          ),
+          child: Row(
             children: [
               Icon(
-                Icons.two_wheeler_outlined,
-                size: 34,
+                _isHubTransportDriver
+                    ? Icons.local_shipping_outlined
+                    : Icons.two_wheeler_outlined,
+                size: 24,
                 color: AppTheme.primary,
               ),
-              SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Delivery Rider',
+                    const Text(
+                      'Selected Role',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      _isHubTransportDriver
+                          ? 'Hub Transport Driver (Linehaul)'
+                          : 'Delivery Rider (Customer Deliveries)',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const Text(
+          'Work Schedule',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        SelectableCard(
+          selected: _riderType == 'full_time',
+          onTap: () {
+            setState(() => _riderType = 'full_time');
+            _pruneStaleDocs();
+          },
+          child: Row(
+            children: [
+              const Icon(
+                Icons.access_time_filled,
+                size: 32,
+                color: AppTheme.primary,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Full-time Rider',
+                      style: TextStyle(
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Pick up parcels from sellers and deliver to customers (2-wheel)',
-                      style: TextStyle(
+                      _isHubTransportDriver
+                          ? 'Operate transport vehicles regularly with priority linehaul dispatches'
+                          : 'Work regularly as a delivery rider with priority dispatches',
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
                       ),
@@ -1447,39 +1506,33 @@ class _ApplyScreenState extends State<ApplyScreen> {
         ),
         const SizedBox(height: 12),
         SelectableCard(
-          selected: _applicationType == 'hub_transport_driver',
+          selected: _riderType == 'part_time',
           onTap: () {
-            setState(() {
-              _applicationType = 'hub_transport_driver';
-              _riderType = 'full_time';
-            });
-            _loadVehicles();
+            setState(() => _riderType = 'part_time');
             _pruneStaleDocs();
           },
-          child: const Row(
+          child: Row(
             children: [
-              Icon(
-                Icons.local_shipping_outlined,
-                size: 34,
-                color: AppTheme.primary,
-              ),
-              SizedBox(width: 14),
+              const Icon(Icons.schedule_outlined, size: 32, color: AppTheme.primary),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Hub Transport Driver',
+                    const Text(
+                      'Part-time Rider',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Transport bulk shipments between Logistics Hubs (4-wheel truck/van)',
-                      style: TextStyle(
+                      _isHubTransportDriver
+                          ? 'Transport bulk shipments during your available schedules'
+                          : 'Deliver during your available time with flexible scheduling',
+                      style: const TextStyle(
                         fontSize: 13,
                         color: AppColors.textSecondary,
                       ),
@@ -1490,95 +1543,8 @@ class _ApplyScreenState extends State<ApplyScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        if (!_isHubTransportDriver) ...[
-          const Text(
-            'Work Schedule',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SelectableCard(
-            selected: _riderType == 'full_time',
-            onTap: () {
-              setState(() => _riderType = 'full_time');
-              _pruneStaleDocs();
-            },
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.access_time_filled,
-                  size: 32,
-                  color: AppTheme.primary,
-                ),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Full-time Rider',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Work regularly as a delivery rider with priority dispatches',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          SelectableCard(
-            selected: _riderType == 'part_time',
-            onTap: () {
-              setState(() => _riderType = 'part_time');
-              _pruneStaleDocs();
-            },
-            child: const Row(
-              children: [
-                Icon(Icons.schedule_outlined, size: 32, color: AppTheme.primary),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Part-time Rider',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Deliver during your available time with flexible scheduling',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ] else ...[
+        if (_isHubTransportDriver) ...[
+          const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -2219,11 +2185,11 @@ class _ApplyScreenState extends State<ApplyScreen> {
         ),
         const SizedBox(height: 12),
         ReviewSection(
-          title: 'ROLE & WORK TYPE',
+          title: 'ROLE & WORK SCHEDULE',
           onEdit: () => _jumpTo(1),
           rows: [
             MapEntry('Role', _isHubTransportDriver ? 'Hub Transport Driver' : 'Delivery Rider'),
-            MapEntry('Work Type', _riderTypeLabel),
+            MapEntry('Work Schedule', _riderTypeLabel),
           ],
         ),
         const SizedBox(height: 12),
@@ -2461,7 +2427,11 @@ class ApplySuccessScreen extends StatelessWidget {
                 label: 'Check Application Status',
                 onPressed: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute(
-                    builder: (_) => ApplicationStatusScreen(email: email),
+                    builder: (_) => ApplicationStatusScreen(
+                      email: email,
+                      reference: result.referenceNumber,
+                      token: result.accessToken,
+                    ),
                   ),
                 ),
               ),

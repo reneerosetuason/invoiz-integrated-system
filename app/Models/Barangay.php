@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Barangay extends Model
 {
-    protected $fillable = ['code', 'name', 'municipality_id'];
+    protected $fillable = ['code', 'name', 'municipality_id', 'municipality_code'];
 
     public function municipality(): BelongsTo
     {

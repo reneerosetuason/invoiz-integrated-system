@@ -18,7 +18,7 @@ String formatBytes(int bytes) {
 /// Step titles shown in the progress indicator.
 const applyStepLabels = [
   'Personal',
-  'Rider Type',
+  'Work Schedule',
   'Vehicle',
   'Requirements',
   'Documents',

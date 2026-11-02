@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_theme.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/rider_provider.dart';
+import '../../services/hub_courier_service.dart';
 import '../../widgets/app_ui.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
@@ -58,6 +61,38 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
     FocusScope.of(context).unfocus();
     setState(() => _busy = true);
+
+    final auth = context.read<AuthProvider>();
+    if (auth.isHubCourier) {
+      try {
+        await HubCourierService(auth.api).changePassword(
+          currentPassword: _current.text,
+          newPassword: _new.text,
+          confirmPassword: _confirm.text,
+        );
+        if (!mounted) return;
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Password changed successfully.')),
+        );
+        Navigator.of(context).pop();
+        return;
+      } on ApiException catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+        return;
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _busy = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unable to change password: $e')),
+        );
+        return;
+      }
+    }
 
     final ok = await context.read<RiderProvider>().changePassword(
           currentPassword: _current.text,

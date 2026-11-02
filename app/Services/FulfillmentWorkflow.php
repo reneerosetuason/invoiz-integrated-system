@@ -8,6 +8,7 @@ use App\Models\HubTransfer;
 use App\Models\HubTransferParcel;
 use App\Models\Order;
 use App\Models\OrderStatusHistory;
+use App\Models\PickupRequest;
 use App\Models\Rider;
 use App\Models\SellerNotification;
 use Illuminate\Support\Facades\Schema;
@@ -85,13 +86,13 @@ class FulfillmentWorkflow
         }
         $from = $order->status;
         $order->update(['status' => $status]);
-        if ($status === 'out_for_delivery' && $delivery->picked_up_at) {
+        if (in_array($status, ['shipped', 'out_for_delivery'], true) && $delivery->picked_up_at) {
             $order->courierPickup?->update(['status' => 'picked_up']);
         }
         OrderStatusHistory::create(['order_id' => $order->id, 'from_status' => $from, 'to_status' => $status, 'note' => $note]);
         SellerNotification::create([
             'seller_id' => $delivery->seller_id, 'order_id' => $order->id,
-            'type' => 'status', 'title' => $status === 'delivered' ? 'Order delivered' : 'Parcel picked up', 'body' => $note,
+            'type' => 'status', 'title' => $status === 'delivered' ? 'Order delivered' : ($status === 'shipped' ? 'Order shipped' : 'Parcel out for delivery'), 'body' => $note,
         ]);
     }
 
@@ -111,14 +112,36 @@ class FulfillmentWorkflow
         }
     }
 
+    /**
+     * Evidence that the parcel physically left the seller and reached the
+     * hub: the pickup rider must have completed the pickup *and* recorded
+     * the handoff. Approval, rider assignment, or the seller marking the
+     * order ready are not custody transfers on their own.
+     */
+    public static function hasPickupHandoff(Delivery $delivery): bool
+    {
+        return $delivery->picked_up_at !== null
+            && $delivery->sorting_center_handoff_at !== null
+            && $delivery->sorting_center_handoff_rider_id !== null;
+    }
+
+    /** Order-linked parcels need recorded pickup+handoff before hub receipt. */
+    public static function assertReceivable(Delivery $delivery): void
+    {
+        if (! $delivery->order_id) {
+            return; // Standalone logistics shipments keep their direct-intake workflow.
+        }
+        abort_unless(
+            self::hasPickupHandoff($delivery),
+            409,
+            'This parcel has not been collected from the seller. The pickup rider must complete the pickup and record the hub handoff before staff can receive it.'
+        );
+    }
+
     public static function receive(Delivery $delivery, int $actorId): void
     {
         self::assertActiveOrder($delivery, allowDeliveredOrder: true);
-        if ($delivery->order_id) {
-            if ($delivery->rider_id !== null || $delivery->status === 'picked_up') {
-                abort_unless($delivery->status === 'picked_up' && $delivery->sorting_center_handoff_at && $delivery->sorting_center_handoff_rider_id, 409, 'The pickup rider must record the center handoff before staff can receive this parcel.');
-            }
-        }
+        self::assertReceivable($delivery);
         $riderId = $delivery->rider_id;
         $updates = ['parcel_status' => 'received', 'received_at' => now()];
         if ($delivery->sorting_center_handoff_at) {
@@ -126,6 +149,11 @@ class FulfillmentWorkflow
         }
         $delivery->update($updates);
         DeliveryStatusLog::create(['delivery_id' => $delivery->id, 'status' => 'received', 'changed_by' => $actorId, 'notes' => 'Center receipt confirmed; pickup custody closed.']);
+        // Receipt proves the seller-to-hub leg is finished; never overwrite a
+        // reviewed rejection or an already completed request.
+        PickupRequest::where('delivery_id', $delivery->id)
+            ->whereIn('status', ['pending', 'approved'])
+            ->update(['status' => 'completed', 'reviewed_at' => now()]);
         // First hub receipt closes the first-mile leg and credits the pickup
         // rider once. Later destination receipts go through HubTransferService.
         \App\Support\EscrowEarnings::creditPickupRiderOnHubReceipt($delivery->fresh());

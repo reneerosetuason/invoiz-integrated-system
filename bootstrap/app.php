@@ -55,6 +55,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
+
+        $exceptions->render(function (\Illuminate\Routing\Exceptions\InvalidSignatureException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'The verification link is invalid or has expired.'], 403);
+            }
+            return redirect()->route('verification.notice')
+                ->with('error', 'The verification link is invalid or has expired. Please request a new one.');
+        });
+
         // Logging out with a stale/expired CSRF token (double-clicks,
         // back-button resubmits, long-idle tabs) must never strand users on
         // a 419 page: the intent is to end the session, so end it and send

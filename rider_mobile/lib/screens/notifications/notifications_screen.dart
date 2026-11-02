@@ -10,6 +10,7 @@ import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/stagger_in.dart';
 import '../deliveries/delivery_detail_screen.dart';
+import '../home/hub_courier_home_screen.dart';
 
 /// Rider notifications list.
 class NotificationsScreen extends StatelessWidget {
@@ -53,6 +54,17 @@ class NotificationsScreen extends StatelessWidget {
       RiderNotification notification) {
     provider.markRead(notification.id);
     final data = notification.data;
+    final hubIdRaw = data == null ? null : (data['hub_transfer_id'] ?? data['transfer_id']);
+    final hubTransferId = hubIdRaw is int ? hubIdRaw : int.tryParse('${hubIdRaw ?? ''}');
+    if (hubTransferId != null && hubTransferId > 0) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => HubTransferDetailScreen(transferId: hubTransferId),
+        ),
+      );
+      return;
+    }
+
     final rawId = data == null ? null : data['delivery_id'];
     final deliveryId =
         rawId is int ? rawId : int.tryParse('${rawId ?? ''}');

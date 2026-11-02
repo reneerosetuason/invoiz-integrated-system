@@ -398,6 +398,10 @@
             <div>
                 <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Hub Transport Drivers</h2>
                 <p class="text-xs text-[#6E6E73] mt-0.5">Approved transport drivers authorized to perform inter-hub linehaul transfer routes.</p>
+                <p class="text-[11px] text-[#0E4A57] bg-[#E6F4F1] border border-[#16697A]/20 rounded mt-2 px-3 py-2">
+                    To make a truck available in Hub Transfer, select the approved driver and the company four-wheel truck here, then save.
+                    Hub Transfer only lists trucks that already have an assigned driver.
+                </p>
             </div>
 
             <div class="card overflow-hidden">
@@ -421,6 +425,18 @@
                                         <div class="font-bold text-[#1B1B1E]">{{ $driver->name }}</div>
                                         @if($driver->company)
                                             <div class="text-[10px] text-[#6E6E73]">{{ $driver->company->name }}</div>
+                                        @endif
+                                        @php
+                                            $driverApplication = $driver->effectiveApplication();
+                                        @endphp
+                                        @if($driverApplication)
+                                            <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold {{ $driverApplication->status === 'approved' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800' }}">
+                                                Application: {{ str($driverApplication->status)->replace('_', ' ')->title() }}
+                                            </span>
+                                        @else
+                                            <span class="inline-flex items-center mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-gray-100 text-gray-700">
+                                                Manual driver record
+                                            </span>
                                         @endif
                                     </td>
                                     <td class="text-xs text-[#1B1B1E]">
@@ -448,13 +464,9 @@
                                     </td>
                                     <td>
                                         @php
-                                            $driverBadge = match($driver->status) {
-                                                'available' => 'badge-delivered',
-                                                'assigned', 'in_transit' => 'bg-blue-100 text-blue-800 border-blue-200',
-                                                default => 'badge-inactive',
-                                            };
+                                            $driverBadgeClass = $driver->status === 'available' ? 'badge-delivered' : (in_array($driver->status, ['assigned', 'in_transit'], true) ? 'bg-blue-100 text-blue-800 border-blue-200' : 'badge-inactive');
                                         @endphp
-                                        <span class="badge {{ $driverBadge }}">{{ str($driver->status)->replace('_', ' ')->title() }}</span>
+                                        <span class="badge {{ $driverBadgeClass }}">{{ str($driver->status)->replace('_', ' ')->title() }}</span>
                                         @if($driver->remarks)
                                             <div class="text-[10px] text-[#6E6E73] mt-1 max-w-[130px] truncate" title="{{ $driver->remarks }}">
                                                 {{ $driver->remarks }}

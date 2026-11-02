@@ -7,6 +7,7 @@ use App\Models\DeliveryFailure;
 use App\Models\DeliveryProof;
 use App\Models\DeliveryStatusLog;
 use App\Models\Notification;
+use App\Models\OrderStatusHistory;
 use App\Models\Seller;
 use App\Models\SellerNotification;
 use App\Models\User;
@@ -127,6 +128,15 @@ class ShipmentExceptionService
                         'type' => 'parcel_'.$type,
                         'title' => $label.' Parcel Reported',
                         'body' => "Parcel {$locked->tracking_number} was reported {$type}: {$reason}",
+                    ]);
+                }
+
+                if ($locked->order_id && $locked->order && $locked->order->status !== 'cancelled') {
+                    OrderStatusHistory::create([
+                        'order_id' => $locked->order_id,
+                        'from_status' => $locked->order->status,
+                        'to_status' => $locked->order->status,
+                        'note' => "Logistics Alert: Parcel reported {$type} ({$reason}).",
                     ]);
                 }
 

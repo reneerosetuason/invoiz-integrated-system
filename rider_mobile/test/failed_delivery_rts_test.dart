@@ -30,7 +30,6 @@ Map<String, dynamic> _delivery({
   'total': 500,
   'payment_method': 'cash_on_delivery',
   'amount_to_collect': 500,
-  'otp_required': false,
   'pickup_pin_required': false,
   'failure_reason': ?failureReason,
 };
@@ -112,7 +111,7 @@ void main() {
       find.textContaining('Customer refused: this parcel must go back'),
       findsOneWidget,
     );
-    expect(find.text('Return to Sorting Center (RTS)'), findsOneWidget);
+    expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
     expect(find.text('Request Re-attempt'), findsNothing);
   });
 
@@ -129,6 +128,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Request Re-attempt'), findsOneWidget);
-    expect(find.text('Return to Sorting Center (RTS)'), findsOneWidget);
+    expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
   });
 }

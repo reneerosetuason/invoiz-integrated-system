@@ -187,8 +187,10 @@ void main() {
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
 
-    // Step 2: Role selection (already hub_transport_driver from initialApplicationType)
-    expect(find.text('Choose your Rider Type'), findsOneWidget);
+    // Step 2: Work Schedule step (already hub_transport_driver from initialApplicationType)
+    expect(find.text('Work Schedule'), findsWidgets);
+    expect(find.text('Full-time Rider'), findsOneWidget);
+    expect(find.text('Part-time Rider'), findsOneWidget);
     expect(find.text('Hub-to-Hub Transport Role'), findsOneWidget);
 
     await tester.ensureVisible(find.text('Continue'));

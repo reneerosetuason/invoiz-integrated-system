@@ -163,12 +163,20 @@ class RiderApplicationAdminController extends Controller
         // manager in plaintext.
         $password = $validated['password'] ?? Str::random(12);
 
+        $wasAlreadyApproved = $application->status === 'approved';
+
         $rider = $this->provisioner->approve($application, $admin, [
             'password' => $password,
             'center_id' => (int) $validated['center_id'],
             'service_area_id' => (int) $validated['service_area_id'],
             'notes' => $validated['notes'] ?? null,
         ]);
+
+        if ($wasAlreadyApproved) {
+            return redirect()
+                ->route('rider-applications.show', $application)
+                ->with('success', "Rider application is already approved. Account is active for {$rider->email}.");
+        }
 
         // Email only after successful provisioning, so the rider never
         // receives credentials for an account that was not created. The
@@ -228,9 +236,10 @@ class RiderApplicationAdminController extends Controller
             $rotate = $request->boolean('rotate_password');
             $outcome = $this->hubProvisioner->resendNotification($application, $rotate);
             $mailSent = $outcome['mail_sent'];
+            $recipient = $outcome['recipient'] ?? $application->email;
             $msg = $mailSent
-                ? ($rotate ? "New temporary password generated and sent to {$application->email}." : "Approval notice resent to {$application->email}. Existing password remains unchanged.")
-                : 'The email could not be sent. Please retry when the mail service is available.';
+                ? ($rotate ? "New temporary password generated and sent to {$recipient}." : "Approval notice resent to {$recipient}. Existing password remains unchanged.")
+                : ($outcome['error'] ?? 'The email could not be sent. Please retry when the mail service is available.');
 
             return redirect()
                 ->route('rider-applications.show', $application)

@@ -22,6 +22,7 @@ class HubTransportDriver extends Authenticatable
         'password',
         'phone',
         'license_number',
+        'avatar',
         'status',
         'is_online',
         'remarks',
@@ -62,6 +63,11 @@ class HubTransportDriver extends Authenticatable
         return $this->hasMany(HubTransfer::class, 'driver_id');
     }
 
+    public function latestTransfer(): HasOne
+    {
+        return $this->hasOne(HubTransfer::class, 'driver_id')->latestOfMany('id');
+    }
+
     public function earnings(): HasMany
     {
         return $this->hasMany(HubTransferEarning::class, 'hub_transport_driver_id');
@@ -70,6 +76,58 @@ class HubTransportDriver extends Authenticatable
     public function incidents(): HasMany
     {
         return $this->hasMany(VehicleIncident::class, 'hub_transport_driver_id');
+    }
+
+    public function application(): HasOne
+    {
+        return $this->hasOne(RiderApplication::class, 'hub_transport_driver_id');
+    }
+
+    public function effectiveApplication(): ?RiderApplication
+    {
+        if ($this->relationLoaded('application') && $this->getRelation('application')) {
+            return $this->getRelation('application');
+        }
+
+        if ($this->application) {
+            return $this->application;
+        }
+
+        if ($this->email) {
+            return RiderApplication::query()
+                ->where(function ($query) {
+                    $query->where('hub_transport_driver_id', $this->id)
+                        ->orWhere(function ($q) {
+                            $q->whereNull('hub_transport_driver_id')
+                                ->where('email', strtolower(trim((string) $this->email)))
+                                ->where('application_type', 'hub_transport_driver');
+                        });
+                })
+                ->latest('id')
+                ->first();
+        }
+
+        return null;
+    }
+
+    public function isLicenseValid(): bool
+    {
+        $app = $this->effectiveApplication();
+        if (! $app) {
+            // Manual driver records created directly by an administrator carry
+            // no application; Fleet Management treats them as trusted and they
+            // remain assignable (see FleetController::updateDriver).
+            return true;
+        }
+        if ($app->status !== 'approved' || ! $app->license_expiry) {
+            return false;
+        }
+
+        $expiry = $app->license_expiry instanceof \Carbon\CarbonInterface
+            ? $app->license_expiry
+            : \Carbon\Carbon::parse($app->license_expiry);
+
+        return ! $expiry->lt(now()->startOfDay());
     }
 
     public function effectiveTruck(): ?LogisticsTruck

@@ -87,7 +87,7 @@ class HubTransferBulkSortingAndFleetRepairTest extends TestCase
             'logistics_company_id' => $company->id,
         ]);
 
-        return HubTransportDriver::create([
+        $driver = HubTransportDriver::create([
             'user_id' => $user->id,
             'logistics_company_id' => $company->id,
             'logistics_truck_id' => $truck->id,
@@ -97,9 +97,26 @@ class HubTransferBulkSortingAndFleetRepairTest extends TestCase
             'license_number' => 'N01-'.rand(100000, 999999),
             'status' => $status,
         ]);
+
+        \App\Models\RiderApplication::create([
+            'name' => $driver->name,
+            'email' => $driver->email,
+            'phone' => '09171234567',
+            'vehicle_type' => 'truck',
+            'application_type' => 'hub_transport_driver',
+            'license_number' => $driver->license_number,
+            'license_expiry' => now()->addYear()->format('Y-m-d'),
+            'status' => 'approved',
+            'hub_transport_driver_id' => $driver->id,
+            'logistics_truck_id' => $truck->id,
+            'reviewed_at' => now(),
+            'provisioned_at' => now(),
+        ]);
+
+        return $driver;
     }
 
-    private function parcel(LogisticsCenter $origin, LogisticsCenter $dest, string $parcelStatus = 'received', ?float $weight = 5.0): Delivery
+    private function parcel(LogisticsCenter $origin, LogisticsCenter $dest, string $parcelStatus = 'sorted', ?float $weight = 5.0): Delivery
     {
         return Delivery::create([
             'tracking_number' => 'TRK-'.rand(100000, 999999).'-'.uniqid(),
@@ -126,9 +143,9 @@ class HubTransferBulkSortingAndFleetRepairTest extends TestCase
         $truck = $this->truck($company);
         $this->driver($company, $truck);
 
-        $p1 = $this->parcel($hubA, $hubB, 'received', 4.0);
+        $p1 = $this->parcel($hubA, $hubB, 'sorted', 4.0);
         $p2 = $this->parcel($hubA, $hubB, 'sorted', 6.0);
-        $p3 = $this->parcel($hubA, $hubC, 'received', 8.5);
+        $p3 = $this->parcel($hubA, $hubC, 'sorted', 8.5);
 
         $response = $this->actingAs($manager)->get(route('hub-transfers.create', [
             'logistics_company_id' => $company->id,
@@ -182,7 +199,7 @@ class HubTransferBulkSortingAndFleetRepairTest extends TestCase
         $driver = $this->driver($company, $truck);
 
         // Ineligible: status is delivered
-        $pIneligible = $this->parcel($hubA, $hubB, 'received');
+        $pIneligible = $this->parcel($hubA, $hubB, 'sorted');
         $pIneligible->update(['status' => 'delivered']);
 
         $response = $this->actingAs($manager)->postJson(route('hub-transfers.store'), [
@@ -247,9 +264,9 @@ class HubTransferBulkSortingAndFleetRepairTest extends TestCase
         $truck = $this->truck($company);
         $driver = $this->driver($company, $truck);
 
-        $p1 = $this->parcel($hubA, $hubB, 'received', 2.0);
+        $p1 = $this->parcel($hubA, $hubB, 'sorted', 2.0);
         $p2 = $this->parcel($hubA, $hubB, 'sorted', 3.0);
-        $p3 = $this->parcel($hubA, $hubB, 'scanned', 4.0);
+        $p3 = $this->parcel($hubA, $hubB, 'sorted', 4.0);
 
         $response = $this->actingAs($manager)->post(route('hub-transfers.store'), [
             'logistics_company_id' => $company->id,
@@ -290,7 +307,7 @@ class HubTransferBulkSortingAndFleetRepairTest extends TestCase
         $truck2 = $this->truck($company);
         $driver2 = $this->driver($company, $truck2);
 
-        $parcel = $this->parcel($hubA, $hubC, 'received', 5.0);
+        $parcel = $this->parcel($hubA, $hubC, 'sorted', 5.0);
 
         // Leg 1: A -> B
         $this->actingAs($manager)->post(route('hub-transfers.store'), [

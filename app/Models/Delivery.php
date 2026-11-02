@@ -146,8 +146,16 @@ class Delivery extends Model
         ];
     }
 
+    /** @var array{stage: string, center_id: ?int, service_area_id: ?int}|null */
+    private ?array $riderAssignmentScopeCache = null;
+
     protected static function booted(): void
     {
+        static::saved(function (Delivery $delivery): void {
+            // The stage scope depends on attributes that change as the parcel
+            // moves between hubs, so every persisted change invalidates it.
+            $delivery->flushRiderAssignmentScope();
+        });
         static::creating(function (Delivery $delivery): void {
             if (empty($delivery->tracking_number)) {
                 do {
@@ -326,6 +334,16 @@ class Delivery extends Model
         return $query->where(function ($outer) use ($centerId): void {
             $outer->where(function ($expected) use ($centerId): void {
                 $expected->where('deliveries.parcel_status', 'pending_arrival')
+                    // A seller-ready order is not an inbound parcel. Until the
+                    // pickup rider records the hub handoff it stays with the
+                    // seller and must not appear in a hub's incoming queue.
+                    ->where(function ($custody): void {
+                        $custody->whereNull('deliveries.order_id')
+                            ->orWhere(function ($handedOff): void {
+                                $handedOff->whereNotNull('deliveries.picked_up_at')
+                                    ->whereNotNull('deliveries.sorting_center_handoff_at');
+                            });
+                    })
                     ->when($centerId !== null, fn ($hub) => $hub->where('deliveries.center_id', $centerId));
             })->orWhere(function ($incoming) use ($centerId): void {
                 $incoming->whereHas('hubTransferParcels', fn ($parcel) => $parcel
@@ -402,14 +420,157 @@ class Delivery extends Model
             return ['center_id' => null, 'service_area_id' => null];
         }
         $areas ??= ServiceArea::where('is_active', true)->get();
-        $match = $areas
-            ->sortByDesc(fn ($a) => mb_strlen((string) $a->name))
-            ->first(fn ($a) => $a->name && str_contains($address, mb_strtolower($a->name)));
+        $match = self::matchServiceArea($areas, $address);
 
         return [
             'center_id' => $match?->logistics_center_id ? (int) $match->logistics_center_id : null,
             'service_area_id' => $match ? (int) $match->id : null,
         ];
+    }
+
+    /**
+     * Workflow stage that decides which hub and service area a Delivery Rider
+     * is evaluated against.
+     *
+     * - pickup: the parcel is still with the seller, so the first-mile rider
+     *   serves the seller's pickup hub and area.
+     * - hub_processing: the parcel is in hub custody (awaiting receipt, scan,
+     *   sort, or its next fleet leg). No rider may take custody.
+     * - last_mile: the parcel reached its final hub and was processed, so the
+     *   rider serves the buyer's destination hub and area.
+     *
+     * Custody evidence (pickup handoff / hub receipt), the parcel pipeline and
+     * the recipient address are used together; no single timestamp decides it.
+     */
+    public function riderAssignmentStage(): string
+    {
+        // Standalone logistics shipments have no seller-pickup leg.
+        if ($this->order_id === null) {
+            return 'last_mile';
+        }
+
+        if ($this->sorting_center_handoff_at === null && $this->received_at === null) {
+            return 'pickup';
+        }
+
+        $finalCenterId = $this->finalDestinationScope()['center_id'];
+        if ($finalCenterId !== null
+            && $this->center_id !== null
+            && (int) $this->center_id !== (int) $finalCenterId) {
+            return 'hub_processing';
+        }
+
+        // At the final hub the parcel still has to be scanned and sorted
+        // before a last-mile rider may take custody.
+        if ($this->received_at !== null
+            && ! in_array($this->parcel_status, ['sorted', 'dispatched'], true)) {
+            return 'hub_processing';
+        }
+
+        return 'last_mile';
+    }
+
+    /**
+     * The buyer-facing destination. The recipient address determines the
+     * final hub so a parcel routed through intermediate hubs is not mistaken
+     * for a last-mile parcel at the first receiving hub. The stored
+     * destination/area are the fallback when the address cannot be resolved.
+     */
+    public function finalDestinationScope(): array
+    {
+        $suggested = $this->suggestedDestination();
+
+        return [
+            'center_id' => $suggested['center_id']
+                ?: ($this->destination_center_id !== null ? (int) $this->destination_center_id : null)
+                ?: ($this->center_id !== null ? (int) $this->center_id : null),
+            'service_area_id' => $suggested['service_area_id']
+                ?: ($this->service_area_id !== null ? (int) $this->service_area_id : null),
+        ];
+    }
+
+    /** Hub the pickup rider collects for: the reviewed routing or origin hub. */
+    public function pickupHubId(): ?int
+    {
+        $requested = $this->pickupRequest()->value('center_id');
+        if ($requested !== null && (int) $requested > 0) {
+            return (int) $requested;
+        }
+
+        return $this->routeOriginId();
+    }
+
+    /**
+     * Service area implied by the seller's pickup address inside the pickup
+     * hub. Null means the address could not be matched, which keeps legacy
+     * rows assignable on the hub rule alone.
+     */
+    public function pickupServiceAreaId(): ?int
+    {
+        $address = mb_strtolower((string) $this->sender_address);
+        if ($address === '') {
+            return null;
+        }
+
+        $hubId = $this->pickupHubId();
+        $areas = ServiceArea::query()
+            ->where('is_active', true)
+            ->when($hubId !== null, fn ($query) => $query->where('logistics_center_id', $hubId))
+            ->get();
+
+        $match = self::matchServiceArea($areas, $address);
+
+        return $match ? (int) $match->id : null;
+    }
+
+    /**
+     * Hub/area a rider must belong to for the delivery's current stage,
+     * resolved once per model instance because the eligibility list compares
+     * every candidate rider against the same scope.
+     *
+     * @return array{stage: string, center_id: ?int, service_area_id: ?int}
+     */
+    public function riderAssignmentScope(): array
+    {
+        if ($this->riderAssignmentScopeCache !== null) {
+            return $this->riderAssignmentScopeCache;
+        }
+
+        $stage = $this->riderAssignmentStage();
+
+        if ($stage === 'pickup') {
+            return $this->riderAssignmentScopeCache = [
+                'stage' => 'pickup',
+                'center_id' => $this->pickupHubId(),
+                'service_area_id' => $this->pickupServiceAreaId(),
+            ];
+        }
+
+        $destination = $this->finalDestinationScope();
+
+        return $this->riderAssignmentScopeCache = [
+            'stage' => $stage,
+            'center_id' => $destination['center_id'],
+            'service_area_id' => $destination['service_area_id'],
+        ];
+    }
+
+    public function refresh()
+    {
+        $this->flushRiderAssignmentScope();
+
+        return parent::refresh();
+    }
+
+    private function flushRiderAssignmentScope(): void
+    {
+        $this->riderAssignmentScopeCache = null;
+    }
+
+    private static function matchServiceArea(?\Illuminate\Support\Collection $areas, string $address): ?ServiceArea
+    {
+        return $areas?->sortByDesc(fn ($area) => mb_strlen((string) $area->name))
+            ->first(fn ($area) => $area->name && str_contains($address, mb_strtolower((string) $area->name)));
     }
 
     public function scopeNotArchived($query)

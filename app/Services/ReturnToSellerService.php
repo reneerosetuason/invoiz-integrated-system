@@ -7,10 +7,12 @@ use App\Models\DeliveryStatusLog;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderStatusHistory;
 use App\Models\Seller;
 use App\Models\SellerNotification;
 use App\Models\User;
 use App\Support\AuditLogger;
+use App\Support\Payments;
 use App\Support\Remittances;
 use App\Support\Stock;
 use Illuminate\Support\Facades\DB;
@@ -128,7 +130,11 @@ class ReturnToSellerService
 
     public function confirm(Delivery $delivery, User $sellerUser, ?string $note = null): Delivery
     {
-        $sellerKeys = array_map('intval', Remittances::sellerKeys($sellerUser->id));
+        $sellerKeys = array_values(array_unique(array_filter([
+            (int) $sellerUser->id,
+            (int) ($sellerUser->seller?->id ?? 0),
+            ...array_map('intval', Remittances::sellerKeys($sellerUser->id)),
+        ])));
 
         return DB::transaction(function () use ($delivery, $sellerUser, $sellerKeys, $note) {
             $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
@@ -182,6 +188,26 @@ class ReturnToSellerService
                     if ($item instanceof OrderItem) {
                         Stock::restore($item);
                     }
+                }
+
+                $activeDeliveriesRemaining = $order->deliveries()
+                    ->whereNotIn('status', ['returned_to_seller', 'cancelled'])
+                    ->where('id', '!=', $locked->id)
+                    ->exists();
+
+                if (! $activeDeliveriesRemaining && $order->status !== 'cancelled') {
+                    $fromStatus = $order->status;
+                    $order->update([
+                        'status' => 'cancelled',
+                        'cancellation_reason' => 'Parcel returned to seller',
+                    ]);
+                    OrderStatusHistory::create([
+                        'order_id' => $order->id,
+                        'from_status' => $fromStatus,
+                        'to_status' => 'cancelled',
+                        'note' => 'Order cancelled: parcel confirmed returned to seller. Stock restored.',
+                    ]);
+                    Payments::voidForCancel($order);
                 }
             }
 

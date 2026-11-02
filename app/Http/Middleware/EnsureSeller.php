@@ -23,6 +23,11 @@ class EnsureSeller
             return redirect('/seller/login')->withErrors(['email' => 'Your account is not active.']);
         }
 
+        if (! $user->hasVerifiedEmail()) {
+            return redirect()->route('verification.notice', ['email' => $user->email])
+                ->with('error', 'Please verify your email address first.');
+        }
+
         // Seller approval changes the account role to "seller" while buyer
         // access remains available, so validate the approved store record.
         $seller = Seller::where('user_id', $user->id)

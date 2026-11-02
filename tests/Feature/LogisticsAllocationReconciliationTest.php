@@ -206,6 +206,9 @@ class LogisticsAllocationReconciliationTest extends TestCase
             'receiving_status' => 'pending',
         ]);
 
+        // Each leg may only dispatch after the origin hub finished sorting.
+        $delivery->update(['parcel_status' => 'sorted']);
+
         HubTransferService::dispatch($transfer);
         HubTransferService::arrive($transfer->fresh());
         HubTransferService::receiveParcel($transfer->fresh(), $delivery->id, 'good', null);
@@ -292,12 +295,21 @@ class LogisticsAllocationReconciliationTest extends TestCase
         [$firstLeg, $firstDriver] = $this->runTransfer($company, $hubA, $hubB, $delivery);
         [$secondLeg, $secondDriver] = $this->runTransfer($company, $hubB, $hubC, $delivery->fresh());
 
-        $earnings = HubTransferEarning::where('delivery_id', $delivery->id)->get();
-        $this->assertCount(1, $earnings);
-        $this->assertEqualsWithDelta(20.0, (float) $earnings->first()->amount, 0.001);
-        $this->assertSame($firstDriver->id, (int) $earnings->first()->hub_transport_driver_id);
-        $this->assertSame($firstLeg->id, (int) $earnings->first()->hub_transfer_id);
-        $this->assertNotSame($secondDriver->id, (int) $earnings->first()->hub_transport_driver_id);
+        // Driver pay is trip-based: one row per completed leg, attributed to
+        // the driver and truck of that leg only.
+        $firstEarning = HubTransferEarning::where('hub_transfer_id', $firstLeg->id)->get();
+        $this->assertCount(1, $firstEarning);
+        $this->assertEqualsWithDelta(20.0, (float) $firstEarning->first()->amount, 0.001);
+        $this->assertSame($firstDriver->id, (int) $firstEarning->first()->hub_transport_driver_id);
+        $this->assertNull($firstEarning->first()->delivery_id);
+
+        $secondEarning = HubTransferEarning::where('hub_transfer_id', $secondLeg->id)->get();
+        $this->assertCount(1, $secondEarning);
+        $this->assertSame($secondDriver->id, (int) $secondEarning->first()->hub_transport_driver_id);
+        $this->assertNotSame($firstDriver->id, (int) $secondEarning->first()->hub_transport_driver_id);
+
+        // Trip credits are not duplicated onto the parcel's delivery row.
+        $this->assertSame(0, HubTransferEarning::where('delivery_id', $delivery->id)->count());
 
         $calc = EscrowEarnings::calculateForSeller($order->fresh(), $sellerId, $delivery->fresh());
         $this->assertSame($hubA->id, $calc['origin_center_id']);
@@ -317,11 +329,12 @@ class LogisticsAllocationReconciliationTest extends TestCase
             'center_id' => $origin->id,
             'destination_center_id' => $destination->id,
             'sorting_center_handoff_rider_id' => $this->rider($origin->id)->id,
-            'parcel_status' => 'received',
+            'parcel_status' => 'sorted',
         ]);
         $other = $this->delivery($secondOrder, $secondSellerId, [
             'center_id' => $origin->id,
             'destination_center_id' => $destination->id,
+            'parcel_status' => 'sorted',
         ]);
 
         $truck = LogisticsTruck::create([
@@ -372,8 +385,9 @@ class LogisticsAllocationReconciliationTest extends TestCase
         HubTransferService::receiveParcel($transfer->fresh(), $other->id, 'good', null);
         HubTransferService::complete($transfer->fresh());
 
-        $this->assertSame(1, HubTransferEarning::where('delivery_id', $delivery->id)->count());
-        $this->assertSame(1, HubTransferEarning::where('delivery_id', $other->id)->count());
+        $this->assertSame(1, HubTransferEarning::where('hub_transfer_id', $transfer->id)->count());
+        $this->assertSame(0, HubTransferEarning::where('delivery_id', $delivery->id)->count());
+        $this->assertSame(0, HubTransferEarning::where('delivery_id', $other->id)->count());
 
         // Pickup credit belongs to parcels received from the pickup rider
         // before any transfer leg exists. Retrying the same receipt is free.

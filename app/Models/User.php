@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Notifications\ResetPasswordMail;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -200,6 +201,11 @@ class User extends Authenticatable
         return $this->belongsTo(LogisticsCompany::class, 'logistics_company_id');
     }
 
+    public function serviceArea()
+    {
+        return $this->belongsTo(ServiceArea::class, 'service_area_id');
+    }
+
     public function isStaff(): bool
     {
         // Both legacy 'staff' and 'logistics_staff' work the counter:
@@ -213,8 +219,8 @@ class User extends Authenticatable
     public function roleLabel(): string
     {
         return match ($this->role) {
-            'admin' => 'Logistics Manager',
-            'logistics_admin' => $this->isLogisticsAdmin() ? 'Logistics Admin' : 'Unassigned Logistics Admin',
+            'admin' => 'Logistics Admin',
+            'logistics_admin' => 'Logistics Admin',
             'staff' => 'Logistics Staff',
             'logistics_staff' => 'Logistics Staff',
             'rider' => 'Rider',
@@ -325,14 +331,23 @@ class User extends Authenticatable
     {
         try {
             $path = LogisticsSetting::where('user_id', $this->id)->value('photo_path');
+            if ($path && file_exists(public_path($path))) {
+                return asset($path);
+            }
         } catch (\Throwable $e) {
-            return null;
-        }
-        if (! $path || ! file_exists(public_path($path))) {
-            return null;
+            // fall through
         }
 
-        return asset($path);
+        if (! empty($this->profile_picture)) {
+            if (file_exists(public_path($this->profile_picture))) {
+                return asset($this->profile_picture);
+            }
+            if (file_exists(storage_path('app/public/' . $this->profile_picture))) {
+                return asset('storage/' . $this->profile_picture);
+            }
+        }
+
+        return null;
     }
 
     public function products()
@@ -421,6 +436,11 @@ class User extends Authenticatable
         // build route('password.reset'), which collides with the logistics
         // auth route names.)
         $this->notify(new ResetPasswordMail($token));
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new \App\Notifications\VerifyEmailNotification($this->otp));
     }
 
     public function isSeller()

@@ -241,7 +241,7 @@ void main() {
     await tester.ensureVisible(find.text('Continue'));
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('Choose your Rider Type'), findsOneWidget);
+    expect(find.text('Choose your work schedule'), findsOneWidget);
   });
 
   testWidgets('Continue without verification is rejected', (tester) async {
@@ -254,7 +254,7 @@ void main() {
       find.text('Please verify your email address first.'),
       findsOneWidget,
     );
-    expect(find.text('Choose your Rider Type'), findsNothing);
+    expect(find.text('Choose your work schedule'), findsNothing);
   });
 
   testWidgets('changing email resets verification', (tester) async {

@@ -44,7 +44,8 @@ class RiderPasswordResetController extends Controller
         ]);
 
         $email = Str::lower(trim($validated['email']));
-        $user = User::where('email', $email)->where('role', 'rider')->first();
+        $driver = \App\Models\HubTransportDriver::whereRaw('LOWER(email) = ?', [$email])->first();
+        $user = User::where('email', $email)->where('role', 'rider')->first() ?: $driver?->user;
 
         if ($user && $user->isActive()) {
             $this->sendResetLink($user);
@@ -67,7 +68,8 @@ class RiderPasswordResetController extends Controller
         ]);
 
         $email = Str::lower(trim($validated['email']));
-        $user = User::where('email', $email)->where('role', 'rider')->first();
+        $driver = \App\Models\HubTransportDriver::whereRaw('LOWER(email) = ?', [$email])->first();
+        $user = User::where('email', $email)->where('role', 'rider')->first() ?: $driver?->user;
 
         // One generic failure for: unknown email, non-rider, inactive
         // account, wrong/expired/used token. Never reveal which one.
@@ -80,9 +82,15 @@ class RiderPasswordResetController extends Controller
             return $this->invalidToken();
         }
 
-        $user->forceFill(['password' => Hash::make($validated['password'])])->save();
+        $newPassword = Hash::make($validated['password']);
+        $user->forceFill(['password' => $newPassword])->save();
         $broker->deleteToken($user);
         $user->tokens()->delete();
+
+        if ($driver) {
+            $driver->update(['password' => $newPassword]);
+            $driver->tokens()->delete();
+        }
 
         event(new PasswordReset($user));
 

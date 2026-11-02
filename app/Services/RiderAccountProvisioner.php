@@ -50,7 +50,8 @@ class RiderAccountProvisioner
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            if ($application->status !== 'pending') {
+            $isRepeatedApproval = $application->status === 'approved';
+            if (! $isRepeatedApproval && $application->status !== 'pending') {
                 abort(422, 'Only pending applications can be approved.');
             }
 
@@ -104,7 +105,8 @@ class RiderAccountProvisioner
                 // are preserved and the rider profile is simply linked (no
                 // center assignment on the user row either, so no staff
                 // surface is granted implicitly).
-                if ($user->keepsOwnLogin()) {
+                // On repeated approval, never overwrite the existing working password.
+                if ($user->keepsOwnLogin() || $isRepeatedApproval) {
                     $user->update([
                         'first_name' => $user->first_name ?: $first,
                         'last_name' => $user->last_name ?: $last,
@@ -122,7 +124,7 @@ class RiderAccountProvisioner
                 }
             }
 
-            $rider = Rider::where('email', $email)->first();
+            $rider = Rider::where('user_id', $user->id)->first() ?? Rider::where('email', $email)->first();
             if (! $rider) {
                 $rider = Rider::create([
                     'user_id' => $user->id,
@@ -148,43 +150,45 @@ class RiderAccountProvisioner
                     'service_area_id' => $area->id,
                     'name' => $application->name,
                     'phone' => $application->phone,
-                    'license_number' => $application->license_number,
-                    'license_expiry' => $application->license_expiry,
-                    'vehicle_registration' => $application->vehicle_registration,
-                    'status' => 'available',
+                    'license_number' => $application->license_number ?: $rider->license_number,
+                    'license_expiry' => $application->license_expiry ?: $rider->license_expiry,
+                    'vehicle_registration' => $application->vehicle_registration ?: $rider->vehicle_registration,
+                    'status' => $rider->status === 'inactive' ? 'available' : $rider->status,
                     'is_verified' => true,
-                    'approved_at' => now(),
+                    'approved_at' => $rider->approved_at ?: now(),
                     'vehicle_verification' => 'verified',
                 ]);
             }
 
             $application->update([
                 'status' => 'approved',
-                'reviewed_at' => now(),
+                'reviewed_at' => $application->reviewed_at ?: now(),
                 'approved_by' => $admin->id,
                 'center_id' => $center->id,
                 'service_area_id' => $area->id,
-                'provisioned_at' => now(),
+                'provisioned_at' => $application->provisioned_at ?: now(),
                 'notes' => $settings['notes'] ?? ($application->notes),
             ]);
 
             RiderApplicationLog::create([
                 'rider_application_id' => $application->id,
-                'previous_status' => 'pending',
+                'previous_status' => $isRepeatedApproval ? 'approved' : 'pending',
                 'new_status' => 'approved',
                 'changed_by' => $admin->id,
-                'reason' => $settings['notes'] ?? 'Approved and rider account provisioned.',
+                'reason' => $settings['notes'] ?? ($isRepeatedApproval ? 'Repeated approval confirmed.' : 'Approved and rider account provisioned.'),
             ]);
 
-            Notification::create([
-                'type' => 'rider_approved',
-                'title' => 'Rider Approved',
-                'message' => "{$application->name} was approved and a rider account was provisioned.",
-                'icon' => 'check',
-                'priority' => 'high',
-                'audience' => 'admin',
-                'link' => null,
-            ]);
+            if (! $isRepeatedApproval) {
+                Notification::create([
+                    'type' => 'rider_approved',
+                    'title' => 'Rider Approved',
+                    'message' => "{$application->name} was approved and a rider account was provisioned.",
+                    'icon' => 'check',
+                    'priority' => 'high',
+                    'audience' => 'admin',
+                    'link' => null,
+                ]);
+            }
 
             return $rider;
         });

@@ -9,7 +9,9 @@ use App\Models\HubTransferEvent;
 use App\Models\HubTransferParcel;
 use App\Models\HubTransportDriver;
 use App\Models\LogisticsTruck;
+use App\Support\HubTransferProgress;
 use App\Support\LogisticsVehicleCategory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,12 +38,70 @@ class HubCourierController extends Controller
         return response()->json(['courier' => $this->profilePayload($driver)]);
     }
 
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:160',
+            'phone' => 'sometimes|nullable|string|max:30',
+        ]);
+
+        $driver->update($validated);
+
+        if (array_key_exists('phone', $validated) && $driver->user) {
+            $driver->user->update(['phone' => $validated['phone']]);
+        }
+
+        return response()->json([
+            'message' => 'Profile updated successfully.',
+            'courier' => $this->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck'])),
+        ]);
+    }
+
+    public function updatePhoto(Request $request): JsonResponse
+    {
+        $request->validate([
+            'photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:4096',
+        ]);
+
+        $driver = $this->driver($request);
+        $stored = $request->file('photo')->store('avatars', 'public');
+
+        if ($driver->avatar && \Illuminate\Support\Facades\Storage::disk('public')->exists($driver->avatar)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($driver->avatar);
+        }
+
+        $driver->update(['avatar' => $stored]);
+
+        if ($driver->user) {
+            $driver->user->update(['profile_picture' => $stored]);
+        }
+
+        return response()->json([
+            'message' => 'Profile photo updated successfully.',
+            'courier' => $this->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck'])),
+        ]);
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
         $driver = $this->driver($request)->load(['company', 'truck', 'ownedTruck']);
-        $transfers = HubTransfer::with(['origin', 'destination', 'truck', 'parcels.delivery'])
-            ->where('driver_id', $driver->id)->where('logistics_company_id', $driver->logistics_company_id)
+        $transfers = $this->driverTransfers($driver)
+            ->with(['origin', 'destination', 'truck', 'company', 'parcels.delivery', 'events'])
             ->latest()->limit(50)->get();
+
+        // Completed trips are counted independently of the dashboard's display
+        // window. Deriving the count from the latest 50 rows under-reported
+        // trips once a driver had more recent assignments.
+        $completedTrips = $this->driverTransfers($driver)
+            ->where('status', 'received')
+            ->orderByDesc('received_at')
+            ->orderByDesc('id');
+
+        $completedTransfers = (clone $completedTrips)
+            ->with(['origin', 'destination', 'truck', 'company', 'parcels.delivery', 'events'])
+            ->limit(10)
+            ->get();
 
         $earnings = \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)
             ->whereIn('recipient_role', ['driver', \App\Models\HubTransferEarning::ROLE_INTER_HUB_DRIVER])
@@ -56,12 +116,12 @@ class HubCourierController extends Controller
             'courier' => $this->profilePayload($driver),
             'active_transfer' => $this->transferPayload($transfers->first(fn ($t) => in_array($t->status, HubTransfer::ACTIVE_STATUSES, true))),
             'available_transfers' => $transfers->filter(fn ($t) => ! in_array($t->status, ['received', 'cancelled'], true))->map(fn ($t) => $this->transferPayload($t))->values(),
-            'completed_transfers' => $transfers->where('status', 'received')->take(10)->map(fn ($t) => $this->transferPayload($t))->values(),
+            'completed_transfers' => $completedTransfers->map(fn ($t) => $this->transferPayload($t))->values(),
             'earnings_summary' => [
                 'total_earnings' => (float) $earnings->sum('amount'),
                 'base_earnings' => (float) $earnings->sum('base_amount'),
                 'vehicle_allowance' => (float) $earnings->sum('vehicle_allowance'),
-                'completed_trips_count' => $transfers->where('status', 'received')->count(),
+                'completed_trips_count' => (clone $completedTrips)->count(),
             ],
             'recent_incidents' => $recentIncidents->map(fn ($inc) => [
                 'id' => $inc->id,
@@ -79,7 +139,7 @@ class HubCourierController extends Controller
     {
         $driver = $this->driver($request);
         $roles = ['driver', \App\Models\HubTransferEarning::ROLE_INTER_HUB_DRIVER];
-        $earnings = \App\Models\HubTransferEarning::with('hubTransfer')
+        $earnings = \App\Models\HubTransferEarning::with('transfer')
             ->where('hub_transport_driver_id', $driver->id)
             ->whereIn('recipient_role', $roles)
             ->latest()
@@ -298,6 +358,132 @@ class HubCourierController extends Controller
         return $this->show($request, $transfer);
     }
 
+    public function transfers(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $validated = $request->validate([
+            'filter' => 'sometimes|string|in:all,active,pending,ready,in_transit,completed',
+        ]);
+        $filter = (string) ($validated['filter'] ?? 'all');
+
+        $query = $this->driverTransfers($driver)->with(['origin', 'destination', 'truck', 'parcels.delivery', 'events']);
+
+        // Filters share HubTransfer's lifecycle with the dashboard counters so
+        // a completed trip is selected by the same status everywhere.
+        match ($filter) {
+            'active' => $query->whereIn('status', HubTransfer::ACTIVE_STATUSES),
+            'pending' => $query->whereIn('status', ['pending', 'assigned', 'loading']),
+            'ready' => $query->where('status', 'ready_for_dispatch'),
+            'in_transit' => $query->where('status', 'in_transit'),
+            'completed' => $query->where('status', 'received'),
+            default => $query,
+        };
+
+        $transfers = $query->latest()->get();
+
+        return response()->json([
+            'filter' => $filter,
+            'transfers' => $transfers->map(fn ($t) => $this->transferPayload($t))->values(),
+        ]);
+    }
+
+    public function updatePassword(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::defaults(), 'confirmed'],
+        ]);
+
+        if (! $driver->password || ! Hash::check($validated['current_password'], $driver->password)) {
+            return response()->json([
+                'message' => 'The current password is incorrect.',
+                'errors' => [
+                    'current_password' => ['The current password is incorrect.'],
+                ],
+            ], 422);
+        }
+
+        $newHash = Hash::make($validated['password']);
+        $driver->update(['password' => $newHash]);
+
+        if ($driver->user) {
+            $driver->user->update(['password' => $newHash]);
+        }
+
+        return response()->json([
+            'message' => 'Password changed successfully.',
+        ]);
+    }
+
+    public function notifications(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $transfers = HubTransfer::with(['origin', 'destination', 'events'])
+            ->where('driver_id', $driver->id)
+            ->where('logistics_company_id', $driver->logistics_company_id)
+            ->latest()
+            ->take(20)
+            ->get();
+
+        $notifications = collect();
+
+        foreach ($transfers as $transfer) {
+            $notifications->push([
+                'id' => 100000 + $transfer->id,
+                'type' => 'hub_transfer_assignment',
+                'title' => 'Assigned Transfer: ' . $transfer->reference,
+                'body' => "Manifest {$transfer->reference} from {$transfer->origin?->name} to {$transfer->destination?->name}. Status: {$transfer->status}.",
+                'data' => [
+                    'hub_transfer_id' => $transfer->id,
+                    'reference' => $transfer->reference,
+                    'status' => $transfer->status,
+                ],
+                'is_read' => in_array($transfer->status, ['received', 'cancelled'], true),
+                'created_at' => $transfer->created_at?->toIso8601String(),
+            ]);
+
+            foreach ($transfer->events as $event) {
+                $notifications->push([
+                    'id' => 200000 + $event->id,
+                    'type' => 'transfer_update',
+                    'title' => ucwords(str_replace('_', ' ', (string) $event->event_type)) . ': ' . $transfer->reference,
+                    'body' => $event->notes ?: "Transfer {$transfer->reference} update: {$event->event_type}.",
+                    'data' => [
+                        'hub_transfer_id' => $transfer->id,
+                        'event_type' => $event->event_type,
+                    ],
+                    'is_read' => true,
+                    'created_at' => $event->created_at?->toIso8601String(),
+                ]);
+            }
+        }
+
+        $sorted = $notifications->sortByDesc('created_at')->values();
+
+        return response()->json([
+            'notifications' => $sorted,
+            'unread_count' => $sorted->where('is_read', false)->count(),
+            'pagination' => [
+                'current_page' => 1,
+                'last_page' => 1,
+                'total' => $sorted->count(),
+                'per_page' => 20,
+            ],
+        ]);
+    }
+
+    public function markNotificationRead(Request $request, int $id): JsonResponse
+    {
+        return response()->json(['message' => 'Notification marked as read.']);
+    }
+
+    public function markAllNotificationsRead(Request $request): JsonResponse
+    {
+        return response()->json(['message' => 'All notifications marked as read.']);
+    }
+
     private function driver(Request $request): HubTransportDriver
     {
         $driver = $request->user();
@@ -305,6 +491,13 @@ class HubCourierController extends Controller
         abort_unless($driver->status !== 'inactive' && $driver->company?->status === 'active', 403, 'Hub transport driver account is not active.');
 
         return $driver;
+    }
+
+    private function driverTransfers(HubTransportDriver $driver): Builder
+    {
+        return HubTransfer::query()
+            ->where('driver_id', $driver->id)
+            ->where('logistics_company_id', $driver->logistics_company_id);
     }
 
     private function assignedTransfer(Request $request, int $id): HubTransfer
@@ -331,7 +524,7 @@ class HubCourierController extends Controller
             && $truck->verification_status === 'approved';
     }
 
-    private function profilePayload(HubTransportDriver $driver): array
+    public function profilePayload(HubTransportDriver $driver): array
     {
         $assignedTruck = $driver->truck;
         $ownedTruck = $driver->ownedTruck;
@@ -345,6 +538,7 @@ class HubCourierController extends Controller
             'name' => $driver->name,
             'email' => $driver->email,
             'phone' => $driver->phone,
+            'avatar' => $driver->avatar,
             'company' => $driver->company?->name,
             'status' => $driver->status,
             'is_online' => $driver->is_online,
@@ -373,19 +567,37 @@ class HubCourierController extends Controller
         if (! $transfer) {
             return null;
         }
-        $parcels = $transfer->parcels->where('loading_status', '!=', 'removed');
+        $parcels = $transfer->parcels->where('loading_status', '!=', 'removed')->values();
+        $totalWeight = $parcels->isNotEmpty() && $parcels->every(fn ($p) => $p->delivery?->weight !== null)
+            ? round($parcels->sum(fn ($p) => (float) $p->delivery->weight), 2)
+            : null;
 
-        return ['id' => $transfer->id, 'reference' => $transfer->reference, 'status' => $transfer->status, 'notes' => $transfer->notes,
+        return ['id' => $transfer->id, 'reference' => $transfer->reference, 'status' => $transfer->status,
+            'status_label' => HubTransferProgress::transferLabel((string) $transfer->status), 'notes' => $transfer->notes,
             'planned_dispatch_at' => $transfer->planned_dispatch_at?->toIso8601String(), 'origin_arrived_at' => $transfer->origin_arrived_at?->toIso8601String(),
-            'destination_arrived_at' => $transfer->destination_arrived_at?->toIso8601String(), 'company' => $transfer->company?->name,
+            'dispatched_at' => $transfer->dispatched_at?->toIso8601String(),
+            'destination_arrived_at' => $transfer->destination_arrived_at?->toIso8601String(),
+            'received_at' => $transfer->received_at?->toIso8601String(), 'company' => $transfer->company?->name,
             'origin' => $transfer->origin ? ['id' => $transfer->origin->id, 'name' => $transfer->origin->name, 'address' => $transfer->origin->address] : null,
             'destination' => $transfer->destination ? ['id' => $transfer->destination->id, 'name' => $transfer->destination->name, 'address' => $transfer->destination->address] : null,
-            'vehicle' => $transfer->truck ? ['type' => $transfer->truck->vehicle_type, 'plate_number' => $transfer->truck->plate_number,
+            'vehicle' => $transfer->truck ? ['type' => $transfer->truck->vehicle_type, 'model' => $transfer->truck->model,
+                'plate_number' => $transfer->truck->plate_number,
                 'parcel_capacity' => (int) $transfer->truck->parcel_capacity, 'capacity_kg' => (float) $transfer->truck->capacity_kg] : null,
             'parcel_count' => $parcels->count(), 'loaded_count' => $parcels->where('loading_status', 'loaded')->count(),
-            'total_weight_kg' => $parcels->every(fn ($p) => $p->delivery?->weight !== null) ? $parcels->sum(fn ($p) => (float) $p->delivery->weight) : null,
-            'parcels' => $parcels->map(fn ($p) => ['tracking_number' => $p->delivery?->tracking_number, 'loading_status' => $p->loading_status,
-                'receiving_status' => $p->receiving_status, 'condition' => $p->condition, 'exception_reason' => $p->exception_reason])->values(),
+            'received_count' => $parcels->where('receiving_status', 'received')->count(),
+            'missing_count' => $parcels->where('receiving_status', 'missing')->count(),
+            'total_weight_kg' => $totalWeight,
+            'parcels' => $parcels->map(function ($p) use ($transfer): array {
+                $stage = HubTransferProgress::parcelStage($transfer, $p);
+
+                return ['id' => $p->delivery_id, 'tracking_number' => $p->delivery?->tracking_number,
+                    'weight_kg' => $p->delivery?->weight !== null ? (float) $p->delivery->weight : null,
+                    'loading_status' => $p->loading_status, 'receiving_status' => $p->receiving_status,
+                    'condition' => $p->condition, 'exception_reason' => $p->exception_reason,
+                    'journey_status' => $stage['status'], 'journey_label' => $stage['label'],
+                    'parcel_status' => $p->delivery?->parcel_status,
+                    'loaded_at' => $p->loaded_at?->toIso8601String(), 'received_at' => $p->received_at?->toIso8601String()];
+            })->values(),
             'events' => $transfer->events->map(fn ($e) => ['type' => $e->event_type, 'notes' => $e->notes, 'at' => $e->created_at?->toIso8601String()])->values()];
     }
 

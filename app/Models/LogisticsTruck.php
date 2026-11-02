@@ -131,8 +131,20 @@ class LogisticsTruck extends Model
     {
         return LogisticsVehicleCategory::for($this->vehicle_type) === 'four_wheel'
             && $this->isApproved()
-            && ! in_array($this->status, [self::STATUS_MAINTENANCE, self::STATUS_DAMAGED, self::STATUS_RETIRED, self::STATUS_INACTIVE], true)
+            && ! in_array($this->status, [self::STATUS_IN_TRANSIT, self::STATUS_MAINTENANCE, self::STATUS_DAMAGED, self::STATUS_RETIRED, self::STATUS_INACTIVE], true)
             && (int) $this->parcel_capacity > 0
             && (float) $this->capacity_kg > 0;
+    }
+
+    /**
+     * A truck with an active transfer (other than an explicitly excluded one)
+     * must never be paired with another driver or added to a second manifest.
+     */
+    public function hasActiveTransfer(?int $exceptTransferId = null): bool
+    {
+        return $this->transfers()
+            ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+            ->when($exceptTransferId !== null, fn ($query) => $query->whereKeyNot($exceptTransferId))
+            ->exists();
     }
 }

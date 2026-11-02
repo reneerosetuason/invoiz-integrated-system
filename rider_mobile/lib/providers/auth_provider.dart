@@ -58,7 +58,8 @@ class AuthProvider extends ChangeNotifier {
     // Fall back to the cached profile so the splash resolves offline.
     final cached = await _storage.readCachedUser();
     if (cached != null) {
-      if (cached['workflow_type'] == 'hub_courier') {
+      if (cached['workflow_type'] == 'hub_courier' ||
+          cached['workflow_type'] == 'hub_transport_driver') {
         _courier = HubCourier.fromJson(
           Map<String, dynamic>.from(cached['courier'] as Map? ?? {}),
         );
@@ -107,36 +108,51 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      try {
-        final result = await _authService.login(
-          email: email,
-          password: password,
-        );
-        _api.setToken(result.token);
-        await _storage.saveToken(result.token);
-        _rider = result.rider;
-        _courier = null;
-        await _persistUser(result.rider);
-        _status = AuthStatus.authenticated;
-        notifyListeners();
-        return true;
-      } on ApiException catch (riderError) {
-        // A Hub Transport Driver email is not a `users` account, so the delivery
-        // rider endpoint answers with a validation error. Only then do we
-        // try the separate Hub Transport Driver credential store; rider tokens and
-        // permissions are never shared between the two workflows.
-        if (riderError.type != ApiErrorType.validation) rethrow;
-        final result = await _courierService.login(email, password);
-        _api.setToken(result.token);
-        await _storage.saveToken(result.token);
+      final result = await _authService.login(
+        email: email,
+        password: password,
+      );
+      _api.setToken(result.token);
+      await _storage.saveToken(result.token);
+
+      if (result.accountType == 'hub_transport_driver' ||
+          result.courier != null) {
         _courier = result.courier;
         _rider = null;
-        await _persistCourier(result.courier);
-        _status = AuthStatus.authenticated;
-        notifyListeners();
-        return true;
+        if (_courier != null) {
+          await _persistCourier(_courier!);
+        }
+      } else {
+        _rider = result.rider;
+        _courier = null;
+        if (_rider != null) {
+          await _persistUser(_rider!);
+        }
       }
+
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+      return true;
     } on ApiException catch (e) {
+      // Robustness fallback: if legacy backend endpoint rejected hub driver with 403/422,
+      // attempt legacy hub courier endpoint.
+      if (e.statusCode == 403 ||
+          e.type == ApiErrorType.validation ||
+          e.type == ApiErrorType.forbidden) {
+        try {
+          final result = await _courierService.login(email, password);
+          _api.setToken(result.token);
+          await _storage.saveToken(result.token);
+          _courier = result.courier;
+          _rider = null;
+          await _persistCourier(result.courier);
+          _status = AuthStatus.authenticated;
+          notifyListeners();
+          return true;
+        } on ApiException {
+          // Keep the original error from primary login endpoint.
+        } catch (_) {}
+      }
       _error = e.message;
       _status = AuthStatus.unauthenticated;
       notifyListeners();
@@ -181,6 +197,12 @@ class AuthProvider extends ChangeNotifier {
   void updateRider(Rider rider) {
     _rider = rider;
     _persistUser(rider);
+    notifyListeners();
+  }
+
+  void updateCourier(HubCourier courier) {
+    _courier = courier;
+    _persistCourier(courier);
     notifyListeners();
   }
 

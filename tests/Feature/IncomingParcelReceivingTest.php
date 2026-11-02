@@ -8,6 +8,8 @@ use App\Models\HubTransferParcel;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
 use App\Models\Order;
+use App\Models\PickupRequest;
+use App\Models\Rider;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -86,6 +88,32 @@ class IncomingParcelReceivingTest extends TestCase
         ], $extra));
     }
 
+    private function pickupRider(LogisticsCenter $center): Rider
+    {
+        $user = User::create([
+            'name' => 'Pickup Rider',
+            'email' => 'pickup-rider-'.bin2hex(random_bytes(6)).'@test.local',
+            'password' => Hash::make('secret123'),
+            'role' => 'rider',
+            'status' => 'active',
+        ]);
+
+        return Rider::create([
+            'user_id' => $user->id,
+            'center_id' => $center->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => '09170000000',
+            'vehicle_type' => 'motorcycle',
+            'status' => 'available',
+            'is_online' => true,
+            'approved_at' => now(),
+            'is_verified' => true,
+            'vehicle_verification' => 'verified',
+            'license_expiry' => now()->addYear(),
+        ]);
+    }
+
     /**
      * 1. An eligible incoming parcel can be received.
      */
@@ -121,10 +149,14 @@ class IncomingParcelReceivingTest extends TestCase
         $staff = $this->staff($company, $center);
 
         $order = $this->order('delivered');
+        $rider = $this->pickupRider($center);
         $delivery = $this->delivery($center, [
             'order_id' => $order->id,
-            'status' => 'waiting_for_rider',
+            'status' => 'picked_up',
             'parcel_status' => 'pending_arrival',
+            'picked_up_at' => now(),
+            'sorting_center_handoff_at' => now(),
+            'sorting_center_handoff_rider_id' => $rider->id,
         ]);
 
         $this->actingAs($staff)
@@ -223,10 +255,14 @@ class IncomingParcelReceivingTest extends TestCase
         $staff = $this->staff($company, $center);
 
         $order = $this->order('ready_for_delivery');
+        $rider = $this->pickupRider($center);
         $delivery = $this->delivery($center, [
             'order_id' => $order->id,
-            'status' => 'waiting_for_rider',
+            'status' => 'picked_up',
             'parcel_status' => 'pending_arrival',
+            'picked_up_at' => now(),
+            'sorting_center_handoff_at' => now(),
+            'sorting_center_handoff_rider_id' => $rider->id,
         ]);
 
         $this->actingAs($staff)

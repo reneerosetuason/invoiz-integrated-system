@@ -16,9 +16,11 @@ use App\Models\ServiceArea;
 use App\Models\User;
 use App\Models\VehicleType;
 use App\Services\HubTransferService;
+use App\Services\HubTransportDriverProvisioner;
 use App\Services\RiderAccountProvisioner;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -153,6 +155,30 @@ class HubTransportDriverApplicationWorkflowTest extends TestCase
             'drivers_license' => UploadedFile::fake()->create('license.jpg', 100, 'image/jpeg'),
             'other' => UploadedFile::fake()->create('clearance.pdf', 100, 'application/pdf'),
         ];
+    }
+
+    private function approvedHubApplication(LogisticsCompany $company, LogisticsCenter $center, string $email): RiderApplication
+    {
+        $application = RiderApplication::create([
+            'name' => 'Hub Driver Resend '.(++$this->seq),
+            'email' => $email,
+            'phone' => $this->uniquePhone(),
+            'birthday' => '1991-02-02',
+            'sex' => 'male',
+            'address' => 'Manila',
+            'application_type' => 'hub_transport_driver',
+            'license_number' => 'N09-'.rand(100000, 999999),
+            'license_expiry' => now()->addYears(2),
+            'status' => 'pending',
+            'submitted_via' => 'mobile',
+        ]);
+
+        app(HubTransportDriverProvisioner::class)->approve($application, $this->manager(), [
+            'center_id' => $center->id,
+            'password' => 'DriverPass123!',
+        ]);
+
+        return $application->fresh();
     }
 
     public function test_vehicle_types_returns_two_wheel_by_default_and_four_wheel_when_requested(): void
@@ -522,6 +548,135 @@ class HubTransportDriverApplicationWorkflowTest extends TestCase
 
         // Password hash must remain exactly identical (never overwritten)
         $this->assertSame($initialPasswordHash, $driver->fresh()->password);
+    }
+
+    public function test_resend_hub_approval_email_keeps_password_and_does_not_duplicate_accounts(): void
+    {
+        $company = $this->company();
+        $center = $this->center($company);
+        $email = $this->uniqueEmail('resend-approved');
+        $app = $this->approvedHubApplication($company, $center, $email);
+
+        $driver = HubTransportDriver::where('email', $email)->firstOrFail();
+        $user = User::where('email', $email)->firstOrFail();
+        $driverHash = $driver->password;
+        $userHash = $user->password;
+
+        $response = $this->actingAs($this->manager())
+            ->post(route('rider-applications.resend-credentials', $app));
+
+        $response->assertRedirect(route('rider-applications.show', $app))
+            ->assertSessionHas('success', fn ($message) => str_contains($message, 'Approval notice resent')
+                && str_contains($message, 'Existing password remains unchanged'));
+
+        // Approval mail + resent mail; the resent notice must not include a password.
+        Mail::assertSent(RiderAccountApprovedMail::class, 2);
+        Mail::assertSent(RiderAccountApprovedMail::class, fn ($mail) => $mail->temporaryPassword === null
+            && $mail->hasTo($email));
+
+        $freshApp = $app->fresh();
+        $this->assertSame('approved', $freshApp->status);
+        $this->assertNotNull($freshApp->provisioned_at);
+        $this->assertSame($driver->id, $freshApp->hub_transport_driver_id);
+        $this->assertSame($driverHash, HubTransportDriver::whereKey($driver->id)->value('password'));
+        $this->assertSame($userHash, User::whereKey($user->id)->value('password'));
+        $this->assertSame(1, HubTransportDriver::where('email', $email)->count());
+        $this->assertSame(1, User::where('email', $email)->count());
+        $this->assertSame(1, RiderApplication::where('email', $email)->count());
+    }
+
+    public function test_repeated_resend_clicks_resend_without_creating_duplicates(): void
+    {
+        $company = $this->company();
+        $center = $this->center($company);
+        $email = $this->uniqueEmail('resend-repeat');
+        $app = $this->approvedHubApplication($company, $center, $email);
+
+        $driver = HubTransportDriver::where('email', $email)->firstOrFail();
+        $driverHash = $driver->password;
+
+        $manager = $this->manager();
+        $this->actingAs($manager)->post(route('rider-applications.resend-credentials', $app))
+            ->assertRedirect()->assertSessionHas('success');
+        $this->actingAs($manager)->post(route('rider-applications.resend-credentials', $app))
+            ->assertRedirect()->assertSessionHas('success');
+
+        Mail::assertSent(RiderAccountApprovedMail::class, 3);
+        $this->assertSame($driverHash, HubTransportDriver::whereKey($driver->id)->value('password'));
+        $this->assertSame(1, HubTransportDriver::where('email', $email)->count());
+        $this->assertSame(1, User::where('email', $email)->count());
+        $this->assertSame(1, RiderApplication::where('email', $email)->count());
+        $this->assertSame('approved', $app->fresh()->status);
+    }
+
+    public function test_resend_hub_approval_email_rejects_pending_application(): void
+    {
+        $app = RiderApplication::create([
+            'name' => 'Pending Hub Driver',
+            'email' => $this->uniqueEmail('resend-pending'),
+            'phone' => $this->uniquePhone(),
+            'birthday' => '1993-03-03',
+            'sex' => 'male',
+            'address' => 'Makati',
+            'application_type' => 'hub_transport_driver',
+            'license_number' => 'N10-'.rand(100000, 999999),
+            'license_expiry' => now()->addYear(),
+            'status' => 'pending',
+            'submitted_via' => 'mobile',
+        ]);
+
+        $this->actingAs($this->manager())
+            ->post(route('rider-applications.resend-credentials', $app))
+            ->assertStatus(422);
+
+        Mail::assertNothingSent();
+        $this->assertSame('pending', $app->fresh()->status);
+    }
+
+    public function test_resend_hub_approval_email_without_valid_recipient_warns_and_sends_nothing(): void
+    {
+        $company = $this->company();
+        $center = $this->center($company);
+        $email = $this->uniqueEmail('resend-invalid');
+        $app = $this->approvedHubApplication($company, $center, $email);
+        $driver = HubTransportDriver::where('email', $email)->firstOrFail();
+
+        // Simulate a legacy record whose stored email can no longer deliver.
+        DB::table('rider_applications')->where('id', $app->id)->update(['email' => 'not-an-email']);
+        DB::table('hub_transport_drivers')->where('id', $driver->id)->update(['email' => '']);
+
+        $this->actingAs($this->manager())
+            ->post(route('rider-applications.resend-credentials', $app))
+            ->assertRedirect(route('rider-applications.show', $app))
+            ->assertSessionHas('warning', fn ($message) => str_contains($message, 'no valid email address'));
+
+        // Only the original approval email was sent.
+        Mail::assertSent(RiderAccountApprovedMail::class, 1);
+        $this->assertSame(1, HubTransportDriver::whereKey($driver->id)->count());
+        $this->assertSame('approved', $app->fresh()->status);
+    }
+
+    public function test_failed_hub_approval_resend_preserves_password_and_warns(): void
+    {
+        $company = $this->company();
+        $center = $this->center($company);
+        $email = $this->uniqueEmail('resend-failure');
+        $app = $this->approvedHubApplication($company, $center, $email);
+        $driver = HubTransportDriver::where('email', $email)->firstOrFail();
+        $driverHash = $driver->password;
+
+        Mail::shouldReceive('to')->once()->andReturnSelf();
+        Mail::shouldReceive('send')->once()->andThrow(new \RuntimeException('SMTP unavailable during test'));
+
+        $this->actingAs($this->manager())
+            ->post(route('rider-applications.resend-credentials', $app))
+            ->assertRedirect(route('rider-applications.show', $app))
+            ->assertSessionHas('warning', fn ($message) => str_contains($message, 'could not be sent'));
+
+        $this->assertSame($driverHash, HubTransportDriver::whereKey($driver->id)->value('password'));
+        $this->assertSame(1, HubTransportDriver::where('email', $email)->count());
+        $this->assertSame(1, User::where('email', $email)->count());
+        $this->assertSame('approved', $app->fresh()->status);
     }
 
     public function test_delivery_rider_regression_protection(): void

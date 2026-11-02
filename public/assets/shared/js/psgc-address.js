@@ -22,7 +22,7 @@
     return;
   }
 
-  var API = 'https://psgc.gitlab.io/api';
+  var API = '/api/psgc';
   var jsonCache = {};
   var regionsPromise = null;
   var provinceRegionPromise = null;
@@ -48,7 +48,7 @@
 
   function getRegions() {
     if (!regionsPromise) {
-      regionsPromise = getJson(API + '/regions/');
+      regionsPromise = getJson(API + '/regions');
     }
     return regionsPromise;
   }

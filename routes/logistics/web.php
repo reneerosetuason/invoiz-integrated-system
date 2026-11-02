@@ -23,6 +23,7 @@ use App\Http\Controllers\Logistics\CenterApplicationPublicController;
 use App\Http\Controllers\Logistics\CenterEmailVerificationController;
 use App\Http\Controllers\Logistics\PickupRequestController;
 use App\Http\Controllers\Logistics\HubTransferController;
+use App\Http\Controllers\Logistics\HubTransportDriverController;
 use App\Http\Controllers\Logistics\FleetController;
 use App\Http\Controllers\Logistics\CompanyStructureController;
 use Illuminate\Support\Facades\Route;
@@ -105,6 +106,12 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('riders/{rider}/deactivate', [RiderController::class, 'deactivate'])->middleware('rider.manager')->name('riders.deactivate');
     Route::post('riders/{rider}/reverify', [RiderController::class, 'reverify'])->middleware('rider.manager')->name('riders.reverify');
     Route::post('riders/payouts/{id}/accept', [RiderController::class, 'acceptPayout'])->name('riders.payouts.accept');
+
+    // Hub Transport Drivers (Admin Only: kept separate from delivery riders)
+    Route::middleware('admin')->group(function () {
+        Route::get('hub-transport-drivers', [HubTransportDriverController::class, 'index'])->name('hub-transport-drivers.index');
+        Route::get('hub-transport-drivers/{driver}', [HubTransportDriverController::class, 'show'])->name('hub-transport-drivers.show');
+    });
 
     // Pickup Requests (staff: approve/reject pickups at their center)
     Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');

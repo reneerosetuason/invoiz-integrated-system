@@ -430,7 +430,7 @@ class SellerLifecycleConsistencyTest extends TestCase
         $this->forceStatusMismatch($riderUser);
         $this->actingAs($riderUser)->get('/logistics/rider/entry')->assertRedirect('/logistics/login');
 
-        Sanctum::actingAs($riderUser->fresh());
+        Sanctum::actingAs($riderUser->fresh(), ['rider']);
         $this->getJson('/api/logistics/rider/profile')->assertForbidden();
     }
 

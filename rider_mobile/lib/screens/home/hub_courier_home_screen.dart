@@ -9,67 +9,148 @@ import '../../providers/auth_provider.dart';
 import '../../services/hub_courier_service.dart';
 import '../onboarding/rider_tutorial_screen.dart';
 
+String _formatTimestamp(String? value) {
+  if (value == null || value.isEmpty) return '—';
+  final parsed = DateTime.tryParse(value);
+  if (parsed == null) return value;
+  final local = parsed.toLocal();
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${local.year}-$month-$day $hour:$minute';
+}
+
 /// Hub Transport Driver workspace. Hub Transport Drivers sign in with their own
 /// `hub_transport_drivers` credentials and only ever see hub-to-hub
 /// transfers assigned to their own four-wheel vehicle.
 class HubCourierHomeScreen extends StatefulWidget {
-  const HubCourierHomeScreen({super.key});
+  const HubCourierHomeScreen({super.key, this.embedded = false});
+
+  final bool embedded;
 
   @override
   State<HubCourierHomeScreen> createState() => _HubCourierHomeScreenState();
 }
 
 class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
-  late Future<Map<String, dynamic>> _dashboard;
+  late Future<HubCourierDashboard> _dashboard;
+  bool _statusSaving = false;
   HubCourierService get _service =>
       HubCourierService(context.read<AuthProvider>().api);
 
   @override
   void initState() {
     super.initState();
-    _dashboard = _service.dashboard();
+    _dashboard = _load();
+  }
+
+  Future<HubCourierDashboard> _load() async {
+    final raw = await _service.dashboard();
+    return HubCourierDashboard.fromJson(raw);
   }
 
   Future<void> _refresh() async {
-    setState(() => _dashboard = _service.dashboard());
-    await _dashboard;
+    final future = _load();
+    if (mounted) {
+      // setState callbacks must be synchronous: return nothing from the closure.
+      setState(() {
+        _dashboard = future;
+      });
+    }
+    try {
+      await future;
+    } catch (_) {
+      // The FutureBuilder renders the error state; this keeps the pull-to-
+      // refresh indicator from completing with an unhandled exception.
+    }
+  }
+
+  Future<void> _setOnline(bool online) async {
+    if (_statusSaving) return;
+    setState(() {
+      _statusSaving = true;
+    });
+    try {
+      await _service.setStatus(online);
+      if (!mounted) return;
+      // Reload from the server so the switch always mirrors the status the
+      // backend actually persisted.
+      await _refresh();
+    } on ApiException catch (e) {
+      _message('Could not change status: ${e.message}');
+    } catch (e) {
+      _message('Could not change status: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _statusSaving = false;
+        });
+      }
+    }
+  }
+
+  String _errorMessage(Object? error) {
+    if (error is ApiException) return error.message;
+    if (error is FormatException) return error.message;
+    return error?.toString() ?? 'Unknown error.';
   }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>>(
+  Widget build(BuildContext context) => FutureBuilder<HubCourierDashboard>(
     future: _dashboard,
-    builder: (context, snapshot) => Scaffold(
-      appBar: AppBar(
-        title: const Text('Hub Transport Driver'),
-        actions: [
-          IconButton(
-            tooltip: 'Help & tutorial',
-            icon: const Icon(Icons.help_outline),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) =>
-                    const RiderTutorialScreen(workflowType: 'hub_courier'),
+    builder: (context, snapshot) {
+      final Widget body;
+      if (snapshot.hasError) {
+        body = _error(_errorMessage(snapshot.error));
+      } else if (!snapshot.hasData) {
+        body = _loading();
+      } else {
+        body = RefreshIndicator(
+          onRefresh: _refresh,
+          child: _content(snapshot.data!),
+        );
+      }
+
+      if (widget.embedded) {
+        return body;
+      }
+
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Hub Transport Driver'),
+          actions: [
+            IconButton(
+              tooltip: 'Help & tutorial',
+              icon: const Icon(Icons.help_outline),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const RiderTutorialScreen(workflowType: 'hub_courier'),
+                ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: 'Log out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => context.read<AuthProvider>().logout(),
-          ),
-        ],
-      ),
-      body:
-          snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData
-          ? const Center(child: CircularProgressIndicator())
-          : snapshot.hasError
-          ? _error(snapshot.error.toString())
-          : RefreshIndicator(
-              onRefresh: _refresh,
-              child: _content(snapshot.data ?? {}),
+            IconButton(
+              tooltip: 'Log out',
+              icon: const Icon(Icons.logout),
+              onPressed: () => context.read<AuthProvider>().logout(),
             ),
+          ],
+        ),
+        body: body,
+      );
+    },
+  );
+
+  Widget _loading() => const Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        CircularProgressIndicator(),
+        SizedBox(height: 14),
+        Text('Loading transfer jobs…'),
+      ],
     ),
   );
 
@@ -90,28 +171,17 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
     ),
   );
 
-  Widget _content(Map<String, dynamic> data) {
-    final courier = HubCourier.fromJson(
-      Map<String, dynamic>.from(data['courier'] as Map? ?? {}),
-    );
-    final vehicle = courier.vehicle ?? {};
-    final jobs = (data['available_transfers'] as List? ?? [])
-        .map((e) => HubTransferJob(Map<String, dynamic>.from(e as Map)))
-        .toList();
-    final completed = (data['completed_transfers'] as List? ?? [])
-        .map((e) => HubTransferJob(Map<String, dynamic>.from(e as Map)))
-        .toList();
-    final active = data['active_transfer'] is Map
-        ? HubTransferJob(
-            Map<String, dynamic>.from(data['active_transfer'] as Map),
-          )
-        : null;
-    final earnings = Map<String, dynamic>.from(data['earnings_summary'] as Map? ?? {});
-    final incidents = (data['recent_incidents'] as List? ?? [])
-        .map((e) => Map<String, dynamic>.from(e as Map))
-        .toList();
+  Widget _content(HubCourierDashboard dashboard) {
+    final courier = dashboard.courier;
+    final vehicle = courier.vehicle ?? const <String, dynamic>{};
+    final jobs = dashboard.availableTransfers;
+    final completed = dashboard.completedTransfers;
+    final active = dashboard.activeTransfer;
+    final earnings = dashboard.earnings;
+    final incidents = dashboard.recentIncidents;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
         // Driver & Status Card
@@ -251,17 +321,14 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                         ? 'Online for assigned transfers'
                         : 'Offline',
                   ),
+                  subtitle: _statusSaving
+                      ? const Text(
+                          'Updating status…',
+                          style: TextStyle(fontSize: 11),
+                        )
+                      : null,
                   value: courier.online,
-                  onChanged: (value) async {
-                    try {
-                      await _service.setStatus(value);
-                      await _refresh();
-                    } on ApiException catch (e) {
-                      _message('Could not change status: ${e.message}');
-                    } catch (e) {
-                      _message('Could not change status: $e');
-                    }
-                  },
+                  onChanged: _statusSaving ? null : _setOnline,
                 ),
               ],
             ),
@@ -290,7 +357,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                       ),
                     ),
                     Text(
-                      '${earnings['completed_trips_count'] ?? 0} trips',
+                      '${earnings.completedTrips} trips',
                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54),
                     ),
                   ],
@@ -304,7 +371,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                         children: [
                           const Text('Base Pay', style: TextStyle(fontSize: 11, color: Colors.black54)),
                           Text(
-                            '₱${((earnings['base_earnings'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)}',
+                            '₱${earnings.base.toStringAsFixed(2)}',
                             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
                           ),
                         ],
@@ -316,7 +383,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                         children: [
                           const Text('Vehicle Allowance', style: TextStyle(fontSize: 11, color: Colors.black54)),
                           Text(
-                            '₱${((earnings['vehicle_allowance'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)}',
+                            '₱${earnings.allowance.toStringAsFixed(2)}',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
@@ -332,7 +399,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                         children: [
                           const Text('Total Earned', style: TextStyle(fontSize: 11, color: Colors.black54)),
                           Text(
-                            '₱${((earnings['total_earnings'] as num?)?.toDouble() ?? 0.0).toStringAsFixed(2)}',
+                            '₱${earnings.total.toStringAsFixed(2)}',
                             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF16697A)),
                           ),
                         ],
@@ -378,6 +445,12 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                   ),
                 ),
                 OutlinedButton(
+                  // The global theme's full-width minimum size is invalid
+                  // inside a Row, which gives children unbounded width.
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(88, 44),
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                  ),
                   onPressed: () => _showReportIncidentDialog(active?.id),
                   child: const Text('Report'),
                 ),
@@ -404,11 +477,14 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
               child: ListTile(
                 dense: true,
                 title: Text(
-                  '${inc['reference']} · ${inc['incident_type'].toString().replaceAll('_', ' ').toUpperCase()}',
+                  '${asJsonString(inc['reference'], 'Incident')} · '
+                  '${asJsonString(inc['incident_type'], 'incident').replaceAll('_', ' ').toUpperCase()}',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                 ),
                 subtitle: Text(
-                  '${inc['description'] ?? ''}\nSeverity: ${inc['severity']} · Status: ${inc['status']}',
+                  '${asJsonString(inc['description'])}\n'
+                  'Severity: ${asJsonString(inc['severity'], '—')} · '
+                  'Status: ${asJsonString(inc['status'], '—')}',
                   style: const TextStyle(fontSize: 11),
                 ),
               ),
@@ -468,8 +544,33 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
           ),
           Text(
             '${job.parcelCount} parcels · ${job.loadedCount} loaded · '
-            '${job.status.replaceAll('_', ' ')}',
+            '${job.statusLabel}',
           ),
+          if (job.receivedCount > 0 || job.missingCount > 0)
+            Text(
+              '${job.receivedCount} of ${job.parcelCount} parcels received'
+              '${job.missingCount > 0 ? ' · ${job.missingCount} missing' : ''}',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          if (job.totalWeightKg != null)
+            Text(
+              'Manifest weight: ${job.totalWeightKg!.toStringAsFixed(2)} kg',
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          if (job.plannedDispatchAt != null)
+            Text(
+              'Planned dispatch: ${_formatTimestamp(job.plannedDispatchAt)}',
+            ),
+          if (job.notes.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Instructions: ${job.notes}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ),
           const SizedBox(height: 8),
           FilledButton(
             onPressed: () => Navigator.push(
@@ -642,8 +743,8 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
         ? 'Origin: ${job.origin['name']}\n'
               'Destination: ${job.destination['name']}\n'
               'Loaded: ${job.loadedCount} of ${job.parcelCount}\n'
-              'Vehicle: ${job.data['vehicle']?['type'] ?? 'Vehicle'} · '
-              '${job.data['vehicle']?['plate_number'] ?? ''}\n'
+              'Vehicle: ${asJsonString(job.vehicle['type'], 'Vehicle')} · '
+              '${asJsonString(job.vehicle['plate_number'])}\n'
               'Dispatch this manifest?'
         : 'Record arrival at the destination hub? Parcels are not received '
               'until destination staff scan them.';
@@ -797,7 +898,31 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  _summaryCard(job, status, headingToDestination),
+                  _summaryCard(job, headingToDestination),
+                  if (job.notes.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Card(
+                      color: const Color(0xFFF7FAF9),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'DISPATCHER INSTRUCTIONS',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: Color(0xFF16697A),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(job.notes),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   _manifestCard(job),
                   const SizedBox(height: 12),
@@ -846,15 +971,16 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
                     'Transfer history',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  for (final event in (job.data['events'] as List? ?? []))
+                  for (final event in asJsonMapList(job.data['events']))
                     ListTile(
                       dense: true,
                       leading: const Icon(Icons.history),
                       title: Text(
-                        (event['type'] ?? '').toString().replaceAll('_', ' '),
+                        asJsonString(event['type'], 'update').replaceAll('_', ' '),
                       ),
                       subtitle: Text(
-                        '${event['notes'] ?? ''}\n${event['at'] ?? ''}',
+                        '${asJsonString(event['notes'])}\n'
+                        '${asJsonString(event['at'])}',
                       ),
                     ),
                 ],
@@ -865,7 +991,6 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
 
   Widget _summaryCard(
     HubTransferJob job,
-    String status,
     bool headingToDestination,
   ) => Card(
     child: Padding(
@@ -878,13 +1003,29 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           Text(job.reference, style: Theme.of(context).textTheme.titleLarge),
-          Text('Status: ${status.replaceAll('_', ' ')}'),
+          Text('Status: ${job.statusLabel}'),
+          if (job.plannedDispatchAt != null)
+            Text('Planned dispatch: ${_formatTimestamp(job.plannedDispatchAt)}'),
+          if (job.dispatchedAt != null)
+            Text('Dispatched: ${_formatTimestamp(job.dispatchedAt)}'),
+          if (job.destinationArrivedAt != null)
+            Text(
+              'Arrived at destination: '
+              '${_formatTimestamp(job.destinationArrivedAt)}',
+            ),
+          if (job.receivedAt != null)
+            Text('Completed: ${_formatTimestamp(job.receivedAt)}'),
           Text(
-            'Vehicle: ${job.data['vehicle']?['type'] ?? 'Vehicle'} · '
-            '${job.data['vehicle']?['plate_number'] ?? 'Plate unavailable'}',
+            'Vehicle: ${asJsonString(job.vehicle['type'], 'Vehicle')} · '
+            '${asJsonString(job.vehicle['plate_number'], 'Plate unavailable')}',
           ),
           Text(
-            'Manifest weight: ${job.data['total_weight_kg'] == null ? 'Not recorded' : '${job.data['total_weight_kg']} kg'}',
+            'Parcels: ${job.parcelCount} total · ${job.loadedCount} loaded · '
+            '${job.receivedCount} received'
+            '${job.missingCount > 0 ? ' · ${job.missingCount} missing' : ''}',
+          ),
+          Text(
+            'Combined weight: ${job.totalWeightKg == null ? 'Not recorded' : '${job.totalWeightKg!.toStringAsFixed(2)} kg'}',
           ),
           const SizedBox(height: 12),
           Text(
@@ -910,37 +1051,106 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
     ),
   );
 
-  Widget _manifestCard(HubTransferJob job) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Manifest · ${job.parcelCount} parcels'),
-          LinearProgressIndicator(
-            value: job.parcelCount == 0 ? 0 : job.loadedCount / job.parcelCount,
-          ),
-          Text('${job.loadedCount} of ${job.parcelCount} parcels loaded'),
-          const SizedBox(height: 8),
-          for (final parcel in job.parcels)
-            ListTile(
-              dense: true,
-              leading: Icon(
-                parcel['loading_status'] == 'loaded'
-                    ? Icons.check_circle
-                    : Icons.radio_button_unchecked,
-              ),
-              title: Text(parcel['tracking_number']?.toString() ?? 'Parcel'),
-              subtitle: Text(
-                'Loading: ${parcel['loading_status']} · '
-                'Receiving: ${parcel['receiving_status']}'
-                '${parcel['condition'] == null ? '' : ' · ${parcel['condition']}'}',
-              ),
+  Widget _manifestCard(HubTransferJob job) {
+    final receivedPhase = [
+      'arrived',
+      'receiving',
+      'exception',
+      'received',
+    ].contains(job.status);
+    final progressCount = receivedPhase ? job.receivedCount : job.loadedCount;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Manifest · ${job.parcelCount} parcels'
+              '${job.totalWeightKg == null ? '' : ' · ${job.totalWeightKg!.toStringAsFixed(2)} kg'}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-        ],
+            const SizedBox(height: 4),
+            const Text(
+              'One transfer carries every parcel below. Parcel journey is '
+              'tracked individually; truck arrival does not mark a parcel '
+              'received.',
+              style: TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: job.parcelCount == 0 ? 0 : progressCount / job.parcelCount,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${job.loadedCount} of ${job.parcelCount} parcels loaded · '
+              '${job.receivedCount} received'
+              '${job.missingCount > 0 ? ' · ${job.missingCount} missing' : ''}',
+            ),
+            const SizedBox(height: 8),
+            for (final parcel in job.parcels)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  _parcelJourneyIcon(parcelJourneyStatus(parcel)),
+                  color: _parcelJourneyColor(parcelJourneyStatus(parcel)),
+                ),
+                title: Text(
+                  asJsonString(parcel['tracking_number'], 'Parcel'),
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                subtitle: Text(
+                  '${parcelJourneyLabel(parcel)}'
+                  '${parcelWeightKg(parcel) == null ? '' : ' · ${parcelWeightKg(parcel)!.toStringAsFixed(2)} kg'}'
+                  '${parcel['condition'] == null ? '' : ' · ${parcel['condition']}'}'
+                  '${parcel['exception_reason'] == null ? '' : ' (${parcel['exception_reason']})'}',
+                ),
+              ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
+
+  IconData _parcelJourneyIcon(String status) {
+    switch (status) {
+      case 'received':
+      case 'received_damaged':
+        return Icons.check_circle;
+      case 'missing':
+        return Icons.cancel;
+      case 'arrived':
+        return Icons.warehouse;
+      case 'dispatched':
+        return Icons.local_shipping;
+      case 'loaded':
+        return Icons.inventory_2;
+      case 'removed':
+        return Icons.remove_circle;
+      default:
+        return Icons.radio_button_unchecked;
+    }
+  }
+
+  Color _parcelJourneyColor(String status) {
+    switch (status) {
+      case 'received':
+        return Colors.green.shade700;
+      case 'received_damaged':
+      case 'missing':
+        return Colors.red.shade700;
+      case 'arrived':
+        return Colors.blue.shade700;
+      case 'dispatched':
+        return const Color(0xFF16697A);
+      case 'loaded':
+        return Colors.purple.shade700;
+      default:
+        return Colors.grey;
+    }
+  }
 
   Widget _action(
     String label,

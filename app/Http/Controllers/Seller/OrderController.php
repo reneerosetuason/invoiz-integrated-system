@@ -148,7 +148,9 @@ class OrderController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('seller.orders.show', compact('order', 'returnState', 'logisticsCenters'));
+        $timeline = \App\Support\CustomerTracking::timeline($order, $sellerDelivery);
+
+        return view('seller.orders.show', compact('order', 'returnState', 'logisticsCenters', 'timeline'));
     }
 
     public function confirmReturn(Request $request, Delivery $delivery, ReturnToSellerService $returns)

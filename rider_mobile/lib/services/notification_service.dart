@@ -7,8 +7,9 @@ class NotificationService {
 
   final ApiClient _api;
 
-  Future<List<RiderNotification>> list() async {
-    final data = await _api.get('/rider/notifications');
+  Future<List<RiderNotification>> list({bool isCourier = false}) async {
+    final path = isCourier ? '/courier/notifications' : '/rider/notifications';
+    final data = await _api.get(path);
 
     List<RiderNotification> list = [];
     if (data['notifications'] is List) {
@@ -20,11 +21,17 @@ class NotificationService {
     return list;
   }
 
-  Future<void> markRead(int id) async {
-    await _api.patch('/rider/notifications/$id/read');
+  Future<void> markRead(int id, {bool isCourier = false}) async {
+    final path = isCourier
+        ? '/courier/notifications/$id/read'
+        : '/rider/notifications/$id/read';
+    await _api.patch(path);
   }
 
-  Future<void> markAllRead() async {
-    await _api.patch('/rider/notifications/read-all');
+  Future<void> markAllRead({bool isCourier = false}) async {
+    final path = isCourier
+        ? '/courier/notifications/read-all'
+        : '/rider/notifications/read-all';
+    await _api.patch(path);
   }
 }

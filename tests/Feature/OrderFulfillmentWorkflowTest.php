@@ -3,8 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\{Address, Cart, Delivery, LogisticsCenter, Order, OrderItem, PickupRequest, Product, Rider, Seller, User};
-use App\Services\DeliveryOtpService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 // Exercise the seller, center and rider boundaries through their real routes.
@@ -13,6 +14,21 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
     use DatabaseTransactions;
 
     private int $seq = 0;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('public');
+    }
+
+    private function photo(): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            'delivery-proof.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5X8AAAAASUVORK5CYII='),
+        );
+    }
 
     private function identity(string $role): User
     {
@@ -122,7 +138,7 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $this->post(route('pickup-requests.approve', $delivery->pickupRequest))->assertRedirect()->assertSessionHas('success');
         $this->actingAs($manager, 'web')->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $pickup->id])
             ->assertRedirect()->assertSessionHas('success');
-        Sanctum::actingAs($pickup->user);
+        Sanctum::actingAs($pickup->user, ['rider']);
         $base = "/api/logistics/rider/deliveries/{$delivery->id}";
         $this->postJson("$base/accept")->assertOk();
         $this->patchJson("$base/status", ['status' => 'going_to_pickup'])->assertOk();
@@ -139,25 +155,24 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $area = \App\Models\ServiceArea::create(['logistics_center_id' => $center->id, 'name' => 'Audit Area', 'is_active' => true]);
         $this->post(route('deliveries.sort', $delivery), ['destination_center_id' => $center->id, 'service_area_id' => $area->id])->assertRedirect()->assertSessionHas('success');
         $this->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $lastMile->id])->assertRedirect()->assertSessionHas('success');
-        Sanctum::actingAs($lastMile->user);
+        Sanctum::actingAs($lastMile->user, ['rider']);
         $this->postJson("$base/sorting-center-pickup")->assertStatus(409);
         $this->actingAs($manager, 'web')->post(route('deliveries.dispatch', $delivery))->assertRedirect()->assertSessionHas('success');
-        Sanctum::actingAs($lastMile->user);
+        Sanctum::actingAs($lastMile->user, ['rider']);
         $this->postJson("$base/sorting-center-pickup")->assertOk()->assertJsonPath('delivery.pickup_location.name', $center->name);
         $this->postJson("$base/sorting-center-pickup")->assertOk();
         $this->patchJson("$base/status", ['status' => 'out_for_delivery'])->assertOk();
         $this->patchJson("$base/status", ['status' => 'arrived_at_customer'])->assertOk();
-        $otp = app(DeliveryOtpService::class)->ensureFor($delivery->fresh());
-        $this->postJson("$base/complete", ['otp' => $otp, 'amount_received' => 150])->assertOk();
+        $this->postJson("$base/complete", ['photo' => $this->photo(), 'amount_received' => 150])->assertOk();
         $this->assertSame('delivered', $order->fresh()->status);
         $this->assertSame($tracking, $delivery->fresh()->tracking_number);
         $this->assertSame($pickup->id, $delivery->fresh()->sorting_center_handoff_rider_id);
         $this->assertSame($lastMile->id, $delivery->fresh()->sorting_center_pickup_rider_id);
         $this->assertDatabaseHas('rider_earnings', ['delivery_id' => $delivery->id, 'rider_id' => $lastMile->id, 'amount' => 50]);
         $this->assertDatabaseHas('remittances', ['delivery_id' => $delivery->id]);
-        $this->assertDatabaseHas('delivery_proofs', ['delivery_id' => $delivery->id, 'type' => 'otp']);
+        $this->assertDatabaseHas('delivery_proofs', ['delivery_id' => $delivery->id, 'type' => 'photo']);
         $this->assertSame(1, $order->statusHistories()->where('to_status', 'delivered')->count());
-        Sanctum::actingAs($pickup->user);
+        Sanctum::actingAs($pickup->user, ['rider']);
         $this->getJson('/api/logistics/rider/history')->assertOk()->assertJsonPath('history.0.status', 'pickup_completed')->assertJsonPath('history.0.earned', 0);
         $this->getJson($base)->assertOk()->assertJsonPath('delivery.read_only', true);
         $this->getJson('/api/logistics/rider/history?status=delivered')->assertOk()->assertJsonCount(0, 'history');
@@ -171,7 +186,7 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         PickupRequest::create(['delivery_id' => $delivery->id, 'center_id' => $rider->center_id, 'status' => 'rejected', 'requested_at' => now()]);
         $this->actingAs($this->identity('logistics_admin'), 'web')->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $rider->id])->assertStatus(409);
         $delivery->update(['status' => 'assigned']);
-        Sanctum::actingAs($rider->user);
+        Sanctum::actingAs($rider->user, ['rider']);
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/accept")->assertStatus(409);
         $order->update(['status' => 'ready_for_delivery']);
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/accept")->assertStatus(409);
@@ -202,7 +217,7 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $this->assertSame('available', $rider->fresh()->status);
         $this->assertFalse(\App\Support\OrderCancellation::bySeller($order, 'Retry', $seller->id));
         $this->assertSame($stock + 1, $product->fresh()->stock);
-        Sanctum::actingAs($rider->user);
+        Sanctum::actingAs($rider->user, ['rider']);
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/accept")->assertStatus(409);
     }
 
@@ -262,9 +277,8 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $this->mock(\App\Http\Controllers\Logistics\TransactionController::class, function ($mock) {
             $mock->shouldReceive('storeForDelivery')->once()->andThrow(new \RuntimeException('Simulated ledger outage'));
         });
-        Sanctum::actingAs($rider->user);
-        $otp = app(DeliveryOtpService::class)->ensureFor($delivery);
-        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", ['otp' => $otp, 'amount_received' => 150])->assertStatus(500);
+        Sanctum::actingAs($rider->user, ['rider']);
+        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", ['photo' => $this->photo(), 'amount_received' => 150])->assertStatus(500);
         $this->assertSame('out_for_delivery', $order->fresh()->status);
         $this->assertSame('out_for_delivery', $delivery->fresh()->status);
         $this->assertNull($delivery->fresh()->cod_amount_received);
@@ -336,7 +350,7 @@ class OrderFulfillmentWorkflowTest extends \Tests\TestCase
         $this->post(route('deliveries.assign-rider', $delivery), ['rider_id' => $rider->id])->assertRedirect()->assertSessionHas('success');
         $this->assertNotNull($delivery->fresh()->sorting_center_pickup_at);
         $this->assertNull($delivery->fresh()->reattempt_requested_at);
-        Sanctum::actingAs($rider->user);
+        Sanctum::actingAs($rider->user, ['rider']);
         $this->patchJson("/api/logistics/rider/deliveries/{$delivery->id}/status", ['status' => 'out_for_delivery'])->assertOk();
     }
 

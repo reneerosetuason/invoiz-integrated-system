@@ -100,9 +100,14 @@ class RiderApplicationController extends Controller
             'address' => 'required|string|max:500',
             'house_number' => 'nullable|string|max:50',
             'street' => 'nullable|string|max:255',
-            'barangay' => 'nullable|string|max:255',
-            'municipality' => 'nullable|string|max:255',
+            'region' => 'nullable|string|max:255',
+            'region_code' => 'nullable|string|max:20',
             'province' => 'nullable|string|max:255',
+            'province_code' => 'nullable|string|max:20',
+            'municipality' => 'nullable|string|max:255',
+            'municipality_code' => 'nullable|string|max:20',
+            'barangay' => 'nullable|string|max:255',
+            'barangay_code' => 'nullable|string|max:20',
             'vehicle_type' => $isHubDriver
                 ? ($isDriverOwnedHub ? 'required|string|max:50' : 'nullable|string|max:50')
                 : ['required', Rule::in(VehicleType::where('is_active', true)->get()->filter(fn ($t) => $t->operationalCategory() === 'two_wheel')->pluck('name')->all())],
@@ -187,6 +192,11 @@ class RiderApplicationController extends Controller
             ], 422);
         }
 
+        $geoError = $this->validateGeographicHierarchy($data);
+        if ($geoError) {
+            return $geoError;
+        }
+
         unset($data['accepted_terms']);
 
         $application = DB::transaction(function () use ($data, $request) {
@@ -221,6 +231,8 @@ class RiderApplicationController extends Controller
             'link' => route('rider-applications.show', $application),
         ]);
 
+        $token = \App\Support\ApplicationStatusAccess::grant($request, $application->email);
+
         return response()->json([
             'message' => 'Application submitted successfully.',
             'application' => [
@@ -228,7 +240,10 @@ class RiderApplicationController extends Controller
                 'status' => $application->status,
                 'application_type' => $application->application_type,
                 'submitted_via' => $application->submitted_via,
+                'reference_number' => 'RID-'.$application->created_at->year.'-'.str_pad($application->id, 4, '0', STR_PAD_LEFT),
             ],
+            'application_access_token' => $token,
+            'application_access_expires_in' => 900,
         ], 201);
     }
 
@@ -236,10 +251,19 @@ class RiderApplicationController extends Controller
     {
         $validated = $request->validate([
             'email' => 'required|email|max:255',
+            'reference_number' => 'nullable|string|max:50',
+            'reference' => 'nullable|string|max:50',
         ]);
         \App\Support\ApplicationStatusAccess::requireOwner($request, $validated['email']);
 
-        $app = RiderApplication::where('email', $validated['email'])->latest('id')->first();
+        $query = RiderApplication::where('email', $validated['email']);
+
+        $ref = $request->input('reference_number') ?? $request->input('reference');
+        if (is_string($ref) && preg_match('/(?:RID-\d{4}-)?0*(\d+)$/i', trim($ref), $m)) {
+            $query->where('id', (int) $m[1]);
+        }
+
+        $app = $query->latest('id')->first();
 
         if (!$app) {
             return response()->json(['application' => null, 'message' => 'No application found.'], 404);
@@ -250,6 +274,7 @@ class RiderApplicationController extends Controller
         return response()->json([
             'application' => [
                 'id' => $app->id,
+                'reference_number' => 'RID-'.$app->created_at->year.'-'.str_pad($app->id, 4, '0', STR_PAD_LEFT),
                 'name' => $app->name,
                 'email' => $app->email,
                 'phone' => $app->phone,
@@ -279,4 +304,92 @@ class RiderApplicationController extends Controller
         ]);
     }
 
+    private function validateGeographicHierarchy(array &$data): ?JsonResponse
+    {
+        $regionCode = $data['region_code'] ?? null;
+        $provinceCode = $data['province_code'] ?? null;
+        $municipalityCode = $data['municipality_code'] ?? null;
+        $barangayCode = $data['barangay_code'] ?? null;
+
+        if ($regionCode) {
+            $region = \App\Models\Region::where('code', $regionCode)->first();
+            if (! $region) {
+                return response()->json([
+                    'message' => 'The selected region is invalid.',
+                    'errors' => ['region_code' => ['The selected region is invalid.']],
+                ], 422);
+            }
+            if (empty($data['region'])) {
+                $data['region'] = $region->name;
+            }
+
+            $isNcr = ($regionCode === '130000000');
+
+            if (! $isNcr && $provinceCode) {
+                $province = \App\Models\Province::where('code', $provinceCode)->first();
+                if (! $province) {
+                    return response()->json([
+                        'message' => 'The selected province is invalid.',
+                        'errors' => ['province_code' => ['The selected province is invalid.']],
+                    ], 422);
+                }
+                if ($province->region_code !== $regionCode) {
+                    return response()->json([
+                        'message' => 'The selected province does not belong to the selected region.',
+                        'errors' => ['province_code' => ['The selected province does not belong to the selected region.']],
+                    ], 422);
+                }
+                if (empty($data['province'])) {
+                    $data['province'] = $province->name;
+                }
+            }
+
+            if ($municipalityCode) {
+                $municipality = \App\Models\Municipality::where('code', $municipalityCode)->first();
+                if (! $municipality) {
+                    return response()->json([
+                        'message' => 'The selected city / municipality is invalid.',
+                        'errors' => ['municipality_code' => ['The selected city / municipality is invalid.']],
+                    ], 422);
+                }
+                if ($isNcr) {
+                    if ($municipality->region_code !== '130000000') {
+                        return response()->json([
+                            'message' => 'The selected city does not belong to the selected region.',
+                            'errors' => ['municipality_code' => ['The selected city does not belong to the selected region.']],
+                        ], 422);
+                    }
+                } elseif ($provinceCode && $municipality->province_code !== $provinceCode) {
+                    return response()->json([
+                        'message' => 'The selected city / municipality does not belong to the selected province.',
+                        'errors' => ['municipality_code' => ['The selected city / municipality does not belong to the selected province.']],
+                    ], 422);
+                }
+                if (empty($data['municipality'])) {
+                    $data['municipality'] = $municipality->name;
+                }
+            }
+
+            if ($barangayCode) {
+                $barangay = \App\Models\Barangay::where('code', $barangayCode)->first();
+                if (! $barangay) {
+                    return response()->json([
+                        'message' => 'The selected barangay is invalid.',
+                        'errors' => ['barangay_code' => ['The selected barangay is invalid.']],
+                    ], 422);
+                }
+                if ($municipalityCode && $barangay->municipality_code !== $municipalityCode) {
+                    return response()->json([
+                        'message' => 'The selected barangay does not belong to the selected city / municipality.',
+                        'errors' => ['barangay_code' => ['The selected barangay does not belong to the selected city / municipality.']],
+                    ], 422);
+                }
+                if (empty($data['barangay'])) {
+                    $data['barangay'] = $barangay->name;
+                }
+            }
+        }
+
+        return null;
+    }
 }

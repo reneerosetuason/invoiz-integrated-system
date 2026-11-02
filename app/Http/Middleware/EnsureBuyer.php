@@ -24,6 +24,11 @@ class EnsureBuyer
             return redirect('/login');
         }
 
+        if (! $user->hasVerifiedEmail()) {
+            return redirect()->route('verification.notice', ['email' => $user->email])
+                ->with('error', 'Please verify your email address first.');
+        }
+
         if ($hasApprovedStore && $request->session()->get('active_role') !== 'buyer') {
             return redirect()->route('choose');
         }

@@ -4,9 +4,18 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 
+class LiquidNavSlot {
+  const LiquidNavSlot(this.icon, this.activeIcon, this.label, this.index);
+
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+  final int index;
+}
+
 /// Floating white-glass dock for the rider app.
 ///
-/// Five slots (0 = Home, 1 = Deliveries, 2 = Scan action, 3 = Settings,
+/// Five slots (0 = Home/Dashboard, 1 = Deliveries/Transfers, 2 = Scan action, 3 = Settings,
 /// 4 = Profile). The selected tab is marked by a teal bubble that glides
 /// horizontally between slots while its icon turns white; unselected icons
 /// stay quiet gray on the glass. Scan is a larger permanent teal action
@@ -21,21 +30,27 @@ class LiquidNavBar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onTap,
+    this.slots,
+    this.scanLabel = 'Scan',
+    this.scanTooltip = 'Scan',
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTap;
+  final List<LiquidNavSlot>? slots;
+  final String scanLabel;
+  final String scanTooltip;
 
   static const double _barHeight = 66;
   static const double _bubbleDiameter = 52;
   static const double _scanDiameter = 60;
   static const Duration _glideDuration = Duration(milliseconds: 300);
 
-  static const _tabs = [
-    _NavSlot(Icons.home_outlined, Icons.home, 'Home', 0),
-    _NavSlot(Icons.inventory_2_outlined, Icons.inventory_2, 'Deliveries', 1),
-    _NavSlot(Icons.settings_outlined, Icons.settings, 'Settings', 3),
-    _NavSlot(Icons.person_outline, Icons.person, 'Profile', 4),
+  static const _defaultTabs = [
+    LiquidNavSlot(Icons.home_outlined, Icons.home, 'Home', 0),
+    LiquidNavSlot(Icons.inventory_2_outlined, Icons.inventory_2, 'Deliveries', 1),
+    LiquidNavSlot(Icons.settings_outlined, Icons.settings, 'Settings', 3),
+    LiquidNavSlot(Icons.person_outline, Icons.person, 'Profile', 4),
   ];
 
   @override
@@ -138,7 +153,7 @@ class LiquidNavBar extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      for (final tab in _tabs.sublist(0, 2))
+                      for (final tab in (slots ?? _defaultTabs).sublist(0, 2))
                         Expanded(
                           child: _DockButton(
                             slot: tab,
@@ -149,7 +164,7 @@ class LiquidNavBar extends StatelessWidget {
                         ),
                       // Gap reserving the floating Scan button's slot.
                       const Spacer(),
-                      for (final tab in _tabs.sublist(2))
+                      for (final tab in (slots ?? _defaultTabs).sublist(2))
                         Expanded(
                           child: _DockButton(
                             slot: tab,
@@ -235,15 +250,6 @@ class LiquidNavBar extends StatelessWidget {
   }
 }
 
-class _NavSlot {
-  const _NavSlot(this.icon, this.activeIcon, this.label, this.index);
-
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final int index;
-}
-
 class _DockButton extends StatelessWidget {
   const _DockButton({
     required this.slot,
@@ -252,7 +258,7 @@ class _DockButton extends StatelessWidget {
     required this.onTap,
   });
 
-  final _NavSlot slot;
+  final LiquidNavSlot slot;
   final bool selected;
   final bool reduceMotion;
   final VoidCallback onTap;

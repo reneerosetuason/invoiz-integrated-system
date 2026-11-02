@@ -230,6 +230,7 @@ class FleetController extends Controller
         abort_unless(LogisticsVehicleCategory::for($truck->vehicle_type) === 'four_wheel' && $truck->parcel_capacity > 0 && $truck->capacity_kg > 0, 422, 'Select an available four-wheel truck with registered capacity.');
         abort_unless($truck->isAssignable(), 422, 'Truck is unapproved, under maintenance, or retired.');
         abort_if(HubTransportDriver::where('logistics_truck_id', $truck->id)->exists(), 422, 'This truck already has an assigned Hub Transport Driver.');
+        abort_if($truck->hasActiveTransfer(), 409, 'This truck is already assigned to an active hub transfer.');
 
         $company->transportDrivers()->create($data);
 
@@ -248,17 +249,34 @@ class FleetController extends Controller
             'remarks' => 'nullable|string|max:2000',
         ]);
 
+        $targetStatus = $data['status'] ?? $driver->status;
+        $explicitTruckId = array_key_exists('logistics_truck_id', $data) ? $data['logistics_truck_id'] : null;
+
+        // The driver record is only created after application approval. When an
+        // application exists, it must still be approved; legacy/manual driver
+        // records without an application remain assignable by an administrator.
+        $application = $driver->effectiveApplication();
+        abort_if($application && $application->status !== 'approved', 422, 'Only approved Hub Transport Drivers can be assigned to a truck.');
+        abort_if($targetStatus === 'inactive' && ! empty($explicitTruckId), 422, 'Inactive Hub Transport Drivers cannot be assigned to a truck.');
+
         if (isset($data['status'])) {
             abort_if(in_array($driver->status, ['assigned', 'in_transit'], true) && $data['status'] !== $driver->status, 409, 'A driver assigned to an active transfer cannot be made inactive.');
         }
         abort_if(in_array($driver->status, ['assigned', 'in_transit'], true) && array_key_exists('logistics_truck_id', $data) && (int) $data['logistics_truck_id'] !== (int) $driver->logistics_truck_id, 409, 'A driver assigned to an active transfer cannot change vehicles.');
 
-        if (!empty($data['logistics_truck_id'])) {
+        if (! empty($data['logistics_truck_id'])) {
             $truck = LogisticsTruck::findOrFail($data['logistics_truck_id']);
+            abort_unless((int) $truck->logistics_company_id === (int) $driver->logistics_company_id, 422, 'The truck must belong to the same logistics company as the driver.');
             abort_unless(LogisticsVehicleCategory::for($truck->vehicle_type) === 'four_wheel', 422, 'Cannot assign a motorcycle to a Hub Transport Driver. Only four-wheel trucks are permitted.');
             abort_unless($truck->isAssignable() || (int) $driver->logistics_truck_id === (int) $truck->id, 422, 'A driver cannot be assigned an unapproved, unavailable, damaged, retired truck or a truck under maintenance.');
             abort_unless($truck->parcel_capacity > 0 && $truck->capacity_kg > 0, 422, 'Select an approved four-wheel truck with registered capacity.');
             abort_if(HubTransportDriver::where('logistics_truck_id', $truck->id)->where('id', '!=', $driver->id)->exists(), 422, 'This truck already has an assigned Hub Transport Driver.');
+            abort_if($truck->hasActiveTransfer() && (int) $driver->logistics_truck_id !== (int) $truck->id, 409, 'This truck is already assigned to an active hub transfer.');
+        }
+
+        // Keep the fleet consistent: an inactive driver must not reserve a truck.
+        if ($targetStatus === 'inactive') {
+            $data['logistics_truck_id'] = null;
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($driver, $data) {
@@ -266,10 +284,11 @@ class FleetController extends Controller
             $newTruckId = array_key_exists('logistics_truck_id', $data) ? $data['logistics_truck_id'] : $oldTruckId;
 
             if (array_key_exists('logistics_truck_id', $data) && (int) $oldTruckId !== (int) $newTruckId) {
-                // Free previous truck if unassigned or changed
+                // Free previous truck if unassigned or changed, unless an
+                // active transfer still owns it.
                 if ($oldTruckId) {
                     $oldTruck = LogisticsTruck::find($oldTruckId);
-                    if ($oldTruck && $oldTruck->status === 'assigned') {
+                    if ($oldTruck && $oldTruck->status === 'assigned' && ! $oldTruck->hasActiveTransfer()) {
                         $oldTruck->update(['status' => 'available']);
                     }
                 }

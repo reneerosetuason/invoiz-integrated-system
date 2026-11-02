@@ -12,8 +12,11 @@ class OtpCodeMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public string $code, public string $name = '')
-    {
+    public function __construct(
+        public string $code,
+        public string $name = '',
+        public ?string $verificationUrl = null
+    ) {
     }
 
     public function envelope(): Envelope
@@ -30,14 +33,26 @@ class OtpCodeMail extends Mailable
     {
         $code = e($this->code);
         $name = e($this->name ?: 'there');
+        $linkSection = '';
+        if ($this->verificationUrl) {
+            $url = e($this->verificationUrl);
+            $linkSection = <<<HTML
+    <div style="text-align:center;margin:24px 0 16px">
+      <a href="{$url}" style="display:inline-block;background:#0E4A57;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 28px;border-radius:12px">Verify Email Directly →</a>
+    </div>
+    <p style="color:#6B7280;font-size:12px;margin:12px 0 0;text-align:center">Or enter the 6-digit code below:</p>
+HTML;
+        }
+
         return <<<HTML
 <div style="font-family:'Segoe UI',Arial,sans-serif;background:#F8FAF9;padding:32px 16px">
   <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:24px;padding:36px;box-shadow:0 10px 30px rgba(14,74,87,.08)">
     <div style="text-align:center;font-size:22px;font-weight:800;color:#0E4A57;letter-spacing:-.5px">INVOIZ</div>
     <p style="color:#374151;font-size:14px;margin:20px 0 6px">Hi {$name},</p>
-    <p style="color:#6B7280;font-size:13px;margin:0 0 18px">Use this code to verify your email. It expires in <b>10 minutes</b>.</p>
+    <p style="color:#6B7280;font-size:13px;margin:0 0 18px">Please verify your email address to get started.</p>
+    {$linkSection}
     <div style="text-align:center;background:#EAF4F3;border-radius:16px;padding:20px;letter-spacing:10px;font-size:32px;font-weight:800;color:#0E4A57">{$code}</div>
-    <p style="color:#9CA3AF;font-size:11px;margin:18px 0 0;text-align:center">Didn't request this? Ignore this email.<br>Life's short. Shop fast.</p>
+    <p style="color:#9CA3AF;font-size:11px;margin:18px 0 0;text-align:center">Code expires in 10 minutes. Verification link expires in 60 minutes.<br>Didn't request this? Ignore this email.<br>Life's short. Shop fast.</p>
   </div>
 </div>
 HTML;
