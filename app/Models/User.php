@@ -399,6 +399,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Order::class, 'buyer_id');
     }
 
+    public function accountDeletionRequests()
+    {
+        return $this->hasMany(AccountDeletionRequest::class, 'user_id');
+    }
+
     public function addresses()
     {
         return $this->hasMany(Address::class, 'buyer_id');

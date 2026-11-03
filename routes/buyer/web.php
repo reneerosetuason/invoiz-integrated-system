@@ -465,6 +465,9 @@ Route::post('/profile/email/request-code', [ProfileController::class, 'requestEm
   ->middleware('throttle:5,1')->name('profile.email.request-code');
 Route::post('/profile/email/confirm', [ProfileController::class, 'confirmEmailChange'])
   ->middleware('throttle:10,1')->name('profile.email.confirm');
+Route::post('/profile/delete-account', [ProfileController::class, 'requestDeletion'])->name('buyer.profile.delete-request');
+Route::post('/profile/cancel-deletion', [ProfileController::class, 'cancelDeletion'])->name('buyer.profile.cancel-deletion');
+
 Route::get('/orders', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to view orders');

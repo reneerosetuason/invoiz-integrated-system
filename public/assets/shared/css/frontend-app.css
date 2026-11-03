@@ -97,9 +97,9 @@ body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--t
 .footer{padding:16px;background:#fff;border-top:1px solid var(--border);margin-top:24px;text-align:center;color:var(--text3);font-size:11px}
 
 /* Profile Drop */
-.profile-btn{display:flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--border);border-radius:999px;padding:4px 10px 4px 4px;cursor:pointer;transition:all .15s;color:var(--text)}
+.profile-btn{display:flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--border);border-radius:999px;padding:3px 10px 3px 3px;cursor:pointer;transition:all .15s;color:var(--text)}
 .profile-btn:hover{border-color:var(--green);background:var(--bg)}
-.profile-avatar{width:28px;height:28px;border-radius:50%;border:2px solid var(--border)}
+.profile-avatar{width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;max-width:32px!important;max-height:32px!important;border-radius:50%!important;border:2px solid var(--border)!important;object-fit:cover!important;flex-shrink:0!important;display:block!important}
 #profileDrop{display:none;position:absolute;right:20px;top:52px;width:260px;background:#fff;border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,.12);padding:14px;z-index:50}
 #profileDrop.open{display:block;animation:dropIn .2s ease}
 @keyframes dropIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
