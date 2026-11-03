@@ -17,11 +17,12 @@ use App\Models\RiderEarning;
 use App\Models\Seller;
 use App\Models\Transaction;
 use App\Models\User;
-use App\Services\DeliveryOtpService;
 use App\Support\Cod;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -35,6 +36,13 @@ class RiderDeliveryCompletionTest extends TestCase
     use DatabaseTransactions;
 
     private int $seq = 0;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('public');
+    }
 
     private function riderUser(): array
     {
@@ -167,9 +175,12 @@ class RiderDeliveryCompletionTest extends TestCase
         ]);
     }
 
-    private function otpFor(Delivery $delivery): string
+    private function photo(): UploadedFile
     {
-        return app(DeliveryOtpService::class)->issueFor($delivery);
+        return UploadedFile::fake()->createWithContent(
+            'delivery-proof.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5X8AAAAASUVORK5CYII='),
+        );
     }
 
     private function financialCounts(Delivery $delivery): array
@@ -187,12 +198,11 @@ class RiderDeliveryCompletionTest extends TestCase
         [$order] = $this->order();
         $delivery = $this->delivery($rider, $order);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
-            'proof_type' => 'signature',
+            'photo' => $this->photo(),
             'signature_name' => 'Completion Recipient',
-            'otp' => $this->otpFor($delivery),
         ])
             ->assertOk()
             ->assertJsonPath('message', 'Delivery completed successfully.')
@@ -204,6 +214,13 @@ class RiderDeliveryCompletionTest extends TestCase
         $this->assertNotNull($fresh->delivered_at);
         $this->assertSame(1, DeliveryStatusLog::where('delivery_id', $delivery->id)->where('status', 'delivered')->count());
         $this->assertSame(1, DeliveryProof::where('delivery_id', $delivery->id)->count());
+        $this->assertDatabaseHas('delivery_proofs', [
+            'delivery_id' => $delivery->id,
+            'rider_id' => $rider->id,
+            'type' => 'photo',
+        ]);
+        $this->assertNotNull(DeliveryProof::where('delivery_id', $delivery->id)->value('file_path'));
+        $this->assertNull(DeliveryProof::where('delivery_id', $delivery->id)->value('otp'));
 
         // logistics_fee is now the origin hub + pickup rider share from the
         // centralized allocation: 30 + (30 x 2 items) = 90 for this shipment.
@@ -233,16 +250,40 @@ class RiderDeliveryCompletionTest extends TestCase
         ]);
     }
 
+    public function test_completion_requires_a_photo_and_does_not_accept_an_otp_substitute(): void
+    {
+        [$user, $rider] = $this->riderUser();
+        [$order] = $this->order();
+        $delivery = $this->delivery($rider, $order);
+
+        Sanctum::actingAs($user, ['rider']);
+
+        $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'signature_name' => 'Completion Recipient',
+            'otp' => '123456',
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('photo');
+
+        $this->assertSame('out_for_delivery', $delivery->fresh()->status);
+        $this->assertSame(0, DeliveryProof::where('delivery_id', $delivery->id)->count());
+        $this->assertSame([
+            'transactions' => 0,
+            'remittances' => 0,
+            'earnings' => 0,
+        ], $this->financialCounts($delivery));
+    }
+
     public function test_earning_uses_the_delivery_fee_and_falls_back_to_the_flat_fee(): void
     {
         [$user, $rider] = $this->riderUser();
         [$order] = $this->order();
         $delivery = $this->delivery($rider, $order, ['delivery_fee' => 65]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
-            'otp' => $this->otpFor($delivery),
+            'photo' => $this->photo(),
         ])
             ->assertOk()
             ->assertJsonPath('earned', 65);
@@ -263,10 +304,10 @@ class RiderDeliveryCompletionTest extends TestCase
         [$user, $rider] = $this->riderUser();
         $delivery = $this->delivery($rider, null, ['order_id' => 999999999]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
-            'proof_type' => 'signature',
+            'photo' => $this->photo(),
         ])
             ->assertStatus(409)
             ->assertJsonPath('message', 'This order is cancelled or unavailable.');
@@ -289,9 +330,9 @@ class RiderDeliveryCompletionTest extends TestCase
         $delivery = $this->delivery($rider, $order);
         $url = "/api/logistics/rider/deliveries/{$delivery->id}/complete";
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
-        $this->postJson($url, ['otp' => $this->otpFor($delivery)])->assertOk();
+        $this->postJson($url, ['photo' => $this->photo()])->assertOk();
         $this->postJson($url)->assertStatus(409);
 
         $this->assertSame([
@@ -300,6 +341,7 @@ class RiderDeliveryCompletionTest extends TestCase
             'earnings' => 1,
         ], $this->financialCounts($delivery));
 
+        $this->assertSame(1, DeliveryProof::where('delivery_id', $delivery->id)->count());
         $this->assertSame(1, DeliveryStatusLog::where('delivery_id', $delivery->id)->where('status', 'delivered')->count());
     }
 
@@ -310,7 +352,7 @@ class RiderDeliveryCompletionTest extends TestCase
         [$order] = $this->order();
         $delivery = $this->delivery($rider, $order);
 
-        Sanctum::actingAs($intruder);
+        Sanctum::actingAs($intruder, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete")
             ->assertForbidden();
@@ -329,7 +371,7 @@ class RiderDeliveryCompletionTest extends TestCase
         [$order] = $this->order();
         $delivery = $this->delivery($rider, $order, ['status' => 'picked_up']);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete")
             ->assertStatus(409);
@@ -351,10 +393,10 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 120,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
-            'otp' => $this->otpFor($delivery),
+            'photo' => $this->photo(),
         ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('amount_received');
@@ -377,19 +419,19 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 120,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'photo' => $this->photo(),
             'amount_received' => 120,
             'signature_name' => 'Completion Recipient',
-            'otp' => $this->otpFor($delivery),
         ])->assertOk();
 
         $this->assertSame('delivered', $delivery->fresh()->status);
         $this->assertDatabaseHas('delivery_proofs', [
             'delivery_id' => $delivery->id,
             'rider_id' => $rider->id,
-            'type' => 'signature',
+            'type' => 'photo',
             'signature_name' => 'Completion Recipient',
         ]);
         $this->assertSame([
@@ -410,12 +452,12 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 170,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'photo' => $this->photo(),
             'amount_received' => 170,
             'signature_name' => 'COD Recipient',
-            'otp' => $this->otpFor($delivery),
         ])->assertOk();
 
         $fresh = $delivery->fresh();
@@ -450,12 +492,12 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 170,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'photo' => $this->photo(),
             'amount_received' => 165,
             'signature_name' => 'Short COD Recipient',
-            'otp' => $this->otpFor($delivery),
         ])->assertOk();
 
         $fresh = $delivery->fresh();
@@ -491,12 +533,12 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 170,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'photo' => $this->photo(),
             'amount_received' => 180,
             'signature_name' => 'Excess COD Recipient',
-            'otp' => $this->otpFor($delivery),
         ])->assertOk();
 
         $fresh = $delivery->fresh();
@@ -529,13 +571,12 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 170,
         ]);
 
-        Sanctum::actingAs($user);
-        $otp = $this->otpFor($delivery);
+        Sanctum::actingAs($user, ['rider']);
 
         foreach ([-1, 'not-a-number'] as $invalidAmount) {
             $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+                'photo' => $this->photo(),
                 'amount_received' => $invalidAmount,
-                'otp' => $otp,
             ])
                 ->assertStatus(422)
                 ->assertJsonValidationErrors('amount_received');
@@ -562,11 +603,11 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 170,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
+            'photo' => $this->photo(),
             'amount_received' => 170,
-            'proof_type' => 'signature',
         ])
             ->assertStatus(409)
             ->assertJsonPath('message', 'This order is cancelled or unavailable.');
@@ -595,16 +636,17 @@ class RiderDeliveryCompletionTest extends TestCase
         ]);
         $url = "/api/logistics/rider/deliveries/{$delivery->id}/complete";
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson($url, [
+            'photo' => $this->photo(),
             'amount_received' => 170,
-            'otp' => $this->otpFor($delivery),
         ])->assertOk();
 
         $this->postJson($url, ['amount_received' => 170])->assertStatus(409);
 
         $this->assertSame(170.0, (float) $delivery->fresh()->cod_amount_received);
+        $this->assertSame(1, DeliveryProof::where('delivery_id', $delivery->id)->count());
         $this->assertSame(1, AuditLog::where('action', 'cod.collected')
             ->where('entity_id', $delivery->id)
             ->count());
@@ -625,7 +667,7 @@ class RiderDeliveryCompletionTest extends TestCase
             'amount_to_collect' => 170,
         ]);
 
-        Sanctum::actingAs($intruder);
+        Sanctum::actingAs($intruder, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/complete", [
             'amount_received' => 170,

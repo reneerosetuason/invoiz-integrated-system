@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/file_validation.dart';
 import '../../core/utils/format_utils.dart';
@@ -17,12 +19,17 @@ import '../../widgets/app_ui.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 
-/// Proof of delivery: photo + customer verification + COD settlement.
+/// A location captured for the completion record. Kept as a plain record so
+/// the screen does not depend on the platform geolocation types.
+typedef DeliveryLocation = ({double latitude, double longitude});
+
+/// Proof of delivery: required live photo + customer signature + COD settlement.
 class ProofOfDeliveryScreen extends StatefulWidget {
   const ProofOfDeliveryScreen({
     super.key,
     required this.deliveryId,
     this.photoPicker,
+    this.locationReader,
     this.draftStore,
   });
 
@@ -30,6 +37,9 @@ class ProofOfDeliveryScreen extends StatefulWidget {
 
   /// Test seam: replaces the live camera with a fake that returns bytes.
   final Future<Uint8List?> Function()? photoPicker;
+
+  /// Test seam: replaces the device GPS lookup.
+  final Future<DeliveryLocation?> Function()? locationReader;
 
   /// Test seam: replaces the shared-preferences draft store.
   final PodDraftStore? draftStore;
@@ -41,7 +51,6 @@ class ProofOfDeliveryScreen extends StatefulWidget {
 class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
   final _amountController = TextEditingController();
   final _nameController = TextEditingController();
-  final _otpController = TextEditingController();
 
   late final PodDraftStore _drafts = widget.draftStore ?? PodDraftStore();
 
@@ -69,7 +78,6 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
   void dispose() {
     _amountController.dispose();
     _nameController.dispose();
-    _otpController.dispose();
     super.dispose();
   }
 
@@ -86,10 +94,12 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
         if (bytes == null) return;
       } else {
         final picker = ImagePicker();
+        // Resize and re-encode exactly once here. The bytes captured in
+        // memory are uploaded as-is, so the photo is never processed again.
         final image = await picker.pickImage(
           source: ImageSource.camera,
-          maxWidth: 1600,
-          maxHeight: 1600,
+          maxWidth: 1280,
+          maxHeight: 1280,
           imageQuality: 70,
         );
         if (image == null) return;
@@ -142,7 +152,6 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
     if (draft == null || !mounted || draft.hasContent == false) return;
 
     setState(() {
-      if (draft.otp.isNotEmpty) _otpController.text = draft.otp;
       if (draft.amount.isNotEmpty) _amountController.text = draft.amount;
       if (draft.name.isNotEmpty) _nameController.text = draft.name;
       _draftRestored = true;
@@ -152,11 +161,16 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
     if (path != null && path.isNotEmpty && _photoBytes == null) {
       try {
         final bytes = await File(path).readAsBytes();
-        if (bytes.isNotEmpty && mounted) {
+        final name = path.split(Platform.pathSeparator).last;
+        final valid = FileContentValidation.validatePhoto(
+          filename: name,
+          bytes: bytes,
+        );
+        if (valid.isValid && bytes.isNotEmpty && mounted) {
           setState(() {
             _photoBytes = bytes;
             _photoPath = path;
-            _photoName = path.split(Platform.pathSeparator).last;
+            _photoName = name;
           });
         }
       } catch (_) {
@@ -170,7 +184,6 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
       widget.deliveryId,
       PodDraft(
         photoPath: _photoPath,
-        otp: _otpController.text,
         amount: _amountController.text,
         name: _nameController.text,
       ),
@@ -182,31 +195,41 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
     return double.tryParse(_amountController.text.trim());
   }
 
+  /// Location is evidence, not a prerequisite: wait briefly, then submit
+  /// without it rather than blocking the delivery on a GPS fix.
+  static const Duration _locationTimeout = Duration(seconds: 5);
+
+  Future<DeliveryLocation?> _readLocation() async {
+    final pos = await Geolocation.currentPosition();
+    return pos == null
+        ? null
+        : (latitude: pos.latitude, longitude: pos.longitude);
+  }
+
   Future<void> _submit() async {
-    if (_submitting) return;
+    if (_submitting || _collectingGps) return;
     final provider = context.read<DeliveryProvider>();
     final delivery = provider.selected;
     if (delivery == null) return;
 
-    // A32: Delivered always needs a live proof photo (JPG/PNG, max 5 MB).
-    // The backend still accepts photo-less proofs, so the client enforces it.
-    if (_photoBytes == null) {
+    // Delivered always needs a live proof photo (JPG/PNG, max 5 MB); the
+    // backend rejects photo-less completion too.
+    final photo = _photoBytes;
+    if (photo == null) {
       _saveDraft();
       _snack('Take a live delivery photo before completing the delivery.');
       return;
     }
 
-    final otp = _otpController.text.trim();
-
-    if (delivery.otpRequired) {
-      if (otp.isEmpty) {
-        _snack('Enter the 6-digit delivery OTP provided by the buyer.');
-        return;
-      }
-      if (!RegExp(r'^\d{6}$').hasMatch(otp)) {
-        _snack('The delivery OTP must be exactly 6 digits.');
-        return;
-      }
+    // Re-check size/format right before upload: a restored draft may carry a
+    // photo captured by an older build.
+    final photoCheck = FileContentValidation.validatePhoto(
+      filename: _photoName ?? 'proof.jpg',
+      bytes: photo,
+    );
+    if (!photoCheck.isValid) {
+      _snack(photoCheck.message!);
+      return;
     }
 
     // COD: amount received is required and must not be negative.
@@ -236,45 +259,83 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
 
     final signatureName = rawName.isEmpty ? delivery.customer.name : rawName;
 
+    // Persist before the network call so a killed app or a stalled upload
+    // never loses the captured proof.
+    _saveDraft();
+
     setState(() {
       _submitting = true;
       _collectingGps = true;
     });
-    final pos = await Geolocation.currentPosition();
-    if (!mounted) return;
-    setState(() => _collectingGps = false);
 
-    final ok = await provider.complete(
-      delivery.id,
-      proofType: _photoBytes != null
-          ? 'photo'
-          : (otp.isNotEmpty ? 'otp' : 'signature'),
-      photoBytes: _photoBytes,
-      photoFilename: _photoName,
-      signatureName: otp.isNotEmpty ? null : signatureName,
-      otp: otp.isEmpty ? null : otp,
-      amountReceived: received,
-      latitude: pos?.latitude,
-      longitude: pos?.longitude,
-    );
-
-    if (!mounted) return;
-
-    if (ok) {
-      await _drafts.clear(delivery.id);
+    try {
+      DeliveryLocation? pos;
+      try {
+        pos = await (widget.locationReader ?? _readLocation)().timeout(
+          _locationTimeout,
+        );
+      } on TimeoutException {
+        pos = null;
+      } catch (_) {
+        pos = null;
+      }
       if (!mounted) return;
-      // Stop the submit spinner before leaving so the screen is never left
-      // showing an endless "Completing..." state if navigation does not pop.
-      setState(() => _submitting = false);
-      _snack('Delivery completed. Thank you!');
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    } else {
-      _saveDraft();
-      setState(() => _submitting = false);
-      _snack(
-        'Delivery not sent. ${provider.error ?? 'Please try again.'} '
-        'Your photo, OTP and amount are saved on this phone.',
+      setState(() => _collectingGps = false);
+
+      var ok = await provider.complete(
+        delivery.id,
+        photoBytes: photo,
+        photoFilename: _photoName,
+        signatureName: signatureName,
+        amountReceived: received,
+        latitude: pos?.latitude,
+        longitude: pos?.longitude,
       );
+      if (!mounted) return;
+
+      final failureMessage = provider.error ?? 'Please try again.';
+
+      // A timeout or dropped connection is uncertain: the server may have
+      // committed the completion. Read the authoritative status before
+      // showing an error or letting the rider submit again. A conflict is
+      // handled the same way because it can mean "already completed".
+      final mayHaveCompleted =
+          provider.lastErrorIsUncertain ||
+          provider.errorType == ApiErrorType.conflict;
+      if (!ok && mayHaveCompleted) {
+        await provider.loadDetail(delivery.id);
+        if (!mounted) return;
+        if (provider.selected?.status == 'delivered') {
+          ok = true;
+        }
+      }
+
+      if (ok) {
+        try {
+          await _drafts.clear(delivery.id);
+        } catch (_) {
+          // The server has confirmed completion; a stale local draft must
+          // not turn a successful delivery into an error screen.
+        }
+        if (!mounted) return;
+        _snack('Delivery completed. Thank you!');
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        _saveDraft();
+        _snack(
+          'Delivery not sent. $failureMessage '
+          'Your photo and amount are saved on this phone.',
+        );
+      }
+    } finally {
+      // Loading must stop on every path, including navigation and unexpected
+      // errors, so the button can never remain disabled forever.
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _collectingGps = false;
+        });
+      }
     }
   }
 
@@ -311,193 +372,199 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-          if (_draftRestored) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: AppColors.primary.withValues(alpha: 0.18),
+            if (_draftRestored) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.restore, size: 18, color: AppColors.primary),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Restored your unsent proof from this phone. '
+                        'Complete the delivery when you have a connection.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: const Row(
+              const SizedBox(height: 16),
+            ],
+            if (delivery.isCashOnDelivery) ...[
+              _Section(
+                title: 'Cash on Delivery',
+                icon: Icons.payments_outlined,
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Amount to Collect',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          FormatUtils.peso(delivery.amountToCollect ?? 0),
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.secondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      key: const Key('codAmountField'),
+                      controller: _amountController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        LengthLimitingTextInputFormatter(10),
+                      ],
+                      decoration: const InputDecoration(
+                        labelText: 'Amount Received',
+                        prefixText: '₱ ',
+                        hintText: '0.00',
+                      ),
+                      onChanged: (_) {
+                        setState(() {});
+                        _saveDraft();
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    _ChangeRow(
+                      amountToCollect: delivery.amountToCollect ?? 0,
+                      received: _getReceived(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (!delivery.isCashOnDelivery) ...[
+              _Section(
+                title: 'Payment',
+                icon: Icons.verified_outlined,
+                child: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: AppTheme.success, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Payment already received. No cash collection is needed '
+                        'for this delivery.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            _Section(
+              title: 'Delivery Photo',
+              icon: Icons.camera_alt_outlined,
+              child: Column(
                 children: [
-                  Icon(Icons.restore, size: 18, color: AppColors.primary),
-                  SizedBox(width: 8),
-                  Expanded(
+                  const Align(
+                    alignment: Alignment.centerLeft,
                     child: Text(
-                      'Restored your unsent proof from this phone. '
-                      'Complete the delivery when you have a connection.',
+                      'A live camera photo is required (JPG or PNG, max 5 MB). '
+                      'Gallery photos are not accepted.',
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary,
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          if (delivery.isCashOnDelivery) ...[
-            _Section(
-              title: 'Cash on Delivery',
-              icon: Icons.payments_outlined,
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Amount to Collect',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
+                  const SizedBox(height: 10),
+                  if (_photoBytes == null)
+                    OutlinedButton.icon(
+                      onPressed: (_takingPhoto || _submitting)
+                          ? null
+                          : _takePhoto,
+                      icon: _takingPhoto
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.camera_alt_outlined),
+                      label: Text(
+                        _takingPhoto ? 'Opening camera…' : 'Take Photo',
                       ),
-                      Text(
-                        FormatUtils.peso(delivery.amountToCollect ?? 0),
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: AppTheme.secondary,
-                        ),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    key: const Key('codAmountField'),
-                    controller: _amountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
+                    )
+                  else
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(
+                        _photoBytes!,
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        // Decode only what is displayed; the upload keeps the
+                        // full-resolution bytes.
+                        cacheWidth: 720,
+                      ),
                     ),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                      LengthLimitingTextInputFormatter(10),
-                    ],
-                    decoration: const InputDecoration(
-                      labelText: 'Amount Received',
-                      prefixText: '₱ ',
-                      hintText: '0.00',
+                  if (_photoBytes != null) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: (_takingPhoto || _submitting)
+                          ? null
+                          : _takePhoto,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retake Photo'),
                     ),
-                    onChanged: (_) {
-                      setState(() {});
-                      _saveDraft();
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  _ChangeRow(
-                    amountToCollect: delivery.amountToCollect ?? 0,
-                    received: _getReceived(),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-          _Section(
-            title: 'Delivery Photo',
-            icon: Icons.camera_alt_outlined,
-            child: Column(
-              children: [
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'A live camera photo is required (JPG or PNG, max 5 MB). '
-                    'Gallery photos are not accepted.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (_photoBytes == null)
-                  OutlinedButton.icon(
-                    onPressed: _takingPhoto ? null : _takePhoto,
-                    icon: _takingPhoto
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.camera_alt_outlined),
-                    label: Text(
-                      _takingPhoto ? 'Opening camera…' : 'Take Photo',
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
-                    ),
-                  )
-                else
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.memory(
-                      _photoBytes!,
-                      height: 180,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                if (_photoBytes != null) ...[
-                  const SizedBox(height: 8),
-                  TextButton.icon(
-                    onPressed: _takingPhoto ? null : _takePhoto,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Retake Photo'),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _Section(
-            title: 'Customer Verification',
-            icon: Icons.verified_outlined,
-            child: Column(
-              children: [
-                TextField(
-                  key: const Key('signatureNameField'),
-                  controller: _nameController,
-                  textCapitalization: TextCapitalization.words,
-                  maxLength: 255,
-                  decoration: InputDecoration(
-                    labelText: 'Customer name (signature)',
-                    hintText: delivery.customer.name,
-                    counterText: '',
-                  ),
-                  onChanged: (_) => _saveDraft(),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('deliveryOtpField'),
-                  controller: _otpController,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  autofillHints: const [AutofillHints.oneTimeCode],
-                  maxLength: 6,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
                   ],
-                  decoration: InputDecoration(
-                    labelText: delivery.otpRequired
-                        ? 'Delivery OTP'
-                        : 'Delivery OTP (optional)',
-                    helperText: delivery.otpRequired
-                        ? 'Ask the buyer for the 6-digit code shown in their app.'
-                        : null,
-                    counterText: '',
-                  ),
-                  onChanged: (_) => _saveDraft(),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            _Section(
+              title: 'Customer Signature',
+              icon: Icons.edit_outlined,
+              child: TextField(
+                key: const Key('signatureNameField'),
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                maxLength: 255,
+                decoration: InputDecoration(
+                  labelText: 'Customer name (signature)',
+                  hintText: delivery.customer.name,
+                  counterText: '',
+                ),
+                onChanged: (_) => _saveDraft(),
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: SafeArea(
@@ -519,10 +586,10 @@ class _ProofOfDeliveryScreenState extends State<ProofOfDeliveryScreen> {
                   )
                 : const Icon(Icons.check_circle_outline),
             label: Text(
-              provider.actionBusy || _submitting
-                  ? 'Submitting...'
-                  : _collectingGps
+              _collectingGps
                   ? 'Getting location...'
+                  : provider.actionBusy || _submitting
+                  ? 'Submitting...'
                   : 'Complete Delivery',
             ),
           ),

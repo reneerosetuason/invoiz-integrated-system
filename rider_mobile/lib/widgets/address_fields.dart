@@ -177,7 +177,7 @@ class _AddressFieldsState extends State<AddressFields> {
     ),
   );
 
-  InputDecoration _decoration(String label) => InputDecoration(
+    InputDecoration _decoration(String label) => InputDecoration(
     labelText: label,
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(12),
@@ -185,6 +185,26 @@ class _AddressFieldsState extends State<AddressFields> {
     ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
   );
+
+  Future<void> _showSearchDialog(
+    _Level level,
+    String label,
+    List<PsgcOption> items,
+  ) async {
+    final cleanLabel = label.replaceAll(' *', '');
+    final selected = await showModalBottomSheet<PsgcOption>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) =>
+          _SearchOptionsSheet(title: 'Search $cleanLabel', items: items),
+    );
+    if (selected != null) {
+      _select(level, selected.code);
+    }
+  }
 
   Widget _picker(
     _Level level,
@@ -211,7 +231,17 @@ class _AddressFieldsState extends State<AddressFields> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             )
-          : null,
+          : (enabled && items.length > 5
+              ? IconButton(
+                  icon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: AppColors.textSecondary,
+                  ),
+                  tooltip: 'Search ${label.replaceAll(' *', '')}',
+                  onPressed: () => _showSearchDialog(level, label, items),
+                )
+              : null),
     ),
     hint: Text(
       hint ?? 'Select ${label.replaceAll(' *', '')}',
@@ -328,4 +358,108 @@ class _AddressFieldsState extends State<AddressFields> {
       ],
     ],
   );
+}
+
+class _SearchOptionsSheet extends StatefulWidget {
+  const _SearchOptionsSheet({required this.title, required this.items});
+  final String title;
+  final List<PsgcOption> items;
+
+  @override
+  State<_SearchOptionsSheet> createState() => _SearchOptionsSheetState();
+}
+
+class _SearchOptionsSheetState extends State<_SearchOptionsSheet> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<PsgcOption> _filtered = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _filtered = widget.items;
+    _searchCtrl.addListener(() {
+      final q = _searchCtrl.text.toLowerCase().trim();
+      setState(() {
+        _filtered = q.isEmpty
+            ? widget.items
+            : widget.items
+                .where((i) => i.name.toLowerCase().contains(q))
+                .toList();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      minChildSize: 0.4,
+      maxChildSize: 0.9,
+      expand: false,
+      builder: (ctx, scrollController) => Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              controller: _searchCtrl,
+              autofocus: true,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search),
+                hintText: 'Type to filter...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: _filtered.isEmpty
+                ? const Center(child: Text('No results found.'))
+                : ListView.builder(
+                    controller: scrollController,
+                    itemCount: _filtered.length,
+                    itemBuilder: (ctx, idx) {
+                      final item = _filtered[idx];
+                      return ListTile(
+                        title: Text(item.name),
+                        onTap: () => Navigator.of(ctx).pop(item),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }

@@ -27,8 +27,18 @@ Route::post('/login', [AuthController::class, 'login'])
 Route::post('/courier/login', [HubCourierController::class, 'login'])->middleware('throttle:10,1');
 Route::middleware('auth:sanctum')->prefix('courier')->group(function () {
     Route::get('/profile', [HubCourierController::class, 'profile']);
+    Route::patch('/profile', [HubCourierController::class, 'updateProfile']);
+    Route::post('/profile/photo', [HubCourierController::class, 'updatePhoto']);
+    Route::patch('/password', [HubCourierController::class, 'updatePassword']);
     Route::get('/dashboard', [HubCourierController::class, 'dashboard']);
     Route::patch('/status', [HubCourierController::class, 'status']);
+    Route::get('/earnings', [HubCourierController::class, 'earnings']);
+    Route::get('/incidents', [HubCourierController::class, 'incidents']);
+    Route::post('/incidents', [HubCourierController::class, 'reportIncident']);
+    Route::get('/notifications', [HubCourierController::class, 'notifications']);
+    Route::patch('/notifications/read-all', [HubCourierController::class, 'markAllNotificationsRead']);
+    Route::patch('/notifications/{notification}/read', [HubCourierController::class, 'markNotificationRead']);
+    Route::get('/transfers', [HubCourierController::class, 'transfers']);
     Route::get('/transfers/{transfer}', [HubCourierController::class, 'show']);
     Route::post('/transfers/{transfer}/origin-arrival', [HubCourierController::class, 'originArrival']);
     Route::post('/transfers/{transfer}/load', [HubCourierController::class, 'loadParcel']);
@@ -38,6 +48,7 @@ Route::middleware('auth:sanctum')->prefix('courier')->group(function () {
 });
 
 Route::get('/vehicle-types', [VehicleTypeController::class, 'index']);
+Route::get('/address/regions', [AddressController::class, 'regions']);
 Route::get('/address/provinces', [AddressController::class, 'provinces']);
 Route::get('/address/provinces/{province}/municipalities', [AddressController::class, 'municipalities']);
 Route::get('/address/municipalities/{municipality}/barangays', [AddressController::class, 'barangays']);
@@ -73,6 +84,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('role:rider')->prefix('rider')->group(function () {
         Route::get('/profile', [RiderController::class, 'profile']);
         Route::patch('/profile', [RiderController::class, 'updateProfile']);
+        Route::post('/profile/photo', [RiderController::class, 'updatePhoto']);
         Route::patch('/password', [RiderPasswordController::class, 'update']);
         Route::patch('/status', [RiderController::class, 'updateStatus']);
         Route::get('/dashboard', [RiderController::class, 'dashboard']);

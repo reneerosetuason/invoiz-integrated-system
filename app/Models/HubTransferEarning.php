@@ -8,9 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * Authoritative inter-hub transport driver credit.
  *
- * One row per seller shipment per route: (delivery_id, recipient_role) is
- * unique, so an A -> B -> C route cannot pay the flat fee twice. Transfer
- * legs remain fully auditable through hub_transfer_events.
+ * Supports both:
+ * 1. Trip-level flat compensation per completed Hub Transfer:
+ *    (hub_transfer_id, recipient_role) is unique, delivery_id is null.
+ * 2. Historical per-shipment records: (delivery_id, recipient_role) is unique.
  */
 class HubTransferEarning extends Model
 {
@@ -22,6 +23,9 @@ class HubTransferEarning extends Model
         'delivery_id',
         'hub_transport_driver_id',
         'recipient_role',
+        'base_amount',
+        'vehicle_allowance',
+        'vehicle_ownership',
         'amount',
         'earned_on',
         'description',
@@ -30,6 +34,8 @@ class HubTransferEarning extends Model
     protected function casts(): array
     {
         return [
+            'base_amount' => 'decimal:2',
+            'vehicle_allowance' => 'decimal:2',
             'amount' => 'decimal:2',
             'earned_on' => 'date',
         ];

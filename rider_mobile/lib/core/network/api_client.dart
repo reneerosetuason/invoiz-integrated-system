@@ -9,23 +9,29 @@ import 'api_exception.dart';
 
 /// Thin HTTP wrapper around the Laravel REST API.
 class ApiClient {
-  ApiClient({http.Client? client}) : _client = client ?? http.Client();
+  ApiClient({
+    http.Client? client,
+    Duration requestTimeout = const Duration(seconds: 30),
+    Duration uploadTimeout = const Duration(seconds: 45),
+  }) : _client = client ?? http.Client(),
+       _timeout = requestTimeout,
+       _uploadTimeout = uploadTimeout;
 
   final http.Client _client;
+  final Duration _timeout;
+  final Duration _uploadTimeout;
 
   String? _token;
 
   /// Attach the bearer token to every request.
   void setToken(String? token) => _token = token;
 
-  static const Duration _timeout = Duration(seconds: 30);
-  static const Duration _uploadTimeout = Duration(seconds: 90);
-
   Uri _uri(String path, [Map<String, dynamic>? query]) {
     final base = AppConfig.apiBaseUrl;
     final clean = path.startsWith('/') ? path : '/$path';
-    return Uri.parse('$base$clean')
-        .replace(queryParameters: _stringifyQuery(query));
+    return Uri.parse(
+      '$base$clean',
+    ).replace(queryParameters: _stringifyQuery(query));
   }
 
   /// `Uri.queryParameters` only accepts `String` / `Iterable<String>` values.
@@ -62,9 +68,15 @@ class ApiClient {
     return headers;
   }
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query}) async {
+  Future<dynamic> get(
+    String path, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  }) async {
+    final h = _headers();
+    if (headers != null) h.addAll(headers);
     final response = await _guard(
-      () => _client.get(_uri(path, query), headers: _headers()).timeout(_timeout),
+      () => _client.get(_uri(path, query), headers: h).timeout(_timeout),
     );
     return _decode(response);
   }
@@ -85,9 +97,9 @@ class ApiClient {
     final relativePath = path.replaceFirst(RegExp(r'^/+'), '');
     final uri = Uri.parse('$base/').resolve('../$relativePath');
     final response = await _guard(
-      () => _client.get(uri, headers: const {
-        'Accept': 'application/json',
-      }).timeout(_timeout),
+      () => _client
+          .get(uri, headers: const {'Accept': 'application/json'})
+          .timeout(_timeout),
     );
     return _decode(response);
   }
@@ -121,11 +133,9 @@ class ApiClient {
 
     request.headers.addAll(_headers(json: false));
 
-    request.files.add(http.MultipartFile.fromBytes(
-      fileField,
-      fileBytes,
-      filename: filename,
-    ));
+    request.files.add(
+      http.MultipartFile.fromBytes(fileField, fileBytes, filename: filename),
+    );
 
     if (fields != null) {
       fields.forEach((key, value) {
@@ -133,10 +143,9 @@ class ApiClient {
       });
     }
 
-    final streamed = await _guard(() async {
-      final s = await _client.send(request).timeout(_uploadTimeout);
-      return http.Response.fromStream(s);
-    });
+    final streamed = await _guard(
+      () => _sendAndRead(request).timeout(_uploadTimeout),
+    );
 
     return _decode(streamed);
   }
@@ -150,16 +159,29 @@ class ApiClient {
     final request = http.MultipartRequest('POST', _uri(path));
     request.headers.addAll(_headers(json: false));
     files.forEach((field, data) {
-      request.files.add(http.MultipartFile.fromBytes(field, data.bytes, filename: data.filename));
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          field,
+          data.bytes,
+          filename: data.filename,
+        ),
+      );
     });
     if (fields != null) {
       fields.forEach((k, v) => request.fields.putIfAbsent(k, () => v));
     }
-    final streamed = await _guard(() async {
-      final s = await _client.send(request).timeout(_uploadTimeout);
-      return http.Response.fromStream(s);
-    });
+    final streamed = await _guard(
+      () => _sendAndRead(request).timeout(_uploadTimeout),
+    );
     return _decode(streamed);
+  }
+
+  /// Send a request and fully read the response body. The timeout must cover
+  /// body reads too: a server that sends headers and then stalls would
+  /// otherwise leave the caller waiting forever.
+  Future<http.Response> _sendAndRead(http.BaseRequest request) async {
+    final streamed = await _client.send(request);
+    return http.Response.fromStream(streamed);
   }
 
   Future<http.Response> _guard(Future<http.Response> Function() run) async {

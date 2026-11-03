@@ -1,4 +1,7 @@
 <x-app-layout>
+@php
+    $isTransferAdmin = auth()->user()->isAdmin() || auth()->user()->isLogisticsAdmin();
+@endphp
     <div class="space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div class="flex items-start gap-3">
@@ -30,6 +33,7 @@
                 <div class="text-[10px] font-bold uppercase tracking-wider text-[#6E6E73]">Manifest Status</div>
                 <div class="mt-1 font-bold text-sm text-[#1B1B1E]">{{ $transfer->parcels->where('loading_status','loaded')->count() }} loaded / {{ $transfer->parcels->where('loading_status','!=','removed')->count() }} expected</div>
                 <div class="text-xs text-[#6E6E73] mt-0.5">{{ $transfer->parcels->where('receiving_status','received')->count() }} received · {{ $transfer->parcels->where('receiving_status','missing')->count() }} missing</div>
+                <div class="text-xs text-[#6E6E73] mt-0.5">Combined weight: <strong class="text-[#1B1B1E]">{{ $manifestWeight === null ? 'Not fully recorded' : number_format($manifestWeight, 2).' kg' }}</strong></div>
             </div>
             <div class="card p-4">
                 <div class="text-[10px] font-bold uppercase tracking-wider text-[#6E6E73]">Schedule Timeline</div>
@@ -48,7 +52,10 @@
         {{-- Manifest Table --}}
         <div class="card overflow-hidden">
             <div class="p-4 border-b border-[#E8E6E0] flex items-center justify-between">
-                <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Parcel manifest</h2>
+                <div>
+                    <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Parcel manifest</h2>
+                    <p class="text-[11px] text-[#6E6E73] mt-0.5">Each parcel keeps its own journey inside this transfer. Truck arrival never marks a parcel received; destination staff must verify it.</p>
+                </div>
                 <span class="text-xs text-[#6E6E73]">{{ $transfer->parcels->count() }} total parcels</span>
             </div>
             <div class="overflow-x-auto">
@@ -56,17 +63,28 @@
                     <thead>
                         <tr>
                             <th>Tracking #</th>
+                            <th>Parcel Journey</th>
                             <th>Loading</th>
                             <th>Receiving</th>
                             <th>Condition / Exception</th>
-                            <th class="text-right">Action</th>
+                            @if(!$isTransferAdmin)
+                                <th class="text-right">Action</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($transfer->parcels as $entry)
+                            @php
+                                $progress = $parcelProgress[$entry->id] ?? ['status' => 'added', 'label' => 'Added to manifest'];
+                            @endphp
                             <tr>
                                 <td class="font-mono font-bold text-[#16697A]">
                                     <a href="{{ route('deliveries.show', $entry->delivery) }}" class="hover:underline">{{ $entry->delivery?->tracking_number }}</a>
+                                </td>
+                                <td>
+                                    <span class="badge {{ in_array($progress['status'], ['received', 'received_damaged'], true) ? 'badge-delivered' : (in_array($progress['status'], ['missing', 'removed'], true) ? 'badge-cancelled' : 'badge-inactive') }}">
+                                        {{ $progress['label'] }}
+                                    </span>
                                 </td>
                                 <td>
                                     <span class="badge {{ $entry->loading_status === 'loaded' ? 'badge-delivered' : 'badge-inactive' }}">
@@ -89,6 +107,7 @@
                                         @endif
                                     </div>
                                 </td>
+                                @if(!$isTransferAdmin)
                                 <td class="text-right">
                                     @if($entry->loading_status === 'removed')
                                         <span class="text-xs text-[#6E6E73] italic">Removed</span>
@@ -124,6 +143,7 @@
                                         <span class="text-xs text-[#6E6E73]">—</span>
                                     @endif
                                 </td>
+                                @endif
                             </tr>
                         @endforeach
                     </tbody>
@@ -131,7 +151,8 @@
             </div>
         </div>
 
-        {{-- Workflow Controls --}}
+        {{-- Workflow Controls / Admin Monitoring --}}
+        @if(!$isTransferAdmin)
         <div class="card p-5 space-y-4">
             <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Transfer Actions &amp; Lifecycle</h2>
 
@@ -206,6 +227,19 @@
                 </div>
             @endif
         </div>
+        @else
+        <div class="card p-5 bg-[#FAF9F6] border-[#E8E6E0] space-y-2">
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E6F4F1] text-[#0E4A57]">
+                    Administrative Oversight Mode
+                </span>
+                <span class="text-xs text-[#6E6E73]">&middot; Transfer Status: <strong class="text-[#1B1B1E]">{{ str($transfer->status)->replace('_', ' ')->title() }}</strong></span>
+            </div>
+            <p class="text-xs text-[#6E6E73]">
+                Inter-hub transfers are executed by assigned Logistics Staff at the origin ({{ $transfer->origin?->name }}) and destination ({{ $transfer->destination?->name }}) hubs. Administrators retain network-wide monitoring without performing local loading, dispatch, or parcel receiving scans.
+            </p>
+        </div>
+        @endif
 
         {{-- Event History Timeline --}}
         <div class="card p-5">

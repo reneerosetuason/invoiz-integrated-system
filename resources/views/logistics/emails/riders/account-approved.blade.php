@@ -13,10 +13,10 @@
 
     <p>Hello {{ $riderName }},</p>
 
-    <p>Congratulations! Your application to become an INVOIZ Rider has been approved and your rider account has been successfully created.</p>
+    <p>Congratulations! Your application to become an INVOIZ {{ $roleLabel ?? 'Rider' }} has been approved and your account has been successfully created.</p>
 
     <div style="background: #EAF4F3; border: 1px solid #16697A; border-radius: 12px; padding: 20px 24px; margin: 18px 0;">
-        <div style="font-size: 12px; letter-spacing: 1.5px; font-weight: 700; color: #16697A; margin-bottom: 14px; text-align: center;">YOUR RIDER ACCOUNT</div>
+        <div style="font-size: 12px; letter-spacing: 1.5px; font-weight: 700; color: #16697A; margin-bottom: 14px; text-align: center;">YOUR ACCOUNT</div>
 
         <p style="margin: 0 0 12px;">
             Email:<br>

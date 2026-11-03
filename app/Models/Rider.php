@@ -219,18 +219,14 @@ class Rider extends Model
     }
 
     /**
-     * The rider must belong to the same logistics center as the delivery
-     * destination. If the delivery has no destination yet the rule cannot
-     * apply, so it does not block legacy or pre-sorting assignments.
+     * The rider must belong to the hub that owns the delivery's current stage:
+     * the seller's pickup hub during first mile, or the buyer's final hub
+     * during last mile. The scope is resolved by the delivery so every
+     * candidate rider is compared against the same stage.
      */
     public function matchesDestinationCenter(Delivery $delivery): bool
     {
-        // Sorted parcels are matched against their destination. Before sorting
-        // (or during first-mile seller pickup before hub receipt), the handling
-        // center is the active scope.
-        $targetCenterId = ($delivery->order_id !== null && $delivery->received_at === null)
-            ? ($delivery->center_id ?? $delivery->destination_center_id)
-            : ($delivery->destination_center_id ?? $delivery->center_id);
+        $targetCenterId = $delivery->riderAssignmentScope()['center_id'];
 
         if ($targetCenterId === null) {
             // A completely unrouted parcel must remain assignable during
@@ -246,15 +242,17 @@ class Rider extends Model
     }
 
     /**
-     * The rider must match the delivery service area, but only when both
-     * sides actually have a service area assigned.
+     * The rider must match the service area for the delivery's current stage,
+     * but only when both sides actually have a service area assigned.
      */
     public function matchesServiceArea(Delivery $delivery): bool
     {
-        if ($this->service_area_id === null || $delivery->service_area_id === null) {
+        $targetAreaId = $delivery->riderAssignmentScope()['service_area_id'];
+
+        if ($this->service_area_id === null || $targetAreaId === null) {
             return true;
         }
 
-        return (int) $this->service_area_id === (int) $delivery->service_area_id;
+        return (int) $this->service_area_id === (int) $targetAreaId;
     }
 }

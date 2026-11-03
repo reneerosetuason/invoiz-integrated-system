@@ -1,5 +1,13 @@
 import '../core/network/api_client.dart';
+import '../models/hub_courier.dart';
 import '../models/rider.dart';
+
+typedef AuthResult = ({
+  String token,
+  String accountType,
+  Rider? rider,
+  HubCourier? courier,
+});
 
 /// Authentication service (login / logout / session).
 class AuthService {
@@ -7,7 +15,7 @@ class AuthService {
 
   final ApiClient _api;
 
-  Future<({String token, Rider rider})> login({
+  Future<AuthResult> login({
     required String email,
     required String password,
   }) async {
@@ -21,11 +29,54 @@ class AuthService {
       throw Exception('Login failed: no token returned.');
     }
 
-    final riderMap =
-        Map<String, dynamic>.from((data['user'] as Map?)?['rider'] as Map? ?? {});
-    final rider = Rider.fromJson(riderMap);
+    final accountType = data['account_type'] as String? ??
+        (data['courier'] != null ? 'hub_transport_driver' : 'delivery_rider');
 
-    return (token: token, rider: rider);
+    Rider? rider;
+    HubCourier? courier;
+
+    if (accountType == 'hub_transport_driver' || data['courier'] != null) {
+      final courierMap =
+          Map<String, dynamic>.from(data['courier'] as Map? ?? {});
+      courier = HubCourier.fromJson(courierMap);
+    } else {
+      final riderMap = Map<String, dynamic>.from(
+        (data['user'] as Map?)?['rider'] as Map? ??
+            (data['rider'] as Map? ?? {}),
+      );
+      rider = Rider.fromJson(riderMap);
+    }
+
+    return (
+      token: token,
+      accountType: accountType,
+      rider: rider,
+      courier: courier,
+    );
+  }
+
+  Future<({String accountType, Rider? rider, HubCourier? courier})>
+  currentUser() async {
+    final data = await _api.get('/user');
+    final accountType = data['account_type'] as String? ??
+        (data['courier'] != null ? 'hub_transport_driver' : 'delivery_rider');
+
+    Rider? rider;
+    HubCourier? courier;
+
+    if (accountType == 'hub_transport_driver' || data['courier'] != null) {
+      final courierMap =
+          Map<String, dynamic>.from(data['courier'] as Map? ?? {});
+      courier = HubCourier.fromJson(courierMap);
+    } else {
+      final riderMap = Map<String, dynamic>.from(
+        (data['user'] as Map?)?['rider'] as Map? ??
+            (data['rider'] as Map? ?? {}),
+      );
+      rider = Rider.fromJson(riderMap);
+    }
+
+    return (accountType: accountType, rider: rider, courier: courier);
   }
 
   Future<void> logout() async {

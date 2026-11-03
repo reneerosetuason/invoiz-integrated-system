@@ -34,86 +34,233 @@
             <div>
                 <h2 class="text-xl font-bold text-gray-900">{{ $application->name }}</h2>
                 <p class="mt-1 text-sm text-gray-500">{{ $application->email }} &middot; {{ $application->phone }}</p>
-                <span class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-light text-teal-dark">Rider Applicant</span>
+                @if($application->isHubTransportDriver())
+                    <span class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200">
+                        <svg class="w-4 h-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h11v10H3zM14 10h4l3 3v4h-7zM7 20a2 2 0 100-4 2 2 0 000 4zm11 0a2 2 0 100-4 2 2 0 000 4z"/></svg>
+                        Hub Transport Driver Applicant
+                    </span>
+                @else
+                    <span class="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-teal-light text-teal-dark">Delivery Rider Applicant</span>
+                @endif
             </div>
         </div>
     </div>
 
     {{-- Application details --}}
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <h3 class="text-base font-bold text-gray-900 mb-5">Application Information</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Full Name</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->name }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Middle Initial</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->middle_initial ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Sex</p>
-                <p class="text-sm font-medium text-gray-900">{{ ucfirst($application->sex ?? '—') }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Birthday</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->birthday?->format('M d, Y') ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Age</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->age ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Address</p>
-                <p class="text-sm font-medium text-gray-900">
-                    {{ trim(implode(' ', array_filter([$application->house_number,
-                                                       $application->street,
-                                                       $application->barangay,
-                                                       $application->municipality,
-                                                       $application->province]))) ?: ($application->address ?? '—') }}
-                </p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Vehicle Type</p>
-                <p class="text-sm font-medium text-gray-900">{{ ucfirst($application->vehicle_type) }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Plate</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->license_plate ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Number</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->license_number ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Vehicle Registration</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->vehicle_registration ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Assigned Logistics Hub</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->logisticsCenter?->name ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Service Area</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->serviceArea?->name ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Submitted</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->created_at?->format('M d, Y h:i A') ?? '—' }}</p>
-            </div>
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Reviewed By</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->approver?->name ?? '—' }}</p>
+    @if($application->isHubTransportDriver())
+        {{-- Hub Transport Driver Information --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h3 class="text-base font-bold text-gray-900 mb-5">Driver Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Full Name</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->name }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Email</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->email }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Phone</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->phone }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Driver License Number</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->license_number ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Expiry</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->license_expiry?->format('M d, Y') ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Sex &middot; Age</p>
+                    <p class="text-sm font-medium text-gray-900">{{ ucfirst($application->sex ?? '—') }} &middot; {{ $application->age ?? '—' }} yrs old</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Birthday</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->birthday?->format('M d, Y') ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Address</p>
+                    <p class="text-sm font-medium text-gray-900">
+                        {{ trim(implode(', ', array_filter([$application->house_number,
+                                                            $application->street,
+                                                            $application->barangay,
+                                                            $application->municipality,
+                                                            $application->province,
+                                                            $application->region]))) ?: ($application->address ?? '—') }}
+                    </p>
+                    @if ($application->region_code || $application->province_code || $application->municipality_code || $application->barangay_code)
+                        <span class="block text-xs text-gray-400 mt-0.5">PSGC: {{ implode(' / ', array_filter([$application->region_code, $application->province_code, $application->municipality_code, $application->barangay_code])) }}</span>
+                    @endif
+                </div>
             </div>
         </div>
 
-        @if($application->notes && $application->status !== 'pending')
-            <div class="mt-6 bg-gray-50 rounded-xl border border-gray-100 p-4">
-                <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Review Note</p>
-                <p class="text-sm font-medium text-gray-900">{{ $application->notes }}</p>
+        {{-- Hub Transport Vehicle Information / Fleet Note --}}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">Vehicle Arrangement & Specification</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Vehicle arrangement selected by the applicant during submission.</p>
+                </div>
+                @if($application->vehicle_ownership === 'driver_owned' || $application->vehicle_ownership === 'own')
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200">Driver-Owned Truck</span>
+                @else
+                    <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-sky-50 text-sky-700 ring-1 ring-inset ring-sky-200">Company-Provided Truck</span>
+                @endif
             </div>
-        @endif
-    </div>
+
+            @if($application->vehicle_ownership === 'driver_owned' || $application->vehicle_ownership === 'own')
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 pt-2 mb-4">
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Arrangement</p>
+                        <p class="text-sm font-semibold text-gray-900">Driver-Owned Truck</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Truck / Vehicle Type</p>
+                        <p class="text-sm font-medium text-gray-900">{{ ucfirst($application->vehicle_type ?? 'Truck') }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Plate</p>
+                        <p class="text-sm font-medium text-gray-900">{{ $application->license_plate ?? '—' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Vehicle Registration (OR/CR)</p>
+                        <p class="text-sm font-medium text-gray-900">{{ $application->vehicle_registration ?? '—' }}</p>
+                    </div>
+                    @if($application->vehicle_model)
+                        <div>
+                            <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Brand / Model</p>
+                            <p class="text-sm font-medium text-gray-900">{{ $application->vehicle_model }}</p>
+                        </div>
+                    @endif
+                </div>
+                <div class="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 text-xs text-emerald-900">
+                    <p class="font-semibold text-emerald-950">Driver-Owned Truck Verification</p>
+                    <p class="mt-0.5 text-emerald-800 leading-relaxed">
+                        Applicant registered their personal four-wheel truck. Review the uploaded OR/CR registration document below to verify plate <strong>{{ $application->license_plate }}</strong> before approval. Upon approval, this driver qualifies for standard trip compensation plus vehicle-use allowance.
+                    </p>
+                </div>
+            @else
+                <div class="rounded-xl border border-sky-200/70 bg-sky-50/50 p-4 text-xs text-sky-900 space-y-2">
+                    <div class="flex items-start gap-2.5">
+                        <svg class="w-5 h-5 text-sky-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <p class="font-semibold text-sky-950">Company Fleet Assignment Policy</p>
+                            <p class="mt-0.5 text-sky-800 leading-relaxed">
+                                Applicant requested a company-provided vehicle. No personal truck OR/CR documents are required.
+                                When this application is approved, a Hub Transport Driver account is created with <strong>Available</strong> status. A four-wheel fleet truck may then be assigned from
+                                <a href="{{ route('fleet.index') }}" class="font-bold underline hover:text-sky-950">Fleet Management</a>.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            @if($application->hubTransportDriver)
+                <div class="mt-5 pt-4 border-t border-gray-100 flex flex-wrap items-center gap-4">
+                    <span class="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        Hub Transport Driver Provisioned:
+                    </span>
+                    <a href="{{ route('fleet.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-800 ring-1 ring-inset ring-emerald-200 hover:bg-emerald-100 transition">
+                        Driver: {{ $application->hubTransportDriver->name }} ({{ $application->hubTransportDriver->status }})
+                    </a>
+                    @if($application->hubTransportDriver->truck)
+                        <a href="{{ route('fleet.index') }}" class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-sky-50 text-sky-800 ring-1 ring-inset ring-sky-200 hover:bg-sky-100 transition">
+                            Assigned Truck: {{ $application->hubTransportDriver->truck->plate_number }} ({{ ucfirst(str_replace('_', ' ', $application->hubTransportDriver->truck->vehicle_type)) }})
+                        </a>
+                    @else
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                            Awaiting Four-Wheel Truck Assignment in Fleet Management
+                        </span>
+                    @endif
+                </div>
+            @endif
+        </div>
+    @else
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+            <h3 class="text-base font-bold text-gray-900 mb-5">Application Information</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Full Name</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->name }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Middle Initial</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->middle_initial ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Sex</p>
+                    <p class="text-sm font-medium text-gray-900">{{ ucfirst($application->sex ?? '—') }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Birthday</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->birthday?->format('M d, Y') ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Age</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->age ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Address</p>
+                    <p class="text-sm font-medium text-gray-900">
+                        {{ trim(implode(', ', array_filter([$application->house_number,
+                                                            $application->street,
+                                                            $application->barangay,
+                                                            $application->municipality,
+                                                            $application->province,
+                                                            $application->region]))) ?: ($application->address ?? '—') }}
+                    </p>
+                    @if ($application->region_code || $application->province_code || $application->municipality_code || $application->barangay_code)
+                        <span class="block text-xs text-gray-400 mt-0.5">PSGC: {{ implode(' / ', array_filter([$application->region_code, $application->province_code, $application->municipality_code, $application->barangay_code])) }}</span>
+                    @endif
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Vehicle Type</p>
+                    <p class="text-sm font-medium text-gray-900">{{ ucfirst($application->vehicle_type) }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Plate</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->license_plate ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">License Number</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->license_number ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Vehicle Registration</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->vehicle_registration ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Assigned Logistics Hub</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->logisticsCenter?->name ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Service Area</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->serviceArea?->name ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Submitted</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->created_at?->format('M d, Y h:i A') ?? '—' }}</p>
+                </div>
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Reviewed By</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->approver?->name ?? '—' }}</p>
+                </div>
+            </div>
+
+            @if($application->notes && $application->status !== 'pending')
+                <div class="mt-6 bg-gray-50 rounded-xl border border-gray-100 p-4">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Review Note</p>
+                    <p class="text-sm font-medium text-gray-900">{{ $application->notes }}</p>
+                </div>
+            @endif
+        </div>
+    @endif
 
     {{-- Documents --}}
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -161,8 +308,13 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             {{-- Approve & provision --}}
             <div class="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">
-                <h3 class="text-base font-bold text-gray-900 mb-1">Approve &amp; Provision Account</h3>
-                <p class="text-sm text-gray-500 mb-5">Sets the rider's login password and creates their account. Leave the password blank to automatically generate a secure temporary password. After approval, the login credentials will be sent to the rider's registered email address.</p>
+                @if($application->isHubTransportDriver())
+                    <h3 class="text-base font-bold text-gray-900 mb-1">Approve Hub Transport Driver</h3>
+                    <p class="text-sm text-gray-500 mb-5">Approves the Hub Transport Driver account and provisions their driver record linked to this logistics hub's company. Truck assignment is handled in Fleet Management after approval.</p>
+                @else
+                    <h3 class="text-base font-bold text-gray-900 mb-1">Approve &amp; Provision Account</h3>
+                    <p class="text-sm text-gray-500 mb-5">Sets the rider's login password and creates their account. Leave the password blank to automatically generate a secure temporary password. After approval, the login credentials will be sent to the rider's registered email address.</p>
+                @endif
                 <form action="{{ route('rider-applications.approve', $application) }}" method="POST" x-data="{}" data-rider-approval>
                     @csrf
                     <div class="space-y-4">
@@ -177,20 +329,32 @@
                             </select>
                             @error('center_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                         </div>
-                        <div>
-                            <label for="service_area_id" class="block text-sm font-medium text-gray-700 mb-1.5">Service Area</label>
-                            <select name="service_area_id" id="service_area_id" required aria-describedby="service-area-hint"
-                                    class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('service_area_id') border-red-500 @enderror">
-                                <option value="">Select service area</option>
-                                @foreach($areas as $area)
-                                    <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) old('service_area_id', $application->service_area_id) === $area->id)>{{ $area->name }} ({{ $area->logisticsCenter?->name ?? 'Center' }})</option>
-                                @endforeach
-                            </select>
-                            @error('service_area_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                            <p id="service-area-hint" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Select a Logistics Hub to see its active service areas.</p>
-                            <a href="{{ route('service-areas.create') }}" data-create-service-area target="_blank" rel="noopener"
-                               class="mt-2 inline-flex text-xs font-semibold text-teal hover:text-teal-dark">Add a service area (opens a new tab)</a>
-                        </div>
+
+                        @if($application->isHubTransportDriver())
+                            <div class="rounded-xl bg-sky-50/70 border border-sky-200/60 p-3.5 text-xs text-sky-800">
+                                <p class="font-semibold flex items-center gap-1.5 mb-1">
+                                    <svg class="w-4 h-4 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    Automatic Driver Provisioning (Fleet Assignment Pending)
+                                </p>
+                                <p>Upon approval, an active <strong>Hub Transport Driver</strong> record will be created and linked to the hub's logistics company with status <em>Available</em> (no truck automatically assigned). You can assign an available four-wheel truck in <strong>Fleet Management</strong> at any time.</p>
+                            </div>
+                        @else
+                            <div>
+                                <label for="service_area_id" class="block text-sm font-medium text-gray-700 mb-1.5">Service Area</label>
+                                <select name="service_area_id" id="service_area_id" required aria-describedby="service-area-hint"
+                                        class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('service_area_id') border-red-500 @enderror">
+                                    <option value="">Select service area</option>
+                                    @foreach($areas as $area)
+                                        <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) old('service_area_id', $application->service_area_id) === $area->id)>{{ $area->name }} ({{ $area->logisticsCenter?->name ?? 'Center' }})</option>
+                                    @endforeach
+                                </select>
+                                @error('service_area_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                <p id="service-area-hint" class="mt-2 text-xs text-gray-500" role="status" aria-live="polite">Select a Logistics Hub to see its active service areas.</p>
+                                <a href="{{ route('service-areas.create') }}" data-create-service-area target="_blank" rel="noopener"
+                                   class="mt-2 inline-flex text-xs font-semibold text-teal hover:text-teal-dark">Add a service area (opens a new tab)</a>
+                            </div>
+                        @endif
+
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label for="password" class="block text-sm font-medium text-gray-700 mb-1.5">Initial Password (optional — auto-generated if blank)</label>
@@ -209,7 +373,7 @@
                         </div>
                         <div class="flex justify-end">
                             <button type="submit" data-approve-rider class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                                Approve &amp; Create Account
+                                {{ $application->isHubTransportDriver() ? 'Approve & Register Driver' : 'Approve & Create Account' }}
                             </button>
                         </div>
                     </div>
@@ -246,13 +410,13 @@
             <h3 class="text-base font-bold text-gray-900 mb-1">{{ $keepsExistingLogin ? 'Resend Approval Email' : 'Resend Login Credentials' }}</h3>
             <p class="text-sm text-gray-500 mb-5">
                 @if($keepsExistingLogin)
-                    Send the approval notice to {{ $application->email }} again. The rider uses their existing INVOIZ password; it will stay unchanged.
+                    Send the approval notice to {{ $application->email }} again. The {{ $application->isHubTransportDriver() ? 'driver' : 'rider' }} uses their existing password; it will stay unchanged.
                 @else
-                    Send a new temporary password to {{ $application->email }}. After a successful send, the previous temporary password will stop working.
+                    Send login credentials to {{ $application->email }}.
                 @endif
             </p>
             <form action="{{ route('rider-applications.resend-credentials', $application) }}" method="POST"
-                  x-data data-confirm-message="{{ $keepsExistingLogin ? 'Send this rider their approval notice again? Their existing password will stay unchanged.' : 'Send new login credentials? A successful send will replace the previous temporary password.' }}">
+                  x-data data-confirm-message="{{ $keepsExistingLogin ? 'Send approval notice again? The existing password will stay unchanged.' : 'Send login credentials again?' }}">
                 @csrf
                 <div class="flex justify-end">
                     <button type="submit" class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">

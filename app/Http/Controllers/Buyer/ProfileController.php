@@ -39,6 +39,11 @@ class ProfileController extends Controller
             return redirect('/login')->with('error', 'Please login to view your profile.');
         }
 
+        if (! $user->hasVerifiedEmail()) {
+            return redirect()->route('verification.notice', ['email' => $user->email])
+                ->with('error', 'Please verify your email address first.');
+        }
+
         $sellerApp = Seller::where('user_id', $user->id)->first();
         Address::ensureForBuyer((int) $user->id);
         $addresses = $user->addresses()->orderByDesc('is_default')->orderByDesc('updated_at')->get();

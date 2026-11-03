@@ -23,6 +23,25 @@ class TrackingAccessTest extends TestCase
 
     private function user(string $role, ?int $centerId = null): User
     {
+        if ($role === 'logistics_admin') {
+            // Production restricts this role to the designated account.
+            $designated = User::whereKey(User::GLOBAL_LOGISTICS_ADMIN_ID)->first();
+            if ($designated) {
+                return $designated;
+            }
+
+            return User::create([
+                'id' => User::GLOBAL_LOGISTICS_ADMIN_ID,
+                'name' => 'Logistics Admin',
+                'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
+                'password' => Hash::make('secret123'),
+                'role' => 'logistics_admin',
+                'status' => 'active',
+                'account_status' => 'active',
+                'email_verified_at' => now(),
+            ]);
+        }
+
         $this->seq++;
 
         return User::create([
@@ -119,7 +138,7 @@ class TrackingAccessTest extends TestCase
 
         $delivery = $this->delivery([
             'order_id' => $order->id,
-            'seller_id' => $seller->id,
+            'seller_id' => $sellerUser->id,
         ]);
 
         return [$sellerUser, $seller, $buyer, $order, $delivery];
@@ -234,7 +253,28 @@ class TrackingAccessTest extends TestCase
     {
         [, , $buyer, $order, $delivery] = $this->orderScenario();
 
-        $delivery->update(['parcel_status' => 'scanned', 'scanned_at' => now()]);
+        $riderUser = $this->user('rider');
+        $rider = Rider::create([
+            'user_id' => $riderUser->id,
+            'name' => 'Milestone Rider',
+            'email' => $riderUser->email,
+            'phone' => '09170000000',
+            'vehicle_type' => 'motorcycle',
+            'status' => 'available',
+            'is_online' => true,
+            'is_verified' => true,
+            'approved_at' => now(),
+            'vehicle_verification' => 'verified',
+            'license_expiry' => now()->addYear()->format('Y-m-d'),
+        ]);
+
+        $delivery->update([
+            'parcel_status' => 'scanned',
+            'scanned_at' => now(),
+            'picked_up_at' => now()->subHours(2),
+            'sorting_center_handoff_at' => now()->subHour(),
+            'sorting_center_handoff_rider_id' => $rider->id,
+        ]);
 
         $this->actingAs($buyer)
             ->get('/orders/'.$order->id)
@@ -288,7 +328,7 @@ class TrackingAccessTest extends TestCase
             'recipient_name' => 'Private Recipient',
         ]);
 
-        Sanctum::actingAs($riderUser);
+        Sanctum::actingAs($riderUser, ['rider']);
 
         $this->getJson('/api/logistics/rider/deliveries/lookup?tracking_number='.$assigned->tracking_number)
             ->assertOk()

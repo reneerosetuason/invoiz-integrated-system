@@ -8,6 +8,8 @@
     $pickupReview = $order->delivery?->pickupRequest;
     $selectedCenter = $order->delivery?->logisticsCenter ?? $pickupReview?->center;
     $assignedRider = $order->delivery?->rider;
+    $customerOrderLabel = \App\Support\CustomerTracking::orderLabel($order);
+    $customerDeliveryLabel = \App\Support\CustomerTracking::label($order, $order->delivery);
 @endphp
 <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
@@ -16,7 +18,7 @@
         </a>
         <div class="flex items-center gap-3">
             <h2 class="text-xl font-extrabold tracking-tight">Order #{{ $order->id }}</h2>
-            <span class="badge badge-{{ $order->status }}"><span class="badge-dot"></span>{{ order_status_label($order->status) }}</span>
+            <span class="badge badge-{{ $order->status }}"><span class="badge-dot"></span>{{ $customerOrderLabel }}</span>
         </div>
         <p class="mt-0.5 text-sm text-ink-light">Placed {{ $order->created_at->format('F j, Y · g:i A') }}</p>
     </div>
@@ -78,7 +80,7 @@
                 @elseif($assignedRider)
                     Assigned pickup rider from <strong>{{ $selectedCenter?->name ?? 'Logistics' }}</strong>: <strong>{{ $assignedRider->name }}</strong> ({{ $assignedRider->phone ?? 'No phone' }}). The rider will collect the items from you.
                 @elseif($pickupReview?->status === 'approved')
-                    Pickup approved by <strong>{{ $selectedCenter?->name ?? 'Logistics' }}</strong>. Their team is assigning a rider to pick up the items from you.
+                    Pickup approved by <strong>{{ $selectedCenter?->name ?? 'Logistics' }}</strong>. Their team is assigning a rider to collect the items from you.@if(! $order->delivery?->picked_up_at) The parcel has not been collected yet.@endif
                 @elseif($selectedCenter)
                     Routed to <strong>{{ $selectedCenter->name }}</strong>. Waiting for logistics approval and rider assignment.
                 @else
@@ -197,14 +199,14 @@
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Status Timeline</h3>
             <ol class="relative space-y-5 border-l-2 border-borderline pl-6">
-                @forelse($order->statusHistories->sortBy('created_at') as $history)
+                @forelse($timeline as $event)
                     <li class="relative">
                         <span class="absolute -left-[31px] flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#16697A] bg-white">
                             <span class="h-2 w-2 rounded-full bg-[#16697A]"></span>
                         </span>
-                        <div class="text-sm font-bold">{{ order_status_label($history->to_status) }}</div>
-                        <div class="text-xs text-ink-light">{{ $history->note }}</div>
-                        <div class="text-[11px] text-ink-light">{{ $history->created_at->format('M j, Y · g:i A') }}</div>
+                        <div class="text-sm font-bold">{{ $event['title'] }}</div>
+                        <div class="text-xs text-ink-light">{{ $event['note'] }}</div>
+                        <div class="text-[11px] text-ink-light">{{ $event['at']?->format('M j, Y · g:i A') }}</div>
                     </li>
                 @empty
                     <li class="text-sm text-ink-light">No status history yet.</li>
@@ -255,7 +257,7 @@
                     <span class="text-ink-light">Logistics Hub</span>
                     <span class="text-right font-semibold">{{ $selectedCenter?->name ?? $order->courierPickup?->courier ?? 'Not selected yet' }}</span>
                 </div>
-                <div class="flex justify-between"><span class="text-ink-light">Delivery</span><span class="font-semibold">{{ $order->delivery ? delivery_status_label($order->delivery->status) : 'Waiting for rider' }}</span></div>
+                <div class="flex justify-between"><span class="text-ink-light">Delivery</span><span class="font-semibold">{{ $customerDeliveryLabel }}</span></div>
                 <div class="flex justify-between gap-3">
                     <span class="text-ink-light">Tracking number</span>
                     @if($order->delivery?->tracking_number)

@@ -64,7 +64,7 @@ class RiderLocationOwnershipTest extends TestCase
     {
         [$user, $rider] = $this->riderUser('Assigned Rider');
         $delivery = $this->delivery($rider);
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson('/api/logistics/rider/location', [
             'latitude' => 14.5995,
@@ -83,7 +83,7 @@ class RiderLocationOwnershipTest extends TestCase
         [$user] = $this->riderUser('Requesting Rider');
         [, $otherRider] = $this->riderUser('Owning Rider');
         $delivery = $this->delivery($otherRider);
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson('/api/logistics/rider/location', [
             'latitude' => 14.5995,

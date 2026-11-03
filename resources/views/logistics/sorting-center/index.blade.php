@@ -124,17 +124,17 @@
 
         {{-- Parcel table --}}
         <div class="card overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="table">
+            <div class="overflow-x-auto min-h-[340px]">
+                <table class="table w-full">
                     <thead>
                         <tr>
-                            <th style="width: 18%;">Tracking</th>
-                            <th style="width: 17%;">Route</th>
-                            <th style="width: 12%;">Parcel</th>
-                            <th style="width: 12%;">Delivery</th>
-                            <th style="width: 16%;">Hub / Area</th>
-                            <th style="width: 10%;">Rider</th>
-                            <th class="text-right" style="width: 15%;">Actions</th>
+                            <th class="min-w-[170px]">Tracking</th>
+                            <th class="min-w-[160px]">Route</th>
+                            <th class="min-w-[110px]">Parcel</th>
+                            <th class="min-w-[130px]">Delivery</th>
+                            <th class="min-w-[150px]">Hub / Area</th>
+                            <th class="min-w-[130px]">Rider</th>
+                            <th class="text-right min-w-[190px]">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -145,69 +145,102 @@
                                 $routesToOtherHub = $delivery->destination_center_id
                                     && (int) $delivery->destination_center_id !== (int) $delivery->center_id;
                                 $canOpenDelivery = \App\Support\LogisticsAccess::canAccessDelivery(auth()->user(), $delivery);
+                                $handoffVerified = \App\Services\FulfillmentWorkflow::hasPickupHandoff($delivery);
+                                $receiptUnverified = $delivery->order_id && ! $handoffVerified
+                                    && in_array($delivery->parcel_status, ['received', 'scanned', 'sorted', 'dispatched'], true);
                             @endphp
-                            <tr>
-                                <td>
+                            <tr class="hover:bg-[#FCFBF9] transition-colors">
+                                <td class="align-middle">
                                     <div class="min-w-0">
-                                        <span class="block truncate font-bold text-[#1B1B1E]" title="{{ $delivery->tracking_number }}">{{ $delivery->tracking_number }}</span>
-                                        @if($hasReturnedAt && $delivery->returned_at)
-                                            <span class="badge badge-cancelled mt-1">Returned</span>
+                                        @if($canOpenDelivery)
+                                            <a href="{{ route('deliveries.show', $delivery) }}" class="block truncate font-bold text-[#16697A] hover:underline" title="{{ $delivery->tracking_number }}">{{ $delivery->tracking_number }}</a>
+                                        @else
+                                            <span class="block truncate font-bold text-[#1B1B1E]" title="{{ $delivery->tracking_number }}">{{ $delivery->tracking_number }}</span>
                                         @endif
-                                        @if($hasReattemptRequestedAt && $delivery->reattempt_requested_at)
-                                            <span class="badge badge-pending mt-1">Re-attempt</span>
-                                        @endif
-                                        @if(in_array($delivery->parcel_status, ['scanned', 'sorted'], true) && (!$delivery->destination_center_id || !$delivery->service_area_id))
-                                            <span class="badge badge-pending mt-1" title="Select a destination Logistics Hub and service area before dispatch.">Needs destination</span>
-                                        @endif
-                                        @if($tab === 'incoming' && $delivery->parcel_status === 'pending_arrival')
-                                            <span class="badge badge-confirmed mt-1" title="Collected from the seller by a delivery rider; hub staff must confirm physical arrival.">Seller pickup · awaiting receipt</span>
-                                        @endif
-                                        @if($inboundTransfer)
-                                            <span class="badge badge-ready_for_delivery mt-1" title="Reserved to a fleet hub transfer. Continue receiving and custody actions from its manifest.">Hub transfer · {{ $inboundTransfer->reference }}</span>
-                                        @endif
+                                        <div class="flex flex-wrap gap-1 mt-1">
+                                            @if($hasReturnedAt && $delivery->returned_at)
+                                                <span class="badge badge-cancelled">Returned</span>
+                                            @endif
+                                            @if($hasReattemptRequestedAt && $delivery->reattempt_requested_at)
+                                                <span class="badge badge-pending">Re-attempt</span>
+                                            @endif
+                                            @if(in_array($delivery->parcel_status, ['scanned', 'sorted'], true) && (!$delivery->destination_center_id || !$delivery->service_area_id))
+                                                <span class="badge badge-pending" title="Select a destination Logistics Hub and service area before dispatch.">Needs destination</span>
+                                            @endif
+                                            @if($tab === 'incoming' && $delivery->parcel_status === 'pending_arrival')
+                                                <span class="badge badge-confirmed" title="Collected from the seller and handed off by the pickup rider; hub staff must confirm physical arrival.">Handed off · awaiting receipt</span>
+                                            @endif
+                                            @if($receiptUnverified)
+                                                <span class="badge badge-cancelled" title="No pickup or hub handoff is recorded for this parcel. Its hub processing is unverified; do not transfer or dispatch it until custody is corrected.">Receipt unverified</span>
+                                            @endif
+                                            @if($inboundTransfer)
+                                                <span class="badge badge-ready_for_delivery" title="Reserved to a fleet hub transfer. Continue receiving and custody actions from its manifest.">Hub transfer · {{ $inboundTransfer->reference }}</span>
+                                            @endif
+                                        </div>
                                     </div>
                                 </td>
-                                <td>
-                                    <div class="text-xs text-[#6E6E73]" title="{{ $delivery->sender_name }} -> {{ $delivery->recipient_name }}">
-                                        {{ $delivery->sender_name }} <span aria-hidden="true">&rarr;</span> {{ $delivery->recipient_name }}
+                                <td class="align-middle">
+                                    <div class="text-xs leading-snug" title="{{ $delivery->sender_name }} &rarr; {{ $delivery->recipient_name }}">
+                                        <div class="font-medium text-[#1B1B1E] truncate max-w-[190px]">{{ $delivery->sender_name ?: '—' }}</div>
+                                        <div class="text-[11px] text-[#6E6E73] flex items-center gap-1 truncate max-w-[190px] mt-0.5">
+                                            <span aria-hidden="true" class="text-[#16697A] font-bold">&rarr;</span>
+                                            <span class="text-[#1B1B1E] truncate">{{ $delivery->recipient_name ?: '—' }}</span>
+                                        </div>
                                     </div>
                                 </td>
-                                <td>
-                                    <span class="badge badge-inactive">{{ str_replace('_', ' ', $delivery->parcel_status) }}</span>
+                                <td class="align-middle">
+                                    <span class="badge badge-inactive">{{ ucfirst(str_replace('_', ' ', $delivery->parcel_status)) }}</span>
                                 </td>
-                                <td>
+                                <td class="align-middle">
                                     <x-status-badge :status="$delivery->status" />
                                 </td>
-                                <td>
-                                    <div class="text-xs">
-                                        <span class="block font-medium text-[#1B1B1E] truncate">{{ $delivery->logisticsCenter?->name ?? '—' }}</span>
-                                        <span class="block text-[11px] text-[#6E6E73] truncate">{{ $delivery->serviceArea?->name ?? '—' }}</span>
+                                <td class="align-middle">
+                                    <div class="text-xs leading-snug">
+                                        <span class="block font-medium text-[#1B1B1E] truncate max-w-[180px]">{{ $delivery->logisticsCenter?->name ?? '—' }}</span>
+                                        <span class="block text-[11px] text-[#6E6E73] truncate max-w-[180px] mt-0.5">{{ $delivery->serviceArea?->name ?? '—' }}</span>
                                         @if($routesToOtherHub)
-                                            <span class="block text-[10px] font-semibold text-[#16697A] truncate" title="Routed to another Logistics Hub">to {{ $delivery->destinationCenter?->name ?? 'destination hub' }}</span>
+                                            <span class="inline-flex items-center gap-1 text-[10px] font-semibold text-[#16697A] truncate max-w-[180px] mt-0.5" title="Routed to another Logistics Hub">
+                                                <span aria-hidden="true">&rarr;</span>
+                                                to {{ $delivery->destinationCenter?->name ?? 'destination hub' }}
+                                            </span>
                                         @endif
                                     </div>
                                 </td>
-                                <td>
-                                    <div class="text-xs text-[#1B1B1E] truncate" title="{{ $delivery->rider?->name ?? '—' }}">{{ $delivery->rider?->name ?? '—' }}</div>
+                                <td class="align-middle">
+                                    @if($delivery->rider)
+                                        <div class="flex items-center gap-1.5 min-w-0" title="{{ $delivery->rider->name }}">
+                                            <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#E8F1F2] text-[#16697A] text-[10px] font-bold shrink-0">
+                                                {{ strtoupper(substr($delivery->rider->name, 0, 1)) }}
+                                            </span>
+                                            <span class="text-xs font-semibold text-[#1B1B1E] truncate max-w-[140px]">{{ $delivery->rider->name }}</span>
+                                        </div>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium bg-[#F0EEE9] text-[#6E6E73] border border-[#E8E6E0]" title="No delivery rider assigned">
+                                            <svg class="w-3 h-3 text-[#8E8E93] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                            </svg>
+                                            Unassigned
+                                        </span>
+                                    @endif
                                 </td>
-                                <td class="text-right">
-                                    <div class="inline-flex items-center justify-end gap-1.5 flex-wrap">
+                                <td class="text-right align-middle">
+                                    <div class="inline-flex items-center justify-end gap-1.5 flex-nowrap">
                                         @if($canOpenDelivery)
-                                            <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-soft btn-xs">Open</a>
+                                            <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-soft btn-xs whitespace-nowrap">Open</a>
                                         @endif
                                         @if($inboundEntry)
                                             @if($tab !== 'incoming')
-                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-soft btn-xs" title="Open the active fleet transfer manifest.">Open transfer</a>
+                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-soft btn-xs whitespace-nowrap" title="Open the active fleet transfer manifest.">Open transfer</a>
                                             @elseif($inboundEntry->receiving_status === 'pending')
                                                 @if(in_array($inboundTransfer?->status, ['arrived', 'receiving', 'exception'], true))
-                                                    <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-primary btn-xs" title="Confirm physical receipt of this parcel on its transfer manifest before processing it here.">Verify receipt</a>
+                                                    <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-primary btn-xs whitespace-nowrap" title="Confirm physical receipt of this parcel on its transfer manifest before processing it here.">Verify receipt</a>
                                                 @else
-                                                    <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-outline btn-xs">View transfer</a>
+                                                    <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-outline btn-xs whitespace-nowrap">View transfer</a>
                                                 @endif
                                             @elseif($inboundEntry->receiving_status === 'missing')
-                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-danger btn-xs" title="This parcel was reported missing on arrival. Review the transfer manifest.">Reported missing</a>
+                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-danger btn-xs whitespace-nowrap" title="This parcel was reported missing on arrival. Review the transfer manifest.">Reported missing</a>
                                             @else
-                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-ghost btn-xs" title="Receipt is recorded. Finalize the transfer to release custody, then process it from the Received tab.">Finalize transfer</a>
+                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-ghost btn-xs whitespace-nowrap" title="Receipt is recorded. Finalize the transfer to release custody, then process it from the Received tab.">Finalize transfer</a>
                                             @endif
                                         @endif
                                         @php
@@ -223,71 +256,96 @@
                                                 <form method="POST" action="{{ route('deliveries.return-to-seller', $delivery) }}" class="inline-flex items-center gap-1">
                                                     @csrf
                                                     <input type="text" name="reference" maxlength="150" placeholder="Handoff ref" class="input !py-1 !px-2 !text-xs !w-24">
-                                                    <button type="submit" class="btn btn-primary btn-xs">Send to seller</button>
+                                                    <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap">Send to seller</button>
                                                 </form>
                                             @endif
                                         @endif
                                         @if($delivery->parcel_status === 'pending_arrival')
-                                            @if($centers->isNotEmpty())
+                                            @if($delivery->order_id && ! $handoffVerified)
+                                                <span class="badge badge-pending" title="The pickup rider has not completed the seller pickup and hub handoff yet.">Awaiting pickup</span>
+                                            @elseif($centers->isNotEmpty())
                                                 <form method="POST" action="{{ route('deliveries.receive', $delivery) }}" class="inline-flex items-center gap-1">
                                                     @csrf
                                                     <select name="center_id" required aria-label="Receive at center" class="select !py-1 !px-2 !text-xs !w-28">
                                                         <option value="">Hub</option>
                                                         @foreach($centers as $center)
-                                                            <option value="{{ $center->id }}" @selected((int) $delivery->center_id === (int) $center->id || (!$delivery->center_id && $loop->first))>{{ $center->name }}</option>
+                                                             <option value="{{ $center->id }}" @selected((int) $delivery->center_id === (int) $center->id || (!$delivery->center_id && $loop->first))>{{ $center->name }}</option>
                                                         @endforeach
                                                     </select>
-                                                    <button type="submit" class="btn btn-primary btn-xs">Receive</button>
+                                                    <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap">Receive</button>
                                                 </form>
                                             @endif
                                         @endif
-                                        @if(! $inboundTransfer && $delivery->parcel_status === 'received')
+                                        @if(! $inboundTransfer && $delivery->parcel_status === 'received' && ! $receiptUnverified)
                                             <form method="POST" action="{{ route('deliveries.scan', $delivery) }}" class="inline">
                                                 @csrf
                                                 @method('PATCH')
-                                                <button type="submit" class="btn btn-primary btn-xs" title="Logistics Hub Staff verify the received parcel against its records.">Scan</button>
+                                                <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap" title="Logistics Hub Staff verify the received parcel against its records.">Scan</button>
                                             </form>
                                         @endif
-                                        @if(! $inboundTransfer && $delivery->parcel_status === 'scanned')
-                                            <details class="relative inline text-left">
-                                                <summary class="btn btn-primary btn-xs cursor-pointer list-none">Sort</summary>
+                                        @if(! $inboundTransfer && $delivery->parcel_status === 'scanned' && ! $receiptUnverified)
+                                            <div class="relative inline-block text-left" data-sort-dropdown>
+                                                <button type="button" data-sort-trigger aria-haspopup="true" aria-expanded="false"
+                                                        class="btn btn-primary btn-xs cursor-pointer inline-flex items-center gap-1 select-none whitespace-nowrap"
+                                                        title="Sort parcel to destination hub and service area">
+                                                    <span>Sort</span>
+                                                    <svg data-sort-chevron class="w-3 h-3 text-white/80 transition-transform duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                                </button>
                                                 <form method="POST" action="{{ route('deliveries.sort', $delivery) }}"
-                                                      class="absolute right-0 z-10 mt-1 w-60 card p-3 shadow-lg flex flex-col gap-2">
+                                                      data-sort-panel style="display:none"
+                                                      class="w-64 card p-3.5 shadow-xl border border-[#CBD5E1] flex flex-col gap-2.5 bg-white text-left">
                                                     @csrf
-                                                    <label class="field-label">Destination Hub
-                                                        <select name="destination_center_id" id="sort-center-{{ $delivery->id }}" data-sort-center data-area-target="sort-area-{{ $delivery->id }}" required class="select mt-1">
+                                                    @php
+                                                        // Suggest the hub the buyer's address resolves to. It is only a
+                                                        // default: staff may route the parcel through any intermediate hub.
+                                                        $suggested = $delivery->suggestedDestination($serviceAreas);
+                                                        $destSelected = (int) ($delivery->destination_center_id ?: 0);
+                                                        if ($destSelected === 0 || $destSelected === (int) $delivery->center_id) {
+                                                            $destSelected = (int) ($suggested['center_id'] ?? 0);
+                                                        }
+                                                        $areaSelected = (int) ($delivery->service_area_id ?: 0);
+                                                        $areaFitsDestination = $serviceAreas->contains(fn ($area) => (int) $area->id === $areaSelected
+                                                            && (int) $area->logistics_center_id === $destSelected);
+                                                        if ($areaSelected === 0 || ! $areaFitsDestination) {
+                                                            $areaSelected = (int) ($suggested['service_area_id'] ?? 0);
+                                                        }
+                                                    @endphp
+                                                    <label class="field-label text-xs">Destination Hub
+                                                        <select name="destination_center_id" id="sort-center-{{ $delivery->id }}" data-sort-center data-area-target="sort-area-{{ $delivery->id }}" required class="select mt-1 text-xs">
                                                             <option value="">Select Logistics Hub</option>
                                                             @foreach($centers as $center)
-                                                                <option value="{{ $center->id }}" @selected((int) $delivery->destination_center_id === (int) $center->id)>{{ $center->name }}</option>
+                                                                <option value="{{ $center->id }}" @selected($destSelected === (int) $center->id)>{{ $center->name }}</option>
                                                             @endforeach
                                                         </select>
                                                     </label>
-                                                    <label class="field-label">Service Area
-                                                        <select name="service_area_id" id="sort-area-{{ $delivery->id }}" data-sort-area required class="select mt-1">
+                                                    <label class="field-label text-xs">Service Area
+                                                        <select name="service_area_id" id="sort-area-{{ $delivery->id }}" data-sort-area required class="select mt-1 text-xs">
                                                             <option value="">Select area</option>
                                                             @foreach($serviceAreas as $area)
-                                                                <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected((int) $delivery->service_area_id === (int) $area->id)>{{ $area->name }}</option>
+                                                                <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected($areaSelected === (int) $area->id)>{{ $area->name }}</option>
                                                             @endforeach
                                                         </select>
                                                     </label>
-                                                    <button type="submit" class="btn btn-primary btn-xs mt-1">Confirm sort</button>
+                                                    <button type="submit" class="btn btn-primary btn-xs mt-1 w-full justify-center whitespace-nowrap">Confirm sort</button>
                                                 </form>
-                                            </details>
+                                            </div>
                                         @endif
                                         @if(! $inboundTransfer && $delivery->parcel_status === 'sorted')
-                                            @if($routesToOtherHub)
+                                            @if($receiptUnverified)
+                                                <span class="text-[11px] font-semibold text-rose-600" title="Record the seller pickup and hub handoff before moving this parcel.">Resolve custody first</span>
+                                            @elseif($routesToOtherHub)
                                                 <a href="{{ route('hub-transfers.create', array_filter(['logistics_company_id' => $delivery->destinationCenter?->logistics_company_id])) }}"
-                                                   class="btn btn-outline btn-xs"
+                                                   class="btn btn-outline btn-xs whitespace-nowrap"
                                                    title="Routed to {{ $delivery->destinationCenter?->name ?? 'another Logistics Hub' }}. Create a fleet hub transfer for this parcel.">Create hub transfer</a>
                                             @else
                                                 <form method="POST" action="{{ route('deliveries.dispatch', $delivery) }}" class="inline">
                                                     @csrf
-                                                    <button type="submit" class="btn btn-primary btn-xs" title="Dispatch a same-hub parcel for last-mile delivery.">Dispatch</button>
+                                                    <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap" title="Dispatch a same-hub parcel for last-mile delivery.">Dispatch</button>
                                                 </form>
                                             @endif
                                         @endif
                                         @if($delivery->parcel_status === 'dispatched' && !$routesToOtherHub && !$delivery->rider_id)
-                                            <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-primary btn-xs" title="Parcel is physically dispatched at hub. Assign delivery rider in Deliveries.">Assign Rider &rarr;</a>
+                                            <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-primary btn-xs whitespace-nowrap" title="Parcel is physically dispatched at hub. Assign delivery rider in Deliveries.">Assign Rider &rarr;</a>
                                         @endif
                                     </div>
                                 </td>

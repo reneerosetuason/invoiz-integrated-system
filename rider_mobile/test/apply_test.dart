@@ -169,7 +169,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('Choose your Rider Type'), findsOneWidget);
+    expect(find.text('Work Schedule'), findsWidgets);
 
     // Restore the visible address when returning to the Personal step.
     await tester.tap(find.text('Back'));
@@ -192,7 +192,7 @@ void main() {
     ]);
     await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    expect(find.text('Choose your Rider Type'), findsOneWidget);
+    expect(find.text('Work Schedule'), findsWidgets);
 
     // Switch to part-time, requirements must follow the switch.
     await tester.tap(find.text('Part-time Rider'));

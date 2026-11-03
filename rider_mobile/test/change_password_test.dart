@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
 import 'package:invoize_rider/core/network/api_client.dart';
+import 'package:invoize_rider/core/storage/token_storage.dart';
+import 'package:invoize_rider/providers/auth_provider.dart';
 import 'package:invoize_rider/providers/rider_provider.dart';
 import 'package:invoize_rider/screens/profile/change_password_screen.dart';
 import 'package:invoize_rider/services/rider_service.dart';
@@ -19,8 +21,16 @@ RiderProvider providerWith(MockClient client) =>
 Future<void> pumpPasswordScreen(
     WidgetTester tester, RiderProvider provider) async {
   await tester.pumpWidget(
-    ChangeNotifierProvider.value(
-      value: provider,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: provider),
+        ChangeNotifierProvider.value(
+          value: AuthProvider(
+            api: ApiClient(),
+            storage: TokenStorage(),
+          ),
+        ),
+      ],
       child: const MaterialApp(
         home: Scaffold(
           body: ChangePasswordScreen(),
@@ -168,8 +178,16 @@ void main() {
               200,
               headers: {'content-type': 'application/json'})));
       await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: provider,
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: provider),
+            ChangeNotifierProvider.value(
+              value: AuthProvider(
+                api: ApiClient(),
+                storage: TokenStorage(),
+              ),
+            ),
+          ],
           child: MaterialApp(
             home: const Scaffold(body: Text('PROFILE-MARKER')),
             routes: const {},

@@ -36,10 +36,12 @@ class RiderAccountApprovedMail extends Mailable
 
     public function envelope(): Envelope
     {
+        $roleLabel = $this->application->isHubTransportDriver() ? 'Hub Transport Driver' : 'Rider';
+
         return new Envelope(
             subject: $this->temporaryPassword === null
-                ? 'INVOIZ Rider Application Approved'
-                : 'INVOIZ Rider Account Approved - Login Credentials',
+                ? "INVOIZ {$roleLabel} Application Approved"
+                : "INVOIZ {$roleLabel} Account Approved - Login Credentials",
         );
     }
 
@@ -52,6 +54,7 @@ class RiderAccountApprovedMail extends Mailable
                 'riderEmail' => $this->application->email,
                 'temporaryPassword' => $this->temporaryPassword,
                 'referenceNumber' => self::referenceFor($this->application),
+                'roleLabel' => $this->application->applicationTypeLabel(),
             ],
         );
     }

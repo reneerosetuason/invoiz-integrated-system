@@ -90,41 +90,32 @@ class DeliveryService {
     );
   }
 
-  /// Complete a delivery. Buyer-backed deliveries require the 6-digit [otp]
-  /// issued by the backend; photo proof and COD settlement remain unchanged.
+  /// Complete a delivery with the live camera photo captured by the rider.
+  /// COD deliveries also send the cash collected; prepaid sends no amount.
   Future<Delivery> complete(
     int id, {
-    String proofType = 'signature',
-    Uint8List? photoBytes,
+    required Uint8List photoBytes,
     String? photoFilename,
     String? signatureName,
-    String? otp,
     double? amountReceived,
     double? latitude,
     double? longitude,
   }) async {
     final fields = <String, String>{
-      'proof_type': proofType,
       'signature_name': ?signatureName,
-      'otp': ?otp,
       if (amountReceived != null)
         'amount_received': amountReceived.toStringAsFixed(2),
       if (latitude != null) 'latitude': latitude.toString(),
       if (longitude != null) 'longitude': longitude.toString(),
     };
 
-    final dynamic data;
-    if (photoBytes != null) {
-      data = await _api.postMultipart(
-        '/rider/deliveries/$id/complete',
-        fileField: 'photo',
-        fileBytes: photoBytes,
-        filename: photoFilename ?? 'proof.jpg',
-        fields: fields,
-      );
-    } else {
-      data = await _api.post('/rider/deliveries/$id/complete', body: fields);
-    }
+    final data = await _api.postMultipart(
+      '/rider/deliveries/$id/complete',
+      fileField: 'photo',
+      fileBytes: photoBytes,
+      filename: photoFilename ?? 'proof.jpg',
+      fields: fields,
+    );
 
     return Delivery.fromJson(
       Map<String, dynamic>.from(data['delivery'] as Map? ?? {}),

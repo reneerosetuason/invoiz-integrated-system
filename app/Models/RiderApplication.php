@@ -19,6 +19,11 @@ class RiderApplication extends Model
         'age',
         'email',
         'phone',
+        'region',
+        'region_code',
+        'province_code',
+        'municipality_code',
+        'barangay_code',
         'address',
         'house_number',
         'street',
@@ -34,11 +39,18 @@ class RiderApplication extends Model
         'status',
         'submitted_via',
         'rider_type',
+        'application_type',
+        'vehicle_name',
+        'vehicle_model',
+        'parcel_capacity',
+        'capacity_kg',
         'vehicle_ownership',
         'notes',
         'reviewed_at',
         'center_id',
         'service_area_id',
+        'logistics_truck_id',
+        'hub_transport_driver_id',
         'approved_by',
         'provisioned_at',
     ];
@@ -52,6 +64,8 @@ class RiderApplication extends Model
             'reviewed_at' => 'datetime',
             'provisioned_at' => 'datetime',
             'documents' => 'array',
+            'parcel_capacity' => 'integer',
+            'capacity_kg' => 'decimal:2',
         ];
     }
 
@@ -63,6 +77,16 @@ class RiderApplication extends Model
     public function serviceArea(): BelongsTo
     {
         return $this->belongsTo(ServiceArea::class, 'service_area_id');
+    }
+
+    public function truck(): BelongsTo
+    {
+        return $this->belongsTo(LogisticsTruck::class, 'logistics_truck_id');
+    }
+
+    public function hubTransportDriver(): BelongsTo
+    {
+        return $this->belongsTo(HubTransportDriver::class, 'hub_transport_driver_id');
     }
 
     public function approver(): BelongsTo
@@ -83,5 +107,20 @@ class RiderApplication extends Model
     public function changer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'changed_by');
+    }
+
+    public function isHubTransportDriver(): bool
+    {
+        return $this->application_type === 'hub_transport_driver';
+    }
+
+    public function isDeliveryRider(): bool
+    {
+        return ! $this->isHubTransportDriver();
+    }
+
+    public function applicationTypeLabel(): string
+    {
+        return $this->isHubTransportDriver() ? 'Hub Transport Driver' : 'Delivery Rider';
     }
 }

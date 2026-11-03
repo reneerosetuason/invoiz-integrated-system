@@ -74,7 +74,7 @@ class LogisticsMergeTest extends TestCase
         $intruder = $this->riderUser('intruder@test.local');
         $delivery = $this->delivery($owner);
 
-        Sanctum::actingAs($intruder);
+        Sanctum::actingAs($intruder, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/reattempt")
             ->assertForbidden();
@@ -87,7 +87,7 @@ class LogisticsMergeTest extends TestCase
         $user = $this->riderUser();
         $delivery = $this->delivery($user, 'out_for_delivery');
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/reattempt")
             ->assertStatus(409)
@@ -99,7 +99,7 @@ class LogisticsMergeTest extends TestCase
         $user = $this->riderUser();
         $delivery = $this->delivery($user);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $resp = $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/reattempt")
             ->assertOk()
@@ -127,7 +127,7 @@ class LogisticsMergeTest extends TestCase
         $user = $this->riderUser();
         $delivery = $this->delivery($user);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
         $url = "/api/logistics/rider/deliveries/{$delivery->id}/reattempt";
 
         $this->postJson($url)->assertOk();
@@ -150,7 +150,7 @@ class LogisticsMergeTest extends TestCase
             'return_reason' => 'already returned',
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/reattempt")
             ->assertStatus(409)
@@ -165,7 +165,7 @@ class LogisticsMergeTest extends TestCase
         $intruder = $this->riderUser('intruder2@test.local');
         $delivery = $this->delivery($owner);
 
-        Sanctum::actingAs($intruder);
+        Sanctum::actingAs($intruder, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/return-to-center")
             ->assertForbidden();
@@ -179,7 +179,7 @@ class LogisticsMergeTest extends TestCase
             'reattempt_requested_at' => now(),
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $resp = $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/return-to-center")
             ->assertOk()
@@ -205,7 +205,7 @@ class LogisticsMergeTest extends TestCase
         $user = $this->riderUser();
         $delivery = $this->delivery($user, 'delivery_failed', ['failure_reason' => 'x']);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
         $url = "/api/logistics/rider/deliveries/{$delivery->id}/return-to-center";
 
         $this->postJson($url)->assertOk();
@@ -219,7 +219,7 @@ class LogisticsMergeTest extends TestCase
         $user = $this->riderUser();
         $delivery = $this->delivery($user, 'picked_up');
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/return-to-center")
             ->assertStatus(409);
@@ -427,7 +427,7 @@ class LogisticsMergeTest extends TestCase
         $user = $this->riderUser();
         $delivery = $this->delivery($user);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
         $url = "/api/logistics/rider/deliveries/{$delivery->id}/reattempt";
 
         $this->failNotificationWrite();
@@ -471,7 +471,7 @@ class LogisticsMergeTest extends TestCase
         $user = $this->riderUser();
         $delivery = $this->delivery($user, 'delivery_failed', ['failure_reason' => 'Recipient refused']);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
         $url = "/api/logistics/rider/deliveries/{$delivery->id}/return-to-center";
 
         $this->failNotificationWrite();

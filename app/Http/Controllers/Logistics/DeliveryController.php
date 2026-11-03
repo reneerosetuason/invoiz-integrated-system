@@ -496,6 +496,7 @@ class DeliveryController extends Controller
     public function riderEligibilityFor(Delivery $delivery)
     {
         $weight = (float) ($delivery->weight ?? 0);
+        $stage = $delivery->riderAssignmentScope()['stage'];
         $riderQuery = Rider::query();
         LogisticsAccess::scopeRiders($riderQuery, Auth::user());
 
@@ -516,7 +517,7 @@ class DeliveryController extends Controller
             ->withCount(['activeDeliveries as active_deliveries'])
             ->with('latestLocation')
             ->get()
-            ->map(function (Rider $rider) use ($weight, $delivery, $targetLat, $targetLng, $distanceBasis, $freshAfter, $freshBefore) {
+            ->map(function (Rider $rider) use ($weight, $delivery, $stage, $targetLat, $targetLng, $distanceBasis, $freshAfter, $freshBefore) {
                 $reason = null;
                 $activeDeliveries = (int) ($rider->active_deliveries ?? 0);
                 $distanceKm = null;
@@ -555,10 +556,12 @@ class DeliveryController extends Controller
                     $reason = "Driver's license expired";
                 } elseif ($activeDeliveries >= Rider::MAX_ACTIVE_DELIVERIES) {
                     $reason = 'At delivery capacity ('.Rider::MAX_ACTIVE_DELIVERIES.' active)';
+                } elseif ($stage === 'hub_processing') {
+                    $reason = 'Parcel is still being processed at a logistics hub';
                 } elseif (!$rider->matchesDestinationCenter($delivery)) {
-                    $reason = 'Different logistics center';
+                    $reason = $stage === 'pickup' ? 'Different pickup hub' : 'Different destination hub';
                 } elseif (!$rider->matchesServiceArea($delivery)) {
-                    $reason = 'Different service area';
+                    $reason = $stage === 'pickup' ? 'Different pickup service area' : 'Different destination service area';
                 } else {
                     $capacity = $rider->capacityLimit();
                     if ($capacity <= 0) {
@@ -965,12 +968,22 @@ class DeliveryController extends Controller
                 return ['error' => 'Vehicle capacity exceeded. Please assign a suitable vehicle.'];
             }
 
+            $stage = $lockedDelivery->riderAssignmentScope()['stage'];
+
+            if ($stage === 'hub_processing') {
+                return ['error' => 'Cannot assign delivery. The parcel is still being processed at a logistics hub.'];
+            }
+
             if (!$rider->matchesDestinationCenter($lockedDelivery)) {
-                return ['error' => 'Cannot assign delivery. Rider belongs to a different logistics center than the delivery destination.'];
+                return ['error' => $stage === 'pickup'
+                    ? 'Cannot assign delivery. Rider belongs to a different hub than the seller pickup hub.'
+                    : 'Cannot assign delivery. Rider belongs to a different hub than the buyer destination hub.'];
             }
 
             if (!$rider->matchesServiceArea($lockedDelivery)) {
-                return ['error' => 'Cannot assign delivery. Rider is assigned to a different service area than the delivery.'];
+                return ['error' => $stage === 'pickup'
+                    ? 'Cannot assign delivery. Rider is assigned to a different service area than the seller pickup area.'
+                    : 'Cannot assign delivery. Rider is assigned to a different service area than the buyer destination.'];
             }
 
             $previousRiderId = $lockedDelivery->rider_id;
@@ -1446,6 +1459,7 @@ class DeliveryController extends Controller
 
     public function receive(Request $request, Delivery $delivery): RedirectResponse
     {
+        abort_if(Auth::user()->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter parcel receiving.');
         $validated = $request->validate([
             'center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('is_active', true)],
         ]);
@@ -1457,6 +1471,15 @@ class DeliveryController extends Controller
                 || (int) $user->center_id !== (int) $validated['center_id']
                 || ($delivery->center_id !== null && (int) $delivery->center_id !== (int) $user->center_id && ! $delivery->isIncomingTransfer((int) $user->center_id)))) {
             abort(403, 'You can only receive parcels at your assigned logistics center.');
+        }
+
+        // Seller "ready for pickup", an approved request, or rider
+        // assignment does not mean the parcel has been collected. Only the
+        // rider's pickup + hub handoff can satisfy receipt eligibility.
+        if ($delivery->order_id
+            && $delivery->parcel_status === 'pending_arrival'
+            && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
+            return back()->with('error', 'This parcel has not been collected from the seller yet. The pickup rider must complete the pickup and record the hub handoff before it can be received.');
         }
 
         $received = DB::transaction(function () use ($delivery, $validated): bool {
@@ -1496,8 +1519,12 @@ class DeliveryController extends Controller
     public function scan(Delivery $delivery): RedirectResponse
     {
         $user = Auth::user();
+        abort_if($user->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
         abort_unless(LogisticsAccess::canAccessDelivery($user, $delivery), 403,
             'You can only scan parcels at your assigned logistics center.');
+        if ($delivery->order_id && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
+            return back()->with('error', 'This parcel has no recorded pickup and hub handoff. Correct custody before scanning it.');
+        }
 
         $scanned = DB::transaction(function () use ($delivery): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
@@ -1564,6 +1591,7 @@ class DeliveryController extends Controller
 
     public function scanByTracking(Request $request): JsonResponse
     {
+        abort_if(Auth::user()->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
         $rawTracking = strtoupper(trim((string) $request->input('tracking_number', '')));
         $request->merge(['tracking_number' => $rawTracking]);
 
@@ -1632,6 +1660,14 @@ class DeliveryController extends Controller
                 ]);
             }
 
+            if ($fresh->order_id && ! FulfillmentWorkflow::hasPickupHandoff($fresh)) {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'receipt_unverified',
+                    'message' => 'This parcel has no recorded pickup and hub handoff. Correct custody before scanning it.',
+                ], 409);
+            }
+
             if ($fresh->parcel_status !== 'received') {
                 return response()->json([
                     'ok' => false,
@@ -1674,6 +1710,7 @@ class DeliveryController extends Controller
 
     public function sort(Request $request, Delivery $delivery): RedirectResponse
     {
+        abort_if(Auth::user()->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter sorting.');
         $validated = $request->validate([
             'destination_center_id' => [
                 'required',
@@ -1690,6 +1727,9 @@ class DeliveryController extends Controller
         ]);
         $this->assertCompanyCenter((int) $validated['destination_center_id']);
         $this->ensureCenterAccess($delivery);
+        if ($delivery->order_id && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
+            return back()->with('error', 'This parcel has no recorded pickup and hub handoff. Correct custody before sorting it.');
+        }
 
         if ($delivery->parcel_status !== 'scanned') {
             return back()->with('error', 'Parcel must be received and scanned before sorting.');
@@ -1751,6 +1791,7 @@ class DeliveryController extends Controller
     public function dispatch(Delivery $delivery): RedirectResponse
     {
         $user = Auth::user();
+        abort_if($user->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter dispatch.');
         $dispatched = DB::transaction(function () use ($delivery, $user): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             abort_if($this->hasActiveHubTransfer($lockedDelivery), 409, 'This parcel is reserved for hub-to-hub transfer.');

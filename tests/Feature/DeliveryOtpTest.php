@@ -11,8 +11,10 @@ use App\Models\Rider;
 use App\Models\Seller;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -21,6 +23,13 @@ class DeliveryOtpTest extends TestCase
     use DatabaseTransactions;
 
     private int $seq = 0;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Storage::fake('public');
+    }
 
     private function scenario(bool $withBuyer = true, string $status = 'out_for_delivery'): array
     {
@@ -122,6 +131,14 @@ class DeliveryOtpTest extends TestCase
         return "/api/logistics/rider/deliveries/{$delivery->id}/complete";
     }
 
+    private function photo(): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent(
+            'delivery-proof.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5X8AAAAASUVORK5CYII='),
+        );
+    }
+
     public function test_buyer_can_obtain_otp_for_own_eligible_delivery(): void
     {
         [$buyer, , , , $order, $delivery] = $this->scenario();
@@ -142,18 +159,18 @@ class DeliveryOtpTest extends TestCase
         $this->assertNotSame($otp, DB::table('deliveries')->where('id', $delivery->id)->value('delivery_otp'));
     }
 
-    public function test_rider_payload_flags_otp_required_without_exposing_the_code(): void
+    public function test_rider_payload_no_longer_flags_or_exposes_a_delivery_otp(): void
     {
         [$buyer, $riderUser, , , $order, $delivery] = $this->scenario();
 
         Sanctum::actingAs($buyer);
         $this->getJson($this->otpUrl($order, $delivery))->assertOk();
 
-        Sanctum::actingAs($riderUser);
+        Sanctum::actingAs($riderUser, ['rider']);
         $response = $this->getJson("/api/logistics/rider/deliveries/{$delivery->id}")
-            ->assertOk()
-            ->assertJsonPath('delivery.otp_required', true);
+            ->assertOk();
 
+        $this->assertArrayNotHasKey('otp_required', $response->json('delivery'));
         $this->assertArrayNotHasKey('delivery_otp', $response->json('delivery'));
         $this->assertArrayNotHasKey('delivery_otp_expires_at', $response->json('delivery'));
     }
@@ -201,41 +218,6 @@ class DeliveryOtpTest extends TestCase
         $this->assertNull($delivery->fresh()->delivery_otp);
     }
 
-    public function test_missing_and_incorrect_otp_do_not_complete_the_delivery(): void
-    {
-        [$buyer, $riderUser, , , $order, $delivery] = $this->scenario();
-
-        Sanctum::actingAs($buyer);
-        $otp = $this->getJson($this->otpUrl($order, $delivery))->assertOk()->json('otp');
-
-        Sanctum::actingAs($riderUser);
-
-        $this->postJson($this->completeUrl($delivery))
-            ->assertStatus(422)
-            ->assertJsonPath('errors.otp.0', 'Enter the 6-digit delivery OTP provided by the buyer.');
-
-        $this->assertSame('out_for_delivery', $delivery->fresh()->status);
-
-        $wrong = $otp === '000000' ? '111111' : '000000';
-
-        $this->postJson($this->completeUrl($delivery), ['otp' => $wrong])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.otp.0', 'Incorrect delivery OTP. 4 attempts remaining.');
-
-        $this->assertSame('out_for_delivery', $delivery->fresh()->status);
-        $this->assertSame(1, $delivery->fresh()->delivery_otp_attempts);
-        $this->assertSame(0, DeliveryProof::where('delivery_id', $delivery->id)->count());
-
-        $response = $this->postJson($this->completeUrl($delivery), ['otp' => $otp])
-            ->assertOk()
-            ->assertJsonPath('message', 'Delivery completed successfully.');
-
-        $this->assertArrayNotHasKey('delivery_otp', $response->json('delivery'));
-        $this->assertSame('delivered', $delivery->fresh()->status);
-        $this->assertNotNull($delivery->fresh()->delivery_otp_consumed_at);
-        $this->assertNull(DeliveryProof::where('delivery_id', $delivery->id)->value('otp'));
-    }
-
     public function test_buyer_order_payload_does_not_expose_otp_metadata(): void
     {
         [$buyer, , , , $order, $delivery] = $this->scenario();
@@ -258,84 +240,43 @@ class DeliveryOtpTest extends TestCase
         }
     }
 
-    public function test_expired_otp_is_rejected_and_buyer_can_request_a_new_code(): void
+    public function test_expired_code_can_be_regenerated_by_the_buyer(): void
     {
-        [$buyer, $riderUser, , , $order, $delivery] = $this->scenario();
+        [$buyer, , , , $order, $delivery] = $this->scenario();
 
         Sanctum::actingAs($buyer);
         $oldOtp = $this->getJson($this->otpUrl($order, $delivery))->assertOk()->json('otp');
 
         $this->travel(31)->minutes();
 
-        Sanctum::actingAs($riderUser);
-        $this->postJson($this->completeUrl($delivery), ['otp' => $oldOtp])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.otp.0', 'The delivery OTP has expired. Ask the buyer to request a new code.');
-
-        $this->assertSame('out_for_delivery', $delivery->fresh()->status);
-
-        Sanctum::actingAs($buyer);
         $newOtp = $this->getJson($this->otpUrl($order, $delivery))->assertOk()->json('otp');
         $this->assertNotSame($oldOtp, $newOtp);
-
-        Sanctum::actingAs($riderUser);
-        $this->postJson($this->completeUrl($delivery), ['otp' => $newOtp])->assertOk();
-
-        $this->assertSame('delivered', $delivery->fresh()->status);
 
         $this->travelBack();
     }
 
-    public function test_exhausted_attempts_require_a_new_buyer_code(): void
+    public function test_rider_completion_needs_only_a_photo_not_an_otp(): void
     {
         [$buyer, $riderUser, , , $order, $delivery] = $this->scenario();
 
         Sanctum::actingAs($buyer);
-        $otp = $this->getJson($this->otpUrl($order, $delivery))->assertOk()->json('otp');
-        $wrong = $otp === '000000' ? '111111' : '000000';
+        $this->getJson($this->otpUrl($order, $delivery))->assertOk();
+        $this->assertNotNull($delivery->fresh()->delivery_otp);
 
-        Sanctum::actingAs($riderUser);
+        Sanctum::actingAs($riderUser, ['rider']);
 
-        foreach (range(1, 5) as $attempt) {
-            $response = $this->postJson($this->completeUrl($delivery), ['otp' => $wrong]);
-            $response->assertStatus(422);
-
-            if ($attempt < 5) {
-                $remaining = 5 - $attempt;
-                $response->assertJsonPath(
-                    'errors.otp.0',
-                    'Incorrect delivery OTP. '.$remaining.' '.($remaining === 1 ? 'attempt' : 'attempts').' remaining.',
-                );
-            }
-        }
-
-        $this->assertSame(5, $delivery->fresh()->delivery_otp_attempts);
-        $this->assertSame('out_for_delivery', $delivery->fresh()->status);
-
-        $this->postJson($this->completeUrl($delivery), ['otp' => $otp])
-            ->assertStatus(422)
-            ->assertJsonPath('errors.otp.0', 'Too many incorrect delivery OTP attempts. Ask the buyer to request a new code.');
-
-        Sanctum::actingAs($buyer);
-        $newOtp = $this->getJson($this->otpUrl($order, $delivery))->assertOk()->json('otp');
-        $this->assertNotSame($otp, $newOtp);
-
-        Sanctum::actingAs($riderUser);
-        $this->postJson($this->completeUrl($delivery), ['otp' => $newOtp])->assertOk();
-        $this->assertSame('delivered', $delivery->fresh()->status);
-    }
-
-    public function test_non_buyer_delivery_keeps_legacy_completion_without_otp(): void
-    {
-        [, $riderUser, , , , $delivery] = $this->scenario(withBuyer: false);
-
-        Sanctum::actingAs($riderUser);
-
-        $this->postJson($this->completeUrl($delivery))
+        $this->postJson($this->completeUrl($delivery), ['photo' => $this->photo()])
             ->assertOk()
             ->assertJsonPath('message', 'Delivery completed successfully.');
 
-        $this->assertSame('delivered', $delivery->fresh()->status);
-        $this->assertNull($delivery->fresh()->delivery_otp);
+        $fresh = $delivery->fresh();
+        $this->assertSame('delivered', $fresh->status);
+        $this->assertNull($fresh->delivery_otp_consumed_at);
+
+        $this->assertDatabaseHas('delivery_proofs', [
+            'delivery_id' => $delivery->id,
+            'type' => 'photo',
+        ]);
+        $this->assertNull(DeliveryProof::where('delivery_id', $delivery->id)->value('otp'));
     }
 }

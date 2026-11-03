@@ -35,7 +35,6 @@ Map<String, dynamic> _delivery({String status = 'out_for_delivery'}) => {
   'total': 500,
   'payment_method': 'cash_on_delivery',
   'amount_to_collect': 500,
-  'otp_required': true,
   'pickup_pin_required': false,
 };
 
@@ -115,7 +114,6 @@ void main() {
     final provider = await _load(backend);
     await _pump(tester, provider, photoPicker: () async => null);
 
-    await tester.enterText(find.byKey(const Key('deliveryOtpField')), '123456');
     await tester.enterText(find.byKey(const Key('codAmountField')), '500');
     await tester.tap(find.text('Complete Delivery'));
     await tester.pump();
@@ -128,14 +126,13 @@ void main() {
     expect(provider.selected?.status, 'out_for_delivery');
   });
 
-  testWidgets('unsent OTP, amount and name survive an app restart', (
+  testWidgets('unsent amount and name survive an app restart', (
     tester,
   ) async {
     final backend = _Backend();
     final provider = await _load(backend);
     await _pump(tester, provider);
 
-    await tester.enterText(find.byKey(const Key('deliveryOtpField')), '123456');
     await tester.enterText(find.byKey(const Key('codAmountField')), '500');
     await tester.enterText(
       find.byKey(const Key('signatureNameField')),
@@ -150,13 +147,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Restored your unsent proof'), findsOneWidget);
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const Key('deliveryOtpField')))
-          .controller
-          ?.text,
-      '123456',
-    );
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('codAmountField')))
@@ -181,7 +171,7 @@ void main() {
     final store = PodDraftStore();
     await store.save(
       77,
-      PodDraft(photoPath: file.path, otp: '123456', amount: '500'),
+      PodDraft(photoPath: file.path, amount: '500'),
     );
 
     final draft = await store.load(77);
@@ -203,7 +193,6 @@ void main() {
 
     await tester.tap(find.text('Take Photo'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('deliveryOtpField')), '123456');
     await tester.enterText(find.byKey(const Key('codAmountField')), '500');
     await tester.pumpAndSettle();
 

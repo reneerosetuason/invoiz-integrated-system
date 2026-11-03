@@ -488,10 +488,19 @@ Route::get('/orders', function(Request $request){
 Route::get('/orders/{id}', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
-  $order = \App\Models\Order::with(['items.product','payment','deliveries','statusHistories'])->where('buyer_id',$buyer['id'])->findOrFail($id);
+  $order = \App\Models\Order::with([
+    'items.product',
+    'payment',
+    'deliveries.statusLogs',
+    'deliveries.logisticsCenter',
+    'deliveries.destinationCenter',
+    'deliveries.pickupRequest',
+    'statusHistories',
+  ])->where('buyer_id',$buyer['id'])->findOrFail($id);
   $reviews = \App\Models\Review::where('buyer_id',$buyer['id'])->where('order_id',$order->id)->get()->keyBy('product_id');
   $returns = \App\Models\ReturnRequest::where('order_id', $order->id)->where('buyer_id', $buyer['id'])->get()->groupBy('order_item_id');
-  return view('buyer.order', ['order'=>$order, 'reviews'=>$reviews, 'returns'=>$returns]);
+  $timeline = \App\Support\CustomerTracking::timeline($order, $order->deliveries->first(), \App\Support\CustomerTracking::AUDIENCE_BUYER);
+  return view('buyer.order', ['order'=>$order, 'reviews'=>$reviews, 'returns'=>$returns, 'timeline'=>$timeline]);
 })->whereNumber('id');
 
 Route::post('/orders/{id}/cancel', function($id, Request $request){

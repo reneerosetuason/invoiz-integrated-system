@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/foundation.dart';
 
 import '../core/network/api_exception.dart';
@@ -182,6 +184,36 @@ class RiderProvider extends ChangeNotifier {
       return true;
     } on ApiException catch (e) {
       _error = e.message;
+      _statusBusy = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> uploadPhoto({
+    required Uint8List fileBytes,
+    required String filename,
+  }) async {
+    _statusBusy = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final updated = await _service.uploadPhoto(
+        fileBytes: fileBytes,
+        filename: filename,
+      );
+      _rider = updated;
+      _statusBusy = false;
+      notifyListeners();
+      return true;
+    } on ApiException catch (e) {
+      _error = e.message;
+      _statusBusy = false;
+      notifyListeners();
+      return false;
+    } catch (_) {
+      _error = 'Unable to upload photo. Please try again.';
       _statusBusy = false;
       notifyListeners();
       return false;

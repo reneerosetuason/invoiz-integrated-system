@@ -178,7 +178,7 @@ class ShipmentExceptionAndRtsTest extends TestCase
             'rider_id' => $rider->id,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/exception", [
             'type' => 'damaged',
@@ -264,7 +264,7 @@ class ShipmentExceptionAndRtsTest extends TestCase
             'failure_reason' => 'Damaged during transit',
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/return-to-center")
             ->assertOk();
@@ -281,7 +281,7 @@ class ShipmentExceptionAndRtsTest extends TestCase
         [$order, $product] = $this->orderWithStock($seller);
         $delivery = $this->delivery([
             'order_id' => $order->id,
-            'seller_id' => $seller->id,
+            'seller_id' => $sellerUser->id,
             'status' => 'damaged',
             'returned_at' => now(),
             'failure_reason' => 'Damaged packaging',

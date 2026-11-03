@@ -7,12 +7,20 @@ import '../../services/application_service.dart';
 
 /// Dedicated application-status screen.
 ///
-/// Uses the existing `GET /api/rider/application-status?email=` endpoint
-/// (the backend looks applications up by email only). The optional reference
-/// number is cross-checked client-side against the returned record.
+/// Uses `GET /api/rider/application-status?email=` and optional `reference_number=`.
+/// If email verification is needed, provides an in-place verification option.
 class ApplicationStatusScreen extends StatefulWidget {
-  const ApplicationStatusScreen({super.key, this.email});
+  const ApplicationStatusScreen({
+    super.key,
+    this.email,
+    this.reference,
+    this.token,
+    this.apiClient,
+  });
   final String? email;
+  final String? reference;
+  final String? token;
+  final ApiClient? apiClient;
   @override
   State<ApplicationStatusScreen> createState() =>
       _ApplicationStatusScreenState();
@@ -21,35 +29,52 @@ class ApplicationStatusScreen extends StatefulWidget {
 class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
   final _email = TextEditingController();
   final _reference = TextEditingController();
+  final _otpCode = TextEditingController();
   RiderApplicationStatus? _app;
   bool _busy = false;
   String? _error;
   bool _refMismatch = false;
+  String? _currentToken;
+  bool _showOtpSection = false;
+  bool _sendingOtp = false;
+  bool _verifyingOtp = false;
+  String? _otpMessage;
 
   @override
   void initState() {
     super.initState();
+    _currentToken = widget.token;
     if (widget.email != null) {
       _email.text = widget.email!;
-      _check();
+    }
+    if (widget.reference != null) {
+      _reference.text = widget.reference!;
+    }
+    if (widget.email != null) {
+      _check(unfocus: false);
     }
   }
 
-  Future<void> _check() async {
+  Future<void> _check({bool unfocus = true}) async {
     final email = _email.text.trim();
     if (email.isEmpty) {
       setState(() => _error = 'Enter your email to check status.');
       return;
     }
-    FocusScope.of(context).unfocus();
+    if (unfocus) FocusScope.of(context).unfocus();
+    final ref = _reference.text.trim();
     setState(() {
       _busy = true;
       _error = null;
       _refMismatch = false;
     });
     try {
-      final app =
-          await ApplicationService(ApiClient()).getStatus(email);
+      final client = widget.apiClient ?? ApiClient();
+      final app = await ApplicationService(client).getStatus(
+        email,
+        reference: ref.isNotEmpty ? ref : null,
+        token: _currentToken,
+      );
       if (!mounted) return;
       if (app == null) {
         setState(() {
@@ -58,23 +83,31 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
         });
         return;
       }
-      final ref = _reference.text.trim();
       setState(() {
         _app = app;
+        _showOtpSection = false;
         _refMismatch =
             ref.isNotEmpty && ref.toUpperCase() != app.referenceNumber;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
+      final isAuthError = e.message.contains('Verify this email with a fresh code') ||
+          e.message.contains('fresh code');
       setState(() {
         _app = null;
-        _error = switch (e.type) {
-          ApiErrorType.network || ApiErrorType.timeout =>
-            'Unable to connect. Please try again.',
-          _ => e.message.isNotEmpty
-              ? e.message
-              : 'No application found for this email.',
-        };
+        if (isAuthError) {
+          _showOtpSection = true;
+          _error =
+              'Please verify this email with a one-time code to view full application details.';
+        } else {
+          _error = switch (e.type) {
+            ApiErrorType.network || ApiErrorType.timeout =>
+              'Unable to connect. Please try again.',
+            _ => e.message.isNotEmpty
+                ? e.message
+                : 'No application found for this email.',
+          };
+        }
       });
     } catch (_) {
       if (mounted) {
@@ -88,10 +121,72 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
     }
   }
 
+  Future<void> _sendOtp() async {
+    final email = _email.text.trim();
+    if (email.isEmpty) {
+      setState(() => _error = 'Enter your email to request a verification code.');
+      return;
+    }
+    setState(() {
+      _sendingOtp = true;
+      _otpMessage = null;
+    });
+    try {
+      final client = widget.apiClient ?? ApiClient();
+      final msg = await ApplicationService(client).requestEmailCode(email: email);
+      if (!mounted) return;
+      setState(() {
+        _otpMessage = msg;
+        _showOtpSection = true;
+      });
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Unable to send code. Please try again.');
+    } finally {
+      if (mounted) setState(() => _sendingOtp = false);
+    }
+  }
+
+  Future<void> _verifyOtp() async {
+    final email = _email.text.trim();
+    final code = _otpCode.text.trim();
+    if (code.length != 6) {
+      setState(() => _error = 'Enter the 6-digit code sent to your email.');
+      return;
+    }
+    setState(() {
+      _verifyingOtp = true;
+      _error = null;
+    });
+    try {
+      final client = widget.apiClient ?? ApiClient();
+      await ApplicationService(client).verifyEmailCode(
+        email: email,
+        code: code,
+        onTokenReceived: (tok) => _currentToken = tok,
+      );
+      if (!mounted) return;
+      setState(() {
+        _otpCode.clear();
+        _showOtpSection = false;
+        _otpMessage = null;
+      });
+      await _check();
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Verification failed. Please try again.');
+    } finally {
+      if (mounted) setState(() => _verifyingOtp = false);
+    }
+  }
+
   @override
   void dispose() {
     _email.dispose();
     _reference.dispose();
+    _otpCode.dispose();
     super.dispose();
   }
 
@@ -187,6 +282,10 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
                   ),
                 ),
               if (_error != null) _errorBox(_error!),
+              if (_showOtpSection) ...[
+                const SizedBox(height: 16),
+                _verificationBox(),
+              ],
               if (_refMismatch)
                 Container(
                   margin: const EdgeInsets.only(top: 12),
@@ -233,6 +332,94 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
             child: Text(message,
                 style: const TextStyle(
                     fontSize: 13, color: AppTheme.danger)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _verificationBox() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Verify Email Ownership',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'To protect applicant privacy, request a 6-digit code sent to your email to verify you own this application.',
+            style: TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          if (_otpMessage != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              _otpMessage!,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.success,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          TextField(
+            controller: _otpCode,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(
+              labelText: '6-digit Verification Code',
+              hintText: '123456',
+              counterText: '',
+              prefixIcon: Icon(Icons.lock_clock_outlined, size: 20),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _sendingOtp ? null : _sendOtp,
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(_sendingOtp ? 'Sending...' : 'Send Code'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _verifyingOtp ? null : _verifyOtp,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primary,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(_verifyingOtp ? 'Verifying...' : 'Verify & View'),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -338,6 +525,7 @@ class _ApplicationStatusScreenState extends State<ApplicationStatusScreen> {
                   color: AppColors.textSecondary, height: 1.5)),
           const Divider(height: 28),
           _row('Applicant', app.name),
+          _row('Application Role', app.roleLabel),
           _row('Email', app.email),
           if (app.riderType != null)
             _row('Rider type',

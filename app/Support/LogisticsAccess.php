@@ -92,6 +92,29 @@ final class LogisticsAccess
         return self::companyId($user) !== null;
     }
 
+    /**
+     * Physical counter operations (intake, scanning, sorting, manifest parcel loading/receiving)
+     * are strictly reserved for operational logistics staff assigned to that center.
+     * Platform administrators and supervisory managers are excluded from counter mutations.
+     */
+    public static function isCenterStaff(?User $user, ?int $centerId = null): bool
+    {
+        if (! $user || ! $user->isActive() || ! $user->isStaff()) {
+            return false;
+        }
+
+        $userCenterId = (int) ($user->center_id ?? 0);
+        if ($userCenterId <= 0) {
+            return false;
+        }
+
+        if ($centerId !== null && $userCenterId !== (int) $centerId) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static function canAccessCompany(?User $user, ?int $companyId): bool
     {
         if (self::isGlobal($user)) {
@@ -118,13 +141,19 @@ final class LogisticsAccess
 
         $scope = self::centerId($user);
 
-        // Null scope means a company-wide manager; company ownership is
-        // enforced separately through canAccessCompany(). A manager without
-        // a company has no scope at all.
+        // Null scope means a company-wide manager; verify the target center belongs
+        // to that manager's company.
         if ($scope === null) {
             $companyId = self::companyId($user);
+            if ($companyId === null || $companyId <= 0) {
+                return false;
+            }
 
-            return $companyId !== null && $companyId > 0;
+            $centerCompanyId = (int) (LogisticsCenter::query()
+                ->whereKey($centerId)
+                ->value('logistics_company_id') ?? 0);
+
+            return $centerCompanyId > 0 && $centerCompanyId === $companyId;
         }
 
         return $scope > 0 && (int) $centerId === $scope;

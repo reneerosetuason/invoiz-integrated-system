@@ -16,6 +16,7 @@ class DeliveryProvider extends ChangeNotifier {
   bool _loading = false;
   bool _actionBusy = false;
   String? _error;
+  ApiErrorType? _errorType;
 
   List<Delivery> get deliveries => _deliveries;
   Delivery? get selected => _selected;
@@ -23,6 +24,12 @@ class DeliveryProvider extends ChangeNotifier {
   bool get loading => _loading;
   bool get actionBusy => _actionBusy;
   String? get error => _error;
+  ApiErrorType? get errorType => _errorType;
+
+  /// A timeout or connection drop means the server may still have processed
+  /// the request, so callers must re-read the delivery before retrying.
+  bool get lastErrorIsUncertain =>
+      _errorType == ApiErrorType.timeout || _errorType == ApiErrorType.network;
 
   static const Map<String, String> filters = {
     'all': 'All',
@@ -43,6 +50,7 @@ class DeliveryProvider extends ChangeNotifier {
   Future<void> load() async {
     _loading = true;
     _error = null;
+    _errorType = null;
     notifyListeners();
 
     try {
@@ -50,6 +58,7 @@ class DeliveryProvider extends ChangeNotifier {
       _deliveries = page.deliveries;
     } on ApiException catch (e) {
       _error = e.message;
+      _errorType = e.type;
     } catch (e) {
       // Don't mask the underlying failure with a static string: expose the
       // real exception so a network/parse/type error is diagnosable.
@@ -57,6 +66,7 @@ class DeliveryProvider extends ChangeNotifier {
       _error = (detail.isNotEmpty && detail != 'Exception')
           ? 'Unable to load deliveries ($detail).'
           : 'Unable to load deliveries. Please try again.';
+      _errorType = ApiErrorType.server;
     } finally {
       _loading = false;
       notifyListeners();
@@ -66,14 +76,17 @@ class DeliveryProvider extends ChangeNotifier {
   Future<void> loadDetail(int id) async {
     _loading = true;
     _error = null;
+    _errorType = null;
     notifyListeners();
 
     try {
       _selected = await _service.detail(id);
     } on ApiException catch (e) {
       _error = e.message;
+      _errorType = e.type;
     } catch (_) {
       _error = 'Unable to load delivery details. Please try again.';
+      _errorType = ApiErrorType.server;
     } finally {
       _loading = false;
       notifyListeners();
@@ -91,45 +104,40 @@ class DeliveryProvider extends ChangeNotifier {
   }
 
   Future<bool> accept(int id) => _runAction(
-        'accept',
-        () async => _applyUpdated(await _service.accept(id)),
-      );
+    'accept',
+    () async => _applyUpdated(await _service.accept(id)),
+  );
 
   Future<bool> updateStatus(int id, String status) => _runAction(
-        'updateStatus',
-        () async => _applyUpdated(await _service.updateStatus(id, status)),
-      );
+    'updateStatus',
+    () async => _applyUpdated(await _service.updateStatus(id, status)),
+  );
 
   Future<bool> pickup(int id, {String? pickupPin}) => _runAction(
-        'pickup',
-        () async => _applyUpdated(await _service.pickup(id, pickupPin: pickupPin)),
-      );
+    'pickup',
+    () async => _applyUpdated(await _service.pickup(id, pickupPin: pickupPin)),
+  );
 
   Future<bool> complete(
     int id, {
-    String proofType = 'signature',
-    Uint8List? photoBytes,
+    required Uint8List photoBytes,
     String? photoFilename,
     String? signatureName,
-    String? otp,
     double? amountReceived,
     double? latitude,
     double? longitude,
-  }) =>
-      _runAction('complete', () async {
-        final updated = await _service.complete(
-          id,
-          proofType: proofType,
-          photoBytes: photoBytes,
-          photoFilename: photoFilename,
-          signatureName: signatureName,
-          otp: otp,
-          amountReceived: amountReceived,
-          latitude: latitude,
-          longitude: longitude,
-        );
-        _applyUpdated(updated);
-      });
+  }) => _runAction('complete', () async {
+    final updated = await _service.complete(
+      id,
+      photoBytes: photoBytes,
+      photoFilename: photoFilename,
+      signatureName: signatureName,
+      amountReceived: amountReceived,
+      latitude: latitude,
+      longitude: longitude,
+    );
+    _applyUpdated(updated);
+  });
 
   Future<bool> failed(int id, {required String reason, String? notes}) =>
       _runAction('failed', () async {
@@ -138,28 +146,29 @@ class DeliveryProvider extends ChangeNotifier {
       });
 
   Future<bool> requestReattempt(int id) => _runAction(
-        'requestReattempt',
-        () async => _applyUpdated(await _service.requestReattempt(id)),
-      );
+    'requestReattempt',
+    () async => _applyUpdated(await _service.requestReattempt(id)),
+  );
 
   Future<bool> returnToCenter(int id) => _runAction(
-        'returnToCenter',
-        () async => _applyUpdated(await _service.returnToCenter(id)),
-      );
+    'returnToCenter',
+    () async => _applyUpdated(await _service.returnToCenter(id)),
+  );
 
   Future<bool> sortingCenterHandoff(int id) => _runAction(
-        'sortingCenterHandoff',
-        () async => _applyUpdated(await _service.sortingCenterHandoff(id)),
-      );
+    'sortingCenterHandoff',
+    () async => _applyUpdated(await _service.sortingCenterHandoff(id)),
+  );
 
   Future<bool> sortingCenterPickup(int id) => _runAction(
-        'sortingCenterPickup',
-        () async => _applyUpdated(await _service.sortingCenterPickup(id)),
-      );
+    'sortingCenterPickup',
+    () async => _applyUpdated(await _service.sortingCenterPickup(id)),
+  );
 
   Future<bool> _runAction(String name, Future<void> Function() action) async {
     _actionBusy = true;
     _error = null;
+    _errorType = null;
     notifyListeners();
 
     try {
@@ -169,11 +178,13 @@ class DeliveryProvider extends ChangeNotifier {
       return true;
     } on ApiException catch (e) {
       _error = e.message;
+      _errorType = e.type;
       _actionBusy = false;
       notifyListeners();
       return false;
     } catch (_) {
       _error = 'Unable to complete that action. Please try again.';
+      _errorType = ApiErrorType.server;
       _actionBusy = false;
       notifyListeners();
       return false;
@@ -182,6 +193,7 @@ class DeliveryProvider extends ChangeNotifier {
 
   void clearError() {
     _error = null;
+    _errorType = null;
     notifyListeners();
   }
 

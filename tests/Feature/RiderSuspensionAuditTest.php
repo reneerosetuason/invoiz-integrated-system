@@ -37,6 +37,25 @@ class RiderSuspensionAuditTest extends TestCase
 
     private function user(string $role, ?int $centerId = null): User
     {
+        if ($role === 'logistics_admin') {
+            // Production restricts this role to the designated account.
+            $designated = User::whereKey(User::GLOBAL_LOGISTICS_ADMIN_ID)->first();
+            if ($designated) {
+                return $designated;
+            }
+
+            return User::create([
+                'id' => User::GLOBAL_LOGISTICS_ADMIN_ID,
+                'name' => 'Logistics Admin',
+                'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
+                'password' => Hash::make('secret123'),
+                'role' => 'logistics_admin',
+                'status' => 'active',
+                'account_status' => 'active',
+                'email_verified_at' => now(),
+            ]);
+        }
+
         $this->seq++;
 
         return User::create([
@@ -221,7 +240,7 @@ class RiderSuspensionAuditTest extends TestCase
             ->post("/logistics/riders/{$rider->id}/deactivate", ['reason' => 'Suspension for policy violation.'])
             ->assertSessionHasNoErrors();
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->patchJson('/api/logistics/rider/status', ['status' => 'online'])
             ->assertForbidden();

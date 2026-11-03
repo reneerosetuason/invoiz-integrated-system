@@ -225,7 +225,7 @@ void main() {
 
       expect(find.text('WHAT SHOULD HAPPEN NEXT?'), findsOneWidget);
       expect(find.text('Request Re-attempt'), findsOneWidget);
-      expect(find.text('Return to Sorting Center (RTS)'), findsOneWidget);
+      expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
     });
 
     testWidgets('requesting a re-attempt succeeds', (tester) async {
@@ -302,7 +302,7 @@ void main() {
           deliveries: deliveries);
 
       expect(find.text('Request Re-attempt'), findsOneWidget);
-      expect(find.text('Return to Sorting Center (RTS)'), findsOneWidget);
+      expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
     });
 
     testWidgets('requested state shows the waiting banner', (tester) async {

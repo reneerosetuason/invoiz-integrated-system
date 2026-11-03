@@ -217,12 +217,12 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: RiderTutorialScreen(workflowType: 'hub_courier')),
     );
-    expect(find.text('Hub Courier Tutorial'), findsOneWidget);
+    expect(find.text('Hub Transport Driver Tutorial'), findsOneWidget);
     expect(find.textContaining('four-wheel vehicle'), findsOneWidget);
     expect(find.text('1  /  13'), findsOneWidget);
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
-    expect(find.text('Hub Courier Dashboard'), findsOneWidget);
+    expect(find.text('Hub Transport Driver Dashboard'), findsOneWidget);
     expect(find.text('2  /  13'), findsOneWidget);
     await tester.tap(find.text('Back'));
     await tester.pumpAndSettle();

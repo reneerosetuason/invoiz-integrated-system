@@ -129,11 +129,20 @@ class Rider {
     );
   }
 
-  Rider copyWith({bool? isOnline, String? phone, String? vehicleType, String? licensePlate}) {
+  Rider copyWith({
+    bool? isOnline,
+    String? phone,
+    String? vehicleType,
+    String? licensePlate,
+    String? name,
+    String? email,
+    String? avatar,
+    String? status,
+  }) {
     return Rider(
       id: id,
-      name: name,
-      email: email,
+      name: name ?? this.name,
+      email: email ?? this.email,
       phone: phone ?? this.phone,
       vehicleType: vehicleType ?? this.vehicleType,
       licensePlate: licensePlate ?? this.licensePlate,
@@ -146,11 +155,11 @@ class Rider {
       company: company,
       hubName: hubName,
       serviceArea: serviceArea,
-      status: status,
+      status: status ?? this.status,
       isOnline: isOnline ?? this.isOnline,
       canGoOnline: canGoOnline,
       onlineBlockReason: onlineBlockReason,
-      avatar: avatar,
+      avatar: avatar ?? this.avatar,
       totalDeliveries: totalDeliveries,
       completedDeliveries: completedDeliveries,
       failedDeliveries: failedDeliveries,

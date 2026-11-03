@@ -76,7 +76,7 @@ class RiderProfileParityTest extends TestCase
     {
         $user = $this->riderUser(['license_expiry' => now()->addYear()->format('Y-m-d')]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertOk()
@@ -91,7 +91,7 @@ class RiderProfileParityTest extends TestCase
     {
         $user = $this->riderUser(['license_expiry' => now()->subDay()->format('Y-m-d')]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $response = $this->getJson('/api/logistics/rider/profile')
             ->assertOk()
@@ -106,7 +106,7 @@ class RiderProfileParityTest extends TestCase
     {
         $user = $this->riderUser(['license_expiry' => now()->addDays(10)->format('Y-m-d')]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertOk()
@@ -122,7 +122,7 @@ class RiderProfileParityTest extends TestCase
         // block an otherwise-approved rider.
         $user = $this->riderUser(['license_expiry' => null]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertOk()
@@ -138,7 +138,7 @@ class RiderProfileParityTest extends TestCase
             'license_expiry' => now()->addYear()->format('Y-m-d'),
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertOk()
@@ -152,7 +152,7 @@ class RiderProfileParityTest extends TestCase
     {
         $user = $this->riderUser(['license_expiry' => now()->subDay()->format('Y-m-d')]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->patchJson('/api/logistics/rider/status', ['status' => 'online'])
             ->assertStatus(422)
@@ -165,7 +165,7 @@ class RiderProfileParityTest extends TestCase
     {
         $user = $this->riderUser(['license_expiry' => now()->addYear()->format('Y-m-d')]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->patchJson('/api/logistics/rider/status', ['status' => 'online'])
             ->assertOk()
@@ -239,7 +239,7 @@ class RiderProfileParityTest extends TestCase
             'file_size' => strlen($pdf),
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $response = $this->getJson('/api/logistics/rider/profile')
             ->assertOk()
@@ -279,7 +279,7 @@ class RiderProfileParityTest extends TestCase
             'file_size' => 11,
         ]);
 
-        $this->get('/api/logistics/rider/documents/'.$document->id)->assertForbidden();
+        $this->getJson('/api/logistics/rider/documents/'.$document->id)->assertForbidden();
     }
 
     public function test_document_of_an_unprovisioned_application_is_forbidden(): void

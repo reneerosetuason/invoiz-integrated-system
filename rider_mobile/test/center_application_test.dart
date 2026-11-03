@@ -295,7 +295,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Your center application has been submitted!'),
+        find.text('Your Logistics Hub application has been submitted!'),
         findsOneWidget,
       );
       expect(find.text('Reference number: CEN-2026-0007'), findsOneWidget);

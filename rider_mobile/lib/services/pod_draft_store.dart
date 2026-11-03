@@ -6,37 +6,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// actually accepted by the backend.
 ///
 /// When the network drops mid-submit the rider must not lose the live photo,
-/// OTP, COD amount or signature they already captured (RID-DLV-009 / M5).
+/// COD amount or signature they already captured (RID-DLV-009 / M5).
 class PodDraft {
   const PodDraft({
     this.photoPath,
-    this.otp = '',
     this.amount = '',
     this.name = '',
   });
 
   /// Local file path of the live camera photo, when one was taken.
   final String? photoPath;
-  final String otp;
   final String amount;
   final String name;
 
   bool get hasContent =>
       (photoPath != null && photoPath!.isNotEmpty) ||
-      otp.isNotEmpty ||
       amount.isNotEmpty ||
       name.isNotEmpty;
 
   Map<String, dynamic> toJson() => {
     'photo_path': photoPath,
-    'otp': otp,
     'amount': amount,
     'name': name,
   };
 
   factory PodDraft.fromJson(Map<String, dynamic> json) => PodDraft(
     photoPath: json['photo_path'] as String?,
-    otp: json['otp'] as String? ?? '',
     amount: json['amount'] as String? ?? '',
     name: json['name'] as String? ?? '',
   );

@@ -31,11 +31,17 @@ class RiderLicenseExpiryTest extends TestCase
 
     private function center(): LogisticsCenter
     {
+        $company = \App\Models\LogisticsCompany::create([
+            'name' => 'License Test Center',
+            'status' => 'active',
+        ]);
+
         return LogisticsCenter::create([
             'name' => 'License Test Center',
             'address' => '1 Warehouse Rd',
             'city' => 'Quezon City',
             'is_active' => true,
+            'logistics_company_id' => $company->id,
         ]);
     }
 
@@ -127,10 +133,17 @@ class RiderLicenseExpiryTest extends TestCase
             'vehicle_registration' => 'ABC-1234',
         ]);
 
-        $admin = User::create([
-            'name' => 'Admin', 'email' => 'admin.'.bin2hex(random_bytes(3)).'@test.local',
-            'password' => Hash::make('x'), 'role' => 'logistics_admin', 'status' => 'active',
-        ]);
+        // Production restricts this role to the designated account.
+        $admin = User::whereKey(User::GLOBAL_LOGISTICS_ADMIN_ID)->first()
+            ?? User::create([
+                'id' => User::GLOBAL_LOGISTICS_ADMIN_ID,
+                'name' => 'Admin',
+                'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
+                'password' => Hash::make('x'),
+                'role' => 'logistics_admin',
+                'status' => 'active',
+                'account_status' => 'active',
+            ]);
 
         $rider = app(RiderAccountProvisioner::class)->approve($application, $admin, [
             'password' => 'Provisioned1!',
@@ -162,7 +175,7 @@ class RiderLicenseExpiryTest extends TestCase
             'vehicle_registration' => 'ABC-1234',
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertOk()

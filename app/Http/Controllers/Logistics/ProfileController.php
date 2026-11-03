@@ -18,9 +18,12 @@ class ProfileController extends Controller
      */
     public function show(Request $request): View
     {
+        $user = $request->user();
+        $user->loadMissing(['logisticsCenter.company', 'logisticsCompany', 'serviceArea']);
+
         return view('logistics.profile.show', [
-            'user' => $request->user(),
-            'settings' => LogisticsSetting::forUser($request->user()->id),
+            'user' => $user,
+            'settings' => LogisticsSetting::forUser($user->id),
         ]);
     }
 
@@ -33,7 +36,10 @@ class ProfileController extends Controller
             'photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:2048',
         ]);
 
-        LogisticsSetting::forUser($request->user()->id)->savePhoto($request->file('photo'));
+        $path = LogisticsSetting::forUser($request->user()->id)->savePhoto($request->file('photo'));
+        $user = $request->user();
+        $user->profile_picture = $path;
+        $user->save();
 
         return Redirect::route('profile.show')->with('success', 'Profile photo updated successfully.');
     }
@@ -56,16 +62,19 @@ class ProfileController extends Controller
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = $request->user();
-        $data = collect($request->validated())->except('photo')->all();
-        if (array_key_exists('phone', $data) && $data['phone'] === null) {
-            $data['phone'] = $user->phone ?? '';
-        }
+        $validated = $request->validated();
 
-        $user->fill($data);
+        $user->name = $validated['name'];
+        $user->email = $validated['email'];
+        if (array_key_exists('phone', $validated)) {
+            $user->phone = $validated['phone'] ?? '';
+        }
         $user->save();
 
         if ($request->hasFile('photo')) {
-            LogisticsSetting::forUser($user->id)->savePhoto($request->file('photo'));
+            $path = LogisticsSetting::forUser($user->id)->savePhoto($request->file('photo'));
+            $user->profile_picture = $path;
+            $user->save();
         }
 
         return Redirect::route('profile.show')->with('success', 'Profile updated successfully.');

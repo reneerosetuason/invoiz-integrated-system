@@ -21,7 +21,6 @@ class Delivery {
     required this.total,
     this.paymentMethod,
     this.amountToCollect,
-    this.otpRequired = false,
     this.pickupPinRequired = false,
     this.notes,
     this.weight,
@@ -76,7 +75,6 @@ class Delivery {
   final double total;
   final String? paymentMethod;
   final double? amountToCollect;
-  final bool otpRequired;
   final bool pickupPinRequired;
   final String? notes;
   final String? weight;
@@ -209,7 +207,6 @@ class Delivery {
       total: (json['total'] as num?)?.toDouble() ?? 0,
       paymentMethod: json['payment_method'] as String?,
       amountToCollect: (json['amount_to_collect'] as num?)?.toDouble(),
-      otpRequired: json['otp_required'] as bool? ?? (json['order_id'] != null),
       pickupPinRequired: json['pickup_pin_required'] as bool? ?? false,
       notes: json['notes'] as String?,
       weight: json['weight']?.toString(),
@@ -272,7 +269,6 @@ class Delivery {
       total: total,
       paymentMethod: paymentMethod,
       amountToCollect: amountToCollect,
-      otpRequired: otpRequired,
       pickupPinRequired: pickupPinRequired,
       notes: notes,
       weight: weight,

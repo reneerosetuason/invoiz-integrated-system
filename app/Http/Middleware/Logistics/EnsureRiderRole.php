@@ -12,8 +12,8 @@ class EnsureRiderRole
     {
         $user = $request->user();
 
-        $allowed = $user && ($role === 'rider'
-            ? $user->hasApprovedRiderProfile()
+        $allowed = $user instanceof \App\Models\User && ($role === 'rider'
+            ? ($user->hasApprovedRiderProfile() && $request->user()->currentAccessToken()?->can('rider'))
             : $user->role === $role);
 
         if (! $allowed) {

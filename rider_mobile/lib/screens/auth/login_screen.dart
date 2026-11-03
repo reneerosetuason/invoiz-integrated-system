@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
-import '../apply/apply_screen.dart';
+import '../apply/application_type_select_screen.dart';
 import '../apply/application_status_screen.dart';
 import '../home/home_shell.dart';
 import '../../widgets/custom_text_field.dart';
@@ -197,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   Navigator.of(sheetContext).pop();
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const ApplyScreen(),
+                      builder: (_) => const ApplicationTypeSelectScreen(),
                     ),
                   );
                 },
@@ -512,7 +512,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         : () => Navigator.of(context).push(
                                               MaterialPageRoute(
                                                 builder: (_) =>
-                                                    const ApplyScreen(),
+                                                    const ApplicationTypeSelectScreen(),
                                               ),
                                             ),
                                     style: OutlinedButton.styleFrom(

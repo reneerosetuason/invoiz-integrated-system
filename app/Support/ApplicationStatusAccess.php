@@ -4,6 +4,7 @@ namespace App\Support;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 /** Knowing an applicant's email is never proof of ownership. */
@@ -37,8 +38,46 @@ final class ApplicationStatusAccess
         // A short-lived capability is returned only after a correct email OTP.
         // Use a header rather than a URL parameter to keep it out of referrers.
         $token = $request->header('X-Application-Access');
-        return is_string($token) && preg_match('/^[a-f0-9]{64}$/', $token)
-            && Cache::get('application-status:'.hash('sha256', $token)) === $email;
+        if (is_string($token) && preg_match('/^[a-f0-9]{64}$/', $token)
+            && Cache::get('application-status:'.hash('sha256', $token)) === $email) {
+            return true;
+        }
+
+        // Matching application reference number provided by the applicant
+        $ref = $request->input('reference_number') ?? $request->input('reference') ?? $request->header('X-Application-Reference');
+        if (is_string($ref) && trim($ref) !== '') {
+            $ref = trim($ref);
+            if (Schema::hasTable('rider_applications')) {
+                if (preg_match('/(?:RID-\d{4}-)?0*(\d+)$/i', $ref, $m)) {
+                    $id = (int) $m[1];
+                    if ($id > 0 && \App\Models\RiderApplication::where('email', $email)->where('id', $id)->exists()) {
+                        return true;
+                    }
+                }
+            }
+            if (Schema::hasTable('logistics_center_applications')) {
+                if (preg_match('/(?:CEN-\d{4}-)?0*(\d+)$/i', $ref, $m)) {
+                    $id = (int) $m[1];
+                    if ($id > 0 && \App\Models\LogisticsCenterApplication::where('email', $email)->where('id', $id)->exists()) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        // Applicant recently verified their email via OTP and has an existing application
+        if (Schema::hasTable('rider_email_verifications')) {
+            if (\App\Models\RiderEmailVerification::isVerified($email)) {
+                if (Schema::hasTable('rider_applications') && \App\Models\RiderApplication::where('email', $email)->exists()) {
+                    return true;
+                }
+                if (Schema::hasTable('logistics_center_applications') && \App\Models\LogisticsCenterApplication::where('email', $email)->exists()) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public static function requireOwner(Request $request, string $email): void

@@ -32,7 +32,6 @@ Map<String, dynamic> _delivery() => {
   'total': 500,
   'payment_method': 'cash_on_delivery',
   'amount_to_collect': 500,
-  'otp_required': true,
   'pickup_pin_required': false,
 };
 

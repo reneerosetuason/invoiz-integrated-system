@@ -59,7 +59,7 @@ const _deliverySteps = [
   'Scan each assigned parcel and press Confirm Pickup after verification.',
   'Press Navigate to open directions to the buyer, then I Arrived at Customer on arrival.',
   'Contact the buyer with Call or Message when needed.',
-  'Press Complete Delivery and complete the proof photo, recipient name or OTP step required for that parcel.',
+  'Press Complete Delivery, take the required proof photo, add the recipient signature name and confirm any cash collected.',
   'If delivery fails, press Report Failed Delivery and provide an allowed reason and details.',
   'Open completed deliveries and history to review the result.',
 ];

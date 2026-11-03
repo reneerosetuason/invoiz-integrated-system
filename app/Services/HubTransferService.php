@@ -10,6 +10,7 @@ use App\Models\HubTransferParcel;
 use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsTruck;
+use App\Models\OrderStatusHistory;
 use App\Models\User;
 use App\Support\EscrowEarnings;
 use App\Support\LogisticsVehicleCategory;
@@ -55,6 +56,13 @@ class HubTransferService
             $manifest = $locked->parcels()->where('loading_status', '!=', 'removed')->with('delivery')->get();
             abort_if($manifest->isEmpty(), 422, 'This transfer has no parcels to dispatch.');
             abort_if($manifest->contains(fn ($entry) => $entry->loading_status !== 'loaded'), 409, 'Loading verification is incomplete.');
+            // Each leg may only leave once the origin hub finished receiving,
+            // scanning and sorting the parcel toward the next hub.
+            abort_if(
+                $manifest->contains(fn ($entry) => $entry->delivery?->parcel_status !== 'sorted'),
+                409,
+                'Every manifest parcel must be scanned and sorted at the origin hub before dispatch.'
+            );
 
             $truck = LogisticsTruck::query()->whereKey($locked->truck_id)->lockForUpdate()->firstOrFail();
             $transportDriver = HubTransportDriver::query()->whereKey($locked->driver_id)->lockForUpdate()->firstOrFail();
@@ -67,6 +75,7 @@ class HubTransferService
                 && $transportDriver->status === 'assigned'
                 && $transportDriver->is_online
                 && (int) $transportDriver->logistics_truck_id === (int) $truck->id, 409, 'Assigned Hub Transport Driver is unavailable.');
+            abort_unless($transportDriver->isLicenseValid(), 409, 'Assigned Hub Transport Driver has an invalid or expired driver\'s license.');
             abort_if($manifest->count() > (int) $truck->parcel_capacity, 422, 'Truck parcel capacity is exceeded.');
             abort_if($manifest->contains(fn ($entry) => $entry->delivery?->weight === null), 422, 'Parcel weights must be recorded before dispatch.');
             abort_if($manifest->sum(fn ($entry) => (float) $entry->delivery->weight) > (float) $truck->capacity_kg, 422, 'Truck weight capacity is exceeded.');
@@ -81,6 +90,7 @@ class HubTransferService
 
             foreach ($manifest as $entry) {
                 if ($entry->delivery) {
+                    $entry->delivery->update(['parcel_status' => 'dispatched']);
                     DeliveryStatusLog::create([
                         'delivery_id' => $entry->delivery_id,
                         'status' => 'hub_transfer_dispatched',
@@ -88,6 +98,20 @@ class HubTransferService
                         'notes' => 'Dispatched from origin hub via transfer '.$locked->reference.'.',
                         'changed_by' => $actor?->id,
                     ]);
+
+                    $order = $entry->delivery->order;
+                    if ($order && $order->status !== 'cancelled') {
+                        OrderStatusHistory::firstOrCreate(
+                            [
+                                'order_id' => $order->id,
+                                'notes' => 'Parcel in transit between logistics hubs via manifest '.$locked->reference.'.',
+                            ],
+                            [
+                                'from_status' => $order->status,
+                                'to_status' => $order->status,
+                            ]
+                        );
+                    }
                 }
             }
 
@@ -168,13 +192,14 @@ class HubTransferService
                 'received_at' => $received ? now() : null,
             ]);
 
-            $delivery = null;
+            $delivery = Delivery::query()->whereKey($entry->delivery_id)->lockForUpdate()->firstOrFail();
             if ($received) {
-                $delivery = Delivery::query()->whereKey($entry->delivery_id)->lockForUpdate()->firstOrFail();
                 $delivery->update([
                     'center_id' => $locked->destination_center_id,
+                    'status' => $condition === 'damaged' ? 'damaged' : $delivery->status,
                     'parcel_status' => 'received',
                     'received_at' => now(),
+                    'return_reason' => $condition === 'damaged' ? ($exceptionReason ? 'Damaged in transit: '.$exceptionReason : 'Damaged in transit') : $delivery->return_reason,
                     'scanned_at' => null,
                     'sorted_at' => null,
                     'dispatched_at' => null,
@@ -182,15 +207,48 @@ class HubTransferService
 
                 DeliveryStatusLog::create([
                     'delivery_id' => $delivery->id,
-                    'status' => 'received',
+                    'status' => $condition === 'damaged' ? 'damaged' : 'received',
                     'location' => $locked->destination?->name,
                     'notes' => 'Received at destination via hub transfer '.$locked->reference
                         .($condition === 'damaged' ? '; reported damaged: '.$exceptionReason : ''),
                     'changed_by' => $actor?->id,
                 ]);
 
-                // One credit per seller shipment for the entire route.
-                EscrowEarnings::creditInterHubDriverOnTransferReceipt($locked, $delivery);
+                if ($delivery->order && $delivery->order->status !== 'cancelled') {
+                    $note = $condition === 'damaged'
+                        ? 'Logistics Alert: Parcel received with damage at destination facility ('.$locked->destination?->name.'). Inspection in progress.'
+                        : 'Parcel arrived at destination facility ('.$locked->destination?->name.').';
+                    OrderStatusHistory::create([
+                        'order_id' => $delivery->order->id,
+                        'from_status' => $delivery->order->status,
+                        'to_status' => $delivery->order->status,
+                        'note' => $note,
+                    ]);
+                }
+
+                // Inter-hub transport compensation is trip-based, credited upon complete() below.
+            } else {
+                $delivery->update([
+                    'status' => 'lost',
+                    'return_reason' => $exceptionReason ? 'Missing in transit: '.$exceptionReason : 'Reported missing during transfer',
+                ]);
+
+                DeliveryStatusLog::create([
+                    'delivery_id' => $delivery->id,
+                    'status' => 'lost',
+                    'location' => $locked->destination?->name,
+                    'notes' => 'Parcel reported missing during hub transfer '.$locked->reference.': '.$exceptionReason,
+                    'changed_by' => $actor?->id,
+                ]);
+
+                if ($delivery->order && $delivery->order->status !== 'cancelled') {
+                    OrderStatusHistory::create([
+                        'order_id' => $delivery->order->id,
+                        'from_status' => $delivery->order->status,
+                        'to_status' => $delivery->order->status,
+                        'note' => 'Logistics Alert: Parcel reported missing during hub transfer '.$locked->reference.'. Investigation in progress.',
+                    ]);
+                }
             }
 
             self::event(
@@ -240,6 +298,9 @@ class HubTransferService
             LogisticsTruck::whereKey($locked->truck_id)->update(['status' => 'available']);
             HubTransportDriver::whereKey($locked->driver_id)->update(['status' => 'available']);
             self::event($locked, 'completed', $previous, 'received', 'Receiving was finalized.', $actor);
+
+            // Credit the Hub Transport Driver once per completed transfer trip
+            EscrowEarnings::creditInterHubDriverForCompletedTrip($locked);
 
             return $locked;
         });
@@ -321,12 +382,24 @@ class HubTransferService
             $oldDriverId = $locked->driver_id;
 
             abort_unless((int) $newTruck->logistics_company_id === (int) $locked->logistics_company_id
-                && ($newTruck->status === 'available' || (int) $newTruck->id === (int) $oldTruckId), 422, 'Truck is not available to this company.');
+                && in_array($newTruck->status, [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED], true), 422, 'Truck is not available to this company.');
             abort_unless((int) $newDriver->logistics_company_id === (int) $locked->logistics_company_id
                 && ($newDriver->status === 'available' || (int) $newDriver->id === (int) $oldDriverId), 422, 'Driver is not available to this company.');
+            abort_unless($newTruck->isAssignable(), 422, 'This vehicle is not assignable to hub transfers.');
+            abort_if($newTruck->hasActiveTransfer($locked->id), 409, 'This truck is already assigned to another active hub transfer.');
+            abort_unless($newDriver->isLicenseValid(), 422, 'Assigned driver does not have an approved, unexpired driver\'s license.');
             abort_unless(LogisticsVehicleCategory::for($newTruck->vehicle_type) === 'four_wheel', 422, 'Hub transfers require an approved four-wheel vehicle.');
             abort_unless((int) $newTruck->parcel_capacity > 0 && (float) $newTruck->capacity_kg > 0, 422, 'Truck parcel and weight capacities must be registered.');
             abort_unless((int) $newDriver->logistics_truck_id === (int) $newTruck->id, 422, 'Driver is not assigned to the selected truck.');
+            abort_if(
+                HubTransfer::query()
+                    ->where('driver_id', $newDriver->id)
+                    ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                    ->whereKeyNot($locked->id)
+                    ->exists(),
+                409,
+                'This Hub Transport Driver is already assigned to another active hub transfer.'
+            );
 
             $manifest = $locked->parcels()->where('loading_status', '!=', 'removed')->with('delivery')->get();
             abort_if($manifest->count() > (int) $newTruck->parcel_capacity, 422, 'The selected truck does not have enough parcel capacity.');

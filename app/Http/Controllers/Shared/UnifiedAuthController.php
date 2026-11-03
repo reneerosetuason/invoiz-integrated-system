@@ -194,11 +194,18 @@ class UnifiedAuthController extends Controller
             return redirect()->intended('/shop')->with('success', 'Welcome, ' . $data['first_name'] . '! Signed up with Google.');
         }
 
+        event(new \Illuminate\Auth\Events\Registered($user));
+
         try {
-            Mail::to($user->email)->send(new OtpCodeMail($otp, $data['first_name']));
-            $notice = 'We sent a 6-digit verification code to ' . $user->email . '.';
+            $verificationUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'verification.verify',
+                now()->addMinutes(60),
+                ['id' => $user->getKey(), 'hash' => sha1($user->getEmailForVerification())]
+            );
+            Mail::to($user->email)->send(new OtpCodeMail($otp, $data['first_name'], $verificationUrl));
+            $notice = 'We sent a verification link and 6-digit code to ' . $user->email . '.';
         } catch (\Throwable $e) {
-            \Log::warning('OTP mail failed: ' . $e->getMessage());
+            \Log::warning('Verification mail failed: ' . $e->getMessage());
             $notice = 'Your account was created, but the email failed to send — use Resend below.';
         }
 
@@ -318,7 +325,13 @@ class UnifiedAuthController extends Controller
         cache()->forget($this->otpAttemptsKey($user));
         cache()->put($key, true, 60);
         try {
-            Mail::to($user->email)->send(new OtpCodeMail($otp, $user->first_name ?? ''));
+            $user->sendEmailVerificationNotification();
+            $verificationUrl = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+                'verification.verify',
+                now()->addMinutes(60),
+                ['id' => $user->getKey(), 'hash' => sha1($user->getEmailForVerification())]
+            );
+            Mail::to($user->email)->send(new OtpCodeMail($otp, $user->first_name ?? '', $verificationUrl));
         } catch (\Throwable $e) {
             \Log::warning('OTP resend failed: ' . $e->getMessage());
             return back()->with('error', 'Could not send email right now — try again in a bit.');

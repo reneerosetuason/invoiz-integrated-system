@@ -5,18 +5,20 @@
   $pay = $o->payment;
   $del = $o->deliveries->first();
   $steps = [
-    ['key' => 'pending', 'label' => 'Placed'],
+    ['key' => 'placed', 'label' => 'Placed'],
     ['key' => 'confirmed', 'label' => 'Confirmed'],
-    ['key' => 'out_for_delivery', 'label' => 'On the way'],
+    ['key' => 'in_transit', 'label' => 'On the way'],
     ['key' => 'delivered', 'label' => 'Delivered'],
   ];
-  // Fold intermediate seller stages into "Confirmed".
-  $folded = in_array($o->status, ['processing','ready_for_delivery']) ? 'confirmed' : $o->status;
-  $idx = collect($steps)->search(fn($s) => $s['key'] === $folded);
+  $progressStage = \App\Support\CustomerTracking::progressStage($o, $del);
+  $idx = collect($steps)->search(fn($s) => $s['key'] === $progressStage);
   $idx = $idx === false ? -1 : $idx;
+  $customerOrderLabel = \App\Support\CustomerTracking::orderLabel($o);
+  $customerDeliveryLabel = \App\Support\CustomerTracking::label($o, $del, \App\Support\CustomerTracking::AUDIENCE_BUYER);
+  $hubVerified = $del ? \App\Support\CustomerTracking::verifiedCustody($del) : false;
   $statusColor = [
     'pending' => '#C77F02', 'confirmed' => '#1D4ED8', 'processing' => '#1D4ED8',
-    'ready_for_delivery' => '#1D4ED8', 'out_for_delivery' => '#7C3AED',
+    'ready_for_delivery' => '#1D4ED8', 'shipped' => '#7C3AED', 'out_for_delivery' => '#7C3AED',
     'delivered' => '#10b981', 'cancelled' => '#ef4444',
   ][$o->status] ?? '#1a1a1a';
 @endphp
@@ -33,10 +35,10 @@
 @if(session('error'))<div style="background:#fef2f2;color:#991b1b;padding:10px;border-radius:8px;border:1px solid #fecaca;margin-top:12px;font-size:13px;font-weight:600">{{ session('error') }}</div>@endif
 
 <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:12px">
-  <div style="font-size:14px">Status: <b style="color:{{ $statusColor }};text-transform:uppercase">{{ str_replace('_',' ',$o->status) }}</b></div>
+  <div style="font-size:14px">Status: <b style="color:{{ $statusColor }};text-transform:uppercase">{{ $customerOrderLabel }}</b></div>
   <div style="font-size:12px;color:var(--text2);margin-top:6px">Placed on: {{ $o->created_at->format('Y-m-d H:i') }}</div>
   @if($pay)<div style="font-size:12px;color:var(--text2);margin-top:2px">Payment: {{ strtoupper(str_replace('_',' ',$pay->method)) }} · {{ strtoupper($pay->status) }}</div>@endif
-  @if($del)<div style="font-size:12px;color:var(--text2);margin-top:2px">Delivery: {{ strtoupper(str_replace('_',' ',$del->status)) }}</div>@endif
+  @if($del)<div style="font-size:12px;color:var(--text2);margin-top:2px">Delivery: {{ strtoupper($customerDeliveryLabel) }}</div>@endif
 </div>
 
 @if($o->deliveries->isNotEmpty())
@@ -48,7 +50,7 @@
         @if($o->deliveries->count() > 1)
           <div style="font-weight:700;margin-bottom:4px">Package {{ $loop->iteration }} of {{ $o->deliveries->count() }}</div>
         @endif
-        <div>Status: <b style="text-transform:uppercase">{{ str_replace('_',' ',$shipment->status) }}</b></div>
+        <div>Status: <b style="text-transform:uppercase">{{ \App\Support\CustomerTracking::label($o, $shipment, \App\Support\CustomerTracking::AUDIENCE_BUYER) }}</b></div>
         @if($shipment->tracking_number)
           <div style="margin-top:3px">Tracking number: <b style="font-family:monospace;font-size:13px;letter-spacing:.03em">{{ $shipment->tracking_number }}</b></div>
         @else
@@ -59,7 +61,7 @@
   </div>
 @endif
 
-@if($del && $del->parcel_status)
+@if($del && $del->parcel_status && $hubVerified)
   @php
     $parcelSteps = [
       'pending_arrival' => ['label' => 'Pending arrival', 'index' => 0],
@@ -97,6 +99,18 @@
           <div style="flex:1;height:3px;border-radius:2px;margin-top:11px;background:{{ $done ? 'var(--green)' : '#e5e5e5' }}"></div>
         @endif
       @endforeach
+    </div>
+  </div>
+@elseif($del && ! $hubVerified && ! in_array($o->status, ['delivered', 'cancelled'], true))
+  <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:12px">
+    <div style="font-weight:800;font-size:14px">Pickup Status</div>
+    <div style="font-size:13px;font-weight:700;margin-top:4px">{{ $customerDeliveryLabel }}</div>
+    <div style="font-size:11px;color:var(--text2);margin-top:4px">
+      @if($del->picked_up_at)
+        The parcel is with the pickup rider and has not reached the logistics hub yet.
+      @else
+        The parcel has not been collected by a rider yet. Hub processing has not started.
+      @endif
     </div>
   </div>
 @endif
@@ -230,16 +244,16 @@
 
 <div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:12px">
   <div style="font-weight:800;font-size:14px;margin-bottom:10px">Order Timeline</div>
-  @forelse($o->statusHistories->sortByDesc('id') as $h)
+  @forelse(array_reverse($timeline) as $event)
     <div style="display:flex;gap:10px;margin-bottom:12px">
       <div style="display:flex;flex-direction:column;align-items:center">
         <span style="width:10px;height:10px;border-radius:50%;background:var(--primary,#16697A);flex-shrink:0;margin-top:4px"></span>
         @if(!$loop->last)<span style="width:2px;flex:1;background:var(--border-light);min-height:14px"></span>@endif
       </div>
       <div>
-        <div style="font-weight:800;font-size:13px;text-transform:uppercase">{{ str_replace('_',' ',$h->to_status) }}</div>
-        @if($h->note)<div style="font-size:12px;color:var(--text2)">{{ $h->note }}</div>@endif
-        <div style="font-size:11px;color:var(--text3)">{{ $h->created_at->format('Y-m-d H:i') }}</div>
+        <div style="font-weight:800;font-size:13px;text-transform:uppercase">{{ $event['title'] }}</div>
+        @if($event['note'])<div style="font-size:12px;color:var(--text2)">{{ $event['note'] }}</div>@endif
+        <div style="font-size:11px;color:var(--text3)">{{ $event['at']?->format('Y-m-d H:i') }}</div>
       </div>
     </div>
   @empty

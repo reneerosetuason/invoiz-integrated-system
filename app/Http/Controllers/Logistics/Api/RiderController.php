@@ -8,9 +8,9 @@ use App\Models\Rider;
 use App\Models\RiderApplication;
 use App\Models\RiderApplicationDocument;
 use App\Models\RiderEarning;
-use App\Services\DeliveryOtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -52,8 +52,43 @@ class RiderController extends Controller
         }
         $rider->update($validated);
 
+        if (array_key_exists('phone', $validated) && $rider->user) {
+            $rider->user->phone = $validated['phone'];
+            $rider->user->save();
+        }
+
         return response()->json([
             'message' => 'Profile updated successfully.',
+            'rider' => $this->riderPayload($rider->fresh()),
+        ]);
+    }
+
+    /**
+     * Upload or replace rider profile photo.
+     */
+    public function updatePhoto(Request $request): JsonResponse
+    {
+        $request->validate([
+            'photo' => 'required|image|mimes:jpg,jpeg,png,webp|max:4096',
+        ]);
+
+        $rider = $this->rider($request);
+        $file = $request->file('photo');
+        $stored = $file->store('avatars', 'public');
+
+        if ($rider->avatar && Storage::disk('public')->exists($rider->avatar)) {
+            Storage::disk('public')->delete($rider->avatar);
+        }
+
+        $rider->update(['avatar' => $stored]);
+
+        if ($rider->user) {
+            $rider->user->profile_picture = $stored;
+            $rider->user->save();
+        }
+
+        return response()->json([
+            'message' => 'Profile photo updated successfully.',
             'rider' => $this->riderPayload($rider->fresh()),
         ]);
     }
@@ -315,7 +350,6 @@ class RiderController extends Controller
             'total' => round($total, 2),
             'payment_method' => $delivery->payment_method,
             'amount_to_collect' => $delivery->amount_to_collect !== null ? (float) $delivery->amount_to_collect : null,
-            'otp_required' => app(DeliveryOtpService::class)->requiredFor($delivery),
             'pickup_pin_required' => ! empty($delivery->pickup_pin),
             'notes' => $delivery->notes ?? $delivery->delivery_notes,
             'weight' => $delivery->weight,

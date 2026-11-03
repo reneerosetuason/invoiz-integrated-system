@@ -117,7 +117,7 @@ class RiderAccountStatusTest extends TestCase
         $this->rider($user);
 
         $user->forceFill(['account_status' => 'suspended'])->save();
-        Sanctum::actingAs($user->fresh());
+        Sanctum::actingAs($user->fresh(), ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertStatus(403)
@@ -136,7 +136,7 @@ class RiderAccountStatusTest extends TestCase
         $this->assertSame('deactivated', $user->fresh()->account_status);
         $this->assertFalse($user->fresh()->isActive());
 
-        Sanctum::actingAs($user->fresh());
+        Sanctum::actingAs($user->fresh(), ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertStatus(403)

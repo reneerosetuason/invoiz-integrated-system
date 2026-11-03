@@ -52,12 +52,22 @@ class RiderComplianceTest extends TestCase
 
     private function admin(): User
     {
+        // Production only allows the designated global Logistics Admin
+        // identity to hold this role, so the web-gate tests must use it too.
+        $designated = User::whereKey(User::GLOBAL_LOGISTICS_ADMIN_ID)->first();
+        if ($designated) {
+            return $designated;
+        }
+
         return User::create([
+            'id' => User::GLOBAL_LOGISTICS_ADMIN_ID,
             'name' => 'Logistics Admin',
-            'email' => 'admin.'.bin2hex(random_bytes(3)).'@test.local',
+            'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
             'password' => Hash::make('secret123'),
             'role' => 'logistics_admin',
             'is_admin' => false,
+            'status' => 'active',
+            'account_status' => 'active',
             'email_verified_at' => now(),
         ]);
     }
@@ -81,7 +91,7 @@ class RiderComplianceTest extends TestCase
     {
         [$user] = $this->riderUser([], 'suspended');
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')
             ->assertStatus(403);
@@ -91,7 +101,7 @@ class RiderComplianceTest extends TestCase
     {
         [$user] = $this->riderUser();
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->getJson('/api/logistics/rider/profile')->assertOk();
     }
@@ -103,7 +113,7 @@ class RiderComplianceTest extends TestCase
         [$user, $rider] = $this->riderUser(['license_expiry' => now()->subDay()->format('Y-m-d')]);
         $delivery = $this->delivery($rider, 'assigned');
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/accept")
             ->assertStatus(403)
@@ -117,7 +127,7 @@ class RiderComplianceTest extends TestCase
         [$user, $rider] = $this->riderUser();
         $delivery = $this->delivery($rider, 'assigned');
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson("/api/logistics/rider/deliveries/{$delivery->id}/accept")
             ->assertOk();

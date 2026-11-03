@@ -94,7 +94,7 @@ class LogisticsMessagingTest extends TestCase
         Storage::fake('public');
 
         $user = $this->riderUser();
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $index = $this->getJson('/api/logistics/rider/conversations')->assertOk();
         $riderConversation = collect($index->json('conversations'))
@@ -136,7 +136,7 @@ class LogisticsMessagingTest extends TestCase
     public function test_rider_api_flat_messages_endpoint_uses_logistics_tables(): void
     {
         $user = $this->riderUser();
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['rider']);
 
         $this->postJson('/api/logistics/rider/messages', ['body' => 'Flat endpoint'])
             ->assertCreated();

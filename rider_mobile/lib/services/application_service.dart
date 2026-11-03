@@ -37,6 +37,7 @@ class RiderApplicationStatus {
     required this.email,
     required this.status,
     this.submittedVia,
+    this.applicationType,
     this.riderType,
     this.vehicleOwnership,
     this.createdAt,
@@ -49,6 +50,7 @@ class RiderApplicationStatus {
   final String email;
   final String status;
   final String? submittedVia;
+  final String? applicationType;
   final String? riderType;
   final String? vehicleOwnership;
   final String? createdAt;
@@ -57,6 +59,8 @@ class RiderApplicationStatus {
   final List<ApplicationStatusDoc> documents;
 
   String get referenceNumber => ApplicationReference.forId(id);
+  bool get isHubTransportDriver => applicationType == 'hub_transport_driver';
+  String get roleLabel => isHubTransportDriver ? 'Hub Transport Driver' : 'Delivery Rider';
 
   factory RiderApplicationStatus.fromJson(Map<String, dynamic> j) {
     List<ApplicationStatusDoc> docs = [];
@@ -72,6 +76,7 @@ class RiderApplicationStatus {
       email: j['email'] as String? ?? '',
       status: j['status'] as String? ?? 'pending',
       submittedVia: j['submitted_via'] as String?,
+      applicationType: j['application_type'] as String? ?? 'delivery_rider',
       riderType: j['rider_type'] as String?,
       vehicleOwnership: j['vehicle_ownership'] as String?,
       createdAt: j['created_at'] as String?,
@@ -88,12 +93,17 @@ class RiderApplicationSubmitResult {
     required this.id,
     required this.status,
     required this.submittedVia,
+    this.accessToken,
+    this.referenceNumberOverride,
   });
   final int id;
   final String status;
   final String? submittedVia;
+  final String? accessToken;
+  final String? referenceNumberOverride;
 
-  String get referenceNumber => ApplicationReference.forId(id);
+  String get referenceNumber =>
+      referenceNumberOverride ?? ApplicationReference.forId(id);
 }
 
 class ApplicationService {
@@ -114,20 +124,31 @@ class ApplicationService {
     required String vehicleOwnership,
     required bool acceptedTerms,
     required Map<String, ({Uint8List bytes, String filename})> documents,
+    String applicationType = 'delivery_rider',
+    String? vehicleName,
+    String? vehicleModel,
+    int? parcelCapacity,
+    double? capacityKg,
     String? middleInitial,
     String? sex,
     String? birthday,
     String? houseNumber,
     String? street,
-    String? barangay,
-    String? municipality,
+    String? region,
+    String? regionCode,
     String? province,
+    String? provinceCode,
+    String? municipality,
+    String? municipalityCode,
+    String? barangay,
+    String? barangayCode,
   }) async {
     final fields = <String, String>{
       'name': NameValidation.normalize(name),
       'email': email,
       'phone': phone,
       'address': address,
+      'application_type': applicationType,
       'vehicle_type': vehicleType,
       'license_plate': licensePlate,
       'license_number': licenseNumber,
@@ -136,6 +157,14 @@ class ApplicationService {
       'rider_type': riderType,
       'vehicle_ownership': vehicleOwnership,
       'accepted_terms': acceptedTerms ? '1' : '0',
+      if (vehicleName != null && vehicleName.trim().isNotEmpty)
+        'vehicle_name': vehicleName.trim(),
+      if (vehicleModel != null && vehicleModel.trim().isNotEmpty)
+        'vehicle_model': vehicleModel.trim(),
+      if (parcelCapacity != null)
+        'parcel_capacity': parcelCapacity.toString(),
+      if (capacityKg != null)
+        'capacity_kg': capacityKg.toString(),
       if (middleInitial != null && middleInitial.trim().isNotEmpty)
         'middle_initial': NameValidation.normalize(middleInitial),
       if (sex != null && sex.trim().isNotEmpty) 'sex': sex.trim(),
@@ -144,12 +173,21 @@ class ApplicationService {
       if (houseNumber != null && houseNumber.trim().isNotEmpty)
         'house_number': houseNumber.trim(),
       if (street != null && street.trim().isNotEmpty) 'street': street.trim(),
-      if (barangay != null && barangay.trim().isNotEmpty)
-        'barangay': barangay.trim(),
-      if (municipality != null && municipality.trim().isNotEmpty)
-        'municipality': municipality.trim(),
+      if (region != null && region.trim().isNotEmpty) 'region': region.trim(),
+      if (regionCode != null && regionCode.trim().isNotEmpty)
+        'region_code': regionCode.trim(),
       if (province != null && province.trim().isNotEmpty)
         'province': province.trim(),
+      if (provinceCode != null && provinceCode.trim().isNotEmpty)
+        'province_code': provinceCode.trim(),
+      if (municipality != null && municipality.trim().isNotEmpty)
+        'municipality': municipality.trim(),
+      if (municipalityCode != null && municipalityCode.trim().isNotEmpty)
+        'municipality_code': municipalityCode.trim(),
+      if (barangay != null && barangay.trim().isNotEmpty)
+        'barangay': barangay.trim(),
+      if (barangayCode != null && barangayCode.trim().isNotEmpty)
+        'barangay_code': barangayCode.trim(),
     };
     final files = <String, ({Uint8List bytes, String filename})>{};
     documents.forEach((k, v) => files['documents[$k]'] = v);
@@ -165,6 +203,8 @@ class ApplicationService {
       id: (app['id'] as num?)?.toInt() ?? 0,
       status: app['status'] as String? ?? 'pending',
       submittedVia: app['submitted_via'] as String?,
+      accessToken: data['application_access_token'] as String?,
+      referenceNumberOverride: app['reference_number'] as String?,
     );
   }
 
@@ -197,6 +237,7 @@ class ApplicationService {
   Future<String> verifyEmailCode({
     required String email,
     required String code,
+    void Function(String token)? onTokenReceived,
   }) async {
     final data =
         await _api.post(
@@ -204,14 +245,31 @@ class ApplicationService {
               body: {'email': email, 'code': code},
             )
             as Map<String, dynamic>;
+    final token = data['application_access_token'] as String?;
+    if (token != null && token.isNotEmpty && onTokenReceived != null) {
+      onTokenReceived(token);
+    }
     return data['email'] as String? ?? email;
   }
 
-  Future<RiderApplicationStatus?> getStatus(String email) async {
+  Future<RiderApplicationStatus?> getStatus(
+    String email, {
+    String? reference,
+    String? token,
+  }) async {
     try {
+      final query = <String, dynamic>{'email': email};
+      if (reference != null && reference.trim().isNotEmpty) {
+        query['reference_number'] = reference.trim();
+      }
+      final headers = <String, String>{};
+      if (token != null && token.trim().isNotEmpty) {
+        headers['X-Application-Access'] = token.trim();
+      }
       final data = await _api.get(
         '/rider/application-status',
-        query: {'email': email},
+        query: query,
+        headers: headers.isNotEmpty ? headers : null,
       );
       final app = data['application'] as Map?;
       if (app == null) return null;

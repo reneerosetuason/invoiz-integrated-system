@@ -104,6 +104,9 @@ class Geolocation {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          // Never let a missing GPS fix block a workflow (e.g. completing a
+          // delivery). Callers treat a timeout as "location unavailable".
+          timeLimit: Duration(seconds: 8),
         ),
       );
     } catch (_) {

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
@@ -12,13 +13,34 @@ class HubTransportDriver extends Authenticatable
 {
     use HasApiTokens, SoftDeletes;
 
-    protected $fillable = ['logistics_company_id', 'logistics_truck_id', 'name', 'email', 'password', 'phone', 'license_number', 'status', 'is_online', 'remarks'];
+    protected $fillable = [
+        'user_id',
+        'logistics_company_id',
+        'logistics_truck_id',
+        'name',
+        'email',
+        'password',
+        'phone',
+        'license_number',
+        'avatar',
+        'status',
+        'is_online',
+        'remarks',
+    ];
 
     protected $hidden = ['password', 'remember_token'];
 
     protected function casts(): array
     {
-        return ['password' => 'hashed', 'is_online' => 'boolean'];
+        return [
+            'password' => 'hashed',
+            'is_online' => 'boolean',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function company(): BelongsTo
@@ -31,8 +53,85 @@ class HubTransportDriver extends Authenticatable
         return $this->belongsTo(LogisticsTruck::class, 'logistics_truck_id');
     }
 
+    public function ownedTruck(): HasOne
+    {
+        return $this->hasOne(LogisticsTruck::class, 'hub_transport_driver_id');
+    }
+
     public function transfers(): HasMany
     {
         return $this->hasMany(HubTransfer::class, 'driver_id');
+    }
+
+    public function latestTransfer(): HasOne
+    {
+        return $this->hasOne(HubTransfer::class, 'driver_id')->latestOfMany('id');
+    }
+
+    public function earnings(): HasMany
+    {
+        return $this->hasMany(HubTransferEarning::class, 'hub_transport_driver_id');
+    }
+
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(VehicleIncident::class, 'hub_transport_driver_id');
+    }
+
+    public function application(): HasOne
+    {
+        return $this->hasOne(RiderApplication::class, 'hub_transport_driver_id');
+    }
+
+    public function effectiveApplication(): ?RiderApplication
+    {
+        if ($this->relationLoaded('application') && $this->getRelation('application')) {
+            return $this->getRelation('application');
+        }
+
+        if ($this->application) {
+            return $this->application;
+        }
+
+        if ($this->email) {
+            return RiderApplication::query()
+                ->where(function ($query) {
+                    $query->where('hub_transport_driver_id', $this->id)
+                        ->orWhere(function ($q) {
+                            $q->whereNull('hub_transport_driver_id')
+                                ->where('email', strtolower(trim((string) $this->email)))
+                                ->where('application_type', 'hub_transport_driver');
+                        });
+                })
+                ->latest('id')
+                ->first();
+        }
+
+        return null;
+    }
+
+    public function isLicenseValid(): bool
+    {
+        $app = $this->effectiveApplication();
+        if (! $app) {
+            // Manual driver records created directly by an administrator carry
+            // no application; Fleet Management treats them as trusted and they
+            // remain assignable (see FleetController::updateDriver).
+            return true;
+        }
+        if ($app->status !== 'approved' || ! $app->license_expiry) {
+            return false;
+        }
+
+        $expiry = $app->license_expiry instanceof \Carbon\CarbonInterface
+            ? $app->license_expiry
+            : \Carbon\Carbon::parse($app->license_expiry);
+
+        return ! $expiry->lt(now()->startOfDay());
+    }
+
+    public function effectiveTruck(): ?LogisticsTruck
+    {
+        return $this->truck ?: $this->ownedTruck;
     }
 }

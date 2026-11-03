@@ -11,6 +11,7 @@ use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
 use App\Models\LogisticsTruck;
 use App\Services\HubTransferService;
+use App\Support\HubTransferProgress;
 use App\Support\LogisticsAccess;
 use App\Support\LogisticsVehicleCategory;
 use Illuminate\Database\Eloquent\Builder;
@@ -87,32 +88,125 @@ class HubTransferController extends Controller
             }
         }
 
+        $selectedOriginId = $request->integer('origin_center_id') ?: $centerId ?: ($company?->centers()->value('id'));
+
+        $parcelsQuery = Delivery::query()
+            ->with(['logisticsCenter', 'destinationCenter'])
+            ->when($selectedOriginId, fn ($q) => $q->where('center_id', $selectedOriginId))
+            ->whereNotNull('destination_center_id')
+            ->whereColumn('destination_center_id', '!=', 'center_id')
+            ->where('parcel_status', 'sorted')
+            ->whereNotIn('status', ['delivered', 'cancelled'])
+            ->whereNull('rider_id')
+            ->whereNotIn('status', Delivery::ACTIVE_STATUSES)
+            ->whereNull('archived_at')
+            ->whereDoesntHave('hubTransferParcels', function ($q): void {
+                $q->where('loading_status', '!=', 'removed')
+                    ->whereHas('transfer', fn ($t) => $t->whereIn('status', HubTransfer::ACTIVE_STATUSES));
+            })
+            ->orderBy('destination_center_id')
+            ->orderBy('tracking_number');
+
+        $parcels = $parcelsQuery->limit(300)->get();
+        $parcelsByDestination = $parcels->groupBy('destination_center_id');
+        $destinationHubs = LogisticsCenter::whereIn('id', $parcelsByDestination->keys())->get()->keyBy('id');
+
+        // Only expose fleet pairs that can actually operate a transfer:
+        // an eligible four-wheel truck with an available, licensed driver
+        // assigned to it and no other active manifest. The driver dropdown is
+        // limited to those paired drivers, so an unassigned driver cannot be
+        // selected. When no pair is free we explain why instead of leaving the
+        // operator with silently disabled dropdowns.
+        $trucks = collect();
+        $drivers = collect();
+        $fleetBlockReason = null;
+        $fleetTruckIssues = collect();
+        if ($company) {
+            $eligibleTrucks = $company->trucks()
+                ->with('driver')
+                ->orderBy('plate_number')
+                ->get()
+                ->filter(fn (LogisticsTruck $truck) => $truck->isApproved()
+                    && LogisticsVehicleCategory::for($truck->vehicle_type) === 'four_wheel'
+                    && (int) $truck->parcel_capacity > 0
+                    && (float) $truck->capacity_kg > 0)
+                ->values();
+
+            $pairedTrucks = $eligibleTrucks
+                ->filter(fn (LogisticsTruck $truck) => $truck->driver
+                    && (int) $truck->driver->logistics_company_id === (int) $company->id)
+                ->values();
+
+            $licensedTrucks = $pairedTrucks
+                ->filter(fn (LogisticsTruck $truck) => $truck->driver->isLicenseValid())
+                ->values();
+
+            $trucks = $licensedTrucks
+                ->filter(fn (LogisticsTruck $truck) => $truck->isAssignable()
+                    && $truck->driver->status === 'available'
+                    && ! $truck->hasActiveTransfer())
+                ->values();
+
+            $drivers = $trucks->pluck('driver')->sortBy('name')->values();
+
+            if ($trucks->isEmpty()) {
+                $fleetTruckIssues = $eligibleTrucks
+                    ->reject(fn (LogisticsTruck $truck) => $trucks->contains(fn (LogisticsTruck $free) => $free->id === $truck->id))
+                    ->map(fn (LogisticsTruck $truck): array => [
+                        'plate' => $truck->plate_number,
+                        'reason' => match (true) {
+                            ! $truck->driver => 'No Hub Transport Driver assigned',
+                            (int) $truck->driver->logistics_company_id !== (int) $company->id => 'Assigned driver belongs to another company',
+                            ! $truck->driver->isLicenseValid() => 'Driver license is not approved or has expired',
+                            ! $truck->isAssignable() => match ($truck->status) {
+                                LogisticsTruck::STATUS_IN_TRANSIT => 'Truck is in transit on another leg',
+                                LogisticsTruck::STATUS_MAINTENANCE => 'Truck is under maintenance',
+                                default => 'Truck is '.$truck->status.' and cannot be assigned',
+                            },
+                            $truck->driver->status !== 'available' => 'Driver is not marked available',
+                            default => 'Truck is already on an active hub transfer',
+                        },
+                    ])
+                    ->values();
+
+                $fleetBlockReason = $eligibleTrucks->isEmpty()
+                    ? 'No approved four-wheel truck with registered parcel and weight capacity exists for this company.'
+                    : $this->fleetBlockSummary($eligibleTrucks, $pairedTrucks, $licensedTrucks);
+            }
+        }
+
         return view('logistics.hub-transfers.create', [
             'company' => $company,
             'companies' => $companies,
             'global' => $global,
             'centers' => $company ? $this->centersFor($company) : collect(),
-            'originCenterId' => $centerId,
-            'trucks' => $company?->trucks()->where('status', 'available')->orderBy('plate_number')->get() ?? collect(),
-            'drivers' => $company?->transportDrivers()->where('status', 'available')->orderBy('name')->get() ?? collect(),
-            'parcels' => Delivery::query()->with(['logisticsCenter', 'destinationCenter'])->when($company, fn ($q) => $q->whereIn('center_id', $company->centers()->select('id')))
-                ->when(! $global && $centerId !== null, fn ($q) => $q->where('center_id', $centerId > 0 ? $centerId : 0))
-                ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
-                ->whereNotIn('status', ['delivered', 'cancelled'])
-                ->whereNull('archived_at')->orderBy('tracking_number')->limit(200)->get(),
+            'originCenterId' => $centerId ?: $selectedOriginId,
+            // Hub-scoped staff are locked to their own hub; network admins and
+            // company-wide managers may originate a transfer from any hub.
+            'originSelectable' => $global || $centerId === null,
+            'trucks' => $trucks,
+            'drivers' => $drivers,
+            'fleetBlockReason' => $fleetBlockReason,
+            'fleetTruckIssues' => $fleetTruckIssues,
+            'parcels' => $parcels,
+            'parcelsByDestination' => $parcelsByDestination,
+            'destinationHubs' => $destinationHubs,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
+        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot create transfer manifests.');
         $company = $this->company($request, $request->integer('logistics_company_id'));
         abort_unless($company, 422, 'Select a logistics company for this transfer.');
         $validated = $request->validate([
             'logistics_company_id' => [$this->isNetworkAdmin($request) ? 'required' : 'prohibited', 'integer', 'exists:logistics_companies,id'],
-            'origin_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)],
-            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)],
-            'truck_id' => ['required', 'integer', Rule::exists('logistics_trucks', 'id')->where('logistics_company_id', $company->id)->where('status', 'available')],
-            'driver_id' => ['required', 'integer', Rule::exists('hub_transport_drivers', 'id')->where('logistics_company_id', $company->id)->where('status', 'available')],
+            'origin_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)->where('is_active', true)],
+            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)->where('is_active', true)],
+            // A truck paired with a driver in Fleet Management is stored as
+            // `assigned`, so both available and assigned trucks are valid here.
+            'truck_id' => ['required', 'integer', Rule::exists('logistics_trucks', 'id')->where('logistics_company_id', $company->id)->whereIn('status', [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED])],
+            'driver_id' => ['required', 'integer', Rule::exists('hub_transport_drivers', 'id')->where('logistics_company_id', $company->id)->whereIn('status', ['available', 'assigned'])],
             'planned_dispatch_at' => ['nullable', 'date'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'parcels' => ['required', 'array', 'min:1'],
@@ -134,11 +228,46 @@ class HubTransferController extends Controller
         $transfer = DB::transaction(function () use ($request, $company, $validated): HubTransfer {
             $truck = LogisticsTruck::query()->whereKey($validated['truck_id'])->lockForUpdate()->firstOrFail();
             $driver = HubTransportDriver::query()->whereKey($validated['driver_id'])->lockForUpdate()->firstOrFail();
-            abort_unless($truck->logistics_company_id === $company->id && $truck->status === 'available', 422, 'Truck is not available to this company.');
-            abort_unless($driver->logistics_company_id === $company->id && $driver->status === 'available', 422, 'Driver is not available to this company.');
+            abort_unless(
+                (int) $truck->logistics_company_id === (int) $company->id
+                    && in_array($truck->status, [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED], true),
+                422,
+                'Truck is not available to this company.'
+            );
+            abort_unless($truck->isAssignable(), 422, 'This vehicle is not assignable to hub transfers.');
+            abort_unless(
+                (int) $driver->logistics_company_id === (int) $company->id
+                    && in_array($driver->status, ['available', 'assigned'], true),
+                422,
+                'Driver is not available to this company.'
+            );
+            abort_unless($driver->isLicenseValid(), 422, 'Assigned driver does not have an approved, unexpired driver\'s license.');
             abort_unless(LogisticsVehicleCategory::for($truck->vehicle_type) === 'four_wheel', 422, 'Hub transfers require an approved four-wheel vehicle.');
             abort_unless((int) $truck->parcel_capacity > 0 && (float) $truck->capacity_kg > 0, 422, 'Truck parcel and weight capacities must be registered.');
-            abort_unless((int) $driver->logistics_truck_id === (int) $truck->id && $driver->email && $driver->password, 422, 'Assign an authenticated Hub Transport Driver to this truck first.');
+
+            // The driver must be the one paired with this exact truck in Fleet
+            // Management. This blocks mismatched truck/driver submissions.
+            abort_unless(
+                (int) $driver->logistics_truck_id === (int) $truck->id,
+                422,
+                'Truck '.$truck->plate_number.' has no assigned Hub Transport Driver. Open Fleet Management and assign an approved driver to this truck first.'
+            );
+            abort_unless(
+                $driver->email && $driver->password,
+                422,
+                'The Hub Transport Driver assigned to this truck has no mobile login yet. Add an email and password for the driver in Fleet Management.'
+            );
+
+            // A second active manifest would double-book the truck or driver.
+            abort_if($truck->hasActiveTransfer(), 409, 'This truck is already assigned to another active hub transfer.');
+            abort_if(
+                HubTransfer::query()
+                    ->where('driver_id', $driver->id)
+                    ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                    ->exists(),
+                409,
+                'This Hub Transport Driver is already assigned to another active hub transfer.'
+            );
 
             $reference = 'HT-'.now()->format('Ymd').'-'.Str::upper(Str::random(6));
             $transfer = HubTransfer::create([
@@ -156,22 +285,78 @@ class HubTransferController extends Controller
 
             $totalWeight = 0.0;
             $hasCompleteWeightData = true;
+            $selectedDestId = (int) $validated['destination_center_id'];
+            $originId = (int) $validated['origin_center_id'];
+            $finalDestinationId = null;
+
             foreach ($validated['parcels'] as $deliveryId) {
                 $parcel = Delivery::query()->whereKey($deliveryId)->lockForUpdate()->firstOrFail();
-                abort_unless((int) $parcel->center_id === (int) $transfer->origin_center_id, 422, "Parcel {$parcel->tracking_number} is not at the origin hub.");
-                abort_unless(in_array($parcel->parcel_status, ['received', 'scanned', 'sorted'], true), 422, "Parcel {$parcel->tracking_number} is not eligible for transfer.");
+                abort_unless((int) $parcel->center_id === $originId, 422, "Parcel {$parcel->tracking_number} is not at the origin hub.");
+                abort_unless(
+                    $parcel->parcel_status === 'sorted',
+                    422,
+                    "Parcel {$parcel->tracking_number} must be received, scanned and sorted at the origin hub before it can be transferred."
+                );
                 abort_unless(! in_array($parcel->status, ['delivered', 'cancelled'], true) && $parcel->archived_at === null, 422, "Parcel {$parcel->tracking_number} cannot be transferred.");
                 abort_if($parcel->rider_id !== null || in_array($parcel->status, Delivery::ACTIVE_STATUSES, true), 422, "Parcel {$parcel->tracking_number} is assigned to last-mile delivery and cannot be transferred.");
-                if ($parcel->destination_center_id) {
-                    abort_unless((int) $parcel->destination_center_id === (int) $transfer->destination_center_id, 422, "Parcel {$parcel->tracking_number} is routed to a different hub.");
+
+                // The leg may end at an intermediate hub, so it is not compared
+                // with the parcel's final destination. Parcels in one manifest
+                // must still share the same final destination (the buyer's
+                // hub); a transfer never rewrites that final destination.
+                abort_unless($parcel->destination_center_id !== null, 422, "Parcel {$parcel->tracking_number} has no destination hub assigned.");
+                $parcelFinalDestinationId = (int) $parcel->destination_center_id;
+                if ($finalDestinationId === null) {
+                    $finalDestinationId = $parcelFinalDestinationId;
+                } elseif ($finalDestinationId !== $parcelFinalDestinationId) {
+                    abort(422, "Parcel {$parcel->tracking_number} is routed to a different hub (" . ($parcel->destinationCenter?->name ?? $parcel->destination_center_id) . "). All parcels in a single transfer must share the destination hub.");
                 }
+
+                // Backend duplicate transfer prevention
+                $active = HubTransferService::hasActiveLeg($parcel->id, $transfer->id);
+                abort_if($active, 422, "Parcel {$parcel->tracking_number} is already included in an active transfer.");
+
+                // Sequential transfer rule: every previous leg must have been
+                // received at this hub before the parcel may leave on another
+                // leg. Cancelled/removed manifest entries do not count.
+                $latestTransferParcel = $parcel->hubTransferParcels()
+                    ->where('hub_transfer_id', '!=', $transfer->id)
+                    ->where('loading_status', '!=', 'removed')
+                    ->latest('id')
+                    ->first();
+                if ($latestTransferParcel) {
+                    abort_unless(
+                        $latestTransferParcel->receiving_status === 'received',
+                        422,
+                        "Parcel {$parcel->tracking_number} has not completed its previous transfer leg."
+                    );
+                }
+
+                // A leg may route through an intermediate hub, but never back
+                // to a hub the parcel already departed from or passed through.
+                $previousHubs = DB::table('hub_transfer_parcels as htp')
+                    ->join('hub_transfers as ht', 'ht.id', '=', 'htp.hub_transfer_id')
+                    ->where('htp.delivery_id', $parcel->id)
+                    ->where('htp.loading_status', '!=', 'removed')
+                    ->where('htp.receiving_status', 'received')
+                    ->where('ht.id', '!=', $transfer->id)
+                    ->where('ht.status', '!=', 'cancelled')
+                    ->get(['ht.origin_center_id', 'ht.destination_center_id'])
+                    ->flatMap(fn ($leg) => [(int) $leg->origin_center_id, (int) $leg->destination_center_id])
+                    ->unique()
+                    ->all();
+                abort_if(
+                    in_array($selectedDestId, $previousHubs, true),
+                    422,
+                    "Parcel {$parcel->tracking_number} has already passed through the selected next-hop hub. Choose a hub it has not visited."
+                );
+
                 if ($parcel->weight === null) {
                     $hasCompleteWeightData = false;
                 } else {
                     $totalWeight += (float) $parcel->weight;
                 }
-                $active = HubTransferService::hasActiveLeg($parcel->id, $transfer->id);
-                abort_if($active, 422, "Parcel {$parcel->tracking_number} is already in an active transfer.");
+
                 $manifestEntry = HubTransferParcel::firstOrNew(['hub_transfer_id' => $transfer->id, 'delivery_id' => $parcel->id]);
                 $manifestEntry->fill(['loading_status' => 'pending', 'receiving_status' => 'pending', 'condition' => null, 'exception_reason' => null]);
                 $manifestEntry->save();
@@ -198,16 +383,30 @@ class HubTransferController extends Controller
         $this->assertCenterAccess($request, $hubTransfer->origin_center_id, $hubTransfer->destination_center_id);
         $hubTransfer->load(['company', 'origin', 'destination', 'truck', 'driver', 'parcels.delivery', 'events']);
 
+        // Only offer fleet pairs that can actually take over this transfer:
+        // a paired, approved four-wheel truck with a free driver. The current
+        // truck/driver stay selectable, and this transfer's own active leg is
+        // ignored when checking for conflicting manifests.
         $trucks = LogisticsTruck::query()
             ->where('logistics_company_id', $hubTransfer->logistics_company_id)
-            ->where(fn ($query) => $query->where('status', 'available')->orWhere('id', $hubTransfer->truck_id))
+            ->whereIn('status', [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED])
+            ->whereDoesntHave('transfers', fn ($query) => $query
+                ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                ->whereKeyNot($hubTransfer->id))
             ->orderBy('plate_number')
-            ->get();
+            ->get()
+            ->filter(fn (LogisticsTruck $truck) => $truck->isAssignable())
+            ->values();
+
         $drivers = HubTransportDriver::query()
             ->where('logistics_company_id', $hubTransfer->logistics_company_id)
-            ->whereNotNull('logistics_truck_id')
+            ->whereIn('logistics_truck_id', $trucks->pluck('id'))
             ->where(fn ($query) => $query->where('status', 'available')->orWhere('id', $hubTransfer->driver_id))
+            ->whereDoesntHave('transfers', fn ($query) => $query
+                ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                ->whereKeyNot($hubTransfer->id))
             ->get();
+
         $fleetOptions = $trucks
             ->map(fn (LogisticsTruck $truck) => ['truck' => $truck, 'driver' => $drivers->firstWhere('logistics_truck_id', $truck->id)])
             ->filter(fn (array $option) => $option['driver'] !== null)
@@ -219,15 +418,28 @@ class HubTransferController extends Controller
             ->orderBy('name')
             ->get();
 
+        // Parcel-level progress is derived once so the web console and the
+        // driver app render the same journey for every manifest entry.
+        $parcelProgress = $hubTransfer->parcels
+            ->mapWithKeys(fn (HubTransferParcel $entry) => [$entry->id => HubTransferProgress::parcelStage($hubTransfer, $entry)]);
+        $manifestParcels = $hubTransfer->parcels->where('loading_status', '!=', 'removed');
+        $manifestWeight = $manifestParcels->isNotEmpty()
+            && $manifestParcels->every(fn (HubTransferParcel $entry) => $entry->delivery?->weight !== null)
+            ? round($manifestParcels->sum(fn (HubTransferParcel $entry) => (float) $entry->delivery->weight), 2)
+            : null;
+
         return view('logistics.hub-transfers.show', [
             'transfer' => $hubTransfer,
             'fleetOptions' => $fleetOptions,
             'rerouteHubs' => $rerouteHubs,
+            'parcelProgress' => $parcelProgress,
+            'manifestWeight' => $manifestWeight,
         ]);
     }
 
     public function loadParcel(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
+        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
         $this->authorizeTransfer($request, $hubTransfer);
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate(['tracking_number' => ['required', 'string', 'max:100']]);
@@ -268,6 +480,7 @@ class HubTransferController extends Controller
 
     public function removeParcel(Request $request, HubTransfer $hubTransfer, HubTransferParcel $parcel): RedirectResponse
     {
+        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot perform counter operations.');
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         DB::transaction(function () use ($request, $hubTransfer, $parcel, $data): void {
@@ -286,6 +499,7 @@ class HubTransferController extends Controller
 
     public function receiveParcel(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
+        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
         $this->authorizeTransfer($request, $hubTransfer);
         $this->assertDestinationAccess($request, $hubTransfer);
         $data = $request->validate([
@@ -320,6 +534,7 @@ class HubTransferController extends Controller
 
     public function complete(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
+        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot complete receiving manifests.');
         $this->assertDestinationAccess($request, $hubTransfer);
         HubTransferService::complete($hubTransfer, $request->user());
 
@@ -361,10 +576,28 @@ class HubTransferController extends Controller
             'truck_id' => ['required', 'integer', 'exists:logistics_trucks,id'],
         ]);
         $truck = LogisticsTruck::whereKey($data['truck_id'])->firstOrFail();
+        abort_unless((int) $truck->logistics_company_id === (int) $hubTransfer->logistics_company_id, 422, 'The truck must belong to the same logistics company as this transfer.');
+        abort_unless(
+            in_array($truck->status, [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED], true),
+            422,
+            'Truck is not available to this company.'
+        );
+        abort_unless($truck->isAssignable(), 422, 'This vehicle is not assignable to hub transfers.');
+        abort_if($truck->hasActiveTransfer($hubTransfer->id), 409, 'This truck is already assigned to another active hub transfer.');
         $driver = HubTransportDriver::query()
             ->where('logistics_truck_id', $truck->id)
             ->where(fn ($query) => $query->where('status', 'available')->orWhere('id', $hubTransfer->driver_id))
             ->firstOrFail();
+        abort_unless($driver->isLicenseValid(), 422, 'Assigned driver does not have an approved, unexpired driver\'s license.');
+        abort_if(
+            HubTransfer::query()
+                ->where('driver_id', $driver->id)
+                ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                ->whereKeyNot($hubTransfer->id)
+                ->exists(),
+            409,
+            'This Hub Transport Driver is already assigned to another active hub transfer.'
+        );
         HubTransferService::reassignFleet($hubTransfer, $truck, $driver, $request->user());
 
         return back()->with('success', 'Truck and driver reassigned for this transfer.');
@@ -403,6 +636,42 @@ class HubTransferController extends Controller
     private function centersFor(LogisticsCompany $company)
     {
         return $company->centers()->where('is_active', true)->orderBy('name')->get();
+    }
+
+    private function fleetBlockSummary(\Illuminate\Support\Collection $eligibleTrucks, \Illuminate\Support\Collection $pairedTrucks, \Illuminate\Support\Collection $licensedTrucks): string
+    {
+        $noDriver = $eligibleTrucks->count() - $pairedTrucks->count();
+        $invalidLicense = $pairedTrucks->count() - $licensedTrucks->count();
+        $unavailableTruck = $licensedTrucks
+            ->reject(fn (LogisticsTruck $truck) => $truck->isAssignable())
+            ->count();
+        $busyDriver = $licensedTrucks
+            ->filter(fn (LogisticsTruck $truck) => $truck->isAssignable() && $truck->driver->status !== 'available')
+            ->count();
+        $busyTruck = $licensedTrucks
+            ->filter(fn (LogisticsTruck $truck) => $truck->isAssignable()
+                && $truck->driver->status === 'available'
+                && $truck->hasActiveTransfer())
+            ->count();
+
+        $reasons = [];
+        if ($noDriver > 0) {
+            $reasons[] = $noDriver.' eligible '.Str::plural('truck', $noDriver).' '.($noDriver === 1 ? 'has' : 'have').' no assigned Hub Transport Driver';
+        }
+        if ($invalidLicense > 0) {
+            $reasons[] = $invalidLicense.' assigned '.Str::plural('driver', $invalidLicense).' '.($invalidLicense === 1 ? 'does' : 'do').' not have an approved, unexpired license';
+        }
+        if ($unavailableTruck > 0) {
+            $reasons[] = $unavailableTruck.' '.Str::plural('truck', $unavailableTruck).' '.($unavailableTruck === 1 ? 'is' : 'are').' in transit, under maintenance, or otherwise not assignable';
+        }
+        if ($busyDriver > 0) {
+            $reasons[] = $busyDriver.' '.Str::plural('driver', $busyDriver).' '.($busyDriver === 1 ? 'is' : 'are').' not marked available';
+        }
+        if ($busyTruck > 0) {
+            $reasons[] = $busyTruck.' '.Str::plural('truck', $busyTruck).' '.($busyTruck === 1 ? 'is' : 'are').' already on an active hub transfer';
+        }
+
+        return 'No eligible truck and driver pair is free right now: '.implode('; ', $reasons).'.';
     }
 
     private function isNetworkAdmin(Request $request): bool

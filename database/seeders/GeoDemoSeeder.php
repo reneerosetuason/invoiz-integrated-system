@@ -20,6 +20,8 @@ class GeoDemoSeeder extends Seeder
             return;
         }
 
+        $this->call(PsgcSeeder::class);
+
         $provinces = [
             ['code' => '130010000', 'name' => 'Metro Manila', 'region_code' => '130000000'],
             ['code' => '030140000', 'name' => 'Bulacan', 'region_code' => '030000000'],
