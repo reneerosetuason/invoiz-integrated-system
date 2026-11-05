@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 
@@ -47,6 +48,29 @@ class ApiService {
   );
   Future<dynamic> delete(String path) =>
       _send((headers) => _client.delete(_uri(path), headers: headers));
+
+  Future<Uint8List> getImage(String path) async {
+    final requestToken = _token;
+    final response = await _client
+        .get(
+          _uri(path),
+          headers: {
+            'Accept': 'image/*',
+            if (requestToken != null) 'Authorization': 'Bearer $requestToken',
+          },
+        )
+        .timeout(_timeout);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response, requestToken);
+    }
+    if (!(response.headers['content-type'] ?? '').startsWith('image/')) {
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'The receipt image could not be loaded.',
+      );
+    }
+    return response.bodyBytes;
+  }
 
   Future<dynamic> postForm(
     String path,
@@ -128,7 +152,9 @@ class ApiService {
         if (errors.isNotEmpty) message = errors.take(3).join('\n');
       }
     }
-    if (invalidSession && requestToken != null)
+    if (invalidSession &&
+        requestToken != null &&
+        !(body is Map && body['code'] == 'account_inactive'))
       message = 'Your session has ended. Please sign in again.';
     throw ApiException(
       statusCode: response.statusCode,

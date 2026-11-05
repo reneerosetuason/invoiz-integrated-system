@@ -9,6 +9,9 @@ class Cod
 {
     public static function isCod(Delivery $delivery): bool
     {
+        if ($delivery->payment_method === 'gcash' || $delivery->order?->payment?->method === 'gcash') {
+            return false;
+        }
         $method = strtolower(trim((string) $delivery->payment_method));
 
         if (in_array($method, ['cash_on_delivery', 'cod'], true)) {

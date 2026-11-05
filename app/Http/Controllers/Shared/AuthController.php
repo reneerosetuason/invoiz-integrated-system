@@ -52,7 +52,7 @@ class AuthController extends Controller
         }
 
         if (! $user->isActive()) {
-            return response()->json(['message' => 'Your account is not active.'], 403);
+            return response()->json(['message' => $user->archived_at ? config('account_deletion.inactive_message') : 'Your account is not active.'], 403);
         }
 
         if ($user->hasBlockedMarketplaceApproval()) {

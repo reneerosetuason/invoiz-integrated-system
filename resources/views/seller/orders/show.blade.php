@@ -32,7 +32,7 @@
             <form method="POST" action="{{ route('seller.orders.status', $order->id) }}">
                 @csrf
                 <input type="hidden" name="action" value="accept">
-                <button type="submit" class="btn btn-primary">Accept Order</button>
+                <button type="submit" class="btn btn-primary" @disabled($order->payment?->method === 'gcash' && !\App\Services\GcashEscrowService::funded($order))>Accept Order</button>
             </form>
         @endif
         @if($order->status === 'confirmed')
@@ -250,6 +250,16 @@
         {{-- Payment & delivery --}}
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Payment &amp; Delivery</h3>
+            @if($order->payment?->method === 'gcash')
+                @include('seller.orders.gcash-escrow')
+            @endif
+            @if($order->payment?->method === 'gcash' && $order->payment?->proof_path)
+                <div class="mb-4 rounded-lg border border-gray-200 p-3">
+                    <p class="mb-2 text-sm font-semibold">GCash payment proof</p>
+                    <a href="{{ route('seller.orders.payment-proof', $order->id) }}" target="_blank" rel="noopener" class="text-sm font-semibold underline">View buyer's GCash receipt</a>
+                    <p class="mt-2 text-xs text-ink-light">Check this receipt against your GCash transactions. Uploading a receipt does not automatically confirm payment.</p>
+                </div>
+            @endif
             <div class="space-y-3 text-sm">
                 <div class="flex justify-between"><span class="text-ink-light">Payment</span><span class="font-semibold">{{ $order->payment?->method === 'cash_on_delivery' ? 'Cash on Delivery' : ucwords(str_replace('_',' ',$order->payment?->method ?? '—')) }}</span></div>
                 <div class="flex justify-between"><span class="text-ink-light">Payment status</span><span class="badge {{ $order->payment?->status === 'paid' ? 'badge-delivered' : 'badge-pending' }}">{{ ucfirst($order->payment?->status ?? '—') }}</span></div>

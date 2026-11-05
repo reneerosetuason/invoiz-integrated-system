@@ -488,6 +488,10 @@ class EscrowEarnings
      */
     public static function creditPickupRiderOnHubReceipt(Delivery $delivery): ?RiderEarning
     {
+        if ($delivery->order?->payment?->method === 'gcash') {
+            self::syncRemittancesForOrder($delivery->order);
+            return null;
+        }
         try {
             if (! Schema::hasTable('rider_earnings')) {
                 return null;
@@ -542,6 +546,11 @@ class EscrowEarnings
      */
     public static function creditInterHubDriverOnTransferReceipt(HubTransfer|Delivery $transferOrDelivery, ?Delivery $delivery = null): mixed
     {
+        $parcel = $transferOrDelivery instanceof Delivery ? $transferOrDelivery : $delivery;
+        if ($parcel?->order?->payment?->method === 'gcash') {
+            self::syncRemittancesForOrder($parcel->order);
+            return null;
+        }
         try {
             if ($transferOrDelivery instanceof Delivery) {
                 $delivery = $transferOrDelivery;
@@ -702,6 +711,17 @@ class EscrowEarnings
      */
     public static function syncRemittancesForOrder(Order $order, ?PaymentTransaction $tx = null): void
     {
+        if (! Schema::hasTable('escrow_remittances')) {
+            return;
+        }
+        \Illuminate\Support\Facades\DB::transaction(function () use ($order, $tx) {
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            self::syncLockedRemittances($locked, $tx);
+        });
+    }
+
+    private static function syncLockedRemittances(Order $order, ?PaymentTransaction $tx = null): void
+    {
         try {
             if (! Schema::hasTable('escrow_remittances')) {
                 return;
@@ -712,7 +732,9 @@ class EscrowEarnings
 
             $isCancelled = $order->status === 'cancelled' || in_array($tx?->status, ['failed', 'refunded'], true);
             $isSettled = $order->payment_status === 'paid' || $tx?->status === 'successful';
-            $adminUser = User::where('role', 'admin')->orderBy('id')->first();
+            $isGcash = \App\Services\GcashEscrowService::isGcash($order);
+            $gcashFunded = $isGcash && \App\Services\GcashEscrowService::funded($order);
+            $adminUser = ($isGcash ? User::where('is_admin', true) : User::where('role', 'admin'))->orderBy('id')->first();
 
             foreach ($order->shippingGroupIds() as $sellerId) {
                 $sellerId = (int) $sellerId;
@@ -725,7 +747,7 @@ class EscrowEarnings
                 $legs = $delivery ? self::transferLegs($delivery) : collect();
                 $completedLeg = $legs->first(fn (HubTransfer $leg) => $leg->status === 'received');
                 $isDelivered = $delivery && $delivery->status === 'delivered';
-                $isCod = $delivery ? Cod::isCod($delivery) : true;
+                $isCod = ! $isGcash && ($delivery ? Cod::isCod($delivery) : true);
 
                 $originCenter = $calc['origin_center_id'] ? LogisticsCenter::find($calc['origin_center_id']) : null;
                 $destinationCenter = $calc['destination_center_id'] ? LogisticsCenter::find($calc['destination_center_id']) : null;
@@ -739,6 +761,8 @@ class EscrowEarnings
                 $interHubDriver = $interHubDriverId
                     ? \App\Models\HubTransportDriver::find($interHubDriverId)
                     : null;
+                $interHubRider = ! $interHubDriver && $delivery?->inter_hub_rider_id
+                    ? Rider::find($delivery->inter_hub_rider_id) : null;
                 $interHubTransfer = $interHubEarning?->hub_transfer_id
                     ? HubTransfer::find($interHubEarning->hub_transfer_id)
                     : $completedLeg;
@@ -791,13 +815,13 @@ class EscrowEarnings
                     ],
                     EscrowRemittance::ROLE_INTER_HUB_DRIVER => [
                         'amount' => $calc['inter_hub_driver_fee'],
-                        'recipient_user_id' => null,
-                        'rider_id' => null,
+                        'recipient_user_id' => $interHubDriver?->user_id ?? $interHubRider?->user_id,
+                        'rider_id' => $interHubRider?->id,
                         'hub_transfer_id' => $interHubTransfer?->id,
                         'hub_transport_driver_id' => $interHubDriver?->id,
                         'logistics_center_id' => $originCenter?->id,
                         'recipient_name' => $calc['inter_hub_completed']
-                            ? ($interHubDriver?->name ?? (($originCenter?->name ?? 'Origin Hub').' Shared Linehaul Pool'))
+                            ? ($interHubDriver?->name ?? $interHubRider?->name ?? (($originCenter?->name ?? 'Origin Hub').' Shared Linehaul Pool'))
                             : 'Not applicable (Same-hub local route)',
                         'rule_applied' => $calc['inter_hub_completed']
                             ? 'PHP '.number_format($calc['inter_hub_driver_fee'], 2).' once per seller shipment for the full route'
@@ -878,7 +902,7 @@ class EscrowEarnings
 
                     // Never rewrite a settled remittance; only cancellation
                     // may void it, and even then the amount is preserved.
-                    if ($existing && $existing->status === 'remitted' && ! $isCancelled) {
+                    if ($existing && in_array($existing->status, ['remitted', 'accepted'], true)) {
                         continue;
                     }
                     if ($existing && $isCancelled) {
@@ -887,7 +911,14 @@ class EscrowEarnings
                         continue;
                     }
 
-                    if ($isCancelled) {
+                    if ($isGcash && ! $isCancelled) {
+                        // No automatic deductions or wallet credits for GCash.
+                        $status = $gcashFunded && $isDelivered && (float) $meta['amount'] > 0
+                            ? 'pending_remittance' : 'held_in_escrow';
+                        if (in_array($role, [EscrowRemittance::ROLE_SELLER, EscrowRemittance::ROLE_ADMIN], true)) {
+                            $meta['settlement_mode'] = 'escrow_bank_remittance';
+                        }
+                    } elseif ($isCancelled) {
                         $status = 'voided';
                     } elseif (! empty($meta['auto_remitted'])) {
                         $status = 'remitted';
@@ -938,6 +969,9 @@ class EscrowEarnings
             }
         } catch (\Throwable $e) {
             \Log::warning('EscrowRemittance sync failed: '.$e->getMessage());
+            if (\App\Services\GcashEscrowService::isGcash($order)) {
+                throw $e;
+            }
         }
     }
 }

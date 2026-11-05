@@ -1225,7 +1225,7 @@ class DeliveryController extends Controller
                     // rolls back the delivery transition and status log.
                     \App\Support\Remittances::ensureForDeliveryOrFail($delivery->fresh());
 
-                    if ($delivery->rider_id) {
+                    if ($delivery->rider_id && $delivery->order?->payment?->method !== 'gcash') {
                         $earned = round((float) ($delivery->delivery_fee ?? Order::SHIPPING_FEE_PER_SELLER), 2);
                         RiderEarning::firstOrCreate(
                             ['delivery_id' => $delivery->id, 'type' => 'delivery'],

@@ -35,13 +35,20 @@ class Payment {
   final String method;
   final String status;
   final double amount;
+  final bool hasPaymentProof;
 
-  Payment({required this.method, required this.status, required this.amount});
+  Payment({
+    required this.method,
+    required this.status,
+    required this.amount,
+    this.hasPaymentProof = false,
+  });
 
   factory Payment.fromJson(Map<String, dynamic> json) => Payment(
     method: json['method'] as String,
     status: json['status'] as String,
     amount: double.tryParse('${json['amount']}') ?? 0,
+    hasPaymentProof: json['has_payment_proof'] == true,
   );
 }
 

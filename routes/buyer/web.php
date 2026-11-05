@@ -138,6 +138,8 @@ Route::get('/cart', function(){
   return view('buyer.cart', ['products'=>$products, 'cartItems'=>$cartItems]);
 })->name('cart');
 
+Route::post('/checkout/gcash-quote', [\App\Http\Controllers\GcashEscrowController::class, 'quote']);
+Route::get('/gcash/receiving-qr/{seller}', [\App\Http\Controllers\GcashEscrowController::class, 'qr'])->whereNumber('seller')->name('buyer.gcash.qr');
 Route::get('/checkout', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to checkout');
@@ -220,7 +222,10 @@ Route::post('/checkout', function(Request $request){
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $request->validate([
     'address_id' => ['required', 'integer'],
-    'payment_method' => ['required', 'in:cod'],
+    'payment_method' => ['required', 'in:cod,gcash'],
+    'gcash_proof' => ['prohibited_unless:payment_method,gcash', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'gcash_proofs' => ['prohibited_unless:payment_method,gcash', 'nullable', 'array', 'max:20'],
+            'gcash_proofs.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
     'checkout_mode' => ['nullable', 'in:single,seller,all,selected'],
     'single' => ['nullable', 'integer', 'min:1'],
     'qty' => ['nullable', 'integer', 'min:1', 'max:200'],
@@ -241,8 +246,10 @@ Route::post('/checkout', function(Request $request){
   }
   $checkoutMode = $request->input('checkout_mode', session('checkout_single') ? 'single' : (session('checkout_all') ? 'all' : (session('checkout_selected') ? 'selected' : 'seller')));
   $ordersCreated = 0;
+  $proofPath = [];
   try {
-    \Illuminate\Support\Facades\DB::transaction(function () use ($buyer, $addr, $request, $checkoutMode, &$ordersCreated) {
+    \Illuminate\Support\Facades\DB::transaction(function () use ($buyer, $addr, $request, $checkoutMode, &$ordersCreated, &$proofPath) {
+
     $claimIds = array_values(array_unique(array_filter(array_merge(
       array_map('intval', (array) $request->input('voucher_claim_ids', [])),
       $request->filled('voucher_claim_id') ? [(int) $request->integer('voucher_claim_id')] : []
@@ -279,6 +286,7 @@ Route::post('/checkout', function(Request $request){
       if (\App\Models\Seller::where(function($q) use($product){ $q->where('id',$product->seller_id)->orWhere('user_id',$product->seller_id); })->where('vacation_mode',true)->exists()) {
         throw new \Exception('This store is on vacation and is not accepting orders right now.');
       }
+      \App\Services\GcashEscrowService::storeCheckoutProofs($request, [(int) $product->seller_id], $proofPath);
       $unit = Cart::unitFor($product, $variant);
       $subtotal = $unit * $qty;
       // Shipping: flat fee once per shop. Voucher (merchandise or free
@@ -304,7 +312,7 @@ Route::post('/checkout', function(Request $request){
         \App\Models\Voucher::whereKey($c->voucher_id)->increment('used_count');
         $c->update(['order_id' => $order->id, 'used_at' => now()]);
       }
-      if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
+      \App\Models\Payment::create(['order_id'=>$order->id,'method'=>$request->input('payment_method') === 'gcash' ? 'gcash' : 'cash_on_delivery','status'=>'pending','amount'=>$total] + (isset($proofPath[$product->seller_id]) ? ['proof_path' => $proofPath[$product->seller_id]] : []));
       \App\Support\Payments::recordCheckout($order);
       app(\App\Services\OrderShipmentService::class)->ensure($order);
       Cart::itemsFor($buyer['id'])->where('product_id',$product->id)->where('variant_id', $variant ? $variant->id : null)->delete();
@@ -325,6 +333,7 @@ Route::post('/checkout', function(Request $request){
       $consumedClaimIds = [];
       $groupIndex = 0;
       $bySeller = in_array($checkoutMode, ['all','selected']) ? $lines->groupBy(fn($l) => $l['product']->seller_id) : [(int) $lines->first()['product']->seller_id => $lines];
+      \App\Services\GcashEscrowService::storeCheckoutProofs($request, array_keys(collect($bySeller)->all()), $proofPath);
       $sellerSubtotals = collect($bySeller)->map(fn($sLines) => (float) $sLines->sum('line'))->all();
       $checkoutStack = \App\Support\Vouchers::resolveStack($allVouchers, array_sum($sellerSubtotals), array_keys($sellerSubtotals), $sellerSubtotals);
       if ($checkoutStack['error']) throw new \Exception($checkoutStack['error']);
@@ -362,7 +371,7 @@ Route::post('/checkout', function(Request $request){
           }
         }
         $groupIndex++;
-        if (class_exists(\App\Models\Payment::class)) \App\Models\Payment::create(['order_id'=>$order->id,'method'=>'cash_on_delivery','status'=>'pending','amount'=>$total]);
+        \App\Models\Payment::create(['order_id'=>$order->id,'method'=>$request->input('payment_method') === 'gcash' ? 'gcash' : 'cash_on_delivery','status'=>'pending','amount'=>$total] + (isset($proofPath[$groupSid]) ? ['proof_path' => $proofPath[$groupSid]] : []));
         \App\Support\Payments::recordCheckout($order);
       app(\App\Services\OrderShipmentService::class)->ensure($order);
         $ordersCreated++;
@@ -376,10 +385,21 @@ Route::post('/checkout', function(Request $request){
       }
     }
     });
-  } catch(\Throwable $e){ \Log::error('Checkout failed: '.$e->getMessage()); return back()->with('error','Checkout failed: '.$e->getMessage()); }
+  } catch(\Throwable $e){
+    if ($proofPath) \Illuminate\Support\Facades\Storage::disk('private')->delete(array_values($proofPath));
+    if ($e instanceof \Illuminate\Validation\ValidationException) throw $e;
+    \Log::error('Checkout failed: '.$e->getMessage());
+    $checkoutError = get_class($e) === \Exception::class ? $e->getMessage() : 'Please review your order and try again.';
+    $receiptHint = $request->input('payment_method') === 'gcash' ? ' Select your GCash receipt again before retrying.' : '';
+    return back()->withInput()->with('error', 'Checkout failed: '.$checkoutError.$receiptHint);
+  }
   session()->forget(['checkout_single','checkout_seller_id','checkout_all','checkout_selected']);
-  return redirect('/orders')->with('success', $ordersCreated > 1 ? "Placed {$ordersCreated} orders â€” Cash on Delivery â€” thank you!" : 'Order placed â€” Cash on Delivery â€” thank you!');
+  $paymentMessage = $request->input('payment_method') === 'gcash'
+    ? 'Your GCash receipt has been submitted for seller review.' : 'Cash on Delivery - thank you!';
+  return redirect('/orders')->with('success', ($ordersCreated > 1 ? "Placed {$ordersCreated} orders. " : 'Order placed. ').$paymentMessage);
 });
+
+Route::get('/orders/{order}/payment-proof', [\App\Http\Controllers\PaymentProofController::class, 'buyer'])->whereNumber('order')->name('buyer.orders.payment-proof');
 
 Route::get('/store/{id}', function($id, Request $request){
   $sellerId = \App\Models\Seller::userIdFor((int) $id);
@@ -465,8 +485,10 @@ Route::post('/profile/email/request-code', [ProfileController::class, 'requestEm
   ->middleware('throttle:5,1')->name('profile.email.request-code');
 Route::post('/profile/email/confirm', [ProfileController::class, 'confirmEmailChange'])
   ->middleware('throttle:10,1')->name('profile.email.confirm');
-Route::post('/profile/delete-account', [ProfileController::class, 'requestDeletion'])->name('buyer.profile.delete-request');
-Route::post('/profile/cancel-deletion', [ProfileController::class, 'cancelDeletion'])->name('buyer.profile.cancel-deletion');
+Route::get('/profile/account-deletion', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'show'])->middleware(['auth', 'account.active'])->name('buyer.account-deletion');
+Route::post('/profile/account-deletion/verify', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'verify'])->middleware(['auth', 'account.active', 'throttle:5,1'])->name('buyer.account-deletion.verify');
+Route::post('/profile/delete-account', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'store'])->middleware(['auth', 'account.active', 'throttle:5,1'])->name('buyer.profile.delete-request');
+Route::post('/profile/cancel-deletion', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'cancel'])->middleware(['auth', 'account.active', 'throttle:5,1'])->name('buyer.profile.cancel-deletion');
 
 Route::get('/orders', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);

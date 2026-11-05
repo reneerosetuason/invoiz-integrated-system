@@ -52,8 +52,13 @@ class Remittances
     }
 
     /** Ensure a handoff row, propagating failures to the caller. */
-    public static function ensureForDeliveryOrFail(Delivery $delivery): Remittance
+    public static function ensureForDeliveryOrFail(Delivery $delivery): ?Remittance
     {
+        if ($delivery->order?->payment?->method === 'gcash') {
+            \App\Services\GcashEscrowService::assertFunded($delivery->order);
+            Payments::settleForDelivery($delivery->order);
+            return null;
+        }
         if ($delivery->id && ($found = Remittance::where('delivery_id', $delivery->id)->first())) {
             return $found;
         }

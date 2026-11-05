@@ -147,7 +147,7 @@ class RiderController extends Controller
         ];
 
         $todayEarnings = RiderEarning::where('rider_id', $rider->id)
-            ->where('earned_on', $today->toDateString())
+            ->whereDate('earned_on', $today->toDateString())
             ->sum('amount');
 
         $current = (clone $query)

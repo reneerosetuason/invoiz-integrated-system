@@ -109,7 +109,7 @@ class RiderRemittanceController extends Controller
 
         return response()->json([
             'payouts' => $payouts,
-            'total_earned' => round($payouts->sum('amount'), 2),
+            'total_earned' => round($payouts->where('status', 'accepted')->sum('amount'), 2),
             'total_available_to_accept' => round($payouts->where('can_accept', true)->sum('amount'), 2),
             'total_confirmed' => round($payouts->where('status', 'accepted')->sum('amount'), 2),
             'total_pending_admin' => round($payouts->where('status', 'pending_remittance')->sum('amount'), 2),
@@ -121,6 +121,7 @@ class RiderRemittanceController extends Controller
      */
     public function acceptPayout(Request $request, int $id): JsonResponse
     {
+        $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
         $rider = $request->user()->rider;
         if (! $rider) {
             return response()->json(['message' => 'Rider profile not found.'], 403);
@@ -139,7 +140,9 @@ class RiderRemittanceController extends Controller
             ], 422);
         }
 
-        $escrow->accept($request->user(), $request->input('note'));
+        if (! $escrow->accept($request->user(), $request->input('note'))) {
+            return response()->json(['message' => 'This remittance was already processed. Refresh your payouts.'], 409);
+        }
 
         return response()->json([
             'message' => "Remittance of ₱" . number_format((float) $escrow->amount, 2) . " accepted successfully. Earnings confirmed.",

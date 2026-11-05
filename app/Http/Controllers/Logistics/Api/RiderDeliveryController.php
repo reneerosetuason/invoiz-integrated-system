@@ -403,6 +403,7 @@ class RiderDeliveryController extends Controller
                     \App\Support\Remittances::ensureForDeliveryOrFail($locked->fresh());
                 }
 
+                if ($locked->order?->payment?->method !== 'gcash') {
                 RiderEarning::firstOrCreate(
                     ['delivery_id' => $locked->id, 'type' => 'delivery'],
                     [
@@ -413,6 +414,9 @@ class RiderDeliveryController extends Controller
                     ]
                 );
 
+                } else {
+                    $earned = 0.0;
+                }
                 if ($isCod) {
                     app(\App\Support\AuditLogger::class)->record(
                         $request->user(),

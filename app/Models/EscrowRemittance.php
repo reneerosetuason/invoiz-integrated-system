@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\GcashEscrowService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 class EscrowRemittance extends Model
 {
@@ -136,20 +138,46 @@ class EscrowRemittance extends Model
      */
     public function accept(User $user, ?string $note = null): bool
     {
-        if ($this->status !== self::STATUS_REMITTED) {
-            return false;
-        }
+        return DB::transaction(function () use ($user, $note) {
+            $order = $this->order_id ? Order::lockForUpdate()->findOrFail($this->order_id) : null;
+            $locked = self::lockForUpdate()->findOrFail($this->id);
+            $isRecipient = (int) $locked->recipient_user_id === (int) $user->id
+                || ($locked->rider_id && (int) $user->rider?->id === (int) $locked->rider_id)
+                || ($locked->logistics_center_id && (int) $user->center_id === (int) $locked->logistics_center_id
+                    && in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff'], true));
+            abort_unless($isRecipient, 403);
+            $this->setRawAttributes($locked->getAttributes(), true);
+            if ($this->status !== self::STATUS_REMITTED) {
+                return false;
+            }
 
-        $noteText = "Confirmed received by {$user->name} (#{$user->id}) on " . now()->format('Y-m-d H:i:s');
-        if ($note) {
-            $noteText .= " — Note: " . trim($note);
-        }
+            $noteText = "Confirmed received by {$user->name} (#{$user->id}) on ".now()->format('Y-m-d H:i:s');
+            if ($note) {
+                $noteText .= ' — Note: '.trim($note);
+            }
 
-        $this->update([
-            'status' => self::STATUS_ACCEPTED,
-            'notes'  => $this->notes ? ($this->notes . "\n" . $noteText) : $noteText,
-        ]);
+            $this->update([
+                'status' => self::STATUS_ACCEPTED,
+                'notes' => $this->notes ? ($this->notes."\n".$noteText) : $noteText,
+            ]);
 
-        return true;
+            if ($order && GcashEscrowService::isGcash($order) && $this->rider_id && $this->delivery_id) {
+                GcashEscrowService::assertFunded($order);
+                $type = match ($this->recipient_role) {
+                    self::ROLE_PICKUP_RIDER => 'pickup',
+                    self::ROLE_LAST_MILE_RIDER => 'delivery',
+                    self::ROLE_INTER_HUB_DRIVER => 'inter_hub_transfer',
+                    default => null,
+                };
+                if ($type) {
+                    RiderEarning::firstOrCreate(['delivery_id' => $this->delivery_id, 'type' => $type], [
+                        'rider_id' => $this->rider_id, 'amount' => $this->amount,
+                        'earned_on' => now()->toDateString(), 'description' => 'Accepted GCash escrow remittance #'.$this->id,
+                    ]);
+                }
+            }
+
+            return true;
+        });
     }
 }

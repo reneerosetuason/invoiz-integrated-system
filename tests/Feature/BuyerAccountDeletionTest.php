@@ -4,12 +4,20 @@ namespace Tests\Feature;
 
 use App\Models\AccountDeletionRequest;
 use App\Models\User;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Tests\Support\BuyerAccountDeletionDatabase;
 use Tests\TestCase;
 
 class BuyerAccountDeletionTest extends TestCase
 {
+    use BuyerAccountDeletionDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->createAccountDeletionDatabase();
+    }
+
     public function test_buyer_can_submit_account_deletion_request()
     {
         $user = User::factory()->create([
@@ -24,7 +32,7 @@ class BuyerAccountDeletionTest extends TestCase
             'confirm_deletion' => '1',
         ]);
 
-        $response->assertRedirect('/profile#danger-zone');
+        $response->assertRedirect(route('buyer.account-deletion'));
         $this->assertDatabaseHas('account_deletion_requests', [
             'user_id' => $user->id,
             'reason' => 'I no longer use INVOIZ.',
@@ -50,9 +58,10 @@ class BuyerAccountDeletionTest extends TestCase
 
         $response = $this->actingAs($user)->post('/profile/cancel-deletion', [
             'current_password' => 'Password123!',
+            'confirm_cancellation' => true,
         ]);
 
-        $response->assertRedirect('/profile#danger-zone');
+        $response->assertRedirect(route('buyer.account-deletion'));
         $this->assertDatabaseHas('account_deletion_requests', [
             'user_id' => $user->id,
             'status' => 'cancelled',

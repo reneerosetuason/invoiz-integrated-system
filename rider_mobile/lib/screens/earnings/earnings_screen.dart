@@ -20,19 +20,14 @@ class EarningsScreen extends StatelessWidget {
     final provider = context.watch<EarningsProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Earnings'),
-      ),
+      appBar: AppBar(title: const Text('Earnings')),
       body: RefreshIndicator(
         onRefresh: provider.loadSummary,
         child: provider.loading && provider.summary == null
             ? const LoadingWidget(label: 'Loading earnings...')
             : provider.error != null && provider.summary == null
-                ? ErrorView(
-                    message: provider.error!,
-                    onRetry: provider.loadSummary,
-                  )
-                : _buildContent(context, provider),
+            ? ErrorView(message: provider.error!, onRetry: provider.loadSummary)
+            : _buildContent(context, provider),
       ),
     );
   }
@@ -121,14 +116,14 @@ class EarningsScreen extends StatelessWidget {
               size: 42,
               iconSize: 20,
             ),
-            title: const Text('Cash Remittances'),
-            subtitle: const Text('Cash-on-Delivery collections to hand over'),
+            title: const Text('Remittances & escrow payouts'),
+            subtitle: const Text(
+              'Confirm incoming payouts and manage COD cash',
+            ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const RemittancesScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const RemittancesScreen()),
               );
             },
           ),
@@ -136,15 +131,11 @@ class EarningsScreen extends StatelessWidget {
         const SizedBox(height: 20),
         Row(
           children: [
-            const Expanded(
-              child: Text('Last 30 Days', style: AppText.section),
-            ),
+            const Expanded(child: Text('Last 30 Days', style: AppText.section)),
             TextButton(
               onPressed: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const HistoryScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
                 );
               },
               child: const Text('View History'),

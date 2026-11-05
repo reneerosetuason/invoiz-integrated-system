@@ -786,6 +786,10 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <x-icon name="users" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Buyers</span>
           </a>
+          <a class="nav-link {{ request()->is('admin/account-deletions*') ? 'active' : '' }}" href="{{ route('admin.account-deletions.index') }}" title="Account Deletion Requests">
+            <x-icon name="users" class="nav-icon" aria-hidden="true" />
+            <span class="nav-text sb-label sb-hide-collapsed">Account Deletion Requests</span>
+          </a>
           <a class="nav-link" href="/admin/riders" title="Rider Directory">
             <x-icon name="truck" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Rider Directory</span>

@@ -38,9 +38,34 @@ class PaymentActionController extends Controller
     public function remitEscrow(Request $request, $id)
     {
         $released = DB::transaction(function () use ($request, $id): ?array {
+            $record = EscrowRemittance::findOrFail($id);
+            $order = Order::lockForUpdate()->findOrFail($record->order_id);
             $remittance = EscrowRemittance::query()->lockForUpdate()->findOrFail($id);
             if ($remittance->status !== 'pending_remittance') {
                 return null;
+            }
+
+            $isGcash = \App\Services\GcashEscrowService::isGcash($order);
+            if ($isGcash) {
+                \App\Services\GcashEscrowService::assertFunded($order);
+                $request->validate(['bank_reference' => ['required', 'string', 'max:150']]);
+                if ((float) $remittance->amount <= 0) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Only positive allocations can be released.']);
+                }
+                if ($order->deliveries()->where('status', '!=', 'delivered')->exists()
+                    || ! $order->deliveries()->exists() || in_array($order->status, ['cancelled', 'refunded', 'returned'], true)
+                    || $order->returnRequests()->whereNotIn('status', ['rejected', 'cancelled', 'resolved', 'completed'])->exists()
+                    || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Complete delivery and resolve returns or disputes before releasing GCash escrow.']);
+                }
+                if (($remittance->recipient_role !== EscrowRemittance::ROLE_INTER_HUB_DRIVER && ! $remittance->recipient_user_id)
+                    || ($remittance->recipient_role === EscrowRemittance::ROLE_INTER_HUB_DRIVER && ! $remittance->hub_transport_driver_id && ! $remittance->rider_id)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Assign the recipient before releasing this allocation.']);
+                }
+                $releasedTotal = (float) EscrowRemittance::where('order_id', $order->id)->whereIn('status', ['remitted', 'accepted'])->sum('amount');
+                if (round($releasedTotal + (float) $remittance->amount, 2) > round((float) $order->total_amount, 2)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'This release exceeds the confirmed escrow balance. Review allocation funding.']);
+                }
             }
 
             $reference = $request->input('bank_reference') ?: ('REMIT-' . strtoupper(Str::random(8)));
@@ -52,10 +77,10 @@ class PaymentActionController extends Controller
             ]);
 
             // Auto-approve and collect the admin's 10% commission for this order
-            if ($remittance->order_id) {
+            if ($remittance->order_id && ! $isGcash) {
                 EscrowRemittance::where('order_id', $remittance->order_id)
                     ->where('recipient_role', EscrowRemittance::ROLE_ADMIN)
-                    ->where('status', '!=', 'remitted')
+                    ->whereNotIn('status', ['remitted', 'accepted'])
                     ->update([
                         'status'         => 'remitted',
                         'bank_reference' => 'ADMIN-COMM-' . $remittance->order_id,
@@ -87,7 +112,7 @@ class PaymentActionController extends Controller
         }
 
         return back()->with('status', 'Remittance of ₱' . number_format($released['amount'], 2)
-            . " released to {$released['name']} (Ref: {$released['reference']}). Admin 10% commission booked.");
+            . " released to {$released['name']} (Ref: {$released['reference']}).");
     }
 
     public function remitAllPendingEscrow(Request $request)
@@ -97,6 +122,7 @@ class PaymentActionController extends Controller
         $result = DB::transaction(function () use ($batch): array {
             $rows = EscrowRemittance::query()
                 ->where('status', 'pending_remittance')
+                ->whereHas('order', fn ($q) => $q->whereDoesntHave('payment', fn ($p) => $p->where('method', 'gcash')))
                 ->lockForUpdate()
                 ->get();
 
@@ -129,7 +155,7 @@ class PaymentActionController extends Controller
             if ($orderIds->isNotEmpty()) {
                 EscrowRemittance::whereIn('order_id', $orderIds)
                     ->where('recipient_role', EscrowRemittance::ROLE_ADMIN)
-                    ->where('status', '!=', 'remitted')
+                    ->whereNotIn('status', ['remitted', 'accepted'])
                     ->update([
                         'status'         => 'remitted',
                         'bank_reference' => 'ADMIN-COMM-BATCH',

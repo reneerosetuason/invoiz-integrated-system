@@ -84,11 +84,35 @@ class RemittanceSummary {
 }
 
 class RemittancePage {
-  const RemittancePage({
-    required this.remittances,
-    required this.summary,
-  });
+  const RemittancePage({required this.remittances, required this.summary});
 
   final List<Remittance> remittances;
   final RemittanceSummary summary;
+}
+
+class EscrowPayout {
+  const EscrowPayout({
+    required this.id,
+    required this.amount,
+    required this.status,
+    required this.orderNumber,
+    required this.roleLabel,
+    this.reference,
+  });
+  final int id;
+  final double amount;
+  final String status;
+  final String orderNumber;
+  final String roleLabel;
+  final String? reference;
+  bool get canAccept => status == 'remitted';
+
+  factory EscrowPayout.fromJson(Map<String, dynamic> json) => EscrowPayout(
+    id: (json['id'] as num).toInt(),
+    amount: double.tryParse('${json['amount']}') ?? 0,
+    status: json['status'] as String,
+    orderNumber: json['order_number'] as String? ?? '',
+    roleLabel: json['role_label'] as String? ?? 'Rider payout',
+    reference: json['bank_reference'] as String?,
+  );
 }

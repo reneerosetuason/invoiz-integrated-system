@@ -21,7 +21,7 @@ class RiderEarningsController extends Controller
         $monthStart = now()->startOfMonth();
 
         $daily = (float) RiderEarning::where('rider_id', $rider->id)
-            ->where('earned_on', $today->toDateString())
+            ->whereDate('earned_on', $today->toDateString())
             ->sum('amount');
 
         $weekly = (float) RiderEarning::where('rider_id', $rider->id)

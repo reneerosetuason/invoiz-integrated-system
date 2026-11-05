@@ -1,181 +1,146 @@
 @extends('buyer.layouts.website')
 @section('content')
-<link rel="stylesheet" href="{{ asset('assets/buyer/css/checkout.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/buyer/css/checkout.css') }}?v={{ filemtime(public_path('assets/buyer/css/checkout.css')) }}">
 @php
-  $buyer = \App\Support\BuyerSession::current();
-  $single = $single ?? null;
-  $cartItems = $cartItems ?? collect();
-  $checkoutMode = $checkoutMode ?? 'single';
-  $sellerGroups = $sellerGroups ?? [];
-  $grandTotal = $grandTotal ?? 0;
-  $sellerQtyMap = $sellerQtyMap ?? [];
-  $claimedVouchers = $claimedVouchers ?? collect();
+    $single = $single ?? null;
+    $checkoutMode = $checkoutMode ?? 'single';
+    $sellerGroups = $sellerGroups ?? [];
+    $claimedVouchers = $claimedVouchers ?? collect();
+    $oldVoucherIds = array_map('intval', (array) old('voucher_claim_ids', []));
+    if ($single) {
+        $checkoutProduct = $products->first();
+        $checkoutGroups = [(int) $checkoutProduct->seller_id => ['lines' => collect([[
+            'product' => $checkoutProduct, 'qty' => $singleQty ?? 1, 'label' => $singleLabel ?? '',
+            'line' => ($singleUnit ?? $checkoutProduct->price) * ($singleQty ?? 1),
+        ]]), 'total' => ($singleUnit ?? $checkoutProduct->price) * ($singleQty ?? 1)]];
+    } elseif ($checkoutMode === 'seller') {
+        $checkoutGroups = [(int) $sellerId => ['lines' => $sellerLines, 'total' => $sellerLines->sum('line')]];
+    } else {
+        $checkoutGroups = $sellerGroups;
+    }
+    $subtotals = collect($checkoutGroups)->map(fn ($group) => (float) $group['total'])->all();
+    try {
+        $initialQuote = \App\Services\GcashEscrowService::quoteForStores($subtotals, $claimedVouchers->whereIn('id', $oldVoucherIds)->pluck('voucher'));
+    } catch (\Illuminate\Validation\ValidationException $exception) {
+        $initialQuote = \App\Services\GcashEscrowService::quoteForStores($subtotals, collect());
+    }
+    $accounts = collect($initialQuote['accounts'])->keyBy('seller_id');
+    $itemCount = collect($checkoutGroups)->sum(fn ($group) => $group['lines']->sum('qty'));
 @endphp
-@if(session('error'))<div style="background:#fef2f2;color:#991b1b;padding:10px;border-radius:8px;border:1px solid #fecaca;margin-bottom:10px;font-size:13px;font-weight:600">{{ session('error') }}</div>@endif
-<h2 style="font-weight:800">Checkout</h2>
-<div class="checkout-grid">
-  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-    <h3 style="margin:0 0 10px;font-size:14px">Payment method</h3>
-    <form method="POST" action="/checkout">
-      @csrf
-      @if($single)
-        <input type="hidden" name="checkout_mode" value="single">
-        <input type="hidden" name="single" value="{{ $single }}">
-        <input type="hidden" name="qty" value="{{ $singleQty ?? 1 }}">
-        <input type="hidden" name="variant_id" value="{{ $singleVariantId ?? '' }}">
-      @elseif($checkoutMode === 'seller')
-        <input type="hidden" name="checkout_mode" value="seller">
-        <input type="hidden" name="seller_id" value="{{ $sellerId ?? '' }}">
-      @elseif($checkoutMode === 'selected')
-        <input type="hidden" name="checkout_mode" value="selected">
-        @foreach($sellerGroups as $group)
-          @foreach($group['lines'] as $line)
-            <input type="hidden" name="selected_item_ids[]" value="{{ $line['item']->id }}">
-          @endforeach
-        @endforeach
-      @else
-        <input type="hidden" name="checkout_mode" value="all">
-      @endif
-        <div style="margin:4px 0 16px;padding:14px;border:1px solid var(--border);border-radius:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-            <h3 style="margin:0;font-size:14px">Delivery address</h3>
-            <a href="{{ url('/profile#saved-addresses') }}" style="font-size:11px;color:var(--green);font-weight:700;text-decoration:none">Manage addresses</a>
-          </div>
-          <select name="address_id" required style="width:100%;padding:11px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;background:#fff">
-            <option value="">Select a delivery address</option>
-            @forelse($addresses as $address)
-              @php
-                $addressParts = array_filter([$address->address_line, $address->barangay, $address->city, $address->province, $address->region, $address->postal_code], fn($part) => filled($part));
-              @endphp
-              <option value="{{ $address->id }}" @selected((string)old('address_id', $selectedAddressId ? $selectedAddressId : null) === (string)$address->id) @if($address->is_default) data-default="1" @endif>
-                {{ $address->recipient_name }} — {{ implode(', ', $addressParts) }} @if($address->is_default) <span style="color:#0F766E;font-weight:700">(Default)</span>@endif {{ $address->phone }}
-              </option>
-            @empty
-              <option disabled>No saved addresses. Add one in your profile first.</option>
-            @endforelse
-          </select>
-          @error('address_id')<div style="margin-top:8px;color:#B91C1C;font-size:11px;font-weight:600">{{ $message }}</div>@enderror
-        </div>
-      <label style="display:flex;align-items:center;gap:10px;padding:12px;border:1px solid var(--green);border-radius:10px;margin-bottom:10px;cursor:pointer;background:#f0fdf4">
-        <input type="radio" name="payment_method" value="cod" checked style="accent-color:var(--green)">
-        <img src="https://cdn-icons-png.flaticon.com/512/2168/2168741.png" alt="COD" style="width:28px;height:28px;object-fit:contain;background:#fff;border-radius:6px;padding:3px;border:1px solid var(--border)">
-        <span style="font-weight:700">Cash on Delivery (COD)</span>
-        <span style="margin-left:auto;color:var(--green);font-size:11px;font-weight:700"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-3px"><polyline points="20 6 9 17 4 12"/></svg> Selected</span>
-      </label>
-      <div style="margin-top:12px;padding:10px;background:#f0fdf4;border:1px solid var(--green);border-radius:8px;font-size:11px;color:var(--green-dark)">COD only: Pay when your order is delivered.</div>
-      <div style="margin-top:10px">
-        @php
-          $shipVouchers = collect();
-          $merchVouchers = collect();
-          foreach($claimedVouchers as $claim){
-            $v = $claim->voucher;
-            if(!$v) continue;
-            if((($v->discount_type ?? $v->type) === 'free_shipping')){ $shipVouchers->push($claim); } else { $merchVouchers->push($claim); }
-          }
-          $oldVoucherIds = array_map('intval', (array) old('voucher_claim_ids', []));
-        @endphp
-        <label style="font-size:12px;font-weight:700">Vouchers <span style="font-weight:400;color:var(--text2)">(optional — up to one store, one platform and one shipping)</span></label>
-        @foreach([['Shipping voucher', $shipVouchers], ['Merchandise vouchers', $merchVouchers]] as [$groupLabel, $groupClaims])
-          @if($groupClaims->isNotEmpty())
-            <div style="font-size:11px;font-weight:700;color:var(--text2);margin:8px 0 2px">{{ $groupLabel }}</div>
-            @foreach($groupClaims as $claim)
-              @php
-                $voucher = $claim->voucher;
-                $voucherType = $voucher->discount_type ?? $voucher->type;
-                $voucherValue = $voucher->discount_value ?? $voucher->value;
-                $voucherText = $voucherType === 'free_shipping' ? 'Free shipping' : ($voucherType === 'percent' ? rtrim(rtrim(number_format((float)$voucherValue,2),'0'),'.').'% off' : '₱'.number_format((float)$voucherValue,2).' off');
-                $voucherSeller = $voucher->seller_id ? 'Store' : 'Platform';
-                if($voucher->seller_id){ try { $voucherSeller = \App\Models\Seller::nameFor(\App\Support\Vouchers::sellerUserId($voucher)); } catch (\Throwable $e) {} }
-              @endphp
-              <label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;padding:6px 0;cursor:pointer">
-                <input type="checkbox" name="voucher_claim_ids[]" value="{{ $claim->id }}" @checked(in_array((int)$claim->id, $oldVoucherIds))>
-                <span>{{ $voucherText }} · {{ $voucherSeller }}@if($voucher->min_spend > 0) · Min ₱{{ number_format($voucher->min_spend,2) }}@endif</span>
-              </label>
-            @endforeach
-          @endif
-        @endforeach
-        @if($claimedVouchers->isEmpty())
-          <div style="font-size:12px;color:var(--text2);margin-top:8px">No claimed vouchers apply to the selected items.</div>
-        @endif
-        <div style="font-size:11px;color:var(--text2);margin-top:5px">Claim offers from <a href="{{ url('/vouchers') }}" style="color:var(--green);font-weight:700">the vouchers page</a>; no voucher code is needed.</div>
-        <div style="font-size:11px;color:var(--text2);margin-top:4px">Discount vouchers cut the item total · free-shipping vouchers waive the ₱50/shop delivery fee. Applied when you place the order.</div>
-      </div>
-      <button type="submit" @disabled($addresses->isEmpty()) style="width:100%;margin-top:14px;padding:12px;background:{{ $addresses->isEmpty() ? '#9ca3af' : 'var(--green)' }};color:#fff;border:none;border-radius:var(--radius);font-weight:800;cursor:{{ $addresses->isEmpty() ? 'not-allowed' : 'pointer' }};font-size:13px">
-        @if(in_array($checkoutMode, ['all','selected']))
-          Place {{ count($sellerGroups) }} Order(s) — ₱{{ number_format($grandTotal + count($sellerGroups) * \App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}
-        @else
-          Place Order
-        @endif
-      </button>
-    </form>
-  </div>
-  <div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:16px">
-    <h3 style="margin:0 0 10px;font-size:14px">Order summary</h3>
-    @if(in_array($checkoutMode, ['all', 'selected']))
-      @php $orderNum = 1; @endphp
-      @foreach($sellerGroups as $sid => $group)
-        <div style="margin-bottom:12px;{{ !$loop->last ? 'padding-bottom:12px;border-bottom:1px solid var(--border-light)' : '' }}">
-          @php $coStore = ''; try { $coStore = \App\Models\Seller::nameFor($sid); } catch (\Throwable $e) {} @endphp
-          <div style="font-weight:700;font-size:12px;color:var(--green);margin-bottom:6px">Order {{ $orderNum }}@if($coStore && $coStore !== 'Store') — {{ $coStore }}@endif</div>
-          @php $orderNum++; @endphp
-          @foreach($group['lines'] as $gl)
-            @php $p = $gl['product']; $qty = $gl['qty']; @endphp
-            <div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px">
-              <span>{{ $p->name }}@if($gl['label']) <span style="color:var(--text3)">({{ $gl['label'] }})</span>@endif × {{ $qty }}</span>
-              <b style="color:var(--green)">₱{{ number_format($gl['line'],2) }}</b>
-            </div>
-          @endforeach
-          <div style="display:flex;justify-content:space-between;margin-top:4px;font-weight:700;font-size:12px;border-top:1px dashed var(--border);padding-top:4px">
-            <span>Subtotal</span>
-            <span style="color:var(--green)">₱{{ number_format($group['total'],2) }}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text2)">
-            <span>Shipping (1 shop)</span>
-            <span>₱{{ number_format(\App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span>
-          </div>
-        </div>
-      @endforeach
-      <div style="display:flex;justify-content:space-between;margin-top:8px;font-weight:800;font-size:14px;border-top:2px solid var(--green);padding-top:8px">
-        <span>Grand Total ({{ count($sellerGroups) }} orders, incl. shipping)</span>
-        <span style="color:var(--green)">₱{{ number_format($grandTotal + count($sellerGroups) * \App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span>
-      </div>
-    @else
-      @php
-        $total = 0;
-        if($single){
-          $total = ($singleUnit ?? $products->first()->price) * ($singleQty ?? 1);
-        } elseif($checkoutMode === 'seller'){
-          $total = isset($sellerLines) ? $sellerLines->sum('line') : 0;
-        } else {
-          $total = isset($sellerGroups) ? collect($sellerGroups)->sum('total') : 0;
-        }
-      @endphp
-      @if($single)
-        @foreach($products as $p)
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:12px">
-            <span>{{ $p->name }}@if(!empty($singleLabel)) <span style="color:var(--text3)">({{ $singleLabel }})</span>@endif × {{ $singleQty ?? 1 }}</span>
-            <b style="color:var(--green)">₱{{ number_format($total,2) }}</b>
-          </div>
-        @endforeach
-      @elseif($checkoutMode === 'seller' && isset($sellerLines))
-        @foreach($sellerLines as $sl)
-          <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:12px">
-            <span>{{ $sl['product']->name }}@if($sl['label']) <span style="color:var(--text3)">({{ $sl['label'] }})</span>@endif × {{ $sl['qty'] }}</span>
-            <b style="color:var(--green)">₱{{ number_format($sl['line'],2) }}</b>
-          </div>
-        @endforeach
-      @else
-      @foreach($products as $p)
-        @php $qty = $sellerQtyMap[$p->id] ?? $cartItems->where('product_id',$p->id)->first()->quantity ?? 1; @endphp
-        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border-light);font-size:12px">
-          <span>{{ $p->name }} × {{ $qty }}</span>
-          <b style="color:var(--green)">₱{{ number_format($p->price * $qty,2) }}</b>
-        </div>
-      @endforeach
-      @endif
-      <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:12px;color:var(--text2)"><span>Shipping (1 shop)</span><span>₱{{ number_format(\App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-top:6px;font-weight:800;font-size:14px">Total <span style="color:var(--green)">₱{{ number_format($total + \App\Models\Order::SHIPPING_FEE_PER_SELLER,2) }}</span></div>
+<div class="checkout-page">
+    <header class="checkout-heading">
+        <a class="checkout-back" href="{{ url('/cart') }}">← Back to cart</a>
+        <h1>Checkout</h1>
+        <p>Review your order and payment details.</p>
+    </header>
+    @if(session('error'))<p class="checkout-alert" role="alert">{{ session('error') }}</p>@endif
+    @if($errors->any())
+        <div class="checkout-alert" role="alert"><strong>Let’s check those details.</strong><ul>@foreach($errors->all() as $message)<li>{{ $message }}</li>@endforeach</ul></div>
     @endif
-  </div>
+    <form method="POST" action="{{ url('/checkout') }}" enctype="multipart/form-data" id="checkout-form" class="checkout-grid" data-quote-url="{{ url('/checkout/gcash-quote') }}">
+        @csrf
+        <input type="hidden" name="checkout_mode" value="{{ $single ? 'single' : $checkoutMode }}">
+        @if($single)
+            <input type="hidden" name="single" value="{{ $single }}">
+            <input type="hidden" name="qty" value="{{ $singleQty ?? 1 }}">
+            <input type="hidden" name="variant_id" value="{{ $singleVariantId ?? '' }}">
+        @elseif($checkoutMode === 'seller')
+            <input type="hidden" name="seller_id" value="{{ $sellerId }}">
+        @elseif($checkoutMode === 'selected')
+            @foreach($sellerGroups as $group)
+                @foreach($group['lines'] as $line)<input type="hidden" name="selected_item_ids[]" value="{{ $line['item']->id }}">@endforeach
+            @endforeach
+        @endif
+        <div class="checkout-details">
+            <section class="checkout-section checkout-address">
+                <div class="checkout-section-heading"><h2>Delivery address</h2><a href="{{ url('/profile#saved-addresses') }}">Manage addresses</a></div>
+                <label class="checkout-field-label" for="checkout-address">Delivery address</label>
+                <select id="checkout-address" name="address_id" required>
+                    <option value="">Choose a saved address</option>
+                    @foreach($addresses as $address)
+                        @php $addressText = implode(', ', array_filter([$address->address_line, $address->barangay, $address->city, $address->province, $address->region, $address->postal_code])); @endphp
+                        <option value="{{ $address->id }}" data-recipient="{{ $address->recipient_name }}" data-address="{{ $addressText }}" data-phone="{{ $address->phone }}" @selected((string) old('address_id', $selectedAddressId ?? '') === (string) $address->id)>
+                            {{ $address->recipient_name }} · {{ $address->city }}{{ $address->is_default ? ' · Default' : '' }}
+                        </option>
+                    @endforeach
+                </select>
+                <div class="checkout-address-preview" id="checkout-address-preview" hidden><strong data-recipient></strong><p data-address></p><span data-phone></span></div>
+                @if($addresses->isEmpty())<p class="checkout-note">Add a delivery address in your profile to place this order.</p>@endif
+            </section>
+            <section class="checkout-section checkout-payment">
+                <div class="checkout-section-heading"><h2>Payment method</h2></div>
+                <div class="checkout-methods" data-ui role="radiogroup" aria-label="Payment method">
+                    <label class="checkout-payment-choice">
+                        <input type="radio" name="payment_method" value="cod" @checked(old('payment_method', 'cod') === 'cod')>
+                        <span><strong>Cash on delivery</strong><small>Pay when your parcel arrives.</small></span>
+                        <span class="checkout-method-mark" aria-hidden="true">₱</span>
+                    </label>
+                    <label class="checkout-payment-choice">
+                        <input type="radio" name="payment_method" value="gcash" aria-controls="gcash-proof-fields" disabled @checked(old('payment_method') === 'gcash')>
+                        <span><strong>GCash</strong><small>Scan the store’s QR. Upload your receipt.</small></span>
+                        <span class="checkout-method-mark" aria-hidden="true">G</span>
+                    </label>
+                </div>
+                <p class="checkout-cod-note" id="checkout-cod-note">Keep the exact amount ready for your rider.</p>
+                <p id="gcash-quote-message" class="checkout-note" role="status" aria-live="polite"></p>
+                <button type="button" id="gcash-quote-retry" class="checkout-text-button" hidden>Reload payment details</button>
+                <div id="gcash-proof-fields" class="checkout-gcash-proof" @if(old('payment_method') !== 'gcash') hidden @endif>
+                    <p class="checkout-payment-intro">Use your own GCash app to scan or import the receiving QR. Pay each store separately, then attach its receipt.</p>
+                    <div id="gcash-store-payments">
+                        @foreach($initialQuote['accounts'] as $account)@include('buyer.partials.checkout-gcash-account')@endforeach
+                    </div>
+                </div>
+                <noscript><p class="checkout-alert">Enable JavaScript to load current GCash payment details and receipt uploads. You can still choose cash on delivery.</p></noscript>
+            </section>
+            <section class="checkout-section checkout-vouchers">
+                <details @if($oldVoucherIds) open @endif>
+                    <summary><span>Apply a voucher</span><span class="checkout-voucher-count">{{ $claimedVouchers->count() }} {{ $claimedVouchers->count() === 1 ? 'voucher' : 'vouchers' }}</span></summary>
+                    <div class="checkout-voucher-body">
+                        <p class="checkout-note">Choose up to one store, one platform and one shipping voucher.</p>
+                        @forelse($claimedVouchers as $claim)
+                            @php
+                                $voucher = $claim->voucher;
+                                $type = $voucher->discount_type ?? $voucher->type;
+                                $value = $voucher->discount_value ?? $voucher->value;
+                                $offer = $type === 'free_shipping' ? 'Free shipping' : ($type === 'percent' ? rtrim(rtrim(number_format((float) $value, 2), '0'), '.').'% off' : '₱'.number_format((float) $value, 2).' off');
+                                $issuer = $voucher->seller_id ? \App\Models\Seller::nameFor(\App\Support\Vouchers::sellerUserId($voucher)) : 'Invoiz';
+                            @endphp
+                            <label class="checkout-voucher-choice"><input type="checkbox" name="voucher_claim_ids[]" value="{{ $claim->id }}" @checked(in_array((int) $claim->id, $oldVoucherIds))><span><strong>{{ $offer }}</strong><small>{{ $issuer }}@if($voucher->min_spend > 0) · Min. ₱{{ number_format($voucher->min_spend, 2) }}@endif</small></span></label>
+                        @empty<p>No claimed vouchers apply to these items.</p>@endforelse
+                        <a class="checkout-inline-link" href="{{ url('/vouchers') }}">Find more vouchers →</a>
+                    </div>
+                </details>
+            </section>
+        </div>
+        <aside class="checkout-receipt" aria-label="Order summary">
+            <div class="checkout-receipt-heading"><h2>Your order</h2><span>{{ $itemCount }} {{ $itemCount === 1 ? 'item' : 'items' }} · {{ count($checkoutGroups) }} {{ count($checkoutGroups) === 1 ? 'store' : 'stores' }}</span></div>
+            <div class="checkout-order-items">
+                @foreach($checkoutGroups as $sid => $group)
+                    <div class="checkout-store-order"><h3>{{ $accounts->get((int) $sid)['store_name'] ?? \App\Models\Seller::nameFor($sid) }}</h3>
+                        @foreach($group['lines'] as $line)
+                            @php $product = $line['product']; $photo = $product->primary_image_url; @endphp
+                            <div class="checkout-product">
+                                @if($photo)<img src="{{ $photo }}" alt="{{ $product->name }}" width="64" height="72" loading="lazy">@else<span class="checkout-product-initial" aria-hidden="true">{{ mb_substr($product->name, 0, 1) }}</span>@endif
+                                <div><p>{{ $product->name }}</p>@if($line['label'])<span>{{ $line['label'] }}</span>@endif<span>Qty {{ $line['qty'] }}</span></div>
+                                <strong>₱{{ number_format($line['line'], 2) }}</strong>
+                            </div>
+                        @endforeach
+                    </div>
+                @endforeach
+            </div>
+            <dl class="checkout-totals">
+                <div><dt>Items subtotal</dt><dd data-checkout-subtotal>₱{{ number_format($initialQuote['subtotal'], 2) }}</dd></div>
+                <div><dt>Delivery · {{ count($checkoutGroups) }} {{ count($checkoutGroups) === 1 ? 'store' : 'stores' }}</dt><dd data-checkout-shipping>₱{{ number_format($initialQuote['shipping_fee'], 2) }}</dd></div>
+                <div data-checkout-discount-row @if($initialQuote['discount'] <= 0) hidden @endif><dt>Voucher savings</dt><dd data-checkout-discount>−₱{{ number_format($initialQuote['discount'], 2) }}</dd></div>
+            </dl>
+            <div class="checkout-grand-total" data-ui><span>Total to pay</span><strong data-checkout-total>₱{{ number_format($initialQuote['total'], 2) }}</strong></div>
+            <p class="checkout-receipt-note" id="checkout-payment-note">Pay on delivery. Your rider collects this amount.</p>
+            <button type="submit" class="checkout-place-order" @disabled($addresses->isEmpty())>Place {{ count($checkoutGroups) > 1 ? count($checkoutGroups).' orders' : 'order' }} <span aria-hidden="true">→</span></button>
+            <p class="checkout-submit-note">Check your address and payment details before placing your order.</p>
+        </aside>
+    </form>
+    <script id="checkout-initial-quote" type="application/json">@json($initialQuote)</script>
+    <template id="gcash-account-template">@include('buyer.partials.checkout-gcash-account', ['account' => ['seller_id' => 0, 'store_name' => '', 'account_name' => '', 'amount' => 0, 'qr_url' => null, 'available' => false, 'unavailable_reason' => 'seller_qr_missing']])</template>
 </div>
+<script src="{{ asset('assets/buyer/js/checkout-payment.js') }}?v={{ filemtime(public_path('assets/buyer/js/checkout-payment.js')) }}" defer></script>
 @endsection

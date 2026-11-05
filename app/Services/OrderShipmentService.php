@@ -16,6 +16,9 @@ class OrderShipmentService
     {
         return DB::transaction(function () use ($order, $notify) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (! in_array($order->status, ['pending', 'new', 'cancelled'], true)) {
+                GcashEscrowService::assertFunded($order);
+            }
             $order->load(['items', 'address', 'buyer', 'payment', 'orderVouchers.voucher']);
             $groups = $order->items->pluck('seller_id')->map(fn ($id) => (int) $id)->unique()->values();
             if ($groups->count() !== 1) {

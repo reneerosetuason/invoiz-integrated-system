@@ -13,7 +13,16 @@ class Payment extends Model
         'amount',
         'reference_number',
         'paid_at',
+        'proof_path',
     ];
+
+    protected $hidden = ['proof_path'];
+    protected $appends = ['has_payment_proof'];
+
+    public function getHasPaymentProofAttribute(): bool
+    {
+        return $this->method === 'gcash' && filled($this->proof_path);
+    }
 
     protected function casts(): array
     {

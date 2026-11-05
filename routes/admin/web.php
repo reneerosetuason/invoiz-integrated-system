@@ -16,6 +16,9 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 
 Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(function () {
+    Route::get('account-deletions', [\App\Http\Controllers\Admin\AccountDeletionController::class, 'index'])->name('admin.account-deletions.index');
+    Route::get('account-deletions/{deletion}', [\App\Http\Controllers\Admin\AccountDeletionController::class, 'show'])->whereNumber('deletion')->name('admin.account-deletions.show');
+    Route::post('account-deletions/{deletion}/restore', [\App\Http\Controllers\Admin\AccountDeletionController::class, 'restore'])->whereNumber('deletion')->middleware('throttle:5,1')->name('admin.account-deletions.restore');
     Route::get('dashboard', function () {
         $orders = \App\Models\Order::query();
         // Revenue counts SETTLED sales only: delivered AND cash handoff
@@ -77,7 +80,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::post('sellers/{seller}/suspend', [SellerController::class, 'suspend'])->name('admin.seller.suspend');
     Route::post('sellers/{seller}/reinstate', [SellerController::class, 'reinstate'])->name('admin.seller.reinstate');
     Route::get('buyers', function (\Illuminate\Http\Request $request) {
-        $query = \App\Models\User::where('role', 'buyer')->withCount('orders');
+        $query = \App\Models\User::where('role', 'buyer')->whereNull('archived_at')->withCount('orders');
         if ($request->filled('search')) { $s = $request->search; $query->where(fn($qq) => $qq->where('name', 'like', "%{$s}%")->orWhere('email', 'like', "%{$s}%")); }
         $buyers = $query->orderBy('created_at', 'desc')->paginate(10);
         $stats = ['all' => \App\Models\User::where('role','buyer')->count(), 'active' => \App\Models\User::where('role','buyer')->where('account_status','active')->count(), 'suspended' => 0];
@@ -96,6 +99,10 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::get('orders/{order}', [OrderController::class, 'show'])->name('admin.order.show');
     Route::post('orders/{order}/update', [OrderController::class, 'update'])->name('admin.order.update');
         Route::get('payments', [PaymentController::class, 'index'])->name('admin.payments');
+        Route::get('payments/gcash-escrow', [\App\Http\Controllers\GcashEscrowController::class, 'index'])->name('admin.gcash.index');
+        Route::post('payments/gcash-escrow/settings', [\App\Http\Controllers\GcashEscrowController::class, 'settings'])->name('admin.gcash.settings');
+        Route::post('payments/gcash-escrow/{deposit}/review', [\App\Http\Controllers\GcashEscrowController::class, 'review'])->name('admin.gcash.review');
+        Route::get('payments/gcash-escrow/{deposit}/proof', [\App\Http\Controllers\GcashEscrowController::class, 'proof'])->name('admin.gcash.proof');
         Route::post('payments/escrow-remittances/{id}/remit', [\App\Http\Controllers\Admin\PaymentActionController::class, 'remitEscrow'])->name('admin.escrow.remit');
         Route::post('payments/escrow-remittances/remit-all', [\App\Http\Controllers\Admin\PaymentActionController::class, 'remitAllPendingEscrow'])->name('admin.escrow.remit-all');
         Route::post('payments/payouts/{id}/mark-paid', [\App\Http\Controllers\Admin\PaymentActionController::class, 'markPayoutPaid'])->name('admin.payouts.mark-paid');

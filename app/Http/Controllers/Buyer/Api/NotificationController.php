@@ -30,6 +30,16 @@ class NotificationController extends Controller
         $user = $request->user();
 
         $items = [];
+        if (\Illuminate\Support\Facades\Schema::hasTable('account_deletion_requests') && \Illuminate\Support\Facades\Schema::hasTable('audit_logs')) {
+            $requests = \App\Models\AccountDeletionRequest::where('user_id', $user->id)->select('id');
+            foreach (\App\Models\AuditLog::where('entity', 'account_deletion_requests')->whereIn('entity_id', $requests)->latest('id')->limit(20)->get() as $event) {
+                $key = 'account-deletion-'.$event->id;
+                $items[] = ['id' => $key, 'type' => 'account', 'title' => 'Account deletion update',
+                    'body' => $event->meta['message'], 'order_id' => null,
+                    'created_at' => $event->created_at->toIso8601String(),
+                    'read' => \App\Models\NotificationRead::where('user_id', $user->id)->where('notification_key', $key)->exists()];
+            }
+        }
         $readKeys = NotificationRead::where('user_id', $user->id)->pluck('notification_key')->all();
 
         $histories = OrderStatusHistory::query()

@@ -40,6 +40,17 @@
         </div>
 
         <div class="space-y-6 lg:col-span-2">
+            <div class="card p-6">
+                <h3 class="mb-4 text-base font-bold">GCash receiving account</h3>
+                <p class="mb-3 text-sm">Buyers see this QR at checkout. Use a receiving QR for your own GCash account. JPG, PNG or WebP, up to 5 MB.</p>
+                @if(auth()->user()->seller?->gcash_qr_path)<img src="{{ asset('storage/'.auth()->user()->seller->gcash_qr_path) }}" alt="Your GCash receiving QR" style="width:220px;max-width:100%;height:auto" class="mb-3">@endif
+                <form method="POST" action="{{ route('seller.account.gcash') }}" enctype="multipart/form-data" class="space-y-3">
+                    @csrf
+                    <label class="block field-label">GCash account name<input class="input" name="gcash_account_name" maxlength="150" value="{{ old('gcash_account_name', auth()->user()->seller?->gcash_account_name) }}" required></label>
+                    <label class="block field-label">Receiving QR<input class="input" type="file" name="gcash_qr" accept="image/jpeg,image/png,image/webp" required></label>
+                    <button class="btn btn-primary" type="submit">Save GCash QR</button>
+                </form>
+            </div>
             {{-- Personal info --}}
             <div class="card p-6">
                 <h3 class="mb-4 text-base font-bold">Personal Information</h3>

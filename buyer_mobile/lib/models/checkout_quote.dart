@@ -4,6 +4,7 @@ class CheckoutQuote {
   final double discount;
   final double shippingDiscount;
   final double total;
+  final List<Map<String, dynamic>> gcashAccounts;
 
   const CheckoutQuote({
     required this.subtotal,
@@ -11,6 +12,7 @@ class CheckoutQuote {
     required this.discount,
     required this.shippingDiscount,
     required this.total,
+    this.gcashAccounts = const [],
   });
 
   factory CheckoutQuote.fromJson(Map<String, dynamic> json) {
@@ -21,6 +23,9 @@ class CheckoutQuote {
       discount: amount('discount'),
       shippingDiscount: amount('shipping_discount'),
       total: amount('total'),
+      gcashAccounts: (json['gcash_accounts'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList(),
     );
   }
 }

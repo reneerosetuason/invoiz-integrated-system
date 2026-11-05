@@ -247,7 +247,7 @@ class UnifiedAuthController extends Controller
             return back()->withErrors(['email' => 'This account uses the restricted Logistics authentication process.'])->withInput();
         }
         if (! $user->isActive()) {
-            return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
+            return back()->withErrors(['email' => ($user->archived_at ? config('account_deletion.inactive_message') : 'Your account is not active.')])->withInput();
         }
         if ($user->email_verified_at) {
             return redirect('/login')->with('success', 'Already verified — you can log in.');
@@ -352,7 +352,7 @@ class UnifiedAuthController extends Controller
         }
 
         if (! $user->isActive()) {
-            return back()->withErrors(['email' => 'Your account is not active.'])->withInput();
+            return back()->withErrors(['email' => ($user->archived_at ? config('account_deletion.inactive_message') : 'Your account is not active.')])->withInput();
         }
 
         if ($user->isDesignatedLogisticsAdminAccount()) {
@@ -477,7 +477,7 @@ class UnifiedAuthController extends Controller
         $user = User::where('email', $info['email'])->first();
         if ($user) {
             if (! $user->isActive()) {
-                return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+                return redirect('/login')->withErrors(['email' => ($user->archived_at ? config('account_deletion.inactive_message') : 'Your account is not active.')]);
             }
             if ($user->hasBlockedMarketplaceApproval()) {
                 return redirect('/login')->withErrors(['email' => 'Your account is not approved.']);
@@ -580,7 +580,7 @@ class UnifiedAuthController extends Controller
         }
         if (! $user->isActive()) {
             Auth::logout();
-            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+            return redirect('/login')->withErrors(['email' => ($user->archived_at ? config('account_deletion.inactive_message') : 'Your account is not active.')]);
         }
         $seller = Seller::where('user_id', $user->id)->first();
         if (! $seller || ! $seller->isApproved()) {
@@ -600,7 +600,7 @@ class UnifiedAuthController extends Controller
         }
         if (! $user->isActive()) {
             Auth::logout();
-            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+            return redirect('/login')->withErrors(['email' => ($user->archived_at ? config('account_deletion.inactive_message') : 'Your account is not active.')]);
         }
         $request->session()->forget('seller_id');
         $request->session()->put('active_role', 'buyer');
@@ -624,7 +624,7 @@ class UnifiedAuthController extends Controller
         }
         if (! $user->isActive()) {
             Auth::logout();
-            return redirect('/login')->withErrors(['email' => 'Your account is not active.']);
+            return redirect('/login')->withErrors(['email' => ($user->archived_at ? config('account_deletion.inactive_message') : 'Your account is not active.')]);
         }
         $seller = Seller::where('user_id', $user->id)->approved()->first();
         if (! $seller || ! $seller->isApproved()) {

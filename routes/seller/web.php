@@ -18,6 +18,10 @@ Route::post('/seller/login', [SellerAppAuth::class, 'login'])->name('seller.logi
 Route::post('/seller/logout', [SellerAppAuth::class, 'logout'])->name('seller.logout');
 
 Route::prefix('seller')->middleware('seller')->group(function () {
+    Route::post('/account/gcash', [\App\Http\Controllers\GcashEscrowController::class, 'sellerQr'])->name('seller.account.gcash');
+    Route::post('/escrow-payouts/{remittance}/accept', [\App\Http\Controllers\GcashEscrowController::class, 'acceptSellerPayout'])->name('seller.gcash.accept-payout');
+    Route::post('/orders/{order}/gcash/verify', [\App\Http\Controllers\GcashEscrowController::class, 'verify'])->name('seller.gcash.verify');
+    Route::post('/orders/{order}/gcash/deposit', [\App\Http\Controllers\GcashEscrowController::class, 'submit'])->name('seller.gcash.deposit');
     Route::get('/dashboard', SellerAppDashboard::class)->name('seller.dashboard');
 
     // Orders
@@ -27,6 +31,7 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     Route::post('/returns/{delivery}/confirm', [SellerAppOrders::class, 'confirmReturn'])->name('seller.returns.confirm');
     Route::post('/orders/{order}/pickup', [SellerAppOrders::class, 'schedulePickup'])->name('seller.orders.pickup');
     Route::get('/orders/{order}/waybill', [SellerAppOrders::class, 'waybill'])->name('seller.orders.waybill');
+    Route::get('/orders/{order}/payment-proof', [\App\Http\Controllers\PaymentProofController::class, 'seller'])->whereNumber('order')->name('seller.orders.payment-proof');
 
     // Cash handoffs: rider -> seller bank transfers the seller must verify
     // before each sale settles.

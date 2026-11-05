@@ -14,11 +14,20 @@ import '../theme.dart';
 import '../widgets/main_layout.dart';
 import 'add_address_screen.dart';
 import 'orders_screen.dart';
+import 'dart:typed_data';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
 class CheckoutScreen extends StatefulWidget {
   final List<int>? cartItemIds;
   final ApiService? api;
-  const CheckoutScreen({super.key, this.cartItemIds, this.api});
+  final Future<XFile?> Function()? pickReceipt;
+  const CheckoutScreen({
+    super.key,
+    this.cartItemIds,
+    this.api,
+    this.pickReceipt,
+  });
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -38,6 +47,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _paymentMethod = 'cash_on_delivery';
   bool _loading = true;
   bool _placing = false;
+  bool _pickingReceipt = false;
+  final Map<int, Uint8List> _receipts = {};
+  final Map<int, String> _receiptNames = {};
   String? _loadError;
 
   @override
@@ -122,6 +134,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         data['quote'] as Map<String, dynamic>,
       );
       setState(() {
+        _receipts.clear();
+        _receiptNames.clear();
         _selectedVoucher = voucher.name;
         _voucherClaimId = claimId;
         _quote = quote;
@@ -151,6 +165,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       setState(() {
         _quote = CheckoutQuote.fromJson(data['quote'] as Map<String, dynamic>);
+        _receipts.clear();
+        _receiptNames.clear();
         _selectedVoucher = null;
         _voucherClaimId = null;
         _validatedDiscount = null;
@@ -170,7 +186,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Future<void> _placeOrder() async {
-    if (_placing || _quoting || _quote == null || _loadError != null) return;
+    if (_placing ||
+        _pickingReceipt ||
+        _quoting ||
+        _quote == null ||
+        _loadError != null)
+      return;
+    if (_paymentMethod == 'gcash' &&
+        (_quote!.gcashAccounts.isEmpty ||
+            _quote!.gcashAccounts.any(
+              (account) => account['available'] != true,
+            ))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'A store receiving QR is unavailable. Please choose cash on delivery.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (_paymentMethod == 'gcash' &&
+        _quote!.gcashAccounts.any(
+          (account) => !_receipts.containsKey(account['seller_id']),
+        )) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please upload your GCash receipt.')),
+      );
+      return;
+    }
     if (_selectedAddressId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -182,16 +226,49 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
     setState(() => _placing = true);
     try {
-      await _api.post('orders/checkout', {
+      final body = <String, dynamic>{
         'address_id': _selectedAddressId,
         'payment_method': _paymentMethod,
         ..._selection(),
-      });
+      };
+      if (_paymentMethod == 'gcash') {
+        final fields = <String, String>{};
+        for (final entry in body.entries) {
+          if (entry.value is List) {
+            final values = entry.value as List;
+            for (var i = 0; i < values.length; i++) {
+              fields['${entry.key}[$i]'] = '${values[i]}';
+            }
+          } else if (entry.value != null) {
+            fields[entry.key] = '${entry.value}';
+          }
+        }
+        await _api.postForm(
+          'orders/checkout',
+          fields,
+          files: [
+            for (final account in _quote!.gcashAccounts)
+              http.MultipartFile.fromBytes(
+                _quote!.gcashAccounts.length == 1
+                    ? 'gcash_proof'
+                    : 'gcash_proofs[${account['seller_id']}]',
+                _receipts[account['seller_id']]!,
+                filename: _receiptNames[account['seller_id']]!,
+              ),
+          ],
+        );
+      } else {
+        await _api.post('orders/checkout', body);
+      }
       BuyerUpdates.cartChanged();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Order placed. Pay when it arrives.'),
+          content: Text(
+            _paymentMethod == 'gcash'
+                ? 'Order placed. Your GCash receipt was submitted for seller review.'
+                : 'Order placed. Pay when it arrives.',
+          ),
           backgroundColor: AppColors.success,
         ),
       );
@@ -215,6 +292,48 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
     } finally {
       if (mounted) setState(() => _placing = false);
+    }
+  }
+
+  Future<void> _pickReceipt(int sellerId) async {
+    if (_placing || _pickingReceipt) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    setState(() => _pickingReceipt = true);
+    try {
+      final file =
+          await (widget.pickReceipt?.call() ??
+              ImagePicker().pickImage(source: ImageSource.gallery));
+      if (file == null) return;
+      if (![
+            'jpg',
+            'jpeg',
+            'png',
+            'webp',
+          ].contains(file.name.split('.').last.toLowerCase()) ||
+          await file.length() > 5 * 1024 * 1024) {
+        throw const FormatException(
+          'Choose a JPG, PNG or WebP receipt no larger than 5 MB.',
+        );
+      }
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _receipts[sellerId] = bytes;
+        _receiptNames[sellerId] = file.name;
+      });
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error is FormatException
+                  ? error.message
+                  : 'Unable to open the receipt. Please try again.',
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _pickingReceipt = false);
     }
   }
 
@@ -261,7 +380,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       const BuyerPageHeading(
                         title: 'Review your order',
                         description:
-                            'Check your items and delivery details. Pay when it arrives.',
+                            'Check your items, payment and delivery details.',
                       ),
                       _section('Your items', _itemsSection()),
                       const SizedBox(height: 12),
@@ -302,8 +421,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                   color: AppColors.surface,
                                 ),
                               )
-                            : const Text(
-                                'Place order · Cash on delivery',
+                            : Text(
+                                _paymentMethod == 'gcash'
+                                    ? 'Place order · GCash'
+                                    : 'Place order · Cash on delivery',
                                 textAlign: TextAlign.center,
                               ),
                       ),
@@ -438,7 +559,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           value: 'cash_on_delivery',
           groupValue: _paymentMethod,
           activeColor: AppColors.primary,
-          onChanged: (v) => setState(() => _paymentMethod = v!),
+          onChanged: _placing || _pickingReceipt
+              ? null
+              : (v) => setState(() {
+                  _paymentMethod = v!;
+                  _receipts.clear();
+                  _receiptNames.clear();
+                }),
           title: const Text(
             'Cash on Delivery (COD)',
             style: TextStyle(fontSize: 14, color: AppColors.textPrimary),
@@ -448,7 +575,120 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             style: TextStyle(fontSize: 14),
           ),
         ),
+        BuyerChoiceRow<String>(
+          value: 'gcash',
+          groupValue: _paymentMethod,
+          activeColor: AppColors.primary,
+          onChanged: _placing || _pickingReceipt
+              ? null
+              : (value) => setState(() => _paymentMethod = value!),
+          title: const Text('GCash'),
+          subtitle: const Text('Upload your payment receipt for the seller.'),
+        ),
+        if (_paymentMethod == 'gcash') ...[
+          const SizedBox(height: 12),
+          const Text(
+            'Upload a photo or screenshot of the GCash payment you sent. JPG, PNG or WebP, up to 5 MB. Your seller can view it; uploading does not automatically confirm payment.',
+          ),
+          if (_quote!.gcashAccounts.isEmpty)
+            const Text(
+              'GCash receiving details are unavailable. Choose COD or reload checkout.',
+            ),
+          for (final account in _quote!.gcashAccounts) _storePayment(account),
+        ],
       ],
+    );
+  }
+
+  Widget _storePayment(Map<String, dynamic> account) {
+    final sellerId = account['seller_id'] as int;
+    final ready = account['available'] == true;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${account['store_name']} · ${_fmt(double.tryParse('${account['amount']}') ?? 0)}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          Text('GCash account: ${account['account_name'] ?? 'Not configured'}'),
+          if (!ready)
+            Text(
+              'GCash is unavailable for this store. Choose COD or check out other stores separately.',
+            ),
+          if (account['qr_url'] != null) ...[
+            if (ready)
+              const Text(
+                'Scan or import this QR in your GCash app and pay the amount above. No cash is due on delivery.',
+              ),
+            GestureDetector(
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (context) => Dialog(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(
+                          child: InteractiveViewer(
+                            child: Image.network(
+                              account['qr_url'] as String,
+                              errorBuilder: (_, __, ___) =>
+                                  const Text('Could not load receiving QR.'),
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              child: Image.network(
+                account['qr_url'] as String,
+                height: 220,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Text(
+                  'Could not load QR. Check your connection before paying.',
+                ),
+              ),
+            ),
+            if (ready)
+              BuyerButton.plain(
+                onPressed: _placing || _pickingReceipt
+                    ? null
+                    : () => _pickReceipt(sellerId),
+                child: Text(
+                  _pickingReceipt
+                      ? 'Opening photos...'
+                      : _receiptNames[sellerId] == null
+                      ? 'Upload GCash receipt'
+                      : 'Replace GCash receipt',
+                ),
+              ),
+            if (ready && _receipts[sellerId] != null) ...[
+              Text(
+                _receiptNames[sellerId]!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Image.memory(
+                _receipts[sellerId]!,
+                height: 180,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Text(
+                  'Unable to preview this image. Choose a readable receipt.',
+                ),
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 

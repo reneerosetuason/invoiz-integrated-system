@@ -290,67 +290,13 @@
     </div>
   </section>
 
-  <section class="profile-section" id="danger-zone" aria-labelledby="danger-zone-heading" style="border:1px solid #FCA5A5;background:#FEF2F2;border-radius:16px;padding:24px;margin-top:32px">
-    <div class="profile-copy">
-      <h2 id="danger-zone-heading" style="color:#991B1B">Danger Zone — Account Deletion</h2>
-      <p style="color:#7F1D1D">Once you request account deletion, your account undergoes a 30-day grace period. After 30 days, your account will be archived (soft-deleted). You can cancel this request anytime during the grace period.</p>
-    </div>
-    <div class="profile-body" style="margin-top:16px">
-      @if(isset($activeDeletionRequest) && $activeDeletionRequest)
-        <div style="background:#fff;border:1px solid #FCA5A5;border-radius:12px;padding:16px;margin-bottom:16px">
-          <p style="font-weight:700;color:#991B1B;margin-bottom:6px">Deletion Pending</p>
-          <p style="font-size:13px;color:#374151;margin-bottom:4px">Requested on: <b>{{ $activeDeletionRequest->requested_at->format('M d, Y H:i') }}</b></p>
-          <p style="font-size:13px;color:#374151;margin-bottom:4px">Scheduled archive date: <b>{{ $activeDeletionRequest->scheduled_archive_at->format('M d, Y') }}</b></p>
-          <p style="font-size:13px;color:#374151;margin-bottom:12px">Reason: <b>{{ $activeDeletionRequest->reason }}</b></p>
-          
-          <form method="POST" action="{{ route('buyer.profile.cancel-deletion') }}" style="display:grid;gap:12px;max-width:400px">
-            @csrf
-            <div class="profile-field">
-              <label for="cancel_current_password">Enter password to cancel deletion</label>
-              <input class="profile-input" id="cancel_current_password" type="password" name="current_password" required autocomplete="current-password">
-            </div>
-            <button type="submit" class="profile-button btn-p btn-solid" style="background:#0E4A57;color:#fff">Cancel Account Deletion</button>
-          </form>
-        </div>
-      @else
-        <form method="POST" action="{{ route('buyer.profile.delete-request') }}" style="display:grid;gap:16px;max-width:520px" onsubmit="return confirm('Are you sure you want to request account deletion? Your account will be scheduled for archiving after 30 days.')">
-          @csrf
-          <div class="profile-field">
-            <label for="deletion_reason">Reason for deletion <span style="color:#DC2626">*</span></label>
-            <select class="profile-input" id="deletion_reason" name="reason" required onchange="document.getElementById('other_reason_box').style.display = this.value === 'Other reason.' ? 'block' : 'none'">
-              <option value="">Select a reason...</option>
-              <option value="I no longer use INVOIZ.">I no longer use INVOIZ.</option>
-              <option value="I have privacy or security concerns.">I have privacy or security concerns.</option>
-              <option value="I experienced problems with orders or deliveries.">I experienced problems with orders or deliveries.</option>
-              <option value="I am dissatisfied with the service.">I am dissatisfied with the service.</option>
-              <option value="I want to create a different account.">I want to create a different account.</option>
-              <option value="I receive too many notifications.">I receive too many notifications.</option>
-              <option value="Other reason.">Other reason.</option>
-            </select>
-          </div>
-
-          <div class="profile-field" id="other_reason_box" style="display:none">
-            <label for="additional_feedback">Please explain further</label>
-            <textarea class="profile-input" id="additional_feedback" name="additional_feedback" rows="3" placeholder="Provide short explanation..."></textarea>
-          </div>
-
-          <div class="profile-field">
-            <label for="deletion_current_password">Confirm your current password <span style="color:#DC2626">*</span></label>
-            <input class="profile-input" id="deletion_current_password" type="password" name="current_password" required autocomplete="current-password">
-          </div>
-
-          <div style="display:flex;align-items:flex-start;gap:10px">
-            <input type="checkbox" id="confirm_deletion" name="confirm_deletion" value="1" required style="margin-top:3px">
-            <label for="confirm_deletion" style="font-size:12.5px;color:#374151;cursor:pointer">I understand that this will schedule my account for archiving after a 30-day grace period, and normal buyer purchases will be restricted.</label>
-          </div>
-
-          <div>
-            <button type="submit" class="profile-button btn-p" style="background:#DC2626;color:#fff;border:none">Request Account Deletion</button>
-          </div>
-        </form>
-      @endif
-    </div>
+  @if($user->isBuyer() && ! $user->isAdmin())
+  <section class="profile-section" id="danger-zone" aria-labelledby="danger-zone-heading">
+    <div class="profile-copy"><h2 id="danger-zone-heading">Account deletion</h2>
+      <p>Request account archiving after a 30-day grace period, view its status, or cancel before the deadline. Only an administrator can restore an archived account.</p></div>
+    <div class="profile-body"><a href="{{ route('buyer.account-deletion') }}" class="profile-link">Delete Account / Deletion Request Status</a></div>
   </section>
+  @endif
 
 <dialog class="profile-crop-dialog" id="profile-crop-dialog" aria-labelledby="profile-crop-title" aria-describedby="profile-crop-description">
   <div class="profile-crop-panel">

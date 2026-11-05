@@ -38,6 +38,12 @@ class OrderController extends Controller
         $data = $request->validate($this->selectionRules());
         $cart = $this->checkoutCart($request->user()->id, $data['cart_item_ids'] ?? null);
         $quote = $this->quoteCart($cart, $request->user(), $data);
+        $allocations = Vouchers::allocateForOrders(Voucher::whereIn('id', array_keys($quote['perVoucher']))->get(),
+            ['perVoucher' => $quote['perVoucher'], 'waived' => $quote['waived']], $quote['sellerSubtotals']);
+        $storeTotals = [];
+        foreach ($quote['sellerSubtotals'] as $sid => $subtotal) {
+            $storeTotals[$sid] = round($subtotal + Order::SHIPPING_FEE_PER_SELLER - array_sum($allocations[$sid] ?? []), 2);
+        }
 
         return response()->json(['quote' => [
             'subtotal' => $quote['subtotal'],
@@ -46,6 +52,7 @@ class OrderController extends Controller
             'shipping_discount' => $quote['waivedTotal'],
             'total' => $quote['total'],
             'cart_item_ids' => $cart->items->pluck('id')->all(),
+            'gcash_accounts' => \App\Services\GcashEscrowService::accounts($storeTotals),
         ], 'vouchers' => Vouchers::checkoutOffers($request->user()->id, $quote['sellerSubtotals'])]);
     }
 
@@ -184,7 +191,10 @@ class OrderController extends Controller
     {
         $validated = $request->validate($this->selectionRules() + [
             'address_id' => ['required', 'exists:addresses,id'],
-            'payment_method' => ['required', 'in:cash_on_delivery'],
+            'payment_method' => ['required', 'in:cash_on_delivery,gcash'],
+            'gcash_proof' => ['prohibited_unless:payment_method,gcash', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'gcash_proofs' => ['prohibited_unless:payment_method,gcash', 'nullable', 'array', 'max:20'],
+            'gcash_proofs.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'voucher_claim_id' => ['nullable', 'integer', 'exists:voucher_claims,id'],
             'voucher_claim_ids' => ['nullable', 'array', 'max:3'],
             'voucher_claim_ids.*' => ['integer', 'exists:voucher_claims,id'],
@@ -201,8 +211,11 @@ class OrderController extends Controller
             return response()->json(['message' => $problem], 422);
         }
 
+        $proofPath = [];
+        $checkoutCommitted = false;
         try {
-            $orders = DB::transaction(function () use ($user, $address, $validated) {
+            $orders = DB::transaction(function () use ($user, $address, $validated, $request, &$proofPath) {
+
                 $header = Cart::where('buyer_id', $user->id)->lockForUpdate()->first();
                 if (! $header) {
                     throw ValidationException::withMessages(['cart_item_ids' => 'Your cart is empty.']);
@@ -238,6 +251,7 @@ class OrderController extends Controller
                     'waivedTotal' => $waivedTotal, 'perVoucher' => $perVoucher,
                     'claimIds' => $claimIds, 'total' => $total, 'sellerSubtotals' => $sellerSubtotals, 'waived' => $waived,
                 ] = $this->quoteCart($cart, $user, $validated);
+                \App\Services\GcashEscrowService::storeCheckoutProofs($request, $groupIds, $proofPath);
                 $allocations = Vouchers::allocateForOrders($lockedClaims->map(fn ($claim) => $lockedVouchers->get($claim->voucher_id)), [
                     'perVoucher' => $perVoucher, 'waived' => $waived,
                 ], $sellerSubtotals);
@@ -269,7 +283,8 @@ class OrderController extends Controller
                             'redemption_order_id' => $redemptions[$voucherId], 'discount_amount' => $amount,
                         ]);
                     }
-                    Payment::create(['order_id' => $order->id, 'method' => $validated['payment_method'], 'status' => 'pending', 'amount' => $storeTotal]);
+                    Payment::create(['order_id' => $order->id, 'method' => $validated['payment_method'], 'status' => 'pending', 'amount' => $storeTotal]
+                        + (isset($proofPath[$sid]) ? ['proof_path' => $proofPath[$sid]] : []));
                     Payments::recordCheckout($order);
                     OrderStatusHistory::create(['order_id' => $order->id, 'to_status' => 'pending', 'note' => 'Order placed.']);
                     app(\App\Services\OrderShipmentService::class)->ensure($order);
@@ -294,20 +309,31 @@ class OrderController extends Controller
                 return $orders;
             });
 
+            $checkoutCommitted = true;
             $orders->load(['items.product', 'payment', 'delivery', 'orderVouchers.voucher']);
             $this->hideBuyerVoucherCodes($orders);
 
             return response()->json([
-                'message' => 'Order placed successfully. Payment method: Cash on Delivery.',
+                'message' => $validated['payment_method'] === 'gcash'
+                    ? 'Order placed successfully. Your GCash receipt has been submitted for seller review.'
+                    : 'Order placed successfully. Payment method: Cash on Delivery.',
                 'order' => $orders->first(),
                 'orders' => $orders,
             ], 201);
         } catch (\Throwable $e) {
+            if ($proofPath && ! $checkoutCommitted) {
+                \Illuminate\Support\Facades\Storage::disk('private')->delete(array_values($proofPath));
+            }
             if ($e instanceof ValidationException) {
                 throw $e;
             }
             report($e);
-            return response()->json(['message' => 'Unable to place order. Nothing was charged. Refresh your cart and try again.'], 500);
+            $message = $checkoutCommitted
+                ? 'Your order was saved, but its details could not be loaded. Check your orders before trying again.'
+                : ($validated['payment_method'] === 'gcash'
+                    ? 'Unable to complete checkout. Check your orders and GCash transactions before trying again.'
+                    : 'Unable to place order. Nothing was charged. Refresh your cart and try again.');
+            return response()->json(['message' => $message], 500);
         }
     }
 

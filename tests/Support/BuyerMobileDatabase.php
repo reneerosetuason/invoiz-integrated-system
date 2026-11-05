@@ -44,7 +44,7 @@ trait BuyerMobileDatabase
             'sales' => 'seller_id name type discount_type discount_value starts_at ends_at status deleted_at',
             'product_sales' => 'sale_id product_id sale_price deleted_at',
         ];
-        $tables['users'] .= ' middle_initial sex birthday age id_image bio otp otp_expires_at center_id';
+        $tables['users'] .= ' middle_initial sex birthday age id_image bio otp otp_expires_at center_id archived_at';
         $tables['sellers'] .= ' line_of_business seller_type tin region postal_code terms_accepted rejection_reason id_image dti_certificate bir_2303 business_permit logo';
         $tables['seller_profiles'] .= ' contact_email contact_phone address';
         $tables['products'] .= ' low_stock_threshold';

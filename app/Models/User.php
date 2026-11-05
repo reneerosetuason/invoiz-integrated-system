@@ -66,6 +66,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'otp_expires_at' => 'datetime',
             'birthday' => 'date',
+            'archived_at' => 'datetime',
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
@@ -461,6 +462,9 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isActive()
     {
+        if ($this->archived_at !== null) {
+            return false;
+        }
         if (! empty($this->account_status)) {
             return $this->account_status === 'active';
         }

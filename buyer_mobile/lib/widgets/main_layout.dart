@@ -16,6 +16,7 @@ import '../services/buyer_updates.dart';
 import '../theme.dart';
 import 'auth_service_provider.dart';
 import 'invoiz_logo.dart';
+import 'account_deletion_banner.dart';
 
 class MainLayout extends StatelessWidget {
   final Widget child;
@@ -133,7 +134,15 @@ class MainLayout extends StatelessWidget {
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: showBottomNav ? 1200 : 760),
-          child: SizedBox(width: double.infinity, child: child),
+          child: SizedBox(
+            width: double.infinity,
+            child: Column(
+              children: [
+                AccountDeletionBanner(api: api),
+                Expanded(child: child),
+              ],
+            ),
+          ),
         ),
       ),
       bottomBar:

@@ -26,6 +26,48 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late final _api = widget.api ?? ApiService();
   Order? _order;
   bool _loading = true;
+  bool _loadingReceipt = false;
+
+  Future<void> _viewReceipt() async {
+    if (_loadingReceipt) return;
+    setState(() => _loadingReceipt = true);
+    try {
+      final bytes = await _api.getImage(
+        'orders/${widget.orderId}/payment-proof',
+      );
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => Dialog(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('Your GCash receipt'),
+              ),
+              Flexible(
+                child: InteractiveViewer(
+                  child: Image.memory(bytes, fit: BoxFit.contain),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+    } finally {
+      if (mounted) setState(() => _loadingReceipt = false);
+    }
+  }
 
   @override
   void initState() {
@@ -544,6 +586,13 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
             style: const TextStyle(fontSize: 14, color: AppColors.textPrimary),
           ),
         ],
+        if (order.payment?.hasPaymentProof == true)
+          BuyerButton.plain(
+            onPressed: _loadingReceipt ? null : _viewReceipt,
+            child: Text(
+              _loadingReceipt ? 'Loading receipt...' : 'View GCash receipt',
+            ),
+          ),
         if (order.delivery != null) ...[
           const SizedBox(height: 8),
           Text(

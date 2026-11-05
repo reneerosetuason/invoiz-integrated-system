@@ -167,6 +167,11 @@ class Delivery extends Model
         });
 
         static::saving(function (Delivery $delivery): void {
+            if ($delivery->order_id && $delivery->isDirty('status') && ! in_array($delivery->status, ['waiting_for_rider', 'cancelled', 'failed'], true)) {
+                if ($order = $delivery->order()->first()) {
+                    \App\Services\GcashEscrowService::assertFunded($order);
+                }
+            }
             // The pickup request is operationally complete as soon as the
             // parcel has been picked up. Checking the timestamp/status (not
             // only the transition to "picked_up") also repairs rows saved

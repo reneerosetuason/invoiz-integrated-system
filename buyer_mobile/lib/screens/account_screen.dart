@@ -12,6 +12,7 @@ import 'login_screen.dart';
 import 'orders_screen.dart';
 import 'profile_screen.dart';
 import 'help_screen.dart';
+import 'account_deletion_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -176,6 +177,21 @@ class _AccountScreenState extends State<AccountScreen> {
                   MaterialPageRoute(builder: (_) => const ProfileScreen()),
                 );
               }),
+              if (user != null &&
+                  [null, '', 'buyer'].contains(user.role) &&
+                  user.seller == null)
+                _menuTile(
+                  CupertinoIcons.person_crop_circle_badge_xmark,
+                  'Delete Account / Deletion Request Status',
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AccountDeletionScreen(),
+                      ),
+                    );
+                  },
+                ),
             ],
           ),
           const SizedBox(height: 12),

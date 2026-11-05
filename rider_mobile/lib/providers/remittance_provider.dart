@@ -13,6 +13,8 @@ class RemittanceProvider extends ChangeNotifier {
   bool _loading = false;
   bool _actionBusy = false;
   String? _error;
+  List<EscrowPayout> payouts = [];
+  String? payoutError;
 
   RemittancePage? get page => _page;
   bool get loading => _loading;
@@ -26,12 +28,47 @@ class RemittanceProvider extends ChangeNotifier {
 
     try {
       _page = await _service.list();
+      await loadPayouts();
     } on ApiException catch (e) {
       _error = e.message;
     } catch (_) {
       _error = 'Unable to load remittances. Please try again.';
     } finally {
       _loading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> loadPayouts() async {
+    payoutError = null;
+    try {
+      payouts = await _service.payouts();
+    } on ApiException catch (e) {
+      payoutError = e.message;
+    } catch (_) {
+      payoutError = 'Unable to load incoming payouts. Pull to refresh.';
+    }
+    notifyListeners();
+  }
+
+  Future<bool> acceptPayout(int id) async {
+    if (_actionBusy) return false;
+    _actionBusy = true;
+    payoutError = null;
+    notifyListeners();
+    try {
+      await _service.acceptPayout(id);
+      await loadPayouts();
+      return true;
+    } on ApiException catch (e) {
+      payoutError = e.message;
+      return false;
+    } catch (_) {
+      payoutError =
+          'Unable to accept payout. Refresh to check its current status.';
+      return false;
+    } finally {
+      _actionBusy = false;
       notifyListeners();
     }
   }

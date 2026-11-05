@@ -7,6 +7,19 @@ class RemittanceService {
 
   final ApiClient _api;
 
+  Future<List<EscrowPayout>> payouts() async {
+    final data = await _api.get('/rider/remittances/earnings-payouts');
+    final rows = (data as Map)['payouts'] as List? ?? [];
+    return rows
+        .whereType<Map>()
+        .map((row) => EscrowPayout.fromJson(Map<String, dynamic>.from(row)))
+        .toList();
+  }
+
+  Future<void> acceptPayout(int id) async {
+    await _api.post('/rider/remittances/$id/accept-payout', body: {});
+  }
+
   Future<RemittancePage> list() async {
     final data = await _api.get('/rider/remittances');
     final map = Map<String, dynamic>.from(data as Map? ?? {});
@@ -14,9 +27,11 @@ class RemittanceService {
     final raw = map['remittances'];
     final remittances = raw is List
         ? raw
-            .whereType<Map>()
-            .map((item) => Remittance.fromJson(Map<String, dynamic>.from(item)))
-            .toList()
+              .whereType<Map>()
+              .map(
+                (item) => Remittance.fromJson(Map<String, dynamic>.from(item)),
+              )
+              .toList()
         : <Remittance>[];
 
     return RemittancePage(

@@ -49,6 +49,12 @@
     @endif
     <div class="main">
       <main class="container" style="padding-top:0;flex:1">
+        @if(isset($pendingAccountDeletion) && $pendingAccountDeletion)
+          <div role="status" style="padding:12px;margin:12px 0;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:13px">
+            Account deletion {{ $pendingAccountDeletion->status === 'on_hold' ? 'is on hold' : 'is scheduled for '.$pendingAccountDeletion->scheduled_archive_at->format('M d, Y H:i T') }}.
+            <a href="{{ route('buyer.account-deletion') }}" style="font-weight:700;text-decoration:underline">View request / Cancel deletion</a>
+          </div>
+        @endif
         @yield('content')
       </main>
       <footer class="footer buyerfoot">

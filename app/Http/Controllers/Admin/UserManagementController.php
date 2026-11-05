@@ -40,7 +40,7 @@ class UserManagementController extends Controller
 
     public function index(Request $request)
     {
-        $query = User::query()
+        $query = User::query()->whereNull('archived_at')
             ->select([
                 'id', 'name', 'first_name', 'last_name', 'email', 'role', 'is_admin',
                 'status', 'account_status', 'approval_status', 'created_at',
@@ -63,8 +63,10 @@ class UserManagementController extends Controller
     public function toggleStatus(Request $request, int $user)
     {
         $user = User::query()
-            ->select(['id', 'role', 'status', 'account_status'])
+            ->select(['id', 'role', 'status', 'account_status', 'archived_at'])
             ->findOrFail($user);
+
+        abort_if($user->archived_at !== null, 403, 'Archived buyers must be restored through Account Deletion Requests with identity verification.');
 
         abort_if(
             $user->isDesignatedLogisticsAdminAccount(),

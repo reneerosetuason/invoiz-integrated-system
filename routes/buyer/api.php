@@ -40,6 +40,10 @@ Route::prefix('mobile/buyer')->middleware('throttle:10,1')->group(function () {
 });
 
 Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
+    Route::get('/account-deletion', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'show']);
+    Route::post('/account-deletion/verify', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'verify'])->middleware('throttle:5,1');
+    Route::post('/account-deletion', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'store'])->middleware('throttle:5,1');
+    Route::post('/account-deletion/cancel', [\App\Http\Controllers\Buyer\AccountDeletionController::class, 'cancel'])->middleware('throttle:5,1');
     // Legacy catalog resources keep their controllers, names, and auth gates
     // without shadowing the buyer browse endpoints above.
     Route::prefix('catalog')->group(function () {
@@ -65,6 +69,7 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::get('/orders', [App\Http\Controllers\Buyer\Api\OrderController::class, 'index']);
     Route::get('/orders/{id}', [App\Http\Controllers\Buyer\Api\OrderController::class, 'show'])->whereNumber('id');
     Route::post('/orders/checkout', [App\Http\Controllers\Buyer\Api\OrderController::class, 'checkout']);
+    Route::get('/orders/{order}/payment-proof', [\App\Http\Controllers\PaymentProofController::class, 'buyer'])->whereNumber('order');
     Route::post('/orders/preview', [App\Http\Controllers\Buyer\Api\OrderController::class, 'preview']);
     Route::post('/orders/{id}/cancel', [App\Http\Controllers\Buyer\Api\OrderController::class, 'cancel'])->whereNumber('id');
     Route::post('/orders/{id}/rate', [App\Http\Controllers\Buyer\Api\OrderController::class, 'rate'])->whereNumber('id');

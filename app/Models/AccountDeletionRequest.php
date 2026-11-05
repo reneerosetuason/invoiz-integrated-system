@@ -19,6 +19,12 @@ class AccountDeletionRequest extends Model
         'cancelled_at',
         'archived_at',
         'status',
+        'hold_reason',
+        'previous_status',
+        'previous_account_status',
+        'reminder_sent_at',
+        'restored_at',
+        'restored_by',
     ];
 
     protected $casts = [
@@ -26,6 +32,8 @@ class AccountDeletionRequest extends Model
         'scheduled_archive_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'archived_at' => 'datetime',
+        'reminder_sent_at' => 'datetime',
+        'restored_at' => 'datetime',
     ];
 
     public function user(): BelongsTo

@@ -60,7 +60,7 @@ class Payments
             PaymentTransaction::create([
                 'order_id'        => $order->id,
                 'transaction_ref' => 'TXN-ORDER-' . $order->id,
-                'gateway'         => 'cash_on_delivery',
+                'gateway'         => $order->payment?->method ?? 'cash_on_delivery',
                 'amount'          => round((float) ($order->total_amount ?? $order->total ?? 0), 2),
                 'status'          => 'pending',
             ]);
@@ -118,6 +118,12 @@ class Payments
     {
         \Illuminate\Support\Facades\DB::transaction(function () use ($order, $force) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (\App\Services\GcashEscrowService::isGcash($order)) {
+                \App\Services\GcashEscrowService::assertFunded($order);
+                if ($order->deliveries()->where('status', '!=', 'delivered')->exists() || ! $order->deliveries()->exists()) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'GCash settlement requires completed deliveries.']);
+                }
+            }
             $order->loadMissing(['items', 'orderVouchers.voucher']);
             $split = self::splitForSellers($order);
             $sum = fn (string $key): float => round(array_sum(array_map(
@@ -136,7 +142,7 @@ class Payments
                 $tx = PaymentTransaction::create([
                     'order_id'        => $order->id,
                     'transaction_ref' => 'TXN-ORDER-' . $order->id,
-                    'gateway'         => 'cash_on_delivery',
+                    'gateway'         => $order->payment?->method ?? 'cash_on_delivery',
                     'amount'          => round((float) ($order->total_amount ?? $order->total ?? 0), 2),
                     'status'          => 'pending',
                 ]);
@@ -257,6 +263,11 @@ class Payments
             ->distinct()->pluck('order_id');
         foreach (Order::with(['items', 'orderVouchers.voucher'])
             ->whereIn('id', $orderIds)->cursor() as $order) {
+            // GCash seller shares are released directly by admin, never credited
+            // again to the legacy withdrawal wallet.
+            if (\App\Services\GcashEscrowService::isGcash($order)) {
+                continue;
+            }
             $tx = self::transactionFor($order);
             if (! $tx || $tx->status !== 'successful') {
                 continue;

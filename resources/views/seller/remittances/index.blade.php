@@ -3,6 +3,28 @@
 @section('title', 'Cash Remittances')
 
 @section('content')
+@php
+    $gcashPayouts = \App\Models\EscrowRemittance::where('recipient_role', 'seller')->where('recipient_user_id', auth()->id())
+        ->whereHas('order.payment', fn ($q) => $q->where('method', 'gcash'))->latest()->paginate(10, ['*'], 'gcash_page');
+@endphp
+<div class="card p-6 mb-4">
+    <h2 class="text-lg font-bold">Incoming GCash escrow payouts</h2>
+    <p class="text-sm">Admin releases your net share after delivery. Confirm only after the funds arrive in your account.</p>
+    @forelse($gcashPayouts as $payout)
+        <div class="border-t py-3 mt-3 text-sm">
+            <a href="{{ route('seller.orders.show', $payout->order_id) }}">Order #{{ $payout->order_id }}</a>
+            <p>PHP {{ number_format($payout->amount, 2) }} · {{ ucwords(str_replace('_', ' ', $payout->status)) }} · {{ $payout->bank_reference }}</p>
+            @if($payout->status === 'remitted')
+                <form method="POST" action="{{ route('seller.gcash.accept-payout', $payout) }}" class="space-y-2">
+                    @csrf
+                    <label><input type="checkbox" name="confirm_received" value="1" required> I received this payout in my account.</label>
+                    <button class="btn btn-primary" type="submit">Confirm payout received</button>
+                </form>
+            @endif
+        </div>
+    @empty<p class="text-sm mt-3">No incoming GCash payouts yet.</p>@endforelse
+    {{ $gcashPayouts->links() }}
+</div>
 <div>
     <h2 class="text-xl font-extrabold tracking-tight">Cash Remittances</h2>
     <p class="mt-0.5 text-sm text-ink-light">Riders collect COD cash and transfer your share bank-to-bank. Confirm receipt below — the sale only settles (paid + booked) after you verify.</p>

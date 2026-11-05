@@ -11,6 +11,8 @@ class Seller extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'gcash_qr_path',
+        'gcash_account_name',
         'user_id',
         'store_name',
         'business_name',

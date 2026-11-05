@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/format_utils.dart';
 import '../../models/remittance.dart';
 import '../../providers/remittance_provider.dart';
+import '../../providers/earnings_provider.dart';
 import '../../widgets/dashboard_card.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
@@ -32,17 +33,14 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
     final page = provider.page;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cash Remittances')),
+      appBar: AppBar(title: const Text('Remittances')),
       body: RefreshIndicator(
         onRefresh: provider.load,
         child: provider.loading && page == null
             ? const LoadingWidget(label: 'Loading remittances...')
             : provider.error != null && page == null
-                ? ErrorView(
-                    message: provider.error!,
-                    onRetry: provider.load,
-                  )
-                : _buildContent(context, provider, page),
+            ? ErrorView(message: provider.error!, onRetry: provider.load)
+            : _buildContent(context, provider, page),
       ),
     );
   }
@@ -58,6 +56,63 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
+        Text(
+          'Incoming escrow payouts',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'For GCash orders, collect no cash and deduct no fee from the buyer. Your cut is credited to earnings only after admin sends it and you confirm receipt.',
+        ),
+        if (provider.payoutError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Text(provider.payoutError!),
+          ),
+        if (provider.payouts.isEmpty && provider.payoutError == null)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('No incoming payouts yet.'),
+          ),
+        ...provider.payouts.map(
+          (payout) => Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${payout.orderNumber} · ${payout.roleLabel}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  Text(FormatUtils.peso(payout.amount)),
+                  Text(switch (payout.status) {
+                    'remitted' => 'Sent by admin · confirm after funds arrive',
+                    'accepted' => 'Receipt accepted · credited to earnings',
+                    'pending_remittance' => 'Awaiting admin transfer',
+                    'voided' => 'Voided',
+                    _ => 'Held in escrow',
+                  }),
+                  if (payout.reference != null)
+                    Text('Reference: ${payout.reference}'),
+                  if (payout.canAccept)
+                    FilledButton(
+                      onPressed: provider.actionBusy
+                          ? null
+                          : () => _acceptPayout(context, provider, payout),
+                      child: const Text('Confirm payout received'),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text(
+          'Outgoing COD cash',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
@@ -110,6 +165,51 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
     );
   }
 
+  Future<void> _acceptPayout(
+    BuildContext context,
+    RemittanceProvider provider,
+    EscrowPayout payout,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm payout received'),
+        content: Text(
+          'Have you received ${FormatUtils.peso(payout.amount)} in your account? Confirm only after checking the actual transfer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Not yet'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Yes, received'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    final accepted = await provider.acceptPayout(payout.id);
+    if (!context.mounted) return;
+    if (accepted) {
+      await Provider.of<EarningsProvider?>(
+        context,
+        listen: false,
+      )?.loadSummary();
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          accepted
+              ? 'Payout accepted. Earnings updated.'
+              : provider.payoutError ?? 'Unable to accept payout.',
+        ),
+      ),
+    );
+  }
+
   Future<void> _markSent(
     BuildContext context,
     RemittanceProvider provider,
@@ -146,8 +246,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(reference.trim()),
+            onPressed: () => Navigator.of(dialogContext).pop(reference.trim()),
             child: const Text('Confirm'),
           ),
         ],

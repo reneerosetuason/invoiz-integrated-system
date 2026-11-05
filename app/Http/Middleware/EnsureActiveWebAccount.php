@@ -38,6 +38,20 @@ class EnsureActiveWebAccount
             return redirect($loginPath)->withErrors(['email' => 'Your account is not active.']);
         }
 
+        if ($user?->isBuyer() && ! $user->isAdmin() && ! $request->isMethodSafe()) {
+            return \Illuminate\Support\Facades\DB::transaction(function () use ($user, $request, $next) {
+                $fresh = User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+                if (! $fresh->isActive()) {
+                    Auth::guard('web')->logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                    return $request->expectsJson()
+                        ? response()->json(['message' => config('account_deletion.inactive_message')], 403)
+                        : redirect('/login')->withErrors(['email' => config('account_deletion.inactive_message')]);
+                }
+                return $next($request);
+            });
+        }
         return $next($request);
     }
 }

@@ -36,6 +36,14 @@ class Order extends Model
 
     protected static function booted(): void
     {
+        static::updating(function (Order $order): void {
+            if ($order->isDirty('status') && in_array($order->status, ['confirmed', 'processing', 'ready_for_delivery', 'shipped', 'out_for_delivery', 'delivered', 'completed'], true)) {
+                if (in_array($order->getOriginal('status'), ['cancelled', 'refunded', 'returned'], true) && \App\Services\GcashEscrowService::isGcash($order)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'A cancelled or refunded GCash order cannot be restarted. Create a new order.']);
+                }
+                \App\Services\GcashEscrowService::assertFunded($order);
+            }
+        });
         // Keep admin `total` and shared-schema `total_amount` in sync
         // so buyer checkout totals show up in admin revenue reports.
         // Guarded: only touches columns that actually exist (works both
@@ -276,6 +284,10 @@ class Order extends Model
     /** Cash the buyer must hand the rider for this seller group. */
     public function cashToCollectForSeller($sellerId): float
     {
+        if ($this->payment?->method === 'gcash') {
+            return 0.0;
+        }
+
         $hasGroup = $this->relationLoaded('items')
             ? $this->items->whereIn('seller_id', $sellerId instanceof Seller ? $sellerId->catalogIds() : [(int) $sellerId])->isNotEmpty()
             : $this->itemsForSeller($sellerId)->exists();

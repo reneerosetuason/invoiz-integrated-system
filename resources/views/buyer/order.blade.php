@@ -38,6 +38,9 @@
   <div style="font-size:14px">Status: <b style="color:{{ $statusColor }};text-transform:uppercase">{{ $customerOrderLabel }}</b></div>
   <div style="font-size:12px;color:var(--text2);margin-top:6px">Placed on: {{ $o->created_at->format('Y-m-d H:i') }}</div>
   @if($pay)<div style="font-size:12px;color:var(--text2);margin-top:2px">Payment: {{ strtoupper(str_replace('_',' ',$pay->method)) }} · {{ strtoupper($pay->status) }}</div>@endif
+  @if($pay?->method === 'gcash' && $pay?->proof_path)
+    <div style="margin-top:8px;font-size:12px"><a href="{{ route('buyer.orders.payment-proof', $o->id) }}" target="_blank" rel="noopener" style="color:var(--green);font-weight:700">View your GCash receipt</a></div>
+  @endif
   @if($del)<div style="font-size:12px;color:var(--text2);margin-top:2px">Delivery: {{ strtoupper($customerDeliveryLabel) }}</div>@endif
 </div>
 
