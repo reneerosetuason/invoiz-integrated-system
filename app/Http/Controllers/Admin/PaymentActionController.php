@@ -17,6 +17,18 @@ use Illuminate\Support\Str;
 
 class PaymentActionController extends Controller
 {
+    public function acceptAdminRemittance(Request $request, int $id)
+    {
+        abort_unless($request->user()?->isPlatformAdministrator() && $request->user()->isActive(), 403);
+        $payout = EscrowRemittance::whereKey($id)->where('recipient_role', EscrowRemittance::ROLE_ADMIN)->where('amount', '>', 0)->firstOrFail();
+        $request->validate(['confirm_received' => ['required', 'accepted'], 'note' => ['nullable', 'string', 'max:1000']]);
+        if (! $payout->accept($request->user(), $request->input('note'))) {
+            return back()->with('error', 'Only a released, unaccepted admin remittance can be confirmed. Refresh the payments page.');
+        }
+
+        return back()->with('status', 'Admin commission accepted and recorded in confirmed platform earnings.');
+    }
+
     public function markPayoutPaid($id)
     {
         $payout = SellerPayout::findOrFail($id);

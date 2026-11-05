@@ -50,3 +50,6 @@ body.po-dialog-open{overflow:hidden}
 @container payment-overview (max-width:360px){.po-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.po-earnings>div{display:block}.po-earnings strong{text-align:left;margin-top:3px}.po-table th:nth-child(4),.po-table td:nth-child(4),.po-col-status{display:none}.po-col-order{width:33%}.po-col-amount{width:42%}.po-col-action{width:25%}.po-view{white-space:nowrap;min-width:38px}.po-table th,.po-table td{padding:9px 5px}}
 
 .payment-overview .po-table th.sortable-th{white-space:normal}
+.po-release-form input[type=checkbox]{width:16px;height:16px;padding:0;vertical-align:middle;margin-right:6px}
+.po-admin-remittances th:first-child{width:32%}.po-admin-remittances th:last-child{width:18%}
+@container payment-overview (max-width:360px){.po-admin-remittances th:nth-child(4),.po-admin-remittances td:nth-child(4){display:table-cell}.po-admin-remittances th:nth-child(3),.po-admin-remittances td:nth-child(3){display:none}.po-admin-remittances th:last-child{width:25%}}

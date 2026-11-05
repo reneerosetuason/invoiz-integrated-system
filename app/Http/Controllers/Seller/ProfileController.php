@@ -33,7 +33,7 @@ class ProfileController extends Controller
             'last_name'  => ['required', 'string', 'max:100', new PersonName()],
             'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'phone'      => ['required', 'string', 'max:30'],
-            'email'      => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id)],
+            'email'      => ['required', 'email', Rule::unique('users', 'email')->ignore($user->id), new \App\Rules\SeparateAccountEmail('marketplace', $user->id)],
             'sex'        => ['required', 'in:male,female,other'],
             'logo'       => ['nullable', 'image', 'max:5120'],
         ]);

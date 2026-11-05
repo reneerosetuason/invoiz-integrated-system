@@ -18,7 +18,7 @@ class AuthController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255', new PersonName()],
-            'email' => 'required|email|unique:users',
+            'email' => ['required', 'email', 'unique:users', new \App\Rules\SeparateAccountEmail($request->input('role') === 'rider' ? 'logistics' : 'marketplace')],
             'password' => 'required|string|min:8',
             // Seller accounts must use the validated seller application flow.
             'role' => 'sometimes|in:buyer,rider',

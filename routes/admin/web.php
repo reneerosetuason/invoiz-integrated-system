@@ -29,7 +29,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
         $stats = [
             'revenue' => (clone $settledBase)->sum($paidTotal()),
             'today_revenue' => (clone $settledBase)->whereDate('created_at', today())->sum($paidTotal()),
-            'commission_earned' => (float) \App\Models\PaymentTransaction::whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('platform_commission'),
+            'commission_earned' => (float) \App\Models\EscrowRemittance::acceptedAdminCommission()->sum('amount'),
             'logistics_earned' => \Illuminate\Support\Facades\Schema::hasColumn('payment_transactions', 'logistics_fee')
                 ? (float) \App\Models\PaymentTransaction::whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('logistics_fee')
                 : 0.0,
@@ -100,6 +100,8 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::get('orders/{order}', [OrderController::class, 'show'])->name('admin.order.show');
     Route::post('orders/{order}/update', [OrderController::class, 'update'])->name('admin.order.update');
         Route::get('payments', [PaymentController::class, 'index'])->name('admin.payments');
+        Route::post('payments/admin-remittances/{id}/accept', [\App\Http\Controllers\Admin\PaymentActionController::class, 'acceptAdminRemittance'])
+            ->whereNumber('id')->name('admin.remittances.accept');
         Route::get('payments/gcash-escrow', [\App\Http\Controllers\GcashEscrowController::class, 'index'])->name('admin.gcash.index');
         Route::post('payments/gcash-escrow/settings', [\App\Http\Controllers\GcashEscrowController::class, 'settings'])->name('admin.gcash.settings');
         Route::post('payments/gcash-escrow/{deposit}/review', [\App\Http\Controllers\GcashEscrowController::class, 'review'])->name('admin.gcash.review');

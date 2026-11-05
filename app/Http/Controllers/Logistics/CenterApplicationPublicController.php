@@ -21,10 +21,8 @@ class CenterApplicationPublicController extends Controller
 {
     public function create(): View
     {
-        $provinces = Province::orderBy('name')->get(['id', 'name']);
-        $regions = collect(config('logistics.psgc_regions', []))
-            ->only(Province::distinct()->pluck('region_code')->filter()->all())
-            ->all();
+        $provinces = Province::orderBy('name')->get(['id', 'name', 'region_code']);
+        $regions = config('logistics.psgc_regions', []);
 
         // Pre-render the cascading address options so that old() input from a
         // failed submission (or the initial GET) stays fully populated without

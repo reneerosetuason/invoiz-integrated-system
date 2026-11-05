@@ -11,6 +11,7 @@ use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
 use App\Models\LogisticsTruck;
 use App\Services\HubTransferService;
+use App\Services\ShipmentWeightService;
 use App\Support\HubTransferProgress;
 use App\Support\LogisticsAccess;
 use App\Support\LogisticsVehicleCategory;
@@ -91,7 +92,7 @@ class HubTransferController extends Controller
         $selectedOriginId = $request->integer('origin_center_id') ?: $centerId ?: ($company?->centers()->value('id'));
 
         $parcelsQuery = Delivery::query()
-            ->with(['logisticsCenter', 'destinationCenter'])
+            ->with(['logisticsCenter', 'destinationCenter', 'order.items'])
             ->when($selectedOriginId, fn ($q) => $q->where('center_id', $selectedOriginId))
             ->whereNotNull('destination_center_id')
             ->whereColumn('destination_center_id', '!=', 'center_id')
@@ -108,6 +109,10 @@ class HubTransferController extends Controller
             ->orderBy('tracking_number');
 
         $parcels = $parcelsQuery->limit(300)->get();
+        foreach ($parcels as $parcel) {
+            // Preview legacy parcels from inventory without writing during GET.
+            app(ShipmentWeightService::class)->fillMissing($parcel, false);
+        }
         $parcelsByDestination = $parcels->groupBy('destination_center_id');
         $destinationHubs = LogisticsCenter::whereIn('id', $parcelsByDestination->keys())->get()->keyBy('id');
 
@@ -351,6 +356,7 @@ class HubTransferController extends Controller
                     "Parcel {$parcel->tracking_number} has already passed through the selected next-hop hub. Choose a hub it has not visited."
                 );
 
+                app(ShipmentWeightService::class)->fillMissing($parcel);
                 if ($parcel->weight === null) {
                     $hasCompleteWeightData = false;
                 } else {

@@ -103,7 +103,7 @@ class HubCourierController extends Controller
             ->limit(10)
             ->get();
 
-        $earnings = \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)
+        $earnings = \App\Models\HubTransferEarning::acceptedRemittances()->where('hub_transport_driver_id', $driver->id)
             ->whereIn('recipient_role', ['driver', \App\Models\HubTransferEarning::ROLE_INTER_HUB_DRIVER])
             ->get();
 
@@ -139,15 +139,15 @@ class HubCourierController extends Controller
     {
         $driver = $this->driver($request);
         $roles = ['driver', \App\Models\HubTransferEarning::ROLE_INTER_HUB_DRIVER];
-        $earnings = \App\Models\HubTransferEarning::with('transfer')
+        $earnings = \App\Models\HubTransferEarning::acceptedRemittances()->with('transfer')
             ->where('hub_transport_driver_id', $driver->id)
             ->whereIn('recipient_role', $roles)
             ->latest()
             ->paginate(20);
 
-        $total = (float) \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('amount');
-        $base = (float) \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('base_amount');
-        $allowance = (float) \App\Models\HubTransferEarning::where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('vehicle_allowance');
+        $total = (float) \App\Models\HubTransferEarning::acceptedRemittances()->where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('amount');
+        $base = (float) \App\Models\HubTransferEarning::acceptedRemittances()->where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('base_amount');
+        $allowance = (float) \App\Models\HubTransferEarning::acceptedRemittances()->where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('vehicle_allowance');
 
         return response()->json([
             'summary' => [
@@ -162,6 +162,48 @@ class HubCourierController extends Controller
                 'per_page' => $earnings->perPage(),
                 'total' => $earnings->total(),
             ],
+        ]);
+    }
+
+    public function remittances(Request $request): JsonResponse
+    {
+        $driver = $this->driver($request);
+        $payouts = \App\Models\EscrowRemittance::query()
+            ->where('hub_transport_driver_id', $driver->id)
+            ->where('recipient_role', \App\Models\EscrowRemittance::ROLE_INTER_HUB_DRIVER)
+            ->where('amount', '>', 0)
+            ->with(['hubTransfer:id,reference', 'delivery:id,tracking_number'])
+            ->latest('id')->paginate(20);
+
+        return response()->json([
+            'remittances' => $payouts->getCollection()->map(fn ($payout) => [
+                'id' => $payout->id,
+                'amount' => (float) $payout->amount,
+                'status' => $payout->status,
+                'bank_reference' => $payout->bank_reference,
+                'remitted_at' => $payout->remitted_at?->toIso8601String(),
+                'transfer_reference' => $payout->hubTransfer?->reference,
+                'tracking_number' => $payout->delivery?->tracking_number,
+                'can_accept' => $payout->status === \App\Models\EscrowRemittance::STATUS_REMITTED,
+            ]),
+            'pagination' => ['current_page' => $payouts->currentPage(), 'last_page' => $payouts->lastPage(), 'total' => $payouts->total()],
+        ]);
+    }
+
+    public function acceptRemittance(Request $request, int $id): JsonResponse
+    {
+        $request->validate(['note' => ['nullable', 'string', 'max:1000']]);
+        $driver = $this->driver($request);
+        $payout = \App\Models\EscrowRemittance::whereKey($id)
+            ->where('hub_transport_driver_id', $driver->id)
+            ->where('recipient_role', \App\Models\EscrowRemittance::ROLE_INTER_HUB_DRIVER)->firstOrFail();
+        if (! $payout->accept($driver, $request->input('note'))) {
+            return response()->json(['message' => 'Only a released, unaccepted remittance can be confirmed. Refresh your remittances.'], 409);
+        }
+
+        return response()->json([
+            'message' => 'Receipt confirmed. Trip earnings are recorded after all remittances for the trip have been accepted.',
+            'remittance' => ['id' => $payout->id, 'status' => $payout->status, 'amount' => (float) $payout->amount],
         ]);
     }
 

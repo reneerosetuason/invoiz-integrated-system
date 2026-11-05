@@ -192,7 +192,7 @@ class ProfileController extends Controller
         }
 
         $data = $request->validate([
-            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
+            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id), new \App\Rules\SeparateAccountEmail('marketplace', $user->id)],
         ]);
         $email = $data['email'];
 
@@ -240,7 +240,7 @@ class ProfileController extends Controller
         }
 
         $data = $request->validate([
-            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id)],
+            'email' => ['required', 'email', 'max:150', Rule::unique('users', 'email')->ignore($user->id), new \App\Rules\SeparateAccountEmail('marketplace', $user->id)],
             'email_code' => ['required', 'digits:6'],
         ]);
 

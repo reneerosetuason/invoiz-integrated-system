@@ -205,6 +205,7 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     });
 
     // Remittance Operational Actions (Staff & Admin at assigned center)
+    Route::get('hub-payouts', [RemittanceController::class, 'hubPayouts'])->name('remittances.hub-payouts.index');
     Route::post('remittances/{remittance}/confirm-received', [RemittanceController::class, 'confirmReceived'])->name('remittances.confirm-received');
     Route::post('remittances/hub-payouts/{id}/accept', [RemittanceController::class, 'acceptHubPayout'])->name('remittances.hub-payouts.accept');
 

@@ -27,7 +27,8 @@ class CommissionController extends Controller
         }
 
         $totalSales = (clone $query)->sum('sub_total');
-        $totalCommission = (clone $query)->sum('commission_amount');
+        $totalCommission = \App\Models\EscrowRemittance::acceptedAdminCommission()
+            ->whereIn('order_id', (clone $query)->select('id'))->sum('amount');
 
         // ------------------------------------------------------------------
         // Commission per seller (+ payout status)

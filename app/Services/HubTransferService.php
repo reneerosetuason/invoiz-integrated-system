@@ -301,6 +301,13 @@ class HubTransferService
 
             // Credit the Hub Transport Driver once per completed transfer trip
             EscrowEarnings::creditInterHubDriverForCompletedTrip($locked);
+            // Bind every order's remittance to this completed trip before any
+            // release/acceptance can confirm its flat trip compensation.
+            foreach ($locked->parcels()->where('loading_status', '!=', 'removed')->with('delivery.order')->get() as $entry) {
+                if ($entry->delivery?->order) {
+                    EscrowEarnings::syncRemittancesForOrder($entry->delivery->order);
+                }
+            }
 
             return $locked;
         });

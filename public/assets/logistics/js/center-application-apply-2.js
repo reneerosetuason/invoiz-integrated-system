@@ -27,17 +27,30 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                 codeSentTo: '',
                 resendWait: 0,
                 resendTimer: null,
+                emailRevision: 0,
+                pendingEmail: '',
                 emailVerifiedNow() {
                     const current = this.inputValue('email').toLowerCase();
                     return this.verifiedEmail !== '' && current !== '' && this.verifiedEmail === current;
                 },
                 resetEmailVerification() {
-                    if (this.verifiedEmail && this.verifiedEmail !== this.inputValue('email').toLowerCase()) {
+                    const associatedEmail = this.pendingEmail || this.codeSentTo || this.verifiedEmail;
+                    if (associatedEmail && associatedEmail !== this.inputValue('email').toLowerCase()) {
+                        this.emailRevision++;
+                        this.verifyBusy = false;
+                        this.pendingEmail = '';
                         this.verifiedEmail = '';
                         this.codeSentTo = '';
                         this.verifyCode = '';
                         this.verifyMsg = '';
+                        this.resendWait = 0;
+                        if (this.resendTimer) clearInterval(this.resendTimer);
+                        this.resendTimer = null;
                     }
+                },
+                destroy() {
+                    this.emailRevision++;
+                    if (this.resendTimer) clearInterval(this.resendTimer);
                 },
                 csrfToken() {
                     return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
@@ -51,13 +64,16 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     }, 1000);
                 },
                 async sendVerifyCode() {
-                    const email = this.inputValue('email');
+                    if (this.verifyBusy || this.resendWait > 0) return;
+                    const email = this.inputValue('email').toLowerCase();
                     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
                         this.setFieldError('email', 'Enter a valid email address first.');
                         return;
                     }
                     this.clearFieldError('email');
                     this.verifyBusy = true;
+                    this.pendingEmail = email;
+                    const revision = this.emailRevision;
                     this.verifyMsg = '';
                     try {
                         const res = await fetch(invoizData_bb23c8a4ce[0], {
@@ -66,7 +82,8 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                             body: JSON.stringify({ email: email, name: this.inputValue('owner_first_name') }),
                         });
                         const data = await res.json().catch(() => ({}));
-                        if (!res.ok) {
+                        if (revision !== this.emailRevision) return;
+                        if (!res.ok || typeof data.message !== 'string') {
                             this.verifyMsgOk = false;
                             this.verifyMsg = data.message || 'Unable to send the verification code. Please try again.';
                             return;
@@ -76,17 +93,22 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                         this.verifyMsg = data.message || 'Verification code sent. Please check your email.';
                         this.startResendCooldown();
                     } catch (e) {
+                        if (revision !== this.emailRevision) return;
                         this.verifyMsgOk = false;
                         this.verifyMsg = 'Unable to send the verification code. Please try again.';
                     } finally {
-                        this.verifyBusy = false;
+                        if (revision === this.emailRevision) {
+                            this.verifyBusy = false;
+                            this.pendingEmail = '';
+                        }
                     }
                 },
                 async confirmVerifyCode() {
-                    const email = (this.codeSentTo || this.inputValue('email') || '').toLowerCase().trim();
-                    if (!email) {
+                    if (this.verifyBusy) return;
+                    const email = this.inputValue('email').toLowerCase();
+                    if (!email || this.codeSentTo !== email) {
                         this.verifyMsgOk = false;
-                        this.verifyMsg = 'Please enter your email address.';
+                        this.verifyMsg = 'Please request a code for your current email address.';
                         return;
                     }
                     const code = (this.verifyCode ?? '').toString().replace(/\D/g, '').trim();
@@ -101,6 +123,8 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                         return;
                     }
                     this.verifyBusy = true;
+                    this.pendingEmail = email;
+                    const revision = this.emailRevision;
                     this.verifyMsg = '';
                     try {
                         const res = await fetch(invoizData_bb23c8a4ce[1], {
@@ -109,7 +133,8 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                             body: JSON.stringify({ email: email, code: code }),
                         });
                         const data = await res.json().catch(() => ({}));
-                        if (!res.ok) {
+                        if (revision !== this.emailRevision) return;
+                        if (!res.ok || data.email !== email) {
                             this.verifyMsgOk = false;
                             this.verifyMsg = (data.errors && data.errors.code && data.errors.code[0]) || data.message || 'Invalid verification code. Please try again.';
                             return;
@@ -119,10 +144,14 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                         this.verifyMsg = '';
                         this.clearFieldError('email');
                     } catch (e) {
+                        if (revision !== this.emailRevision) return;
                         this.verifyMsgOk = false;
                         this.verifyMsg = 'Unable to verify the code. Please try again.';
                     } finally {
-                        this.verifyBusy = false;
+                        if (revision === this.emailRevision) {
+                            this.verifyBusy = false;
+                            this.pendingEmail = '';
+                        }
                     }
                 },
                 // ── Address picker (existing cascading PSGC logic) ─────────
@@ -183,8 +212,32 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                 // ── Lightweight client-side checks (server stays authoritative) ──
                 validateStep() {
                     if (this.step === 0) return this.validateStep1();
+                    if (this.step === 1) return this.validateLocation();
                     if (this.step === 2) return this.validateDocuments();
-                    return true; // Step 2 optional, Step 4 review has no gating
+                    return true;
+                },
+                submitApplication(event) {
+                    if (this.submitting || this.step !== 3) {
+                        event.preventDefault();
+                        return;
+                    }
+                    for (const [step, validate] of [[0, 'validateStep1'], [1, 'validateLocation'], [2, 'validateDocuments']]) {
+                        if (!this[validate]()) {
+                            event.preventDefault();
+                            this.setStep(step);
+                            return;
+                        }
+                    }
+                    if (!this.termsAccepted) {
+                        event.preventDefault();
+                        return;
+                    }
+                    this.submitting = true;
+                },
+                validateLocation() {
+                    const regionOk = this.setFieldError('region', /^\d{9}$/.test(this.inputValue('region')) ? '' : 'Select a region.');
+                    const postalOk = this.setFieldError('postal_code', /^\d{4}$/.test(this.inputValue('postal_code')) ? '' : 'Enter a 4-digit postal code.');
+                    return regionOk && postalOk;
                 },
                 setFieldError(field, message) {
                     if (message) {
@@ -217,6 +270,8 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                         ok = this.setFieldError('email', 'Enter a valid email address.') && ok;
                     } else if (!this.emailVerifiedNow()) {
                         ok = this.setFieldError('email', 'Please verify your email address before continuing.') && ok;
+                    } else {
+                        this.clearFieldError('email');
                     }
                     const phoneRaw = this.inputValue('phone');
                     const phone = phoneRaw.replace(/[\s\-()]/g, '');
@@ -231,7 +286,7 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     return ok;
                 },
                 validateDocuments() {
-                    let ok = true;
+                    let ok = !Object.keys(this.clientErrors).some((field) => field.startsWith('documents.'));
                     for (const type of ['valid_id', 'business_registration']) {
                         const hasFile = this.files[type] && this.files[type].name;
                         ok = this.setFieldError('documents.' + type, hasFile ? '' : 'This document is required.') && ok;
@@ -248,6 +303,12 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                 onFileChange(type, el) {
                     const f = el.files && el.files[0];
                     if (f) {
+                        if (!/\.(jpe?g|png|webp|pdf|docx?)$/i.test(f.name)) {
+                            el.value = '';
+                            delete this.files[type];
+                            this.setFieldError('documents.' + type, 'Choose a JPG, PNG, WebP, PDF, DOC or DOCX file.');
+                            return;
+                        }
                         if (f.size > 5 * 1024 * 1024) {
                             el.value = '';
                             delete this.files[type];
@@ -314,6 +375,10 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                 loadingMunicipalities: false,
                 loadingBarangays: false,
                 addressError: '',
+                localProvinces: null,
+                regionRequest: 0,
+                municipalityRequest: 0,
+                barangayRequest: 0,
                 escapeHtml(value) {
                     return String(value ?? '').replace(/[&<>"']/g, (c) => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -336,6 +401,16 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     return html;
                 },
                 async selectRegion() {
+                    const request = ++this.regionRequest;
+                    this.municipalityRequest++;
+                    this.barangayRequest++;
+                    this.loadingMunicipalities = false;
+                    this.loadingBarangays = false;
+                    this.provinceId = '';
+                    this.municipalityId = '';
+                    this.provincePicked = false;
+                    this.municipalityPicked = false;
+                    this.addressError = '';
                     const regionSel = document.getElementById('region') || this.$refs?.region;
                     if (regionSel) {
                         this.selectedRegionCode = regionSel.value;
@@ -348,18 +423,32 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     if (muniSel && muniSel.tagName === 'SELECT') muniSel.innerHTML = '<option value="">City / Municipality (optional)</option>';
                     if (brgySel && brgySel.tagName === 'SELECT') brgySel.innerHTML = '<option value="">Barangay (optional)</option>';
                     if (provSel && provSel.tagName === 'SELECT') {
+                        if (this.localProvinces === null) {
+                            this.localProvinces = Array.from(provSel.options).filter(o => o.value).map(o => ({ name: o.value, id: o.dataset.id, region: o.dataset.region }));
+                        }
                         provSel.innerHTML = '<option value="">Select a province...</option>';
-                        provSel.dispatchEvent(new Event('change', { bubbles: true }));
                         const code = regionSel ? regionSel.value : '';
+                        provSel.disabled = false;
                         if (!code) return;
+                        const fallback = this.localProvinces.filter(p => p.region === code);
+                        const addFallback = () => fallback.forEach(p => {
+                            const option = new Option(p.name, p.name);
+                            option.dataset.id = p.id;
+                            option.dataset.region = p.region;
+                            provSel.appendChild(option);
+                        });
+                        addFallback();
                         provSel.disabled = true;
                         try {
                             const [provRes, cityRes] = await Promise.all([
                                 fetch('https://psgc.gitlab.io/api/regions/' + encodeURIComponent(code) + '/provinces', { headers: { Accept: 'application/json' } }),
                                 fetch('https://psgc.gitlab.io/api/regions/' + encodeURIComponent(code) + '/cities', { headers: { Accept: 'application/json' } }),
                             ]);
-                            const provs = provRes.ok ? await provRes.json() : [];
-                            const cities = cityRes.ok ? await cityRes.json() : [];
+                            if (!provRes.ok || !cityRes.ok) throw new Error('Address lookup failed');
+                            const provs = await provRes.json();
+                            const cities = await cityRes.json();
+                            if (request !== this.regionRequest) return;
+                            if (provs.length || cities.length) provSel.innerHTML = '<option value="">Select a province...</option>';
                             (Array.isArray(provs) ? provs : []).forEach((p) => {
                                 const o = document.createElement('option');
                                 o.value = p.name; o.textContent = p.name; o.dataset.id = p.code; o.dataset.kind = 'province';
@@ -370,33 +459,42 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                                 o.value = c.name; o.textContent = c.name; o.dataset.id = c.code; o.dataset.kind = 'city';
                                 provSel.appendChild(o);
                             });
-                        } catch (e) { /* server validates; keep the empty list */ }
-                        finally { provSel.disabled = false; }
+                        } catch (e) {
+                            if (request === this.regionRequest && !fallback.length) this.addressError = 'We could not load provinces. Please retry.';
+                        }
+                        finally { if (request === this.regionRequest) provSel.disabled = false; }
                     }
                     this.clearFieldError('region');
                 },
                 reloadMunicipalityOptions() {
+                    const request = ++this.municipalityRequest;
                     this.loadingMunicipalities = true;
                     const pid = String(this.provinceId ?? '');
                     const url = /^\d{9}$/.test(pid)
                         ? `https://psgc.gitlab.io/api/provinces/${pid}/cities-municipalities`
-                        : `/api/address/provinces/${this.provinceId}/municipalities`;
+                        : `/api/logistics/address/provinces/${this.provinceId}/municipalities`;
                     fetch(url)
                         .then((res) => { if (!res.ok) throw new Error(); return res.json(); })
                         .then((data) => {
+                            if (request !== this.municipalityRequest) return;
                             const items = Array.isArray(data) ? data : (data.municipalities || []);
-                            this.$refs.municipality.innerHTML = this.buildOptions('municipality', items.map((m) => ({ id: m.code ?? m.id, name: m.name })));
+                            this.$refs.municipality.innerHTML = this.buildOptions('municipality', items.map((m) => ({ id: /^\d{9}$/.test(pid) ? m.code : m.id, name: m.name })));
                             this.municipalityPicked = false;
                             this.addressError = '';
                         })
                         .catch(() => {
+                            if (request !== this.municipalityRequest) return;
                             this.$refs.municipality.innerHTML = this.emptyOptions('municipality');
                             this.municipalityPicked = false;
                             this.addressError = 'We could not load cities and municipalities. Please retry.';
                         })
-                        .finally(() => { this.loadingMunicipalities = false; });
+                        .finally(() => { if (request === this.municipalityRequest) this.loadingMunicipalities = false; });
                 },
                 selectProvince() {
+                    this.municipalityRequest++;
+                    this.barangayRequest++;
+                    this.loadingMunicipalities = false;
+                    this.loadingBarangays = false;
                     const opt = this.$refs.province.options[this.$refs.province.selectedIndex];
                     this.provinceId = opt && opt.dataset.id ? opt.dataset.id : '';
                     this.provincePicked = this.$refs.province.value !== '';
@@ -415,25 +513,30 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     if (this.provinceId) this.reloadMunicipalityOptions();
                 },
                 reloadBarangayOptions() {
+                    const request = ++this.barangayRequest;
                     this.loadingBarangays = true;
                     const mid = String(this.municipalityId ?? '');
                     const url = /^\d{9}$/.test(mid)
                         ? `https://psgc.gitlab.io/api/cities-municipalities/${mid}/barangays`
-                        : `/api/address/municipalities/${this.municipalityId}/barangays`;
+                        : `/api/logistics/address/municipalities/${this.municipalityId}/barangays`;
                     fetch(url)
                         .then((res) => { if (!res.ok) throw new Error(); return res.json(); })
                         .then((data) => {
+                            if (request !== this.barangayRequest) return;
                             const items = Array.isArray(data) ? data : (data.barangays || []);
                             this.$refs.barangay.innerHTML = this.buildOptions('barangay', items.map((b) => ({ id: b.code ?? b.id, name: b.name })));
                             this.addressError = '';
                         })
                         .catch(() => {
+                            if (request !== this.barangayRequest) return;
                             this.$refs.barangay.innerHTML = this.emptyOptions('barangay');
                             this.addressError = 'We could not load barangays. Please retry.';
                         })
-                        .finally(() => { this.loadingBarangays = false; });
+                        .finally(() => { if (request === this.barangayRequest) this.loadingBarangays = false; });
                 },
                 selectMunicipality() {
+                    this.barangayRequest++;
+                    this.loadingBarangays = false;
                     const opt = this.$refs.municipality.options[this.$refs.municipality.selectedIndex];
                     this.municipalityId = opt && opt.dataset.id ? opt.dataset.id : '';
                     this.municipalityPicked = this.$refs.municipality.value !== '';
@@ -445,6 +548,7 @@ var invoizData_bb23c8a4ce = JSON.parse(document.currentScript.dataset.config);
                     if (this.loadingMunicipalities || this.loadingBarangays) return;
                     if (this.provinceId && !this.municipalityId) this.reloadMunicipalityOptions();
                     else if (this.municipalityId) this.reloadBarangayOptions();
+                    else this.selectRegion();
                 },
             };
         }

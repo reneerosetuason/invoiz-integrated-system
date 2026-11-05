@@ -70,7 +70,7 @@ class HubTransportDriver extends Authenticatable
 
     public function earnings(): HasMany
     {
-        return $this->hasMany(HubTransferEarning::class, 'hub_transport_driver_id');
+        return $this->hasMany(HubTransferEarning::class, 'hub_transport_driver_id')->acceptedRemittances();
     }
 
     public function incidents(): HasMany

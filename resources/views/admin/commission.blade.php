@@ -18,9 +18,10 @@
   {{-- Top Stat Cards --}}
   <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin:18px 0 24px;">
     <div style="background:#fff; border:1px solid var(--border); border-left:4px solid #16697A; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.04);">
-      <div style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px;">Total Commission</div>
+      <div style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px;">Confirmed Commission</div>
       <div style="font-size:22px; font-weight:800; color:#16697A; margin-top:6px;">₱{{ number_format($totalCommission, 2) }}</div>
-      <div style="font-size:12px; color:#6E6E73; margin-top:4px;">from ₱{{ number_format($totalSales, 2) }} sales · exact</div>
+      <div style="font-size:12px; color:#6E6E73; margin-top:4px;">Accepted platform remittances for the selected orders.</div>
+      <a href="{{ route('admin.payments') }}#admin-remittances" class="btn btn-neutral" style="margin-top:8px;">Review remittances</a>
     </div>
     <div style="background:#fff; border:1px solid var(--border); border-left:4px solid #F0A202; border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,.04);">
       <div style="font-size:11px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.5px;">Pending Payouts</div>

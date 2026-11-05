@@ -476,13 +476,20 @@ class Delivery extends Model
     }
 
     /**
-     * The buyer-facing destination. The recipient address determines the
-     * final hub so a parcel routed through intermediate hubs is not mistaken
-     * for a last-mile parcel at the first receiving hub. The stored
-     * destination/area are the fallback when the address cannot be resolved.
+     * The reviewed destination is authoritative across transfer legs. Address
+     * suggestions are a fallback, never a way to reroute an already routed
+     * parcel when two hubs have identically named service areas.
      */
     public function finalDestinationScope(): array
     {
+        $centerId = $this->destination_center_id !== null ? (int) $this->destination_center_id : null;
+        if ($centerId !== null) {
+            $areas = ServiceArea::where('is_active', true)->where('logistics_center_id', $centerId)->get();
+            $area = $this->service_area_id !== null ? $areas->firstWhere('id', (int) $this->service_area_id) : null;
+            $area ??= self::matchServiceArea($areas, mb_strtolower((string) $this->recipient_address));
+
+            return ['center_id' => $centerId, 'service_area_id' => $area ? (int) $area->id : null];
+        }
         $suggested = $this->suggestedDestination();
 
         return [

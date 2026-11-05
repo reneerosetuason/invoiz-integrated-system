@@ -2,26 +2,64 @@
 
 namespace App\Http\Controllers\Logistics;
 
-use App\Models\Remittance;
+use App\Models\EscrowRemittance;
 use App\Models\LogisticsCenter;
+use App\Models\Remittance;
 use App\Models\User;
 use App\Support\Cod;
 use App\Support\CsvExport;
 use App\Support\LogisticsAccess;
+use App\Support\Remittances;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Read-only COD remittance oversight (rider -> seller cash handoffs).
- *
- * The seller remains the confirming party (see App\Support\Remittances), so
- * this surface never mutates a remittance. Its only job is to let logistics
- * staff see, for their own center, which riders still owe which sellers.
+ * COD handoff oversight and scoped receipt confirmation for hub payouts.
  */
 class RemittanceController extends Controller
 {
+    public function hubPayouts(Request $request): View
+    {
+        $request->validate(['status' => ['nullable', 'in:held_in_escrow,pending_remittance,remitted,accepted,voided']]);
+        $base = $this->hubPayoutQuery($request->user());
+        $totals = [
+            'accepted' => (float) (clone $base)->where('status', 'accepted')->sum('amount'),
+            'remitted' => (float) (clone $base)->where('status', 'remitted')->sum('amount'),
+            'awaiting_release' => (float) (clone $base)->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount'),
+        ];
+        $payouts = (clone $base)->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
+            ->with(['order', 'delivery', 'logisticsCenter'])->latest('id')->paginate(15)->withQueryString();
+
+        return view('logistics.remittances.hub-payouts', compact('payouts', 'totals'));
+    }
+
+    private function hubPayoutQuery(User $user): Builder
+    {
+        $query = EscrowRemittance::whereIn('recipient_role', [
+            EscrowRemittance::ROLE_ORIGIN_HUB,
+            EscrowRemittance::ROLE_DESTINATION_HUB,
+        ])->where('amount', '>', 0);
+        if (LogisticsAccess::isGlobal($user)) {
+            return $query;
+        }
+        $companyId = LogisticsAccess::companyId($user);
+        $centerId = LogisticsAccess::centerId($user);
+        if ($centerId === 0 || (! $companyId && $centerId === null)) {
+            return $query->whereRaw('1 = 0');
+        }
+        if ($companyId > 0) {
+            $query->whereIn('logistics_center_id', LogisticsCenter::select('id')->where('logistics_company_id', $companyId));
+        }
+        if ($centerId !== null) {
+            $query->where('logistics_center_id', $centerId);
+        }
+
+        return $query;
+    }
+
     public function export(Request $request): StreamedResponse
     {
         $user = $request->user();
@@ -47,7 +85,7 @@ class RemittanceController extends Controller
                 $delivery = $remittance->delivery;
 
                 return [
-                    $remittance->order?->order_number ?? ($remittance->order_id ? '#' . $remittance->order_id : ''),
+                    $remittance->order?->order_number ?? ($remittance->order_id ? '#'.$remittance->order_id : ''),
                     $delivery?->tracking_number,
                     $remittance->rider?->name,
                     $delivery?->logisticsCenter?->name,
@@ -66,7 +104,7 @@ class RemittanceController extends Controller
             });
 
         return CsvExport::stream(
-            'invoiz-logistics-cod-remittances-' . now()->format('Y-m-d') . '.csv',
+            'invoiz-logistics-cod-remittances-'.now()->format('Y-m-d').'.csv',
             [
                 'Order Number',
                 'Tracking Number',
@@ -129,19 +167,11 @@ class RemittanceController extends Controller
         $centerId = (int) ($user->center_id ?? 0);
         $orderIds = $remittances->getCollection()->pluck('order_id')->filter()->unique()->values();
 
-        $hubEscrowQuery = \App\Models\EscrowRemittance::query()
-            ->whereIn('recipient_role', [
-                \App\Models\EscrowRemittance::ROLE_ORIGIN_HUB,
-                \App\Models\EscrowRemittance::ROLE_DESTINATION_HUB
-            ]);
+        $hubEscrowQuery = $this->hubPayoutQuery($user);
 
-        if (! $user->isLogisticsAdmin() && $centerId > 0) {
-            $hubEscrowQuery->where('logistics_center_id', $centerId);
-        }
-
-        $hubAcceptedTotal = (float) (clone $hubEscrowQuery)->where('status', \App\Models\EscrowRemittance::STATUS_ACCEPTED)->sum('amount');
-        $hubAwaitingAcceptTotal = (float) (clone $hubEscrowQuery)->where('status', \App\Models\EscrowRemittance::STATUS_REMITTED)->sum('amount');
-        $hubPendingAdminTotal = (float) (clone $hubEscrowQuery)->where('status', \App\Models\EscrowRemittance::STATUS_PENDING_REMITTANCE)->sum('amount');
+        $hubAcceptedTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_ACCEPTED)->sum('amount');
+        $hubAwaitingAcceptTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_REMITTED)->sum('amount');
+        $hubPendingAdminTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_PENDING_REMITTANCE)->sum('amount');
         $hubEarningsTotal = $hubAcceptedTotal; // Officially recorded in hub accounts once accepted
         $hubEscrows = (clone $hubEscrowQuery)->whereIn('order_id', $orderIds)->get()->groupBy('order_id');
         $hubPayoutsList = (clone $hubEscrowQuery)->with(['order', 'delivery'])->latest()->paginate(15, ['*'], 'payout_page')->withQueryString();
@@ -161,7 +191,7 @@ class RemittanceController extends Controller
         ]);
     }
 
-    public function confirmReceived(Request $request, Remittance $remittance): \Illuminate\Http\RedirectResponse
+    public function confirmReceived(Request $request, Remittance $remittance): RedirectResponse
     {
         $user = $request->user();
 
@@ -186,37 +216,31 @@ class RemittanceController extends Controller
         }
 
         $reference = $request->input('reference');
-        \App\Support\Remittances::confirmByLogistics($remittance, $user, $reference);
+        Remittances::confirmByLogistics($remittance, $user, $reference);
 
-        return back()->with('status', 'COD cash remittance of ₱' . number_format((float) $remittance->amount, 2) . ' confirmed received at hub.');
+        return back()->with('status', 'COD cash remittance of ₱'.number_format((float) $remittance->amount, 2).' confirmed received at hub.');
     }
 
-    public function acceptHubPayout(Request $request, int $id): \Illuminate\Http\RedirectResponse
+    public function acceptHubPayout(Request $request, int $id): RedirectResponse
     {
         $user = $request->user();
-        $escrow = \App\Models\EscrowRemittance::findOrFail($id);
+        $escrow = $this->hubPayoutQuery($user)->findOrFail($id);
+        abort_unless($escrow->canAcceptHubPayout($user), 403, 'Only the receiving hub or its company manager can confirm this payout.');
+        $request->validate(['confirm_received' => ['required', 'accepted'], 'note' => ['nullable', 'string', 'max:1000']]);
 
-        if (! $user->isLogisticsAdmin()) {
-            if (! $user->isLogisticsStaff()) {
-                abort(403, 'Unauthorized.');
-            }
-            $centerId = (int) ($user->center_id ?? 0);
-            if ($centerId <= 0 || (int) $escrow->logistics_center_id !== $centerId) {
-                abort(403, 'Unauthorized to accept payout for another logistics center.');
-            }
-        }
-
-        if ($escrow->status === \App\Models\EscrowRemittance::STATUS_ACCEPTED) {
+        if ($escrow->status === EscrowRemittance::STATUS_ACCEPTED) {
             return back()->with('info', 'This hub income is already accepted.');
         }
 
-        if ($escrow->status !== \App\Models\EscrowRemittance::STATUS_REMITTED) {
-            return back()->with('error', 'This remittance cannot be accepted yet because it has not been released by Admin (Status: ' . $escrow->status . ').');
+        if ($escrow->status !== EscrowRemittance::STATUS_REMITTED) {
+            return back()->with('error', 'This remittance cannot be accepted yet because it has not been released by Admin (Status: '.$escrow->status.').');
         }
 
-        $escrow->accept($user, $request->input('note'));
+        if (! $escrow->accept($user, $request->input('note'))) {
+            return back()->with('info', 'This payout was already processed. Refresh the remittances page.');
+        }
 
-        return back()->with('status', 'Hub income of ₱' . number_format((float) $escrow->amount, 2) . ' accepted and officially recorded in hub earnings.');
+        return back()->with('success', 'Hub income of ₱'.number_format((float) $escrow->amount, 2).' accepted and officially recorded in hub earnings.');
     }
 
     private function baseQuery(User $user): Builder

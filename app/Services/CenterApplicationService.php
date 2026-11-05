@@ -75,17 +75,10 @@ class CenterApplicationService
             }],
             'terms' => 'required|accepted',
             'email' => [
-                'required', 'email', 'max:255',
+                'bail', 'required', 'email', 'max:255',
                 $notRejected('email'),
+                new \App\Rules\SeparateAccountEmail('logistics'),
                 function ($attribute, $value, $fail) {
-                    $email = strtolower(trim((string) $value));
-                    if (\App\Models\User::where('email', $email)->where(function ($q) {
-                        $q->whereIn('role', ['buyer', 'seller'])->orWhereHas('seller');
-                    })->exists()) {
-                        $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Logistics Center application.');
-                        return;
-                    }
-
                     if (is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL)
                         && ! RiderEmailVerification::isVerified($value)) {
                         $fail('Please verify your email address before submitting your application.');

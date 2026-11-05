@@ -68,14 +68,7 @@ class StaffController extends Controller
                 'email',
                 'max:150',
                 'unique:users,email',
-                function ($attribute, $value, $fail) {
-                    $email = strtolower(trim((string) $value));
-                    if (\App\Models\User::where('email', $email)->where(function ($q) {
-                        $q->whereIn('role', ['buyer', 'seller'])->orWhereHas('seller');
-                    })->exists()) {
-                        $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Logistics account.');
-                    }
-                },
+                new \App\Rules\SeparateAccountEmail('logistics'),
             ],
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             'terms' => 'accepted',
@@ -127,7 +120,7 @@ class StaffController extends Controller
             'last_name' => ['required', 'string', 'max:100', new PersonName()],
             'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'sex' => 'required|in:male,female,other',
-            'email' => 'required|email|max:150|unique:users,email,' . $staff->id,
+            'email' => ['required', 'email', 'max:150', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($staff->id), new \App\Rules\SeparateAccountEmail('logistics', $staff->id)],
             'phone' => ['required', new PhilippinePhone],
             'birthday' => 'required|date|before:today',
             'center_id' => ['required', 'exists:logistics_centers,id', function ($attribute, $value, $fail): void { $this->validateCenterCompany((int) $value, $fail); }],

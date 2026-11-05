@@ -32,12 +32,7 @@ class RiderEmailVerificationController extends Controller
 
         $email = strtolower(trim($validated['email']));
 
-        $marketplaceUser = \App\Models\User::where('email', $email)
-            ->where(function ($q) {
-                $q->whereIn('role', ['buyer', 'seller'])
-                  ->orWhereHas('seller');
-            })
-            ->exists();
+        $marketplaceUser = \App\Rules\SeparateAccountEmail::marketplaceExists($email);
 
         if ($marketplaceUser) {
             return response()->json([

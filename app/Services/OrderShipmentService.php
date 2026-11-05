@@ -60,6 +60,9 @@ class OrderShipmentService
                     $delivery->$key = $value;
                 }
             }
+            if ($delivery->weight === null) {
+                $delivery->weight = app(ShipmentWeightService::class)->fromOrder($order);
+            }
             $delivery->save();
             if (! $delivery->items()->exists()) {
                 foreach ($order->items as $item) {

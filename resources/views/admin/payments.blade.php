@@ -35,10 +35,38 @@
         @endforeach
     </div>
     <div class="po-earnings">
-        <div><span>Platform commission (10%)</span><strong>&#8369;{{ number_format($stats['commission'], 2) }}</strong></div>
+        <div><span>Confirmed platform commission</span><strong>&#8369;{{ number_format($stats['commission'], 2) }}</strong></div>
         <div><span>Seller net earnings</span><strong>&#8369;{{ number_format($stats['seller_earnings'], 2) }}</strong></div>
         <div><span>Logistics &amp; rider fees</span><strong>&#8369;{{ number_format(($stats['rider_fees'] ?? 0) + ($stats['origin_hub_fees'] ?? 0) + ($stats['destination_hub_fees'] ?? 0), 2) }}</strong></div>
     </div>
+
+    <section class="po-panel" id="admin-remittances" aria-labelledby="admin-remittances-title">
+        <div class="po-section-heading"><div><h2 id="admin-remittances-title">Admin remittances</h2><p>Confirm receipt of the platform cut after release or retention. Only accepted remittances count as confirmed commission.</p></div></div>
+        <div class="po-earnings">
+            <div><span>Confirmed earnings</span><strong>&#8369;{{ number_format($adminRemittanceTotals['accepted'], 2) }}</strong></div>
+            <div><span>Ready to confirm</span><strong>&#8369;{{ number_format($adminRemittanceTotals['remitted'], 2) }}</strong></div>
+            <div><span>Awaiting release</span><strong>&#8369;{{ number_format($adminRemittanceTotals['awaiting_release'], 2) }}</strong></div>
+        </div>
+        <table class="po-table po-admin-remittances">
+            <caption class="po-sr-only">Platform commission remittances. View details to release or accept a remittance.</caption>
+            <thead><tr><th scope="col">Order</th><th scope="col" class="po-money">Amount</th><th scope="col">Status</th><th scope="col" class="po-action">Action</th></tr></thead>
+            <tbody>
+                @forelse($adminRemittances ?? [] as $remit)
+                    <tr>
+                        <td><a class="po-truncate po-order" href="{{ url('/admin/orders/'.$remit->order_id) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">#{{ $remit->order?->order_number ?? $remit->order_id }}</a></td>
+                        <td class="po-money">&#8369;{{ number_format((float) $remit->amount, 2) }}</td>
+                        <td>@include('admin.partials.payment-status', ['paymentStatus' => $remit->status])</td>
+                        <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-{{ $remit->id }}" aria-haspopup="dialog" aria-label="View admin remittance {{ $remit->id }}">View</button></td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4" class="po-empty">No admin remittances available yet.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+        @if(isset($adminRemittances) && $adminRemittances->hasPages())
+            @include('admin.partials.pager', ['paginator' => $adminRemittances])
+        @endif
+    </section>
 
     <section class="po-panel" id="escrow-remittances" aria-labelledby="escrow-title">
         <div class="po-section-heading">
@@ -105,7 +133,7 @@
     <noscript><p class="alert alert-warn">Enable JavaScript to open payment details. Order links and status filters remain available.</p></noscript>
 </div>
 
-@foreach($escrowRemittancesList ?? [] as $remit)
+@foreach(collect($escrowRemittancesList?->items() ?? [])->merge($adminRemittances?->items() ?? []) as $remit)
 <dialog class="po-dialog" id="payout-detail-{{ $remit->id }}" aria-labelledby="payout-title-{{ $remit->id }}">
     <header><div><p class="po-eyebrow">Allocation #{{ $remit->id }}</p><h2 id="payout-title-{{ $remit->id }}">Payout details</h2></div><button type="button" class="po-close" data-payment-close aria-label="Close payout details">&times;</button></header>
     <dl class="po-detail-list">
@@ -130,6 +158,13 @@
                 <p id="payout-help-{{ $remit->id }}">Record the actual transfer or retention reference for this GCash payout.</p>
             @endif
             <button class="po-button po-button-primary" type="submit">Release payout</button>
+        </form>
+    @elseif($remit->recipient_role === 'admin' && $remit->status === 'remitted')
+        <form class="po-release-form" method="POST" action="{{ route('admin.remittances.accept', $remit->id) }}">
+            @csrf
+            <p>Confirm the platform has received or retained this commission before recording it as earnings.</p>
+            <label><input type="checkbox" name="confirm_received" value="1" required> I confirm the platform received or retained this amount.</label>
+            <button class="po-button po-button-primary" type="submit">Accept admin remittance</button>
         </form>
     @else
         <p class="po-dialog-note">{{ match($remit->status) { 'remitted' => 'Payout sent. Awaiting recipient confirmation.', 'accepted' => 'The recipient has confirmed this payout.', 'held_in_escrow' => 'Held in escrow. Release becomes available when settlement requirements are met.', default => 'No release action is available for this status.' } }}</p>

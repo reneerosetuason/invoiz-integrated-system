@@ -8,6 +8,7 @@ import '../../models/hub_courier.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/hub_courier_service.dart';
 import '../onboarding/rider_tutorial_screen.dart';
+import '../remittances/hub_courier_remittances_screen.dart';
 
 String _formatTimestamp(String? value) {
   if (value == null || value.isEmpty) return '—';
@@ -199,7 +200,10 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                       style: Theme.of(context).textTheme.labelLarge,
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: courier.isDriverOwned
                             ? Colors.purple.shade50
@@ -212,7 +216,9 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                         ),
                       ),
                       child: Text(
-                        courier.isDriverOwned ? 'Driver-Owned Truck' : 'Company Fleet',
+                        courier.isDriverOwned
+                            ? 'Driver-Owned Truck'
+                            : 'Company Fleet',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -238,7 +244,11 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                 // Vehicle Details Section
                 Row(
                   children: [
-                    const Icon(Icons.local_shipping_outlined, size: 20, color: Color(0xFF16697A)),
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      size: 20,
+                      color: Color(0xFF16697A),
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Vehicle: ${vehicle['plate_number'] ?? 'Not Assigned'}',
@@ -247,20 +257,23 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                     const Spacer(),
                     if (vehicle['status'] != null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: vehicle['status'] == 'available'
                               ? Colors.green.shade50
                               : vehicle['status'] == 'damaged'
-                                  ? Colors.orange.shade50
-                                  : Colors.amber.shade50,
+                              ? Colors.orange.shade50
+                              : Colors.amber.shade50,
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
                             color: vehicle['status'] == 'available'
                                 ? Colors.green.shade200
                                 : vehicle['status'] == 'damaged'
-                                    ? Colors.orange.shade200
-                                    : Colors.amber.shade200,
+                                ? Colors.orange.shade200
+                                : Colors.amber.shade200,
                           ),
                         ),
                         child: Text(
@@ -271,8 +284,8 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                             color: vehicle['status'] == 'available'
                                 ? Colors.green.shade800
                                 : vehicle['status'] == 'damaged'
-                                    ? Colors.orange.shade800
-                                    : Colors.amber.shade800,
+                                ? Colors.orange.shade800
+                                : Colors.amber.shade800,
                           ),
                         ),
                       ),
@@ -287,25 +300,32 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                         style: TextStyle(fontSize: 11, color: Colors.black54),
                       ),
                       Text(
-                        (courier.verificationStatus ?? 'pending_review').replaceAll('_', ' ').toUpperCase(),
+                        (courier.verificationStatus ?? 'pending_review')
+                            .replaceAll('_', ' ')
+                            .toUpperCase(),
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           color: courier.isVehicleApproved
                               ? Colors.green.shade700
                               : courier.isVehicleRejected
-                                  ? Colors.red.shade700
-                                  : Colors.orange.shade800,
+                              ? Colors.red.shade700
+                              : Colors.orange.shade800,
                         ),
                       ),
                     ],
                   ),
-                  if (courier.verificationNotes != null && courier.verificationNotes!.isNotEmpty)
+                  if (courier.verificationNotes != null &&
+                      courier.verificationNotes!.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
                       child: Text(
                         'Note: ${courier.verificationNotes}',
-                        style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black54),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontStyle: FontStyle.italic,
+                          color: Colors.black54,
+                        ),
                       ),
                     ),
                 ],
@@ -348,7 +368,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'COMPLETED TRIP EARNINGS',
+                      'CONFIRMED TRIP EARNINGS',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -358,7 +378,11 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                     ),
                     Text(
                       '${earnings.completedTrips} trips',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black54),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
+                      ),
                     ),
                   ],
                 ),
@@ -369,25 +393,19 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Base Pay', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                          const Text(
+                            'Base Pay',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.black54,
+                            ),
+                          ),
                           Text(
                             '₱${earnings.base.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.black87),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Vehicle Allowance', style: TextStyle(fontSize: 11, color: Colors.black54)),
-                          Text(
-                            '₱${earnings.allowance.toStringAsFixed(2)}',
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.bold,
-                              color: courier.isDriverOwned ? Colors.purple.shade700 : Colors.black87,
+                              color: Colors.black87,
                             ),
                           ),
                         ],
@@ -397,24 +415,48 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          const Text('Total Earned', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                          const Text(
+                            'Total Earned',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.black54,
+                            ),
+                          ),
                           Text(
                             '₱${earnings.total.toStringAsFixed(2)}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF16697A)),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF16697A),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                if (courier.isDriverOwned)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text(
-                      'Includes separate vehicle-use allowance for driver-owned truck.',
-                      style: TextStyle(fontSize: 10.5, color: Colors.black54, fontStyle: FontStyle.italic),
-                    ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Confirm receipt of released remittances before they appear in earnings.',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    label: const Text('View remittances'),
+                    onPressed: () async {
+                      await Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const HubCourierRemittancesScreen(),
+                        ),
+                      );
+                      if (mounted) await _refresh();
+                    },
                   ),
+                ),
               ],
             ),
           ),
@@ -427,7 +469,11 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                const Icon(Icons.report_problem_outlined, color: Colors.amber, size: 24),
+                const Icon(
+                  Icons.report_problem_outlined,
+                  color: Colors.amber,
+                  size: 24,
+                ),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Column(
@@ -435,7 +481,10 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                     children: [
                       Text(
                         'Accident or Damage?',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                       Text(
                         'Reports do not deduct driver earnings.',
@@ -479,7 +528,10 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                 title: Text(
                   '${asJsonString(inc['reference'], 'Incident')} · '
                   '${asJsonString(inc['incident_type'], 'incident').replaceAll('_', ' ').toUpperCase()}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
                 ),
                 subtitle: Text(
                   '${asJsonString(inc['description'])}\n'
@@ -611,9 +663,18 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                 value: typeCtrl.text,
                 decoration: const InputDecoration(labelText: 'Incident Type'),
                 items: const [
-                  DropdownMenuItem(value: 'accident', child: Text('Collision / Accident')),
-                  DropdownMenuItem(value: 'mechanical_breakdown', child: Text('Mechanical Breakdown')),
-                  DropdownMenuItem(value: 'weather_damage', child: Text('Weather Damage')),
+                  DropdownMenuItem(
+                    value: 'accident',
+                    child: Text('Collision / Accident'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'mechanical_breakdown',
+                    child: Text('Mechanical Breakdown'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'weather_damage',
+                    child: Text('Weather Damage'),
+                  ),
                   DropdownMenuItem(value: 'other', child: Text('Other')),
                 ],
                 onChanged: (v) => typeCtrl.text = v ?? 'accident',
@@ -623,17 +684,31 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                 value: sevCtrl.text,
                 decoration: const InputDecoration(labelText: 'Severity'),
                 items: const [
-                  DropdownMenuItem(value: 'minor', child: Text('Minor (Cosmetic)')),
-                  DropdownMenuItem(value: 'moderate', child: Text('Moderate (Needs Repair)')),
-                  DropdownMenuItem(value: 'severe', child: Text('Severe (Inoperable)')),
-                  DropdownMenuItem(value: 'total_loss', child: Text('Total Loss')),
+                  DropdownMenuItem(
+                    value: 'minor',
+                    child: Text('Minor (Cosmetic)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'moderate',
+                    child: Text('Moderate (Needs Repair)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'severe',
+                    child: Text('Severe (Inoperable)'),
+                  ),
+                  DropdownMenuItem(
+                    value: 'total_loss',
+                    child: Text('Total Loss'),
+                  ),
                 ],
                 onChanged: (v) => sevCtrl.text = v ?? 'minor',
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: locCtrl,
-                decoration: const InputDecoration(labelText: 'Location (optional)'),
+                decoration: const InputDecoration(
+                  labelText: 'Location (optional)',
+                ),
               ),
               const SizedBox(height: 8),
               TextField(
@@ -976,7 +1051,10 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
                       dense: true,
                       leading: const Icon(Icons.history),
                       title: Text(
-                        asJsonString(event['type'], 'update').replaceAll('_', ' '),
+                        asJsonString(
+                          event['type'],
+                          'update',
+                        ).replaceAll('_', ' '),
                       ),
                       subtitle: Text(
                         '${asJsonString(event['notes'])}\n'
@@ -989,10 +1067,7 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
     );
   }
 
-  Widget _summaryCard(
-    HubTransferJob job,
-    bool headingToDestination,
-  ) => Card(
+  Widget _summaryCard(HubTransferJob job, bool headingToDestination) => Card(
     child: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1005,7 +1080,9 @@ class _HubTransferDetailScreenState extends State<HubTransferDetailScreen> {
           Text(job.reference, style: Theme.of(context).textTheme.titleLarge),
           Text('Status: ${job.statusLabel}'),
           if (job.plannedDispatchAt != null)
-            Text('Planned dispatch: ${_formatTimestamp(job.plannedDispatchAt)}'),
+            Text(
+              'Planned dispatch: ${_formatTimestamp(job.plannedDispatchAt)}',
+            ),
           if (job.dispatchedAt != null)
             Text('Dispatched: ${_formatTimestamp(job.dispatchedAt)}'),
           if (job.destinationArrivedAt != null)

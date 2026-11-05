@@ -10,7 +10,7 @@
                         .then(function (list) {
                             if (!Array.isArray(list) || !list.length) return;
                             var cur = sel.value;
-                            sel.querySelectorAll('option[data-psgc]').forEach(function (o) { o.remove(); });
+                            sel.querySelectorAll('option[value]:not([value=""])').forEach(function (o) { o.remove(); });
                             list.forEach(function (rg) {
                                 var o = document.createElement('option');
                                 o.value = rg.code;
@@ -21,7 +21,6 @@
                             });
                             if (cur) {
                                 sel.value = cur;
-                                sel.dispatchEvent(new Event('change', { bubbles: true }));
                             }
                         })
                         .catch(function () { /* keep the fallback options */ });

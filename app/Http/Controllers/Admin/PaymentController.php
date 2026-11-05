@@ -33,8 +33,8 @@ class PaymentController extends Controller
             'refunded' => (clone $txQuery)->whereIn('status', ['refunded', 'partially_refunded'])->count(),
             'refunded_amount' => (clone $txQuery)->sum('refunded_amount'),
             'partially_refunded' => (clone $txQuery)->where('status', 'partially_refunded')->count(),
-            'admin_earnings' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('platform_commission'),
-            'commission' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('platform_commission'),
+            'admin_earnings' => $hasEscrowTable ? (float) \App\Models\EscrowRemittance::acceptedAdminCommission()->sum('amount') : 0.0,
+            'commission' => $hasEscrowTable ? (float) \App\Models\EscrowRemittance::acceptedAdminCommission()->sum('amount') : 0.0,
             'rider_fees' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('rider_fee'),
             'seller_earnings' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('seller_earning'),
             'origin_hub_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('origin_hub_fee') : 0.0,
@@ -53,6 +53,7 @@ class PaymentController extends Controller
 
         $escrowRemittances = $hasEscrowTable
             ? \App\Models\EscrowRemittance::with(['order', 'delivery', 'rider', 'logisticsCenter', 'recipientUser'])
+                ->where('recipient_role', '!=', \App\Models\EscrowRemittance::ROLE_ADMIN)
                 ->orderByDesc('created_at')
                 ->paginate(15, ['*'], 'remit_page')
             : null;
@@ -63,6 +64,18 @@ class PaymentController extends Controller
             'remitted' => (float) \App\Models\EscrowRemittance::where('status', 'remitted')->sum('amount'),
         ] : ['held' => 0, 'pending' => 0, 'remitted' => 0];
 
-        return view('admin.payments', compact('stats', 'transactions', 'status', 'escrowRemittances', 'escrowTotals'));
+        $adminRemittanceQuery = \App\Models\EscrowRemittance::where('recipient_role', \App\Models\EscrowRemittance::ROLE_ADMIN)->where('amount', '>', 0);
+        $adminRemittances = $hasEscrowTable ? (clone $adminRemittanceQuery)->with(['order.payment', 'delivery'])->latest('id')
+            ->paginate(10, ['*'], 'admin_remit_page')->withQueryString() : null;
+        $adminRemittanceTotals = $hasEscrowTable ? [
+            'accepted' => (float) (clone $adminRemittanceQuery)->where('status', 'accepted')->sum('amount'),
+            'remitted' => (float) (clone $adminRemittanceQuery)->where('status', 'remitted')->sum('amount'),
+            'awaiting_release' => (float) (clone $adminRemittanceQuery)->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount'),
+        ] : ['accepted' => 0, 'remitted' => 0, 'awaiting_release' => 0];
+
+        $pendingEscrowRemittances = $hasEscrowTable ? \App\Models\EscrowRemittance::where('status', 'pending_remittance')
+            ->whereDoesntHave('order.payment', fn ($query) => $query->where('method', 'gcash'))->get() : collect();
+
+        return view('admin.payments', compact('stats', 'transactions', 'status', 'escrowRemittances', 'escrowTotals', 'adminRemittances', 'adminRemittanceTotals', 'pendingEscrowRemittances'));
     }
 }

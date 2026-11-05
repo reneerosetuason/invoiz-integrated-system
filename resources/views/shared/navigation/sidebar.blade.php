@@ -320,7 +320,8 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeCenters   = request()->routeIs('centers.*');
     $activeAreas     = request()->routeIs('service-areas.*');
     $activeTransactions = request()->routeIs('transactions.*');
-    $activeRemittances = request()->routeIs('remittances.*');
+    $activeRemittances = request()->routeIs('remittances.index', 'remittances.export');
+    $activeHubPayouts = request()->routeIs('remittances.hub-payouts.*');
     $activeReports   = request()->routeIs('reports.*');
     $activeMessages  = request()->routeIs('messages.*');
     $msgUnreadCount = 0;
@@ -634,6 +635,15 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         </a>
         @endif
 
+        <a href="{{ route('remittances.hub-payouts.index') }}"
+           aria-label="Hub remittances" data-tip="Hub remittances"
+           @if($activeHubPayouts) aria-current="page" @endif
+           class="{{ $activeHubPayouts ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
+           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 flex-shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4M5 3h14v18l-3-2-4 2-4-2-3 2V3z" /></svg>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap">Hub remittances</span>
+        </a>
+
         @if($isAdmin)
         <div x-show="sidebarHover" x-cloak class="border-t border-teal/10 my-0.5 w-full"></div>
 
@@ -814,13 +824,9 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         <div class="admin-nav-group" role="group" aria-label="Finance">
           <div class="nav-section sb-hide-collapsed" aria-hidden="true">Finance</div>
           <a class="nav-link" href="{{ route('returns.center') }}" title="Return center">Returns &amp; Refunds</a>
-          <a class="nav-link" href="/admin/payments" title="Manage Payments">
+          <a class="nav-link {{ request()->is('admin/payments*') ? 'active' : '' }}" href="/admin/payments" title="Manage Payments">
             <x-icon name="card" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Payments</span>
-          </a>
-          <a class="nav-link {{ request()->is('admin/payments*') && request()->is('*escrow*') ? 'active' : '' }}" href="/admin/payments#escrow-remittances" title="COD Remittances">
-            <x-icon name="dollar" class="nav-icon" aria-hidden="true" />
-            <span class="nav-text sb-label sb-hide-collapsed">COD Remittances</span>
           </a>
           <a class="nav-link" href="/admin/reports" title="Reports">
             <x-icon name="chart" class="nav-icon" aria-hidden="true" />

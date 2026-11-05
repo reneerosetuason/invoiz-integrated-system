@@ -29,9 +29,10 @@ class HubCourierService {
   }
 
   Future<HubCourier> updateProfile({String? phone}) async {
-    final d = await api.patch('/courier/profile', body: {
-      if (phone != null) 'phone': phone,
-    });
+    final d = await api.patch(
+      '/courier/profile',
+      body: {if (phone != null) 'phone': phone},
+    );
     return HubCourier.fromJson(Map<String, dynamic>.from(d['courier'] as Map));
   }
 
@@ -68,6 +69,15 @@ class HubCourierService {
   Future<Map<String, dynamic>> earnings() async {
     final d = await api.get('/courier/earnings');
     return Map<String, dynamic>.from(d as Map);
+  }
+
+  Future<Map<String, dynamic>> remittances({int page = 1}) async {
+    final data = await api.get('/courier/remittances', query: {'page': page});
+    return Map<String, dynamic>.from(data as Map);
+  }
+
+  Future<void> acceptRemittance(int id) async {
+    await api.post('/courier/remittances/$id/accept', body: {});
   }
 
   Future<Map<String, dynamic>> reportIncident({

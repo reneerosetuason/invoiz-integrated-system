@@ -22,6 +22,9 @@ class AuthController extends Controller
 
     protected function createBuyer(Request $request): User
     {
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => strtolower(trim($request->input('email')))]);
+        }
         $request->merge(NameNormalizer::cleanKeys(
             $request->only(['first_name', 'last_name', 'middle_initial']),
             ['first_name', 'last_name', 'middle_initial']
@@ -37,14 +40,7 @@ class AuthController extends Controller
                 'email',
                 'max:150',
                 'unique:users,email',
-                function ($attribute, $value, $fail) {
-                    $email = strtolower(trim((string) $value));
-                    if (\App\Models\Rider::where('email', $email)->exists()
-                        || \App\Models\RiderApplication::where('email', $email)->whereIn('status', ['pending', 'approved'])->exists()
-                        || \App\Models\LogisticsCenterApplication::where('email', $email)->where('status', '!=', 'rejected')->exists()) {
-                        $fail('This email is already registered with Logistics or Rider services and cannot be used for a buyer or seller account.');
-                    }
-                },
+                new \App\Rules\SeparateAccountEmail('marketplace'),
             ],
             'password' => ['required', 'string', \Illuminate\Validation\Rules\Password::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'phone' => ['required', 'string', 'max:30'],

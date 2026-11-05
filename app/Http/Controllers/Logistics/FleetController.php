@@ -218,7 +218,7 @@ class FleetController extends Controller
             'name' => 'required|string|max:160',
             'phone' => 'nullable|string|max:30',
             'license_number' => ['nullable', 'string', 'max:100', Rule::unique('hub_transport_drivers')->where('logistics_company_id', $company->id)],
-            'email' => ['required', 'email', 'max:255', 'unique:hub_transport_drivers,email'],
+            'email' => ['required', 'email', 'max:255', 'unique:hub_transport_drivers,email', new \App\Rules\SeparateAccountEmail('logistics')],
             'password' => 'required|string|min:8|confirmed',
             'logistics_truck_id' => 'required|integer|exists:logistics_trucks,id',
             'remarks' => 'nullable|string|max:2000',

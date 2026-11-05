@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * Authoritative inter-hub transport driver credit.
@@ -39,6 +41,30 @@ class HubTransferEarning extends Model
             'amount' => 'decimal:2',
             'earned_on' => 'date',
         ];
+    }
+
+    /** Keep pending trip accounting out of confirmed earnings and totals. */
+    public function scopeAcceptedRemittances(Builder $query): void
+    {
+        $matchingPayouts = static function (QueryBuilder $payout): void {
+            $payout->selectRaw('1')->from('escrow_remittances as driver_payout')
+                ->where('driver_payout.recipient_role', EscrowRemittance::ROLE_INTER_HUB_DRIVER)
+                ->whereColumn('driver_payout.hub_transport_driver_id', 'hub_transfer_earnings.hub_transport_driver_id')
+                ->where('driver_payout.amount', '>', 0)
+                ->where(function ($match): void {
+                    $match->where(fn ($delivery) => $delivery->whereNotNull('hub_transfer_earnings.delivery_id')
+                        ->whereColumn('driver_payout.delivery_id', 'hub_transfer_earnings.delivery_id'))
+                        ->orWhere(fn ($trip) => $trip->whereNull('hub_transfer_earnings.delivery_id')
+                            ->whereColumn('driver_payout.hub_transfer_id', 'hub_transfer_earnings.hub_transfer_id'));
+                });
+        };
+        $query->whereExists(function ($payout) use ($matchingPayouts): void {
+            $matchingPayouts($payout);
+            $payout->where('driver_payout.status', EscrowRemittance::STATUS_ACCEPTED);
+        })->whereNotExists(function ($payout) use ($matchingPayouts): void {
+            $matchingPayouts($payout);
+            $payout->whereNotIn('driver_payout.status', [EscrowRemittance::STATUS_ACCEPTED, EscrowRemittance::STATUS_VOIDED]);
+        });
     }
 
     public function transfer(): BelongsTo

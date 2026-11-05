@@ -37,12 +37,7 @@ class CenterEmailVerificationController extends Controller
 
         $email = strtolower(trim($validated['email']));
 
-        $marketplaceUser = \App\Models\User::where('email', $email)
-            ->where(function ($q) {
-                $q->whereIn('role', ['buyer', 'seller'])
-                  ->orWhereHas('seller');
-            })
-            ->exists();
+        $marketplaceUser = \App\Rules\SeparateAccountEmail::marketplaceExists($email);
 
         if ($marketplaceUser) {
             return response()->json([
@@ -75,7 +70,7 @@ class CenterEmailVerificationController extends Controller
 
         $code = (string) random_int(100000, 999999);
 
-        RiderEmailVerification::create([
+        $record = RiderEmailVerification::create([
             'email' => $email,
             'otp_hash' => Hash::make($code),
             'expires_at' => now()->addMinutes(RiderEmailVerification::CODE_TTL_MINUTES),
@@ -90,6 +85,8 @@ class CenterEmailVerificationController extends Controller
                 $code,
             ));
         } catch (\Throwable $e) {
+            // A failed delivery must not leave an unusable code in cooldown.
+            $record->delete();
             report($e);
 
             return response()->json([

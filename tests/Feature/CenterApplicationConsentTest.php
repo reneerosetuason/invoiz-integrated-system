@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -10,7 +9,13 @@ use Tests\TestCase;
 
 class CenterApplicationConsentTest extends TestCase
 {
-    use DatabaseTransactions;
+    use \Tests\Support\CenterApplicationDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->createCenterApplicationDatabase();
+    }
 
     private function verifyEmail(string $email, bool $expired = false): void
     {

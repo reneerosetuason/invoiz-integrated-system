@@ -247,6 +247,9 @@ void main() {
     expect(find.text('HUB-TO-HUB TRANSPORT'), findsNWidgets(2));
     expect(find.text('₱35.00'), findsOneWidget);
     expect(find.text('1 trips'), findsOneWidget);
+    expect(find.text('Vehicle Allowance'), findsNothing);
+    expect(find.textContaining('Includes separate vehicle-use allowance'), findsNothing);
+    expect(find.text('View remittances'), findsOneWidget);
     expect(find.text('Assigned Transfers'), findsOneWidget);
     expect(find.text('Completed Transfers'), findsOneWidget);
 

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\GcashEscrowService;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
 
@@ -66,6 +67,11 @@ class EscrowRemittance extends Model
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function scopeAcceptedAdminCommission(Builder $query): void
+    {
+        $query->where('recipient_role', self::ROLE_ADMIN)->where('status', self::STATUS_ACCEPTED);
     }
 
     public function delivery(): BelongsTo
@@ -133,22 +139,47 @@ class EscrowRemittance extends Model
         };
     }
 
-    /**
-     * Worker (e.g. pickup rider) accepts the remittance sent by admin.
-     */
-    public function accept(User $user, ?string $note = null): bool
+    /** Current hub staff and company managers may acknowledge their own hub's payment. */
+    public function canAcceptHubPayout(User $user): bool
+    {
+        if (! in_array($this->recipient_role, [self::ROLE_ORIGIN_HUB, self::ROLE_DESTINATION_HUB], true)
+            || ! $this->logistics_center_id || ! $user->isActive() || ! $user->isLogisticsStaff()
+            || \App\Support\LogisticsAccess::isGlobal($user)) {
+            return false;
+        }
+        $companyId = \App\Support\LogisticsAccess::companyId($user);
+        if ($user->isCompanyManager()) {
+            return $companyId > 0 && LogisticsCenter::whereKey($this->logistics_center_id)
+                ->where('logistics_company_id', $companyId)->exists();
+        }
+
+        return (int) $user->center_id === (int) $this->logistics_center_id
+            && ($companyId <= 0 || LogisticsCenter::whereKey($this->logistics_center_id)
+                ->where('logistics_company_id', $companyId)->exists());
+    }
+
+    /** The recipient confirms receipt of a released admin remittance. */
+    public function accept(User|HubTransportDriver $user, ?string $note = null): bool
     {
         return DB::transaction(function () use ($user, $note) {
-            $order = $this->order_id ? Order::lockForUpdate()->findOrFail($this->order_id) : null;
+            $order = $this->order_id ? Order::withTrashed()->lockForUpdate()->findOrFail($this->order_id) : null;
             $locked = self::lockForUpdate()->findOrFail($this->id);
-            $isRecipient = (int) $locked->recipient_user_id === (int) $user->id
-                || ($locked->rider_id && (int) $user->rider?->id === (int) $locked->rider_id)
-                || ($locked->logistics_center_id && (int) $user->center_id === (int) $locked->logistics_center_id
-                    && in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff'], true));
+            $isHubPayout = in_array($locked->recipient_role, [self::ROLE_ORIGIN_HUB, self::ROLE_DESTINATION_HUB], true);
+            $isAdminPayout = $locked->recipient_role === self::ROLE_ADMIN;
+            $isRecipient = $user instanceof HubTransportDriver
+                ? $locked->recipient_role === self::ROLE_INTER_HUB_DRIVER
+                    && (int) $locked->hub_transport_driver_id === (int) $user->id
+                : ($isAdminPayout ? $user->isPlatformAdministrator() && $user->isActive()
+                    : ($isHubPayout ? $locked->canAcceptHubPayout($user)
+                    : ((int) $locked->recipient_user_id === (int) $user->id
+                        || ($locked->rider_id && (int) $user->rider?->id === (int) $locked->rider_id))));
             abort_unless($isRecipient, 403);
             $this->setRawAttributes($locked->getAttributes(), true);
             if ($this->status !== self::STATUS_REMITTED) {
                 return false;
+            }
+            if ($order && GcashEscrowService::isGcash($order)) {
+                GcashEscrowService::assertFunded($order);
             }
 
             $noteText = "Confirmed received by {$user->name} (#{$user->id}) on ".now()->format('Y-m-d H:i:s');
@@ -162,7 +193,6 @@ class EscrowRemittance extends Model
             ]);
 
             if ($order && GcashEscrowService::isGcash($order) && $this->rider_id && $this->delivery_id) {
-                GcashEscrowService::assertFunded($order);
                 $type = match ($this->recipient_role) {
                     self::ROLE_PICKUP_RIDER => 'pickup',
                     self::ROLE_LAST_MILE_RIDER => 'delivery',

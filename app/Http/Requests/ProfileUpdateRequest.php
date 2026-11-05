@@ -28,6 +28,7 @@ class ProfileUpdateRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255', new PersonName()],
             'email' => [
+                new \App\Rules\SeparateAccountEmail('logistics', $this->user()->id),
                 'required',
                 'string',
                 'lowercase',

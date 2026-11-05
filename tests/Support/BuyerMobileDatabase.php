@@ -47,9 +47,10 @@ trait BuyerMobileDatabase
         $tables['users'] .= ' middle_initial sex birthday age id_image bio otp otp_expires_at center_id archived_at';
         $tables['sellers'] .= ' line_of_business seller_type tin region postal_code terms_accepted rejection_reason id_image dti_certificate bir_2303 business_permit logo';
         $tables['seller_profiles'] .= ' contact_email contact_phone address';
-        $tables['products'] .= ' low_stock_threshold';
+        $tables['products'] .= ' low_stock_threshold weight';
+        $tables['product_variants'] .= ' weight';
         $tables['orders'] .= ' notes cancellation_reason commission_amount';
-        $tables['deliveries'] .= ' center_id rider_id picked_up_at cancelled_at cancellation_reason delivered_at parcel_status sender_name sender_phone sender_address recipient_name recipient_phone recipient_address notes';
+        $tables['deliveries'] .= ' center_id rider_id picked_up_at cancelled_at cancellation_reason delivered_at parcel_status sender_name sender_phone sender_address recipient_name recipient_phone recipient_address notes weight';
         $tables['vouchers'] .= ' description valid_from valid_until';
         $tables += [
             'product_images' => 'product_id path image_path sort_order is_main deleted_at',

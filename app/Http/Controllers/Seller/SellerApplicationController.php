@@ -73,6 +73,7 @@ class SellerApplicationController extends Controller
             'email' => [
                 'required', 'email', 'max:150',
                 ...(! $knownUser ? [Rule::unique('users', 'email')] : []),
+                new \App\Rules\SeparateAccountEmail('marketplace'),
                 function ($attribute, $value, $fail) use ($currentUser) {
                     if ($currentUser && strtolower((string) $currentUser->email) !== strtolower((string) $value)) {
                         $fail('The email address must match the account you are signed in with.');

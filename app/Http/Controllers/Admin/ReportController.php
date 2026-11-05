@@ -331,7 +331,9 @@ class ReportController extends Controller
         $orders = $this->range($request, Order::where('payment_status', 'paid'))->get();
 
         $gross = $orders->sum('total');
-        $commissions = $orders->sum('commission_amount');
+        $confirmedByOrder = \App\Models\EscrowRemittance::acceptedAdminCommission()->whereIn('order_id', $orders->modelKeys())
+            ->selectRaw('order_id, SUM(amount) as confirmed_amount')->groupBy('order_id')->pluck('confirmed_amount', 'order_id');
+        $commissions = $confirmedByOrder->sum();
         $deliveryFees = $orders->sum('shipping_fee');
         $refunds = PaymentTransaction::whereIn('status', ['refunded', 'partially_refunded'])->sum('refunded_amount');
         $payoutsPaid = SellerPayout::where('status', 'paid')->sum('amount');
@@ -343,7 +345,7 @@ class ReportController extends Controller
                 'label' => $key,
                 'orders' => $g->count(),
                 'gross' => $g->sum('total'),
-                'commission' => $g->sum('commission_amount'),
+                'commission' => $g->sum(fn ($order) => (float) ($confirmedByOrder[$order->id] ?? 0)),
                 'delivery' => $g->sum('shipping_fee'),
                 'refunds' => 0,
             ])
@@ -374,7 +376,7 @@ class ReportController extends Controller
             'cards' => [
                 'Gross Sales' => Money::format($gross),
                 'Net Sales' => Money::format($net),
-                'Commissions' => Money::format($commissions),
+                'Confirmed Commissions' => Money::format($commissions),
                 'Refunds' => Money::format($refunds),
                 'Seller Payouts (Paid)' => Money::format($payoutsPaid),
                 'Payouts Pending' => Money::format($payoutsPending),

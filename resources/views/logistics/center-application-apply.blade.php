@@ -156,7 +156,7 @@
                   })"
                   data-wizard-initial-step="{{ $initialStep - 1 }}"
                   data-wizard-error-steps="{{ json_encode($zeroBasedErrorSteps) }}"
-                  x-on:submit="if (submitting) { $event.preventDefault(); return; } submitting = true"
+                  x-on:submit="submitApplication($event)"
                   novalidate>
                 @csrf
 
@@ -306,11 +306,19 @@
                                    :aria-invalid="clientErrors['email'] ? 'true' : '@error('email') true @enderror'" />
                             <p x-cloak x-show="clientErrors['email']" class="mt-1.5 text-sm text-red-600" x-text="clientErrors['email']"></p>
                             @error('email')<p id="email_error" class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
-                            {{-- Email OTP verification (mirrors rider apply).
-                                 The panel stays compact but can extend across
-                                 the email/contact row on wider screens so it
-                                 reads as the next form action. --}}
-                            <div x-cloak x-show="!emailVerifiedNow()" class="mt-4 max-w-xl rounded-xl border border-teal/25 bg-teal-light/60 p-4 sm:w-[calc(200%+1.25rem)]">
+                        </div>
+
+                        <div class="min-w-0">
+                            <label for="phone" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Contact Number <span class="text-red-500" aria-hidden="true">*</span></label>
+                            <input id="phone" x-ref="phone" x-on:input="clearFieldError('phone')" type="tel" name="phone" value="{{ old('phone') }}"
+                                   class="block mt-2 h-[52px] w-full rounded-xl border-gray-300 bg-white px-4 text-[15px] text-gray-900 placeholder:text-gray-400 focus:border-teal focus:ring-4 focus:ring-teal/15 @error('phone') border-red-400 focus:border-red-500 focus:ring-red-500 @enderror"
+                                   required maxlength="20" autocomplete="tel" placeholder="0917 123 4567"
+                                   :aria-invalid="clientErrors['phone'] ? 'true' : '@error('phone') true @enderror'" />
+                            <p x-cloak x-show="clientErrors['phone']" class="mt-1.5 text-sm text-red-600" x-text="clientErrors['phone']"></p>
+                            @error('phone')<p id="phone_error" class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
+                        </div>
+                        <div class="min-w-0 sm:col-span-2">
+                            <div x-cloak x-show="!emailVerifiedNow()" class="w-full rounded-xl border border-teal/25 bg-teal-light/60 p-4">
                                 <div class="flex items-center gap-2">
                                     <svg class="h-4 w-4 flex-none text-teal-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                     <p class="text-[13px] font-bold tracking-wide text-teal-dark uppercase">Email verification</p>
@@ -347,20 +355,10 @@
                                 </template>
                                 <p x-cloak x-show="verifyMsg" class="mt-2.5 text-sm font-medium" :class="verifyMsgOk ? 'text-emerald-600' : 'text-red-600'" x-text="verifyMsg"></p>
                             </div>
-                            <div x-cloak x-show="emailVerifiedNow()" class="mt-4 flex max-w-xl items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:w-[calc(200%+1.25rem)]" role="status">
+                            <div x-cloak x-show="emailVerifiedNow()" class="flex w-full items-center gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 p-4" role="status">
                                 <svg class="h-5 w-5 flex-none text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                 <p class="text-sm font-semibold text-emerald-700">Email verified<span x-text="verifiedEmail ? ' — ' + verifiedEmail : ''"></span></p>
                             </div>
-                        </div>
-
-                        <div class="min-w-0">
-                            <label for="phone" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Contact Number <span class="text-red-500" aria-hidden="true">*</span></label>
-                            <input id="phone" x-ref="phone" x-on:input="clearFieldError('phone')" type="tel" name="phone" value="{{ old('phone') }}"
-                                   class="block mt-2 h-[52px] w-full rounded-xl border-gray-300 bg-white px-4 text-[15px] text-gray-900 placeholder:text-gray-400 focus:border-teal focus:ring-4 focus:ring-teal/15 @error('phone') border-red-400 focus:border-red-500 focus:ring-red-500 @enderror"
-                                   required maxlength="20" autocomplete="tel" placeholder="0917 123 4567"
-                                   :aria-invalid="clientErrors['phone'] ? 'true' : '@error('phone') true @enderror'" />
-                            <p x-cloak x-show="clientErrors['phone']" class="mt-1.5 text-sm text-red-600" x-text="clientErrors['phone']"></p>
-                            @error('phone')<p id="phone_error" class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
                     </div>
                 </section>
@@ -374,7 +372,7 @@
                     <div class="mt-6 grid gap-x-5 gap-y-6 sm:grid-cols-2">
                         <div class="sm:col-span-2 min-w-0">
                             <label for="region" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Region <span class="text-red-500" aria-hidden="true">*</span></label>
-                            <select id="region" name="region" x-ref="region" x-model="selectedRegionCode" x-on:change="selectRegion"
+                            <select id="region" name="region" x-ref="region" x-model="selectedRegionCode" x-on:change="clearFieldError('region'); selectRegion()"
                                     class="block mt-2 h-[52px] w-full rounded-xl border-gray-300 bg-white px-4 text-[15px] text-gray-900 focus:border-teal focus:ring-4 focus:ring-teal/15 @error('region') border-red-400 focus:border-red-500 focus:ring-red-500 @enderror"
                                     autocomplete="address-level1"
                                     aria-invalid="@error('region') true @enderror">
@@ -383,6 +381,7 @@
                                     <option value="{{ $code }}" @selected(old('region') === (string) $code)>{{ $name }}</option>
                                 @endforeach
                             </select>
+                            <p x-cloak x-show="clientErrors['region']" class="mt-1.5 text-sm text-red-600" x-text="clientErrors['region']"></p>
                             @error('region')<p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
                         </div>
 
@@ -414,7 +413,7 @@
                                         aria-invalid="@error('province') true @enderror">
                                     <option value="">Select a province...</option>
                                     @foreach ($provinces as $province)
-                                        <option value="{{ $province->name }}" data-id="{{ $province->id }}" @selected(old('province') === $province->name)>{{ $province->name }}</option>
+                                        <option value="{{ $province->name }}" data-id="{{ $province->id }}" data-region="{{ $province->region_code }}" @selected(old('province') === $province->name)>{{ $province->name }}</option>
                                     @endforeach
                                 </select>
                                 @error('province')<p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
@@ -456,7 +455,7 @@
                                 <label for="postal_code" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Postal Code <span class="text-red-500" aria-hidden="true">*</span></label>
                                 <input id="postal_code" x-ref="postal_code" x-on:input="clearFieldError('postal_code')" type="text" name="postal_code" value="{{ old('postal_code') }}"
                                        class="block mt-2 h-[52px] w-full rounded-xl border-gray-300 bg-white px-4 text-[15px] text-gray-900 placeholder:text-gray-400 focus:border-teal focus:ring-4 focus:ring-teal/15 @error('postal_code') border-red-400 focus:border-red-500 focus:ring-red-500 @enderror"
-                                       required maxlength="10" inputmode="numeric" autocomplete="postal-code" placeholder="e.g., 6000"
+                                       required maxlength="4" inputmode="numeric" autocomplete="postal-code" placeholder="e.g., 6000"
                                        :aria-invalid="clientErrors['postal_code'] ? 'true' : '@error('postal_code') true @enderror'" />
                                 <p x-cloak x-show="clientErrors['postal_code']" class="mt-1.5 text-sm text-red-600" x-text="clientErrors['postal_code']"></p>
                                 @error('postal_code')<p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
@@ -496,9 +495,10 @@
 
                             <div class="min-w-0">
                                 <label for="postal_code" class="block text-xs font-bold tracking-wider uppercase text-gray-600">Postal Code <span class="text-red-500" aria-hidden="true">*</span></label>
-                                <input id="postal_code" x-ref="postal_code" type="text" name="postal_code" value="{{ old('postal_code') }}"
+                                <input id="postal_code" x-ref="postal_code" x-on:input="clearFieldError('postal_code')" type="text" name="postal_code" value="{{ old('postal_code') }}"
                                        class="block mt-2 h-[52px] w-full rounded-xl border-gray-300 bg-white px-4 text-[15px] text-gray-900 placeholder:text-gray-400 focus:border-teal focus:ring-4 focus:ring-teal/15 @error('postal_code') border-red-400 focus:border-red-500 focus:ring-red-500 @enderror"
-                                       required maxlength="10" inputmode="numeric" autocomplete="postal-code" placeholder="e.g., 6000" />
+                                       required maxlength="4" inputmode="numeric" autocomplete="postal-code" placeholder="e.g., 6000" />
+                                <p x-cloak x-show="clientErrors['postal_code']" class="mt-1.5 text-sm text-red-600" x-text="clientErrors['postal_code']"></p>
                                 @error('postal_code')<p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
                             </div>
                         @endif

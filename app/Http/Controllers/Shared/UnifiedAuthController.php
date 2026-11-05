@@ -53,7 +53,7 @@ class UnifiedAuthController extends Controller
         // Trim the email before validating so padded addresses match the
         // stored canonical address instead of failing or duplicating.
         if (is_string($request->input('email'))) {
-            $request->merge(['email' => trim($request->input('email'))]);
+            $request->merge(['email' => strtolower(trim($request->input('email')))]);
         }
 
         // Normalize the phone before validating so +63 variants match the
@@ -87,14 +87,7 @@ class UnifiedAuthController extends Controller
                 'email',
                 'max:150',
                 'unique:users,email',
-                function ($attribute, $value, $fail) {
-                    $email = strtolower(trim((string) $value));
-                    if (\App\Models\Rider::where('email', $email)->exists()
-                        || \App\Models\RiderApplication::where('email', $email)->whereIn('status', ['pending', 'approved'])->exists()
-                        || \App\Models\LogisticsCenterApplication::where('email', $email)->where('status', '!=', 'rejected')->exists()) {
-                        $fail('This email is already registered with Logistics or Rider services and cannot be used for a buyer or seller account.');
-                    }
-                },
+                new \App\Rules\SeparateAccountEmail('marketplace'),
             ],
             'password' => [
                 'required', 'string', 'min:8', 'confirmed',
