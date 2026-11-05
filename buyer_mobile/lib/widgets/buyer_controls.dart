@@ -124,7 +124,7 @@ class BuyerButton extends StatelessWidget {
               minimum.height < 44 ? 44 : minimum.height,
             ),
             padding: padding,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(22),
             child: text,
           )
         : CupertinoButton(
@@ -138,13 +138,13 @@ class BuyerButton extends StatelessWidget {
               minimum.height < 44 ? 44 : minimum.height,
             ),
             padding: padding,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(22),
             child: text,
           );
     Widget result = secondary
         ? DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(22),
               border: Border.all(color: AppColors.border, width: .6),
             ),
             child: button,

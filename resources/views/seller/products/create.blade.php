@@ -56,9 +56,10 @@
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Pricing &amp; Stock</h3>
+            @include('seller.products._item-sale', ['saleProduct' => null])
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
-                    <label class="field-label">Selling Price (₱)</label>
+                    <label class="field-label">Regular Price (₱)</label>
                     <input type="number" name="price" step="0.01" min="0" value="{{ old('price') }}" class="input" placeholder="0.00" required>
                 </div>
                 <div>
@@ -131,11 +132,11 @@
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Product Image</h3>
-            <div class="flex items-start gap-4">
+            <div class="flex flex-col items-start gap-4 sm:flex-row">
                 <div data-photo-preview-target-key="product-cover-preview" class="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-borderline bg-basebg">
                     <x-icon name="box" class="h-8 w-8 text-ink-light" />
                 </div>
-                <div class="flex-1">
+                <div class="min-w-0 w-full flex-1">
                     <label class="field-label">Upload images (1–9, JPG/PNG)</label>
                     <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple
                            data-photo-editor data-photo-preview-key="product-cover-preview" data-photo-gallery-key="product-gallery-preview">

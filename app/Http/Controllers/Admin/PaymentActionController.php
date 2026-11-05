@@ -59,7 +59,11 @@ class PaymentActionController extends Controller
 
             $isGcash = \App\Services\GcashEscrowService::isGcash($order);
             if ($isGcash) {
-                \App\Services\GcashEscrowService::assertFunded($order);
+                // Refunded orders may still owe fees for completed logistics work,
+                // funded by the separately verified recovery deposit.
+                if (! \App\Services\GcashEscrowService::funded($order)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Confirm the original full escrow deposit before releasing allocations.']);
+                }
                 $request->validate(['bank_reference' => ['required', 'string', 'max:150']]);
                 if ((float) $remittance->amount <= 0) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Only positive allocations can be released.']);
@@ -135,8 +139,17 @@ class PaymentActionController extends Controller
         $batch = 'BATCH-REMIT-' . strtoupper(Str::random(8));
 
         $result = DB::transaction(function () use ($batch): array {
+            // Return creation and individual releases lock the order first.
+            // Serialize the batch the same way, then read active holds under locks.
+            $orderIds = EscrowRemittance::where('status', 'pending_remittance')->whereNotNull('order_id')->pluck('order_id')->unique()->sort()->values();
+            Order::whereIn('id', $orderIds)->orderBy('id')->lockForUpdate()->get();
+            $heldOrders = \App\Models\ReturnRequest::whereIn('order_id', $orderIds)
+                ->whereIn('status', ['requested', 'approved', 'item_received'])->lockForUpdate()->get()->pluck('order_id');
+            $heldOrders = $heldOrders->merge(PaymentDispute::whereIn('order_id', $orderIds)
+                ->whereNotIn('status', ['resolved', 'rejected'])->lockForUpdate()->get()->pluck('order_id'))->unique();
             $rows = EscrowRemittance::query()
                 ->where('status', 'pending_remittance')
+                ->whereNotIn('order_id', $heldOrders)
                 ->whereHas('order', fn ($q) => $q->whereDoesntHave('payment', fn ($p) => $p->where('method', 'gcash')))
                 ->whereHas('order', fn ($q) => $q->whereDoesntHave('returnRequests', fn ($r) => $r->whereIn('status', ['requested', 'approved', 'item_received'])))
                 ->whereDoesntHave('order', fn ($q) => $q->whereHas('paymentDisputes', fn ($d) => $d->whereNotIn('status', ['resolved', 'rejected'])))

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invoiz — Order, Return and Earnings Flowcharts</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f6f4;color:#21393f;font:15px/1.5 system-ui,sans-serif}main{max-width:1400px;margin:auto;padding:32px 24px}h1{font-size:30px;margin:0 0 8px}header p{color:#607176;max-width:850px}button{padding:9px 15px;border:1px solid #b8c7c7;background:white;border-radius:8px;color:inherit;cursor:pointer}.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:28px}section{min-width:0}h2{font-size:20px}ol{list-style:none;padding:0;margin:0}li{position:relative;border:1px solid #c8d6d5;background:white;border-radius:10px;padding:14px 16px;margin-bottom:28px;overflow-wrap:anywhere}li:not(:last-child):after{content:'↓';position:absolute;left:calc(50% - 8px);bottom:-27px;color:#50767e;font-size:23px}li b{display:block;font-size:14px}li small{display:block;color:#617278;margin-top:5px}.branch{background:#edf3f2}.roles{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}.roles span{border:1px solid #d9e2e1;border-radius:6px;padding:7px;font-size:12px}.note{padding:16px;border-top:1px solid #cdd8d7;margin-top:20px;color:#566b70}a{color:#246878}@media(max-width:850px){.charts{grid-template-columns:1fr}main{padding:22px 16px}section{max-width:600px;width:100%;margin:auto}h1{font-size:25px}}@media print{body{background:white}main{padding:0}.charts{gap:16px}button{display:none}li{break-inside:avoid;font-size:12px;padding:10px}h1{font-size:23px}h2{font-size:17px}.note{font-size:11px}}
+</style>
+<main>
+<header><h1>Orders, returns &amp; earnings</h1><p>Invoiz process guide · November 5, 2026. Arrows show the normal sequence. Transfers are made manually and recorded with references and proof.</p><button onclick="window.print()">Print / Save as PDF</button></header>
+<div class="charts">
+<section><h2>1. Ordering</h2><ol>
+<li><b>Buyer places order</b><small>Choose COD or GCash.</small></li>
+<li class="branch"><b>GCash funding gate</b><small>Buyer scans seller QR and uploads receipt → seller verifies and remits FULL total to escrow → admin verifies actual funds. COD continues without this GCash step.</small></li>
+<li><b>Seller accepts, prepares &amp; packs</b></li>
+<li><b>Logistics routes and approves pickup</b></li>
+<li><b>Pickup rider collects from seller</b></li>
+<li><b>Origin hub receives, scans &amp; sorts</b></li>
+<li class="branch"><b>Transfer to another hub if needed</b><small>Manifest dispatch → destination hub confirms receipt.</small></li>
+<li><b>Delivery rider collects from hub</b><small>Assigned rider, authorized dispatch and pickup.</small></li>
+<li><b>Buyer receives parcel</b><small>Rider records delivery photo. COD: record actual cash. GCash: collect NO cash.</small></li>
+<li><b>Payment reconciliation &amp; settlement</b></li>
+</ol></section>
+<section><h2>2. Return / refund</h2><ol>
+<li><b>Buyer requests return with evidence</b><small>Specific item, reason and eligible quantity.</small></li>
+<li class="branch"><b>Seller reviews</b><small>Approve → tracked collection. Reject with explanation → buyer may ask support for review.</small></li>
+<li><b>Hub assigns collection rider</b><small>Rider confirms physical collection. No cash.</small></li>
+<li><b>Hub confirms return receipt</b><small>Record any return transfer and receiving-hub confirmation.</small></li>
+<li><b>Logistics dispatches back to seller</b><small>Record transport / handover reference.</small></li>
+<li><b>Seller receives &amp; inspects</b><small>Restore stock only if marked resellable.</small></li>
+<li class="branch"><b>Admin checks refund funding</b><small>Recover any shortfall into escrow first. Preserve fees for completed logistics work.</small></li>
+<li><b>Admin transfers refund to buyer</b><small>Exact amount, real reference, private proof and verification. This records REFUND SENT.</small></li>
+<li><b>Buyer confirms receipt</b><small>Check the receiving account first. Then the case closes.</small></li>
+<li><b>Remaining eligible payouts resume</b><small>Cancelled prepaid orders enter refund review directly, including unused shipping. No second stock restoration.</small></li>
+</ol></section>
+<section><h2>3. Money &amp; earnings</h2><ol>
+<li class="branch"><b>Payment method — choose one path</b><div class="roles"><span><strong>GCash</strong><br>Buyer → seller → FULL escrow deposit. Admin verifies incoming funds.</span><span><strong>COD</strong><br>Buyer → delivery rider. Retain eligible last-mile cut and reconcile remaining cash.</span></div><small>Both paths feed the allocations below. A buyer's GCash receipt alone does not unlock acceptance.</small></li>
+<li><b>Allocate by verified work and route</b><div class="roles"><span>Admin<br>Net merchandise commission</span><span>Seller<br>Remaining product proceeds</span><span>Origin hub<br>Configured hub fee</span><span>Pickup rider<br>Configured per-item fee</span><span>Inter-hub driver<br>Eligible transport fee</span><span>Destination hub<br>Eligible receiving fee</span><span>Delivery rider<br>Last-mile fee</span></div><small>GCash allocations stay held until delivery. COD pickup earnings can follow verified hub handoff.</small></li>
+<li class="branch"><b>Open return / dispute?</b><small>Hold further payouts. Complete the refund and any required recovery first. Reverse the refunded merchandise commission.</small></li>
+<li><b>Release only eligible, funded amounts</b><small>GCash: individual actual transfer reference per allocation. Refunds reduce the available escrow balance.</small></li>
+<li><b>Recipient confirms where applicable</b><small>A rider's GCash earning is credited only after that rider accepts the incoming remittance.</small></li>
+<li><b>Record once</b><small>No GCash cash deduction, duplicate refund, duplicate stock restoration or second forward-delivery earning for a reverse collection.</small></li>
+</ol></section>
+</div>
+<p class="note">Use the signed-in <strong>Return center</strong> at <code>/return-center</code>. See <a href="order-return-escrow.md">the full process guide</a> for rules and <a href="../audits/2026-11-05/return-refund-workflow.md">validation notes</a> for the checks performed. This guide describes application behavior; bank and GCash transfers still require actual human verification.</p>
+</main>
+</html>

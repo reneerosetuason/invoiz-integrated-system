@@ -118,6 +118,10 @@ class Payments
     {
         \Illuminate\Support\Facades\DB::transaction(function () use ($order, $force) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($order->payment_status === 'refunded' && (float) (self::transactionFor($order)?->refunded_amount ?? 0) > 0) {
+                EscrowEarnings::syncRemittancesForOrder($order);
+                return;
+            }
             if (\App\Services\GcashEscrowService::isGcash($order)) {
                 \App\Services\GcashEscrowService::assertFunded($order);
                 if ($order->deliveries()->where('status', '!=', 'delivered')->exists() || ! $order->deliveries()->exists()) {

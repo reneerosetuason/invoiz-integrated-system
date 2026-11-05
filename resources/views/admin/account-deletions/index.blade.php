@@ -1,6 +1,8 @@
 @extends('admin.layout')
 @section('content')
 <section class="admin-deletion-list">
+<p style="margin:0 0 10px;color:#687b80;font-size:12px">Manage Buyers / Account Deletion Requests</p>
+<a href="{{ route('admin.buyers') }}" class="btn btn-neutral" style="margin-bottom:16px">&larr; Manage buyers</a>
 <h1 class="page-title text-2xl font-bold mb-4">Account Deletion Requests</h1>
 <form method="GET" class="admin-deletion-filters flex flex-wrap gap-3 mb-4">
     <input name="search" value="{{ request('search') }}" placeholder="Buyer name, email or request ID" aria-label="Search deletion requests" class="border rounded p-2">
@@ -17,7 +19,7 @@
         <td class="p-3">{{ $record->id }}</td><td class="p-3">{{ $record->user->name }}</td><td class="p-3">{{ $record->user->email }}</td>
         <td class="p-3">{{ $record->reason }}</td><td class="p-3">{{ $record->requested_at->format('M d, Y') }}</td><td class="p-3">{{ $record->scheduled_archive_at->format('M d, Y') }}</td>
         <td class="p-3">{{ ucwords(str_replace('_',' ', $record->status)) }}@if($record->restored_at) (Restored)@endif</td>
-        <td class="p-3"><a href="{{ route('admin.account-deletions.show', $record) }}" class="underline">View details / Restore</a></td>
+        <td class="p-3"><a href="{{ route('admin.account-deletions.show', $record) }}" class="btn btn-neutral">View details / Restore</a></td>
     </tr>@empty<tr><td colspan="8" class="p-4">No account deletion requests.</td></tr>@endforelse</tbody>
 </table></div>
 {{ $requests->links() }}

@@ -49,9 +49,8 @@ class ProductController extends Controller
                 ->where(fn ($q) => $q->whereNull('sales.starts_at')->orWhere('sales.starts_at', '<=', now()))
                 ->where(fn ($q) => $q->whereNull('sales.ends_at')->orWhere('sales.ends_at', '>=', now()))
                 ->orderByDesc('sales.starts_at')->limit(1);
-            $query->selectSub((clone $sale)->selectRaw("CASE WHEN sales.discount_type = 'fixed' THEN sales.discount_value ELSE products.price * sales.discount_value / 100.0 END"), 'active_sale_discount');
-            $query->where(fn ($q) => $q->where(fn ($q) => $q->whereNotNull('compare_at_price')->whereColumn('compare_at_price', '>', 'price'))
-                ->orWhereExists((clone $sale)->selectRaw('1')));
+            $query->selectSub((clone $sale)->selectRaw("CASE WHEN sales.discount_type = 'fixed' THEN sales.discount_value ELSE (CASE WHEN products.compare_at_price > products.price THEN products.compare_at_price ELSE products.price END) * sales.discount_value / 100.0 END"), 'active_sale_discount');
+            Sales::scopeDiscounted($query);
         }
 
         if ($request->has('sort')) {
@@ -70,7 +69,8 @@ class ProductController extends Controller
                     break;
                 case 'discount':
                     $reference = '(CASE WHEN compare_at_price > price THEN compare_at_price ELSE price END)';
-                    $effective = '(CASE WHEN COALESCE(active_sale_discount, 0) > price THEN 0 ELSE price - COALESCE(active_sale_discount, 0) END)';
+                    $candidate = "({$reference} - COALESCE(active_sale_discount, 0))";
+                    $effective = "(CASE WHEN {$candidate} < 0 THEN 0 WHEN {$candidate} < price THEN {$candidate} ELSE price END)";
                     $query->orderByRaw("CASE WHEN {$reference} > 0 THEN ({$reference} - {$effective}) * 1.0 / {$reference} ELSE 0 END DESC");
                     break;
                 default:
@@ -151,10 +151,12 @@ class ProductController extends Controller
     {
         foreach ($products as $product) {
             $sale = Sales::saleFor($product);
-            $product->on_sale = (bool) $sale;
             $product->effective_price = Sales::priceFor($product);
-            $product->sale_price = $sale ? $product->effective_price : null;
-            $product->sale = $sale ? [
+            $regular = Sales::regularPrice($product);
+            $product->on_sale = Sales::percentOff($regular, $product->effective_price) > 0;
+            $product->sale_price = $product->on_sale ? $product->effective_price : null;
+            $product->compare_at_price = $product->on_sale ? $regular : null;
+            $product->sale = $sale && $product->on_sale ? [
                 'name' => $sale->name,
                 'discount_type' => $sale->discount_type,
                 'discount_value' => $sale->discount_value,

@@ -14,6 +14,37 @@ use App\Models\Seller;
  */
 class Sales
 {
+    public static function regularPrice(Product $product): float
+    {
+        return max((float) $product->price, (float) $product->compare_at_price);
+    }
+
+    public static function percentOff(float $regular, float $effective): int
+    {
+        return $regular > 0 && $effective < $regular ? (int) round(($regular - $effective) * 100 / $regular) : 0;
+    }
+
+    public static function isOnSale(Product $product): bool
+    {
+        return self::percentOff(self::regularPrice($product), self::priceFor($product)) > 0;
+    }
+
+    public static function scopeDiscounted(\Illuminate\Database\Eloquent\Builder $query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where(function ($q) {
+            $q->whereRaw('ROUND((products.compare_at_price - products.price) * 100.0 / NULLIF(products.compare_at_price, 0), 0) > 0');
+            if (\Illuminate\Support\Facades\Schema::hasTable('sales') && \Illuminate\Support\Facades\Schema::hasTable('product_sales')) {
+                $regular = '(CASE WHEN products.compare_at_price > products.price THEN products.compare_at_price ELSE products.price END)';
+                $discount = "(CASE WHEN sales.discount_type = 'fixed' THEN sales.discount_value ELSE ROUND({$regular} * sales.discount_value / 100.0, 2) END)";
+                $q->orWhereIn('products.id', ProductSale::whereHas('sale', fn ($s) => $s->where('status', 'active')
+                    ->where(fn ($s) => $s->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+                    ->where(fn ($s) => $s->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+                    ->where('discount_value', '>', 0)
+                    ->whereRaw("ROUND({$discount} * 100.0 / NULLIF({$regular}, 0), 0) > 0"))->select('product_id'));
+            }
+        });
+    }
+
     /** The single sale currently running for a seller, if any. */
     public static function runningFor(?int $sellerId): ?Sale
     {
@@ -75,6 +106,8 @@ class Sales
             return $base;
         }
 
-        return round($base - self::discountAmount($base, $sale), 2);
+        // Individual markdowns and store campaigns offer the better price, without stacking.
+        $regular = self::regularPrice($product);
+        return min($base, round($regular - self::discountAmount($regular, $sale), 2));
     }
 }

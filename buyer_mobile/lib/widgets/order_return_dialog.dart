@@ -1,3 +1,4 @@
+import 'image_preview.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:flutter/cupertino.dart';
@@ -14,7 +15,11 @@ import 'buyer_picker.dart';
 class OrderReturnDialog extends StatefulWidget {
   final OrderItem item;
   final int maxQuantity;
-  final Future<dynamic> Function(Map<String, dynamic> body, [List<http.MultipartFile>? files]) submit;
+  final Future<dynamic> Function(
+    Map<String, dynamic> body, [
+    List<http.MultipartFile>? files,
+  ])
+  submit;
   const OrderReturnDialog({
     super.key,
     required this.item,
@@ -96,7 +101,9 @@ class _OrderReturnDialogState extends State<OrderReturnDialog> {
       context: context,
       builder: (ctx) => CupertinoActionSheet(
         title: const Text('Add Return Evidence'),
-        message: const Text('Upload a clear photo or video showing the defect, damage, or discrepancy'),
+        message: const Text(
+          'Upload a clear photo or video showing the defect, damage, or discrepancy',
+        ),
         actions: [
           CupertinoActionSheetAction(
             onPressed: () {
@@ -210,225 +217,251 @@ class _OrderReturnDialogState extends State<OrderReturnDialog> {
     canPop: !_sending,
     child: BuyerAlertDialog(
       title: const Text('Request a return'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_error != null) ...[
-              Semantics(
-                liveRegion: true,
-                child: Text(
-                  _error!,
-                  key: const ValueKey('return-submit-error'),
-                  style: const TextStyle(color: AppColors.danger),
+      content: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight:
+              ((MediaQuery.sizeOf(context).height -
+                          MediaQuery.viewInsetsOf(context).bottom) *
+                      .5)
+                  .clamp(100.0, 480.0),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_error != null) ...[
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _error!,
+                    key: const ValueKey('return-submit-error'),
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-            ],
-            AbsorbPointer(
-              absorbing: _sending,
-              child: Form(
-                key: _form,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(widget.item.productName),
-                    if (widget.item.variantLabel?.isNotEmpty == true)
-                      Text(widget.item.variantLabel!),
-                    const SizedBox(height: 12),
-                    BuyerPicker<String>(
-                      value: _reason,
-                      decoration: const InputDecoration(labelText: 'Reason'),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'damaged',
-                          child: Text('Damaged item'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'wrong_item',
-                          child: Text('Wrong item'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'not_as_described',
-                          child: Text('Not as described'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'changed_mind',
-                          child: Text('Changed my mind'),
-                        ),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: (value) => setState(() => _reason = value!),
-                    ),
-                    const SizedBox(height: 12),
-                    BuyerField.form(
-                      key: const ValueKey('return-quantity'),
-                      controller: _quantity,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        labelText: 'Quantity (up to ${widget.maxQuantity})',
-                      ),
-                      validator: (value) {
-                        final parsed = int.tryParse(value?.trim() ?? '');
-                        return parsed == null ||
-                                parsed < 1 ||
-                                parsed > widget.maxQuantity
-                            ? 'Enter a remaining returnable quantity.'
-                            : null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    BuyerField.form(
-                      key: const ValueKey('return-details'),
-                      controller: _details,
-                      maxLength: 300,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: _reason == 'other'
-                            ? 'Details (required)'
-                            : 'Details (optional)',
-                      ),
-                      validator: (value) =>
-                          _reason == 'other' && (value?.trim().length ?? 0) < 10
-                          ? 'Please provide at least 10 characters.'
-                          : null,
-                    ),
-                    const SizedBox(height: 12),
-                    // Evidence Section
-                    Text.rich(
-                      TextSpan(
-                        text: 'Evidence (Photo or Video)',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
-                          fontFamily: 'Inter',
-                        ),
-                        children: const [
-                          TextSpan(
-                            text: ' *',
-                            style: TextStyle(
-                              color: AppColors.danger,
-                              fontWeight: FontWeight.bold,
-                            ),
+                const SizedBox(height: 12),
+              ],
+              AbsorbPointer(
+                absorbing: _sending,
+                child: Form(
+                  key: _form,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(widget.item.productName),
+                      if (widget.item.variantLabel?.isNotEmpty == true)
+                        Text(widget.item.variantLabel!),
+                      const SizedBox(height: 12),
+                      BuyerPicker<String>(
+                        value: _reason,
+                        decoration: const InputDecoration(labelText: 'Reason'),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'damaged',
+                            child: Text('Damaged item'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'wrong_item',
+                            child: Text('Wrong item'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'not_as_described',
+                            child: Text('Not as described'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'changed_mind',
+                            child: Text('Changed my mind'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'other',
+                            child: Text('Other'),
                           ),
                         ],
+                        onChanged: (value) => setState(() => _reason = value!),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    if (_evidenceFile != null)
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.surface,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border, width: 0.5),
+                      const SizedBox(height: 12),
+                      BuyerField.form(
+                        key: const ValueKey('return-quantity'),
+                        controller: _quantity,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          labelText: 'Quantity (up to ${widget.maxQuantity})',
                         ),
-                        child: Row(
-                          children: [
-                            if (_evidenceType == 'image' && _evidenceBytes != null)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.memory(
-                                  _evidenceBytes!,
-                                  width: 48,
-                                  height: 48,
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            else
-                              Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: const Icon(
-                                  CupertinoIcons.videocam_fill,
-                                  color: AppColors.primary,
-                                  size: 24,
-                                ),
-                              ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _evidenceFile!.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      fontFamily: 'Inter',
-                                    ),
-                                  ),
-                                  Text(
-                                    _evidenceType == 'video'
-                                        ? 'Video attached'
-                                        : 'Photo attached',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppColors.textSecondary,
-                                      fontFamily: 'Inter',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            CupertinoButton(
-                              padding: EdgeInsets.zero,
-                              onPressed: () => setState(() {
-                                _evidenceFile = null;
-                                _evidenceBytes = null;
-                                _evidenceType = null;
-                              }),
-                              child: const Icon(
-                                CupertinoIcons.xmark_circle_fill,
+                        validator: (value) {
+                          final parsed = int.tryParse(value?.trim() ?? '');
+                          return parsed == null ||
+                                  parsed < 1 ||
+                                  parsed > widget.maxQuantity
+                              ? 'Enter a remaining returnable quantity.'
+                              : null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      BuyerField.form(
+                        key: const ValueKey('return-details'),
+                        controller: _details,
+                        maxLength: 300,
+                        maxLines: 3,
+                        decoration: InputDecoration(
+                          labelText: _reason == 'other'
+                              ? 'Details (required)'
+                              : 'Details (optional)',
+                        ),
+                        validator: (value) =>
+                            _reason == 'other' &&
+                                (value?.trim().length ?? 0) < 10
+                            ? 'Please provide at least 10 characters.'
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      // Evidence Section
+                      Text.rich(
+                        TextSpan(
+                          text: 'Evidence (Photo or Video)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            fontFamily: 'Inter',
+                          ),
+                          children: const [
+                            TextSpan(
+                              text: ' *',
+                              style: TextStyle(
                                 color: AppColors.danger,
-                                size: 20,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                      )
-                    else
-                      OutlinedButton.icon(
-                        key: const ValueKey('return-evidence-btn'),
-                        onPressed: _showEvidencePicker,
-                        icon: const Icon(
-                          CupertinoIcons.camera,
-                          size: 16,
-                          color: AppColors.primary,
-                        ),
-                        label: const Text(
-                          'Upload Photo or Video',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
-                            fontFamily: 'Inter',
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          side: const BorderSide(
-                            color: AppColors.primary,
-                            width: 1,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
                       ),
-                  ],
+                      const SizedBox(height: 6),
+                      if (_evidenceFile != null)
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: AppColors.border,
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              if (_evidenceType == 'image' &&
+                                  _evidenceBytes != null)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: InkWell(
+                                    onTap: () => showBuyerImagePreview(
+                                      context,
+                                      title: 'Selected return photo',
+                                      bytes: _evidenceBytes!,
+                                    ),
+                                    child: Image.memory(
+                                      _evidenceBytes!,
+                                      width: 48,
+                                      height: 48,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Icon(
+                                    CupertinoIcons.videocam_fill,
+                                    color: AppColors.primary,
+                                    size: 24,
+                                  ),
+                                ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _evidenceFile!.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        fontFamily: 'Inter',
+                                      ),
+                                    ),
+                                    Text(
+                                      _evidenceType == 'video'
+                                          ? 'Video attached'
+                                          : 'Photo attached',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                        fontFamily: 'Inter',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              CupertinoButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: () => setState(() {
+                                  _evidenceFile = null;
+                                  _evidenceBytes = null;
+                                  _evidenceType = null;
+                                }),
+                                child: const Icon(
+                                  CupertinoIcons.xmark_circle_fill,
+                                  color: AppColors.danger,
+                                  size: 20,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        OutlinedButton.icon(
+                          key: const ValueKey('return-evidence-btn'),
+                          onPressed: _showEvidencePicker,
+                          icon: const Icon(
+                            CupertinoIcons.camera,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          label: const Text(
+                            'Upload Photo or Video',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primary,
+                              fontFamily: 'Inter',
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            side: const BorderSide(
+                              color: AppColors.primary,
+                              width: 1,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       actions: [

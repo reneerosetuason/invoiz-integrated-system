@@ -174,7 +174,7 @@
               <div data-photo-preview-target-key="seller-application-logo" hidden class="mt-3 h-16 w-16 overflow-hidden rounded-xl border border-gray-200 bg-gray-50" aria-label="Edited logo preview"></div>
               <p class="mt-1 text-xs text-gray-500">JPG or PNG. Maximum 5 MB.</p>
               @if(!empty($existing?->logo))
-                <p class="text-xs text-gray-500 mt-1">Current: <a href="{{ $existing->logoUrl() }}" target="_blank" class="text-teal font-semibold underline">View existing logo</a></p>
+                <p class="text-xs text-gray-500 mt-1">Current: <a data-image-viewer="document" href="{{ $existing->logoUrl() }}"  class="text-teal font-semibold underline">View existing logo</a></p>
               @endif
             </div>
           </div>
@@ -226,9 +226,9 @@
               <div class="flex items-center justify-between text-xs text-gray-500 mt-1">
                 <span>JPG, PNG, or PDF. Maximum 5 MB.</span>
                 @if(!empty($existing?->id_image) && !empty($availableDocuments['id_image']))
-                  <a href="{{ $existing->idImageUrl() }}" target="_blank" class="text-teal font-bold underline">View Uploaded ID ({{ basename($existing->id_image) }})</a>
+                  <a data-image-viewer="document" href="{{ $existing->idImageUrl() }}"  class="text-teal font-bold underline">View Uploaded ID ({{ basename($existing->id_image) }})</a>
                 @elseif(!empty($user?->id_image) && !empty($availableDocuments['id_image']))
-                  <a href="{{ url('documents/'.ltrim($user->id_image, '/')) }}" target="_blank" class="text-teal font-bold underline">View Uploaded ID ({{ basename($user->id_image) }})</a>
+                  <a data-image-viewer="document" href="{{ url('documents/'.ltrim($user->id_image, '/')) }}"  class="text-teal font-bold underline">View Uploaded ID ({{ basename($user->id_image) }})</a>
                 @elseif(!empty($existing?->id_image) || !empty($user?->id_image))
                   <span class="text-red-700">The saved ID is missing or exceeds 5 MB. Upload a replacement.</span>
                 @endif
@@ -241,7 +241,7 @@
               <div class="flex items-center justify-between text-xs text-gray-500 mt-1">
                 <span>JPG, PNG, or PDF. Maximum 5 MB.</span>
                 @if(!empty($existing?->dti_certificate) && !empty($availableDocuments['dti_certificate']))
-                  <a href="{{ $existing->dtiCertificateUrl() }}" target="_blank" class="text-teal font-bold underline">View Uploaded DTI ({{ basename($existing->dti_certificate) }})</a>
+                  <a data-image-viewer="document" href="{{ $existing->dtiCertificateUrl() }}"  class="text-teal font-bold underline">View Uploaded DTI ({{ basename($existing->dti_certificate) }})</a>
                 @elseif(!empty($existing?->dti_certificate))
                   <span class="text-red-700">The saved file is missing or exceeds 5 MB. Upload a replacement.</span>
                 @endif
@@ -254,7 +254,7 @@
               <div class="flex items-center justify-between text-xs text-gray-500 mt-1">
                 <span>JPG, PNG, or PDF. Maximum 5 MB.</span>
                 @if(!empty($existing?->bir_2303) && !empty($availableDocuments['bir_2303']))
-                  <a href="{{ $existing->bir2303Url() }}" target="_blank" class="text-teal font-bold underline">View Uploaded BIR 2303 ({{ basename($existing->bir_2303) }})</a>
+                  <a data-image-viewer="document" href="{{ $existing->bir2303Url() }}"  class="text-teal font-bold underline">View Uploaded BIR 2303 ({{ basename($existing->bir_2303) }})</a>
                 @elseif(!empty($existing?->bir_2303))
                   <span class="text-red-700">The saved file is missing or exceeds 5 MB. Upload a replacement.</span>
                 @endif
@@ -294,5 +294,6 @@
 <script src="{{ asset('assets/seller/js/apply-2.js') }}"></script>
 @endif
 @include('seller.partials.photo-editor')
+@include('shared.partials.media-viewer')
 </body>
 </html>

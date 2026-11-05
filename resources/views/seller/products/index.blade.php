@@ -87,7 +87,11 @@
                             </div>
                         </td>
                         <td><span class="badge bg-soft !text-ink-light">{{ $product->category->name }}</span></td>
-                        <td class="text-right font-semibold">{{ peso($product->price) }}</td>
+                        <td class="text-right font-semibold">{{ peso($product->price) }}
+                            @if($product->discount_percent > 0)
+                                <div class="text-[11px] font-normal text-ink-light"><s>{{ peso($product->compare_at_price) }}</s> <span class="font-semibold">&minus;{{ $product->discount_percent }}%</span></div>
+                            @endif
+                        </td>
                         <td class="text-right text-ink-light">{{ $product->cost_price !== null ? peso($product->cost_price) : '—' }}</td>
                         <td class="text-right">
                             @if($product->profit_per_unit !== null && $product->price > 0)

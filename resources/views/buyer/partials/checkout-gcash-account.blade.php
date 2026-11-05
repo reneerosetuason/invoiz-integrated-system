@@ -3,10 +3,10 @@
     <p class="checkout-setup-notice" data-setup-notice @if($account['available']) hidden @endif>This store has not added a GCash receiving QR yet. Choose cash on delivery or contact the store.</p>
     <div class="checkout-gcash-layout">
         <div class="checkout-qr-column" data-qr-column @if(!$account['qr_url']) hidden @endif>
-            <a class="checkout-qr-link" data-qr-link @if($account['qr_url']) href="{{ $account['qr_url'] }}" @endif target="_blank" rel="noopener" aria-label="Open GCash receiving QR">
+            <a data-image-viewer class="checkout-qr-link" data-qr-link @if($account['qr_url']) href="{{ $account['qr_url'] }}" @endif  aria-label="Open GCash receiving QR">
                 <img data-receiving-qr @if($account['qr_url']) src="{{ $account['qr_url'] }}" @endif alt="{{ $account['store_name'] }} GCash receiving QR" width="232" height="232">
             </a>
-            <a class="checkout-qr-open" data-qr-open @if($account['qr_url']) href="{{ $account['qr_url'] }}" @endif target="_blank" rel="noopener">Open QR at full size ↗</a>
+            <a data-image-viewer class="checkout-qr-open" data-qr-open @if($account['qr_url']) href="{{ $account['qr_url'] }}" @endif >Preview QR code</a>
             <p class="checkout-image-error" data-qr-error role="alert" hidden>The QR image could not load. Open it at full size or reload payment details before paying.</p>
         </div>
         <div class="checkout-gcash-instructions">
@@ -17,7 +17,7 @@
                 <small class="checkout-upload-help">JPG, PNG or WebP · Up to 5 MB</small>
                 <p data-receipt-status class="checkout-receipt-status" role="status"></p>
                 <p data-receipt-error class="checkout-payment-error" role="alert"></p>
-                <img data-receipt-preview class="checkout-receipt-preview" alt="Selected GCash receipt" hidden>
+                <img data-image-viewer tabindex="0" role="button" aria-label="Preview selected receipt" data-receipt-preview class="checkout-receipt-preview" alt="Selected GCash receipt" hidden>
                 <p class="checkout-note">Your seller reviews this receipt. Uploading it does not confirm payment.</p>
             </div>
         </div>

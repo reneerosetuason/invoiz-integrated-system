@@ -10,6 +10,8 @@ class Product extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $appends = ['discount_percent'];
+
     protected $fillable = [
         // Unified: real invoizdb cols + admin cols. All sides stay in sync.
         'seller_id',
@@ -125,10 +127,9 @@ class Product extends Model
     /** Discount % from compare_at_price, for deal badges. */
     public function getDiscountPercentAttribute(): int
     {
-        if ($this->compare_at_price > $this->price && $this->compare_at_price > 0) {
-            return (int) round((($this->compare_at_price - $this->price) / $this->compare_at_price) * 100);
-        }
-        return 0;
+        $regular = \App\Support\Sales::regularPrice($this);
+        $effective = (float) ($this->attributes['effective_price'] ?? $this->price);
+        return \App\Support\Sales::percentOff($regular, $effective);
     }
 
     public function seller()

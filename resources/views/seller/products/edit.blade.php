@@ -57,10 +57,11 @@
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Pricing &amp; Stock</h3>
+            @include('seller.products._item-sale', ['saleProduct' => $product])
             <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div>
-                    <label class="field-label">Selling Price (₱)</label>
-                    <input type="number" name="price" step="0.01" min="0" value="{{ old('price', $product->price) }}" class="input" required>
+                    <label class="field-label">Regular Price (₱)</label>
+                    <input type="number" name="price" step="0.01" min="0" value="{{ old('price', \App\Support\Sales::regularPrice($product)) }}" class="input" required>
                 </div>
                 <div>
                     <label class="field-label">Cost Price (₱)</label>
@@ -128,20 +129,20 @@
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Product Image</h3>
-            <div class="flex items-start gap-4">
+            <div class="flex flex-col items-start gap-4 sm:flex-row">
                 <div data-photo-preview-target-key="product-cover-preview" class="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-borderline bg-basebg">
                     @if($product->image)
-                        <img src="{{ asset('storage/'.$product->image) }}" alt="Current product cover" class="h-full w-full object-cover">
+                        <img src="{{ asset('storage/'.$product->image) }}" alt="Current product cover" data-image-viewer tabindex="0" role="button" aria-label="Preview current product cover" class="h-full w-full object-cover">
                     @else
                         <x-icon name="box" class="h-8 w-8 text-ink-light" />
                     @endif
                 </div>
-                <div class="flex-1">
+                <div class="min-w-0 w-full flex-1">
                     <label class="field-label">Replace cover image (optional)</label>
                     <input type="file" name="image" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5"
                            data-photo-editor data-photo-preview-key="product-cover-preview">
                     @if($product->image)
-                        <p class="mt-2 text-xs text-ink-light">Current: {{ basename($product->image) }}</p>
+                        <p class="mt-2 break-all text-xs text-ink-light">Current: {{ basename($product->image) }}</p>
                     @endif
                     <label class="field-label mt-4">Add gallery images (JPG/PNG, up to 9 total)</label>
                     <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple

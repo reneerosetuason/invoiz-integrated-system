@@ -40,11 +40,13 @@
   @endif
 
   <div class="pdetail">
-    @php $hasPImg = $p->image && file_exists(storage_path('app/public/'.$p->image)); @endphp
+    @php $productImage = $p->primary_image_url; $hasPImg = (bool)$productImage; @endphp
     <div class="gallery rv">
       <div class="gmain">
         @if($hasPImg)
-          <img src="{{ asset('storage/'.$p->image) }}" alt="{{ $p->name }}" fetchpriority="high">
+          <button type="button" class="media-image-button" data-image-viewer data-image-src="{{ $productImage }}" aria-label="Preview {{ $p->name }}">
+            <img src="{{ $productImage }}" alt="{{ $p->name }}" fetchpriority="high">
+          </button>
         @else
           <div class="pimg-fallback" role="img" aria-label="{{ $p->name }} — product image coming soon">
             <div class="mark">INVOIZ</div>
@@ -79,12 +81,10 @@
       <div class="pricerow">
         @php $effPrice = $salePrice !== null && $salePrice < (float) $p->price ? $salePrice : (float) $p->price; @endphp
         <span class="bignum">₱{{ number_format($effPrice,2) }}</span>
-        @if($salePrice !== null && $salePrice < (float) $p->price)
-          <span class="pwas">₱{{ number_format($p->price,2) }}</span>
-          <span class="poff">−{{ (int) round((1 - (float)$salePrice/(float)$p->price)*100) }}% {{ $sale?->name ? '· '.$sale->name : 'Sale' }}</span>
-        @elseif($hasDeal)
-          <span class="pwas">₱{{ number_format($p->compare_at_price,2) }}</span>
-          <span class="poff">−{{ (int) round((1 - (float)$p->price/(float)$p->compare_at_price)*100) }}%</span>
+        @php $regularPrice = \App\Support\Sales::regularPrice($p); @endphp
+        @if(\App\Support\Sales::percentOff($regularPrice, $effPrice) > 0)
+          <span class="pwas">&#8369;{{ number_format($regularPrice,2) }}</span>
+          <span class="poff">&minus;{{ (int) round((1 - $effPrice/$regularPrice)*100) }}%</span>
         @endif
       </div>
 

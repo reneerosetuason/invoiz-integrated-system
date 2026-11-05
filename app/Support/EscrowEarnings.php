@@ -327,7 +327,7 @@ class EscrowEarnings
                     if (Schema::hasTable('return_workflows')) {
                         $q->orWhereHas('workflow', fn ($w) => $w->whereNotNull('refund_sent_at'));
                     }
-                })->sum('refund_amount');
+                })->get()->sum(fn ($r) => $r->merchandiseRefundAmount());
             $netMerch = round(max(0.0, $netMerch - (float) $refunds), 2);
         }
 

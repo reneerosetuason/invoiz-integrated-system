@@ -142,7 +142,7 @@
                                                 <div class="font-mono text-[11px] text-[#1B1B1E]">Reg: {{ $pendingTruck->vehicle_registration }}</div>
                                             @endif
                                             @if($pendingTruck->document_path)
-                                                <a href="{{ asset('storage/' . $pendingTruck->document_path) }}" target="_blank" class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#16697A] hover:underline mt-0.5">
+                                                <a data-image-viewer="document" href="{{ asset('storage/' . $pendingTruck->document_path) }}"  class="inline-flex items-center gap-1 text-[11px] font-semibold text-[#16697A] hover:underline mt-0.5">
                                                     <span>View OR/CR Doc</span>
                                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                                 </a>
@@ -666,7 +666,7 @@
                                     <td class="text-xs">
                                         <div class="font-semibold text-[#1B1B1E]">{{ $record->service_provider ?: 'Internal / Unspecified' }}</div>
                                         @if($record->invoice_attachment_path)
-                                            <a href="{{ asset('storage/' . $record->invoice_attachment_path) }}" target="_blank" class="text-[10px] text-[#16697A] underline block mt-0.5">View Invoice</a>
+                                            <a data-image-viewer="document" href="{{ asset('storage/' . $record->invoice_attachment_path) }}"  class="text-[10px] text-[#16697A] underline block mt-0.5">View Invoice</a>
                                         @endif
                                     </td>
                                     <td class="text-xs">

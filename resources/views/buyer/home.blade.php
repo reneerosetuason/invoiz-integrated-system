@@ -82,12 +82,10 @@
               $shownPrice = $onSale ? (float) $p->sale_price : (float) $p->price;
             @endphp
             <span class="pprice">₱{{ number_format($shownPrice,2) }}</span>
-            @if($onSale)
-              <span class="pwas">₱{{ number_format($p->price,2) }}</span>
-              <span class="poff">Sale</span>
-            @elseif($hasDeal)
-              <span class="pwas">₱{{ number_format($p->compare_at_price,2) }}</span>
-              <span class="poff">−{{ (int) round((1 - (float)$p->price/(float)$p->compare_at_price)*100) }}%</span>
+            @php $regularPrice = \App\Support\Sales::regularPrice($p); @endphp
+            @if(\App\Support\Sales::percentOff($regularPrice, $shownPrice) > 0)
+              <span class="pwas">&#8369;{{ number_format($regularPrice,2) }}</span>
+              <span class="poff">&minus;{{ (int) round((1 - $shownPrice/$regularPrice)*100) }}%</span>
             @endif
           </div>
           <div class="pmeta">

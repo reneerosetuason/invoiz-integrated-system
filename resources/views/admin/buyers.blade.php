@@ -27,11 +27,12 @@
 </style>
 
 <div class="card">
-  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:6px;">
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:6px; flex-wrap:wrap;">
     <div>
       <h1 class="page-title" style="margin-bottom:4px;">Manage Buyers</h1>
       <p style="color:var(--text-secondary); font-size:13.5px; margin:0;">View registered buyer accounts, monitor order history, and manage buyer access.</p>
     </div>
+    <a href="{{ route('admin.account-deletions.index') }}" class="filter-pill" style="display:inline-flex;align-items:center;min-height:40px;border-radius:9px;">Account deletion requests &rarr;</a>
   </div>
 
   @if(session('status'))

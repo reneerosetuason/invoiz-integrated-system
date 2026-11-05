@@ -1,3 +1,4 @@
+import '../widgets/image_preview.dart';
 import '../widgets/buyer_picker.dart';
 import '../widgets/buyer_dialog.dart';
 import '../widgets/buyer_controls.dart';
@@ -36,28 +37,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         'orders/${widget.orderId}/payment-proof',
       );
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => Dialog(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('Your GCash receipt'),
-              ),
-              Flexible(
-                child: InteractiveViewer(
-                  child: Image.memory(bytes, fit: BoxFit.contain),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Close'),
-              ),
-            ],
-          ),
-        ),
+      await showBuyerImagePreview(
+        context,
+        title: 'Your GCash receipt',
+        bytes: bytes,
       );
     } catch (error) {
       if (mounted) {
@@ -111,20 +94,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       final bytes = await _api.getImage('returns/$returnId/proof');
       if (!mounted) return;
-      await showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Refund transfer proof'),
-          content: InteractiveViewer(
-            child: Image.memory(bytes, fit: BoxFit.contain),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
+      await showBuyerImagePreview(
+        context,
+        title: 'Refund transfer proof',
+        bytes: bytes,
       );
     } catch (error) {
       if (mounted) {
@@ -447,6 +420,18 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Text(
                   '${record['quantity']} item(s) · ${_fmt(double.tryParse('${record['refund_amount']}') ?? 0)}',
                 ),
+                if (record['evidence_path'] != null &&
+                    record['evidence_type'] != 'video')
+                  TextButton.icon(
+                    onPressed: () => showBuyerImagePreview(
+                      context,
+                      title: 'Return photo evidence',
+                      url:
+                          '${record['evidence_url'] ?? record['evidence_path']}',
+                    ),
+                    icon: const Icon(CupertinoIcons.photo, size: 18),
+                    label: const Text('View return photo'),
+                  ),
                 if (record['evidence_path'] != null)
                   Text(
                     'Evidence: ${record['evidence_type'] == 'video' ? 'Video' : 'Photo'} attached',

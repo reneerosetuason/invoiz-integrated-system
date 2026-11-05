@@ -361,6 +361,16 @@ class _WishlistScreenState extends State<WishlistScreen> {
                         height: 1.3,
                       ),
                     ),
+                    if (product.isOnSale)
+                      Text(
+                        '${product.discountPercent}% off · Was ₱${product.compareAtPrice!.toStringAsFixed(2)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     const Spacer(),
                     SizedBox(
                       height: 38,

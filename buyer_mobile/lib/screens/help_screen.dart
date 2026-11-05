@@ -41,22 +41,27 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
         {
           'q': 'How do I place an order?',
           'a':
-              'Add items to your cart (or tap Buy Now on a product), go to Checkout, choose Cash on Delivery, then tap Place Order. You can order everything at once or per seller.',
+              'Add items to your cart or tap Buy Now. At checkout, choose a delivery address and an available payment method, review the total, then place your order. GCash requires a separate receipt for each store.',
         },
         {
           'q': 'What payment methods do you accept?',
           'a':
-              'Cash on Delivery (COD) only: you pay in cash when your order arrives. No prepayment or e-wallet is needed.',
+              'Choose Cash on Delivery or GCash when available. For GCash, check the seller account name, scan or import the receiving QR in your own GCash app, pay the displayed amount, and upload a readable receipt. Your rider collects no cash for a GCash order.',
+        },
+        {
+          'q': 'Why is my GCash order awaiting confirmation?',
+          'a':
+              'Your seller reviews the receipt and transfers the full payment into platform escrow. Admin verifies the funds before the seller can accept the order. You do not pay the rider again for a GCash order.',
         },
         {
           'q': 'Where can I track my order?',
           'a':
-              'Open My Orders to see live statuses: pending → confirmed → processing → ready for delivery → out for delivery → delivered. Open an order for its full timeline.',
+              'Open Orders and select an order to follow seller preparation, pickup, logistics hub handling, transport and final rider delivery. The order timeline shows the current progress.',
         },
         {
           'q': 'Can I cancel my order?',
           'a':
-              'Yes, while it is still pending or confirmed (before the seller prepares or ships it). Open the order and tap Cancel — reserved stock is returned automatically. Once it is being prepared or on its way, cancellation is no longer available.',
+              'Open the order to check whether cancellation is available. If a prepaid order is cancelled, the refund is reviewed separately; cancelling does not mean the money has already been returned. Confirm a refund only after receiving it.',
         },
       ],
     },
@@ -66,12 +71,12 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
         {
           'q': 'How much is the shipping fee?',
           'a':
-              'A flat ₱50 once per shop/seller in your order — not per item. Ordering 3 items from one shop costs ₱50 shipping; items from 2 different shops cost ₱100.',
+              'Checkout shows the current delivery fee for each store and the full total before you order. Review that quote after changing quantities, vouchers or delivery details.',
         },
         {
           'q': 'Who delivers my order?',
           'a':
-              'An INVOIZ rider picks your parcel up from the seller and delivers it to your address. The rider earns a flat ₱50 per delivery.',
+              'The seller prepares your parcel. Pickup riders, logistics hubs and transport staff handle the parcel before a final rider delivers it. Track those handoffs in your order details.',
         },
       ],
     },
@@ -79,9 +84,14 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
       'category': 'Vouchers & Discounts',
       'items': [
         {
+          'q': 'How do product sales work?',
+          'a':
+              'A sale shows the current price, regular price and percentage off. Discounts that round to 0% are not listed as sales. When a product discount and a store campaign both apply, you receive the better price instead of stacked discounts. Review the final checkout quote before ordering.',
+        },
+        {
           'q': 'How do I use a voucher code?',
           'a':
-              'Enter the code in the Voucher field at checkout before placing your order. Fixed vouchers cut a peso amount off, percent vouchers cut a share (up to their cap), and free-shipping vouchers waive the ₱50/shop delivery fee.',
+              'Enter a voucher at checkout and apply it before placing the order. The updated quote shows eligible item discounts and delivery savings. Store vouchers apply only to the relevant store.',
         },
         {
           'q': 'Who pays for voucher discounts?',
@@ -101,7 +111,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
         {
           'q': 'How do I create an account?',
           'a':
-              'Tap Register and sign up as a buyer — new registrations always start as buyer accounts. You can also continue with Google.',
+              'Create a buyer account with your details and delivery address, verify the email code, and wait for administrator approval. The app will explain if verification or review is still pending.',
         },
         {
           'q': 'I did not receive my verification code.',
@@ -131,7 +141,7 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
         {
           'q': 'What if my item arrives damaged or wrong?',
           'a':
-              'Inspect your order on delivery and keep photos of the item and packaging. You can tap "Request return" directly on delivered orders, or submit a report here.',
+              'Keep clear photos of the item and packaging. Open a delivered order and request a return for the affected item and quantity. After approval, logistics arranges collection and tracks the parcel back to the seller. Follow the return progress in Orders. A refund is separate from the physical return; view the transfer proof and confirm only after the money reaches you.',
         },
         {
           'q': 'How do I contact customer service?',
@@ -206,7 +216,8 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
   }
 
   Future<void> _submitComplaint() async {
-    if (_submittingComplaint || !_complaintForm.currentState!.validate()) return;
+    if (_submittingComplaint || !_complaintForm.currentState!.validate())
+      return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submittingComplaint = true);
 
@@ -276,13 +287,17 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
         children: [
           const BuyerPageHeading(
             title: 'Help & FAQ',
-            description: 'Answers, customer support, and order problem reports.',
+            description:
+                'Answers, customer support, and order problem reports.',
           ),
           _contactCards(),
           const SizedBox(height: 18),
           _tabSelector(),
           const SizedBox(height: 16),
-          if (_activeTab == 0) ..._buildFaqSection() else ..._buildReportSection(),
+          if (_activeTab == 0)
+            ..._buildFaqSection()
+          else
+            ..._buildReportSection(),
         ],
       ),
     );
@@ -321,8 +336,9 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                   'Questions & Answers',
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        _activeTab == 0 ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: _activeTab == 0
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     color: _activeTab == 0
                         ? AppColors.primaryDark
                         : AppColors.textSecondary,
@@ -355,8 +371,9 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                   'Report a Problem',
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        _activeTab == 1 ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: _activeTab == 1
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     color: _activeTab == 1
                         ? AppColors.primaryDark
                         : AppColors.textSecondary,
@@ -491,7 +508,11 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
         decoration: InputDecoration(
           hintText: 'Search answers… e.g. refund, shipping, voucher',
           hintStyle: const TextStyle(fontSize: 12, color: AppColors.textMuted),
-          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textSecondary),
+          prefixIcon: const Icon(
+            Icons.search,
+            size: 20,
+            color: AppColors.textSecondary,
+          ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 18),
@@ -503,7 +524,10 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
               : null,
           filled: true,
           fillColor: Colors.white,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 12,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: const BorderSide(color: AppColors.border),
@@ -552,19 +576,26 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      border: Border.all(color: AppColors.border.withValues(alpha: 0.6)),
+                      border: Border.all(
+                        color: AppColors.border.withValues(alpha: 0.6),
+                      ),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Theme(
-                      data: Theme.of(context).copyWith(
-                        dividerColor: Colors.transparent,
-                      ),
+                      data: Theme.of(
+                        context,
+                      ).copyWith(dividerColor: Colors.transparent),
                       child: ExpansionTile(
                         tilePadding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 2,
                         ),
-                        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+                        childrenPadding: const EdgeInsets.fromLTRB(
+                          14,
+                          0,
+                          14,
+                          12,
+                        ),
                         leading: const Icon(
                           Icons.help_outline,
                           size: 18,
@@ -619,8 +650,9 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                   labelText: 'Subject',
                   hintText: 'e.g. Damaged item in order',
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Subject is required' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Subject is required'
+                    : null,
               ),
               const SizedBox(height: 12),
               if (_orders.isNotEmpty) ...[
@@ -637,7 +669,10 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
                     ),
                     ..._orders.map((o) {
                       final id = o['id'] as int;
-                      final status = '${o['status'] ?? ''}'.replaceAll('_', ' ');
+                      final status = '${o['status'] ?? ''}'.replaceAll(
+                        '_',
+                        ' ',
+                      );
                       return DropdownMenuItem<int?>(
                         value: id,
                         child: Text(
@@ -689,8 +724,8 @@ class _HelpFaqScreenState extends State<HelpFaqScreen> {
 
 class BoxStyle {
   static BoxShadow? get boxShadow => const BoxShadow(
-        color: Color(0x10000000),
-        blurRadius: 4,
-        offset: Offset(0, 2),
-      );
+    color: Color(0x10000000),
+    blurRadius: 4,
+    offset: Offset(0, 2),
+  );
 }

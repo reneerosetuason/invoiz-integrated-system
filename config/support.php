@@ -29,22 +29,27 @@ return [
             'items' => [
                 [
                     'q' => 'How do I place an order?',
-                    'a' => 'Add items to your cart (or tap Buy Now on a product), go to Checkout, choose Cash on Delivery, then tap Place Order. You can order everything at once or per seller.',
+                    'a' => 'Add items to your cart or tap Buy Now. At checkout, choose a delivery address and an available payment method, review the total, then place your order. GCash requires a separate receipt for each store.',
                     'keywords' => ['order', 'buy', 'checkout', 'place', 'cart', 'purchase', 'paano umorder', 'orderin'],
                 ],
                 [
                     'q' => 'What payment methods do you accept?',
-                    'a' => 'Cash on Delivery (COD) only: you pay in cash when your order arrives. No prepayment or e-wallet is needed.',
+                    'a' => 'Choose Cash on Delivery or GCash when available. For GCash, check the seller account name, scan or import the receiving QR in your own GCash app, pay the displayed amount, and upload a readable receipt. Your rider collects no cash for a GCash order.',
                     'keywords' => ['payment', 'bayad', 'cod', 'cash', 'gcash', 'wallet', 'card', 'pay'],
                 ],
                 [
+                    'q' => 'Why is my GCash order awaiting confirmation?',
+                    'a' => 'Your seller reviews the receipt and transfers the full payment into platform escrow. Admin verifies the funds before the seller can accept the order. You do not pay the rider again for a GCash order.',
+                    'keywords' => ['gcash confirmation', 'escrow', 'receipt review'],
+                ],
+                [
                     'q' => 'Where can I track my order?',
-                    'a' => 'Open My Orders to see live statuses: pending → confirmed → processing → ready for delivery → out for delivery → delivered. Open an order for its full timeline.',
+                    'a' => 'Open Orders and select an order to follow seller preparation, pickup, logistics hub handling, transport and final rider delivery. The order timeline shows the current progress.',
                     'keywords' => ['track', 'status', 'nasaan', 'where', 'saan', 'parcel', 'delivery status', ' dumating'],
                 ],
                 [
                     'q' => 'Can I cancel my order?',
-                    'a' => 'Yes, while it is still pending or confirmed (before the seller prepares or ships it). Open the order and tap Cancel — reserved stock is returned automatically. Once it is being prepared or on its way, cancellation is no longer available.',
+                    'a' => 'Open the order to check whether cancellation is available. If a prepaid order is cancelled, the refund is reviewed separately; cancelling does not mean the money has already been returned. Confirm a refund only after receiving it.',
                     'keywords' => ['cancel', 'kansela', 'void', 'refund cancel', 'ayaw'],
                 ],
             ],
@@ -54,12 +59,12 @@ return [
             'items' => [
                 [
                     'q' => 'How much is the shipping fee?',
-                    'a' => 'A flat ₱50 once per shop/seller in your order — not per item. Ordering 3 items from one shop costs ₱50 shipping; items from 2 different shops cost ₱100.',
+                    'a' => 'Checkout shows the current delivery fee for each store and the full total before you order. Review that quote after changing quantities, vouchers or delivery details.',
                     'keywords' => ['shipping', 'delivery fee', 'ship', 'charge', 'fee', 'sf', 'magkano shipping'],
                 ],
                 [
                     'q' => 'Who delivers my order?',
-                    'a' => 'An INVOIZ rider picks your parcel up from the seller and delivers it to your address. The rider earns a flat ₱50 per delivery.',
+                    'a' => 'The seller prepares your parcel. Pickup riders, logistics hubs and transport staff handle the parcel before a final rider delivers it. Track those handoffs in your order details.',
                     'keywords' => ['rider', 'deliver', 'courier', 'hatid', 'dedeliver'],
                 ],
             ],
@@ -68,8 +73,13 @@ return [
             'category' => 'Vouchers & Discounts',
             'items' => [
                 [
+                    'q' => 'How do product sales work?',
+                    'a' => 'A sale shows the current price, regular price and percentage off. Discounts that round to 0% are not listed as sales. When a product discount and a store campaign both apply, you receive the better price instead of stacked discounts. Review the final checkout quote before ordering.',
+                    'keywords' => ['sale', 'product sale', 'discount percentage'],
+                ],
+                [
                     'q' => 'How do I use a voucher code?',
-                    'a' => 'Enter the code in the Voucher field at checkout before placing your order. Fixed vouchers cut a peso amount off, percent vouchers cut a share (up to their cap), and free-shipping vouchers waive the ₱50/shop delivery fee.',
+                    'a' => 'Enter a voucher at checkout and apply it before placing the order. The updated quote shows eligible item discounts and delivery savings. Store vouchers apply only to the relevant store.',
                     'keywords' => ['voucher', 'coupon', 'code', 'discount', 'promo', 'sale', 'less', 'bawas'],
                 ],
                 [
@@ -89,7 +99,7 @@ return [
             'items' => [
                 [
                     'q' => 'How do I create an account?',
-                    'a' => 'Tap Register and sign up as a buyer — new registrations always start as buyer accounts. You can also continue with Google.',
+                    'a' => 'Create a buyer account with your details and delivery address, verify the email code, and wait for administrator approval. The app will explain if verification or review is still pending.',
                     'keywords' => ['register', 'signup', 'sign up', 'account', 'gawa account', 'google'],
                 ],
                 [
@@ -119,7 +129,7 @@ return [
             'items' => [
                 [
                     'q' => 'What if my item arrives damaged or wrong?',
-                    'a' => 'Inspect your order on delivery and keep photos of the item and packaging. Then file a complaint below with your order number — our team reviews it and replies by email. (Store owner: confirm your official returns/refund policy and we will put the exact wording here.)',
+                    'a' => 'Keep clear photos of the item and packaging. Open a delivered order and request a return for the affected item and quantity. After approval, logistics arranges collection and tracks the parcel back to the seller. Follow the return progress in Orders. A refund is separate from the physical return; view the transfer proof and confirm only after the money reaches you.',
                     'keywords' => ['return', 'refund', 'damaged', 'wrong', 'sira', 'mali', 'balik', 'sauli', 'reklamo', 'complaint', 'defect', 'missing', 'kulang'],
                 ],
                 [

@@ -207,9 +207,48 @@ class ReturnWorkflowTest extends GcashEscrowWorkflowTest
         $case = ReturnRequest::firstOrFail();
         $this->assertSame('item_received', $case->status);
         $this->assertSame(150.0, (float) $case->refund_amount);
+        $this->assertSame(0, (int) $case->quantity);
+        $this->assertSame(100.0, $case->merchandiseRefundAmount());
         $this->assertSame('refund_pending', $case->workflow->stage);
         $this->assertSame('pending', $order->fresh()->payment->status);
         $this->assertSame(0.0, (float) Payments::transactionFor($order)->refunded_amount);
         Payments::voidForCancel($order); $this->assertDatabaseCount('return_requests', 1);
+    }
+
+    public function test_zero_cash_value_return_closes_without_a_fictitious_transfer(): void
+    {
+        $f = $this->scenario(); $f['case']->update(['refund_amount' => 0]);
+        $this->received($f);
+        $this->assertSame('refunded', $f['case']->fresh()->status);
+        $this->assertSame('completed_no_refund', $f['case']->fresh()->workflow->stage);
+        $this->assertNull($f['case']->fresh()->workflow->refund_reference);
+        $this->assertSame(0.0, (float) Payments::transactionFor($f['order'])->refunded_amount);
+    }
+
+    public function test_fully_refunded_gcash_cannot_restart_but_recovered_funds_can_pay_earned_logistics(): void
+    {
+        $f = $this->scenario(); $f['case']->update(['refund_amount' => 150]); $this->received($f);
+        ReturnWorkflowService::change($f['case'], $f['admin'], 'refund', $this->refundData(110));
+        ReturnWorkflowService::change($f['case'], $f['buyer'], 'confirm_refund');
+        try { GcashEscrowService::assertFunded($f['order']->fresh()); $this->fail('Fully refunded fulfillment restarted.'); }
+        catch (ValidationException $e) { $this->assertArrayHasKey('gcash', $e->errors()); }
+        $row = EscrowRemittance::where('recipient_role', 'last_mile_rider')->firstOrFail();
+        $row->update(['recipient_user_id' => $f['riderUser']->id, 'rider_id' => $f['rider']->id]);
+        $this->actingAs($f['admin'])->post('/admin/payments/escrow-remittances/'.$row->id.'/remit', ['bank_reference' => 'LOGISTICS-PAID'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('remitted', $row->fresh()->status);
+        Payments::settleForDelivery($f['order']->fresh(), true);
+        $this->assertSame('refunded', $f['order']->fresh()->payment_status);
+    }
+
+    public function test_rider_return_api_shows_only_assigned_collections_and_never_collects_cash(): void
+    {
+        $f = $this->scenario();
+        ReturnWorkflowService::change($f['case'], $f['staff'], 'assign', ['rider_id' => $f['rider']->id]);
+        Auth::forgetGuards(); Sanctum::actingAs($f['riderUser'], ['rider']);
+        $this->getJson('/api/logistics/rider/returns')->assertOk()->assertJsonCount(1, 'returns')->assertJsonPath('returns.0.amount_to_collect', 0);
+        $this->postJson('/api/logistics/rider/returns/'.$f['case']->id.'/pickup')->assertOk();
+        $this->assertSame('collected', $f['case']->fresh()->workflow->stage);
+        $this->assertDatabaseCount('rider_earnings', 0);
     }
 }

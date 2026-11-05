@@ -209,7 +209,7 @@
                                             <p class="text-xs font-semibold text-gray-800 truncate" x-text="att.name"></p>
                                             <p class="text-[10px] text-gray-400 mb-1.5"><span x-text="att.size"></span><span x-show="att.is_pdf"> · PDF</span></p>
                                             <div class="flex gap-1.5">
-                                                <a :href="att.view_url" target="_blank"
+                                                <a data-image-viewer="document" :href="att.view_url"
                                                    class="inline-flex items-center gap-1 px-2 py-1 bg-teal-light text-teal-dark hover:bg-teal hover:text-white rounded-lg text-[11px] font-semibold transition">
                                                     View
                                                 </a>

@@ -11,6 +11,17 @@
 .sb2 .sidebar-nav a{position:relative;display:flex;align-items:center;gap:12px;min-height:44px;padding:8px 12px;border-radius:10px;color:#0E4A57;font-size:14px;font-weight:500;text-decoration:none;transition:background-color .2s ease,color .2s ease}
 @media(min-width:1024px){.sb2 .sidebar-nav a{min-height:40px}}
 .sb2 .sidebar-nav a svg{color:rgba(22,105,122,.65);stroke-width:1.5;flex-shrink:0;transition:transform .2s ease,color .2s ease}
+.sb2 .sidebar-nav a svg,.sb2 .sidebar-nav .role-switch-link svg{width:18px;height:18px;flex:0 0 18px}
+.sb-drawer-head{display:none}
+@media(max-width:1023.98px){
+    body.sb-drawer-open{overflow:hidden}
+    .sb2{height:100dvh;max-height:100dvh;overflow:hidden}
+    .sb2 .sidebar-nav{overscroll-behavior:contain;padding-bottom:16px;scroll-padding-top:12px;mask-image:none;-webkit-mask-image:none}
+    .sb2 .sb-foot{flex-shrink:0;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+    .sb-drawer-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid #0f4c5c1f;flex-shrink:0;color:#0e4a57;font-size:16px}
+    .sb-drawer-head button{display:grid;place-items:center;width:44px;height:44px;border:1px solid #0f4c5c30;border-radius:10px;background:transparent;color:inherit;cursor:pointer}
+    .sb-drawer-head svg{width:20px;height:20px}
+}
 .sb2 .sidebar-nav a:hover{background:rgba(22,105,122,.05);color:#0E4A57}
 .sb2 .sidebar-nav a:hover svg{transform:translateX(2px);color:#0E4A57}
 .sb2 .sidebar-nav a.active{background:rgba(22,105,122,.1);color:#0E4A57;font-weight:600}

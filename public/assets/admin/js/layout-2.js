@@ -21,7 +21,8 @@
         a.removeAttribute('aria-current');
         var href = a.getAttribute('href').replace(/\/+$/, '');
         if (!href || href === '#') return;
-        if ((path === href || path.indexOf(href + '/') === 0) &&
+        var alias = a.getAttribute('data-nav-alias');
+        if ((path === href || path.indexOf(href + '/') === 0 || (alias && (path === alias || path.indexOf(alias + '/') === 0))) &&
             (!best || href.length > best.getAttribute('href').replace(/\/+$/, '').length)) {
           best = a;
         }

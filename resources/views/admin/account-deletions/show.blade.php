@@ -1,7 +1,7 @@
 @extends('admin.layout')
 @section('content')
 <div class="admin-deletion-detail max-w-3xl bg-white border rounded-lg p-6">
-<a href="{{ route('admin.account-deletions.index') }}" class="underline">Back to deletion requests</a>
+<a href="{{ route('admin.account-deletions.index') }}" class="btn btn-neutral">Back to deletion requests</a>
 <h1 class="text-2xl font-bold my-4">Deletion request #{{ $deletion->id }}</h1>
 @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
 @if($errors->any())<ul role="alert">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>@endif

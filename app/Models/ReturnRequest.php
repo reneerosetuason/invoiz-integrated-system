@@ -30,6 +30,18 @@ class ReturnRequest extends Model
 
     public function workflow() { return $this->hasOne(ReturnWorkflow::class); }
 
+    /** Financial adjustments can include unused shipping, which must not reduce merchandise twice. */
+    public function merchandiseRefundAmount(): float
+    {
+        if (\Illuminate\Support\Facades\Schema::hasTable('return_workflows')) {
+            $events = $this->workflow?->events ?? [];
+            if (isset($events[0]['merchandise_amount'])) {
+                return min((float) $this->refund_amount, max(0, (float) $events[0]['merchandise_amount']));
+            }
+        }
+        return (float) $this->refund_amount;
+    }
+
     public function getProgressAttribute(): ?array
     {
         if (! \Illuminate\Support\Facades\Schema::hasTable('return_workflows')) {

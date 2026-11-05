@@ -1,3 +1,4 @@
+import '../widgets/buyer_auth.dart';
 import '../widgets/buyer_picker.dart';
 import '../widgets/buyer_dialog.dart';
 import '../widgets/buyer_controls.dart';
@@ -15,7 +16,8 @@ import '../widgets/entrance.dart';
 import 'verify_email_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final http.Client? addressClient;
+  const RegisterScreen({super.key, this.addressClient});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -23,6 +25,7 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  late final _addressClient = widget.addressClient ?? http.Client();
   final _lastName = TextEditingController();
   final _firstName = TextEditingController();
   final _middleInitial = TextEditingController();
@@ -51,6 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loadingAddress = false;
 
   bool _busy = false;
+  bool _showPasswords = false;
 
   @override
   void initState() {
@@ -61,7 +65,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _loadProvinces() async {
     setState(() => _loadingAddress = true);
     try {
-      final res = await http
+      final res = await _addressClient
           .get(Uri.parse('${AppConfig.psgcBaseUrl}/provinces'))
           .timeout(const Duration(seconds: 12));
       if (!mounted) return;
@@ -89,7 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
     final provinceCode = _provinceCode;
     try {
-      final res = await http
+      final res = await _addressClient
           .get(
             Uri.parse(
               '${AppConfig.psgcBaseUrl}/provinces/$provinceCode/municipalities',
@@ -109,7 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
     final municipalityCode = _municipalityCode;
     try {
-      final res = await http
+      final res = await _addressClient
           .get(
             Uri.parse(
               '${AppConfig.psgcBaseUrl}/municipalities/$municipalityCode/barangays',
@@ -221,6 +225,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    if (widget.addressClient == null) _addressClient.close();
     _lastName.dispose();
     _firstName.dispose();
     _middleInitial.dispose();
@@ -251,11 +256,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               padding: EdgeInsets.zero,
               children: [
                 const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
-                  child: BuyerPageHeading(
+                  padding: EdgeInsets.fromLTRB(20, 20, 20, 24),
+                  child: BuyerAuthIntro(
+                    registering: true,
                     title: 'Create your account',
                     description:
-                        'Join Invoiz to discover curated finds, save favorites, and track every order.',
+                        'A few details to make shopping yours. Save favorites, talk to sellers and follow every delivery.',
                   ),
                 ),
                 FadeSlideIn(
@@ -351,12 +357,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               if (_birthDate != null)
                                 Padding(
-                                  padding: const EdgeInsets.only(top: 6, left: 4),
+                                  padding: const EdgeInsets.only(
+                                    top: 6,
+                                    left: 4,
+                                  ),
                                   child: Wrap(
-                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     spacing: 5,
                                     children: [
-                                      const Icon(CupertinoIcons.checkmark_circle_fill, size: 14, color: AppColors.success),
+                                      const Icon(
+                                        CupertinoIcons.checkmark_circle_fill,
+                                        size: 14,
+                                        color: AppColors.success,
+                                      ),
                                       Text(
                                         'Age (auto-computed): ${_calcAge(_birthDate!)} years old',
                                         style: const TextStyle(
@@ -400,7 +414,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 activeColor: AppColors.primary,
                                 title: const Text(
                                   'Enter address manually',
-                                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 subtitle: const Text(
                                   'Enable this if your location is not found in the online lookup.',
@@ -504,21 +521,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 )
                               : const Text(
                                   'Complete Registration',
-                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                         ),
                         const SizedBox(height: 14),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.surfaceTint.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.border.withValues(alpha: 0.6), width: 0.8),
+                            border: Border.all(
+                              color: AppColors.border.withValues(alpha: 0.6),
+                              width: 0.8,
+                            ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(CupertinoIcons.info_circle, size: 16, color: AppColors.primary),
+                              const Icon(
+                                CupertinoIcons.info_circle,
+                                size: 16,
+                                color: AppColors.primary,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -542,7 +572,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           children: [
                             Text(
                               'Already registered?',
-                              style: TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                             GestureDetector(
                               onTap: () => Navigator.pop(context),
@@ -591,11 +624,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: BuyerField.form(
         controller: controller,
-        obscureText: obscure,
+        obscureText: obscure && !_showPasswords,
         keyboardType: keyboard,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: icon != null ? Icon(icon) : null,
+          suffixIcon: obscure
+              ? IconButton(
+                  tooltip: _showPasswords ? 'Hide password' : 'Show password',
+                  onPressed: () =>
+                      setState(() => _showPasswords = !_showPasswords),
+                  icon: Icon(
+                    _showPasswords
+                        ? CupertinoIcons.eye_slash
+                        : CupertinoIcons.eye,
+                    size: 20,
+                  ),
+                )
+              : null,
         ),
         validator: (v) {
           if (required && (v == null || v.trim().isEmpty)) return 'Required';

@@ -17,7 +17,7 @@
         @elseif(in_array($deposit?->status, ['receipt_verified', 'rejected'], true))
             @if($escrowAccount)
                 <p class="text-sm">Send the whole payment to <strong>{{ $escrowAccount->account_name }}</strong>: {{ $escrowAccount->account_details }}</p>
-                @if($escrowAccount->qr_path)<a href="{{ asset('storage/'.$escrowAccount->qr_path) }}" target="_blank" rel="noopener"><img src="{{ asset('storage/'.$escrowAccount->qr_path) }}" alt="Platform escrow receiving QR" style="width:220px;max-width:100%;height:auto"></a>@endif
+                @if($escrowAccount->qr_path)<a data-image-viewer="document" href="{{ asset('storage/'.$escrowAccount->qr_path) }}"  ><img src="{{ asset('storage/'.$escrowAccount->qr_path) }}" alt="Platform escrow receiving QR" style="width:220px;max-width:100%;height:auto"></a>@endif
                 <form method="POST" action="{{ route('seller.gcash.deposit', $order) }}" enctype="multipart/form-data" class="space-y-3">
                     @csrf
                     <label class="block text-sm">Amount sent (PHP)<input class="input" type="number" name="amount" value="{{ $order->total_amount }}" min="0.01" step="0.01" required></label>

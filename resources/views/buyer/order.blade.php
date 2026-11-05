@@ -40,7 +40,7 @@
   <div style="font-size:12px;color:var(--text2);margin-top:6px">Placed on: {{ $o->created_at->format('Y-m-d H:i') }}</div>
   @if($pay)<div style="font-size:12px;color:var(--text2);margin-top:2px">Payment: {{ strtoupper(str_replace('_',' ',$pay->method)) }} · {{ strtoupper($pay->status) }}</div>@endif
   @if($pay?->method === 'gcash' && $pay?->proof_path)
-    <div style="margin-top:8px;font-size:12px"><a href="{{ route('buyer.orders.payment-proof', $o->id) }}" target="_blank" rel="noopener" style="color:var(--green);font-weight:700">View your GCash receipt</a></div>
+    <div style="margin-top:8px;font-size:12px"><a data-image-viewer="document" href="{{ route('buyer.orders.payment-proof', $o->id) }}"   style="color:var(--green);font-weight:700">View your GCash receipt</a></div>
   @endif
   @if($del)<div style="font-size:12px;color:var(--text2);margin-top:2px">Delivery: {{ strtoupper($customerDeliveryLabel) }}</div>@endif
 </div>
@@ -201,7 +201,7 @@
             @if($openReturn->evidence_path)
               <div style="margin-top:6px;font-size:11px;color:#1e40af;display:flex;align-items:center;gap:6px">
                 <b>Evidence:</b>
-                <a href="{{ asset('storage/' . $openReturn->evidence_path) }}" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:underline;font-weight:600;display:inline-flex;align-items:center;gap:3px">
+                <a data-image-viewer="document" href="{{ asset('storage/' . $openReturn->evidence_path) }}"   style="color:#2563eb;text-decoration:underline;font-weight:600;display:inline-flex;align-items:center;gap:3px">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                   View {{ $openReturn->evidence_type === 'video' ? 'Video' : 'Photo' }}
                 </a>

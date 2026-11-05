@@ -16,6 +16,7 @@ class HomeController extends Controller {
     $sort = $this->sortCatalog($q, $request->input('sort', 'recommended'));
     $products = $q->get();
     $this->attachSale($products);
+    $products = $products->filter(fn ($p) => $p->on_sale)->values();
     $categories = Category::active()
       ->orderByRaw("CASE WHEN name = 'Appliances' THEN 0 ELSE 1 END, name")
       ->get();
@@ -49,9 +50,7 @@ class HomeController extends Controller {
 
   /** Sale listing — active products discounted vs their compare-at price. */
   public function sale(Request $request){
-    $q = $this->catalogQuery($request)
-      ->whereNotNull('compare_at_price')
-      ->whereColumn('compare_at_price', '>', 'price');
+    $q = \App\Support\Sales::scopeDiscounted($this->catalogQuery($request));
     if($request->filled('category')) $q->where('category_id', $request->integer('category'));
     if($request->filled('search')) $q->where('name','like','%'.$request->search.'%');
     $sort = $this->sortCatalog($q, $request->input('sort', 'recommended'));
@@ -99,7 +98,7 @@ class HomeController extends Controller {
     foreach ($products as $product) {
       $sale = \App\Support\Sales::saleFor($product);
       $effective = \App\Support\Sales::priceFor($product);
-      $product->setAttribute('on_sale', (bool) $sale);
+      $product->setAttribute('on_sale', \App\Support\Sales::isOnSale($product));
       $product->setAttribute('sale_price', $sale ? $effective : null);
       $product->setAttribute('effective_price', $effective);
     }

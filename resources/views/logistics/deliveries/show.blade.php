@@ -538,7 +538,7 @@
                         @elseif($proof->type === 'otp' && $proof->otp)
                             <p class="text-sm font-mono font-semibold text-gray-900">OTP verified</p>
                         @elseif($proof->file_path && file_exists(public_path('storage/' . $proof->file_path)))
-                            <img src="{{ asset('storage/' . $proof->file_path) }}" alt="Proof" class="mt-1 rounded-lg max-h-40 object-cover w-full">
+                            <img src="{{ asset('storage/' . $proof->file_path) }}" alt="Proof" data-image-viewer tabindex="0" role="button" aria-label="Preview delivery proof" class="mt-1 rounded-lg max-h-40 object-cover w-full">
                         @elseif($proof->file_path)
                             <p class="text-sm text-gray-700">{{ $proof->file_path }}</p>
                         @endif
@@ -991,8 +991,8 @@
         @if($damageProof)
             <div class="mb-5 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
                 Exception evidence:
-                <a href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($damageProof->file_path) }}"
-                   target="_blank" class="font-semibold underline">view uploaded photo</a>
+                <a data-image-viewer href="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($damageProof->file_path) }}"
+                   class="font-semibold underline">view uploaded photo</a>
             </div>
         @endif
 

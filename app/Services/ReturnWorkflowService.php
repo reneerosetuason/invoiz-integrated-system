@@ -23,11 +23,18 @@ class ReturnWorkflowService
             $share = $index === $items->count() - 1 ? $remaining : min($remaining, round($amount * $item->lineTotal / $gross, 2));
             $remaining = round($remaining - $share, 2);
             if ($share <= 0) { continue; }
+            $subtotal = $order->sellerSubtotal((int) $item->seller_id);
+            $discount = $subtotal > 0 ? $order->voucherDiscountForSeller((int) $item->seller_id) * $item->lineTotal / $subtotal : 0;
+            $prior = ReturnRequest::where('order_item_id', $item->id)->where('status', 'refunded')->get()->sum(fn ($r) => $r->merchandiseRefundAmount());
+            $merchandise = round(min($share, max(0, $item->lineTotal - $discount - $prior)), 2);
             $case = ReturnRequest::create(['order_id' => $order->id, 'order_item_id' => $item->id,
                 'buyer_id' => $order->buyer_id, 'seller_id' => $item->seller_id, 'product_id' => $item->product_id,
-                'quantity' => $item->quantity, 'reason' => 'other', 'reason_details' => $reason,
+                'quantity' => 0, 'reason' => 'other', 'reason_details' => $reason,
                 'refund_amount' => $share, 'status' => 'item_received', 'decision_note' => 'Admin refund payment required. '.$reason]);
-            ReturnWorkflow::create(['return_request_id' => $case->id, 'stage' => 'refund_pending']);
+            ReturnWorkflow::create(['return_request_id' => $case->id, 'stage' => 'refund_pending', 'events' => [[
+                'action' => 'refund_approved', 'actor_id' => auth()->id(), 'at' => now()->toIso8601String(),
+                'reference' => null, 'merchandise_amount' => $merchandise,
+            ]]]);
         }
     }
 
@@ -117,23 +124,11 @@ class ReturnWorkflowService
                 self::require(! empty($data['reference']) && ! empty($data['proof_path']), 'Record the actual transfer reference and proof before sending the refund.');
                 $amount = (float) $return->refund_amount;
                 $tx = Payments::transactionFor($order);
-                // COD must first be reconciled; a delivered parcel alone is not proof of cash in escrow.
-                $funded = GcashEscrowService::isGcash($order)
-                    ? (float) (\App\Models\GcashEscrowDeposit::where('order_id', $order->id)->where('status', 'funded')->whereNotNull('confirmed_at')->value('amount') ?? 0)
-                    : (in_array($tx?->status, ['successful', 'partially_refunded'], true) ? (float) $tx->amount : 0);
+                $funding = self::fundingSummary($order, $amount);
+                $funded = $funding['funded'];
+                $shortfall = $funding['shortfall'];
                 self::require($funded > 0 || (GcashEscrowService::isGcash($order) && $order->payment?->proof_path
                     && (float) ($data['recovery_amount'] ?? 0) >= $amount), 'Reconcile the collected COD or recover the seller-held GCash into escrow before refunding.');
-                $released = (float) EscrowRemittance::where('order_id', $order->id)->whereIn('status', ['remitted', 'accepted'])
-                    ->where('settlement_mode', '!=', 'cod_retained')->sum('amount');
-                // COD delivery fees were retained in cash and are unavailable for refunds too.
-                if (! GcashEscrowService::isGcash($order)) {
-                    $released += (float) EscrowRemittance::where('order_id', $order->id)->where('settlement_mode', 'cod_retained')->whereIn('status', ['remitted', 'accepted'])->sum('amount');
-                }
-                $previousRecovery = (float) ReturnWorkflow::whereHas('returnRequest', fn ($q) => $q->where('order_id', $order->id))->sum('recovery_amount');
-                $reservedLogistics = (float) EscrowRemittance::where('order_id', $order->id)
-                    ->whereNotIn('recipient_role', [EscrowRemittance::ROLE_SELLER, EscrowRemittance::ROLE_ADMIN])
-                    ->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount');
-                $shortfall = round(max(0, $amount + $released + $reservedLogistics + (float) ($tx?->refunded_amount ?? 0) - $funded - $previousRecovery), 2);
                 if ($shortfall > 0) {
                     self::require(round((float) ($data['recovery_amount'] ?? 0), 2) >= $shortfall
                         && ! empty($data['recovery_reference']) && ! empty($data['recovery_proof_path']), 'Previously released funds must be recovered into escrow first. Required recovery: PHP '.number_format($shortfall, 2));
@@ -169,6 +164,28 @@ class ReturnWorkflowService
                 EscrowEarnings::syncRemittancesForOrder($fresh);
             }
         }, 3);
+    }
+
+    /** Read-only preview; the same calculation is repeated under the order lock at submission. */
+    public static function fundingSummary(Order $order, float $amount): array
+    {
+        $tx = Payments::transactionFor($order);
+        // COD must first be reconciled; a delivered parcel alone is not proof of cash in escrow.
+        $funded = GcashEscrowService::isGcash($order)
+            ? (float) (\App\Models\GcashEscrowDeposit::where('order_id', $order->id)->where('status', 'funded')->whereNotNull('confirmed_at')->value('amount') ?? 0)
+            : (in_array($tx?->status, ['successful', 'partially_refunded'], true) ? (float) $tx->amount : 0);
+        $released = (float) EscrowRemittance::where('order_id', $order->id)->whereIn('status', ['remitted', 'accepted'])
+            ->where('settlement_mode', '!=', 'cod_retained')->sum('amount');
+        // COD delivery fees were retained in cash and are unavailable for refunds too.
+        if (! GcashEscrowService::isGcash($order)) {
+            $released += (float) EscrowRemittance::where('order_id', $order->id)->where('settlement_mode', 'cod_retained')->whereIn('status', ['remitted', 'accepted'])->sum('amount');
+        }
+        $previousRecovery = (float) ReturnWorkflow::whereHas('returnRequest', fn ($q) => $q->where('order_id', $order->id))->sum('recovery_amount');
+        $reservedLogistics = (float) EscrowRemittance::where('order_id', $order->id)
+            ->whereNotIn('recipient_role', [EscrowRemittance::ROLE_SELLER, EscrowRemittance::ROLE_ADMIN])
+            ->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount');
+        $shortfall = round(max(0, $amount + $released + $reservedLogistics + (float) ($tx?->refunded_amount ?? 0) - $funded - $previousRecovery), 2);
+        return ['funded' => $funded, 'shortfall' => $shortfall, 'released' => $released, 'reserved_logistics' => $reservedLogistics];
     }
 
     private static function sameCompany(int $origin, int $destination): bool

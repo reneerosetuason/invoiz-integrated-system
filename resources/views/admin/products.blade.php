@@ -57,6 +57,11 @@
   <div style="padding:12px 16px;background:#E8F5EE;color:#166534;border-radius:12px;margin:16px 0 0;border:1px solid #BFE3D0;">{{ session('status') }}</div>
   @endif
 
+  <p style="margin:16px 0;color:var(--text-secondary);font-size:14px;">Use <strong>Feature on landing page</strong> on a product to select it for the main banner. Only admins can manage these picks. Discounted products appear automatically in Today's deals.</p>
+  @error('featured')
+    <p role="alert" style="padding:12px;color:#991B1B;background:#FEE2E2;border-radius:10px;">{{ $message }}</p>
+  @enderror
+
   <div class="prod-stats" style="margin-top:18px;">
     <div class="p-stat">
       <span>All Products</span><strong>{{ $stats['all'] }}</strong><small>total items</small>
@@ -83,15 +88,17 @@
   </form>
 
   <div class="cat-pills">
-    <a href="{{ url('/admin/products'.(request('search')?'?search='.request('search'):'')) }}" class="cat-pill {{ !request('category') ? 'active' : '' }}">All <small>{{ $stats['all'] }}</small></a>
+    <a href="{{ route('admin.products', array_filter(['search' => request('search')], fn ($v) => $v !== null && $v !== '')) }}" class="cat-pill {{ !request('category') ? 'active' : '' }}">All <small>{{ $stats['all'] }}</small></a>
     @foreach($categories as $cat)
       @if($cat->products_count > 0)
-      <a href="{{ url('/admin/products?category='.$cat->slug.(request('search')?'&search='.request('search'):'')) }}" class="cat-pill {{ request('category')===$cat->slug || request('category')===$cat->name ? 'active' : '' }}">
+      <a href="{{ route('admin.products', array_filter(['category' => $cat->id, 'search' => request('search')], fn ($v) => $v !== null && $v !== '')) }}" class="cat-pill {{ (string)request('category') === (string)$cat->id || request('category')===$cat->slug || request('category')===$cat->name ? 'active' : '' }}">
         {{ $cat->name }} <small>{{ $cat->products_count }}</small>
       </a>
       @endif
     @endforeach
   </div>
+
+  <p style="font-size:13px;color:var(--text-secondary);margin:0 0 14px;">Showing {{ $products->firstItem() ?? 0 }}&ndash;{{ $products->lastItem() ?? 0 }} of {{ $products->total() }} matching products. Use the page buttons below to see more.</p>
 
   @if($products->isEmpty())
     <div style="text-align:center; padding:48px 20px; background:#fff; border:1px solid var(--border); border-radius:16px;">
@@ -122,11 +129,11 @@
         </div>
         <div class="cat-grid">
           @foreach($catProducts as $product)
-            @php $img = $product->images->first(); @endphp
+            @php $imageUrl = $product->primary_image_url; @endphp
             <div class="prod-card">
-              <div class="prod-thumb" style="{{ $img ? 'background:#fff;' : '' }}">
-                @if($img)
-                  <img src="{{ asset('storage/'.$img->path) }}" alt="{{ $product->name }}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+              <div class="prod-thumb" style="{{ $imageUrl ? 'background:#fff;' : '' }}">
+                @if($imageUrl)
+                  <img src="{{ $imageUrl }}" alt="{{ $product->name }}" data-image-viewer tabindex="0" role="button" aria-label="Preview {{ $product->name }}" style="width:100%; height:100%; object-fit:contain; display:block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
                   <div class="prod-thumb-letter" style="display:none;">{{ strtoupper(mb_substr($product->name,0,1)) }}</div>
                 @else
                   <div class="prod-thumb-letter">{{ strtoupper(mb_substr($product->name,0,1)) }}</div>
@@ -146,6 +153,13 @@
                   {{ $product->seller->store_name ?? 'No seller' }}
                 </div>
                 <div class="prod-price">₱{{ number_format($product->price, 2) }}</div>
+                <form method="POST" action="{{ route('admin.product.feature', $product) }}" style="margin-top:10px;">
+                  @csrf
+                  <input type="hidden" name="featured" value="{{ in_array((int)$product->id, $featuredIds, true) ? '0' : '1' }}">
+                  <button type="submit" style="width:100%;padding:8px 10px;background:#fff;color:#16697A;border:1px solid #B6CDD0;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">
+                    {{ in_array((int)$product->id, $featuredIds, true) ? 'Remove from featured' : 'Feature on landing page' }}
+                  </button>
+                </form>
                 <div style="margin-top:10px; display:flex; gap:6px;">
                   @if($product->status === 'active')
                     <form method="POST" action="{{ url('/admin/products/'.$product->id.'/status') }}" style="display:inline;" data-confirm="This product will be suspended and hidden from the store. Continue?" data-confirm-title="Suspend Product?" data-confirm-ok="Suspend" data-confirm-class="btn-danger" data-confirm-icon="suspend">

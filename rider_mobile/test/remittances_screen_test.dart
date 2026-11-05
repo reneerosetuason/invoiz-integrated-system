@@ -52,7 +52,9 @@ void main() {
         ChangeNotifierProvider.value(
           value: provider,
           child: MaterialApp(
-            theme: AppTheme.light(),
+            theme: AppTheme.light().copyWith(
+              splashFactory: NoSplash.splashFactory,
+            ),
             home: const RemittancesScreen(),
           ),
         ),
@@ -134,7 +136,9 @@ void main() {
       ChangeNotifierProvider.value(
         value: provider,
         child: MaterialApp(
-          theme: AppTheme.light(),
+          theme: AppTheme.light().copyWith(
+            splashFactory: NoSplash.splashFactory,
+          ),
           home: const RemittancesScreen(),
         ),
       ),

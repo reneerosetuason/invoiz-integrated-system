@@ -6,7 +6,6 @@ import '../widgets/auth_service_provider.dart';
 import '../widgets/buyer_auth.dart';
 import '../widgets/buyer_controls.dart';
 import '../widgets/buyer_field.dart';
-import '../widgets/invoiz_logo.dart';
 import 'home_screen.dart';
 import 'register_screen.dart';
 import 'verify_email_screen.dart';
@@ -72,7 +71,10 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
         backgroundColor: AppColors.danger,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -89,32 +91,25 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Center Logo Header inside panel
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 4, bottom: 18),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      blurRadius: 14,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: InvoizLogo.logoWidget(size: 52, radius: 14),
-              ),
+            const Text(
+              'Sign in with your email',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
-
+            const SizedBox(height: 6),
+            const Text(
+              'Pick up where you left off.',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 22),
             // Email Field with clean styling
             BuyerField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.username, AutofillHints.email],
+              autofillHints: const [
+                AutofillHints.username,
+                AutofillHints.email,
+              ],
               decoration: const InputDecoration(
                 labelText: 'E-mail address',
                 prefixIcon: Icon(CupertinoIcons.mail, size: 20),
@@ -153,7 +148,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 20,
                       child: CupertinoActivityIndicator(color: Colors.white),
                     )
-                  : const Text('Sign In', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  : const Text(
+                      'Sign In',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
             ),
             const SizedBox(height: 12),
 
@@ -162,11 +163,14 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _busy
                   ? null
                   : () => Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
-                      ),
+                      context,
+                      MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    ),
               icon: const Icon(CupertinoIcons.compass, size: 18),
-              label: const Text('Continue as Guest', style: TextStyle(fontWeight: FontWeight.w600)),
+              label: const Text(
+                'Continue as Guest',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),
@@ -185,12 +189,15 @@ class _LoginScreenState extends State<LoginScreen> {
             onPressed: _busy
                 ? null
                 : () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                    ),
+                    context,
+                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  ),
             child: const Text(
               'Create account',
-              style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
             ),
           ),
         ],

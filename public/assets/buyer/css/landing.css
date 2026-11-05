@@ -41,6 +41,15 @@ a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #0E4A
 .zoom{transition:transform .5s cubic-bezier(.22,1,.36,1)}
 .no-scrollbar{scrollbar-width:none}
 .no-scrollbar::-webkit-scrollbar{display:none}
+.deals-controls{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.deals-controls button{min-height:44px;min-width:44px;border:1px solid #c5d4d5;border-radius:999px;padding:8px 14px;background:#fff;color:#0e4a57;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.deals-controls button:hover{background:#eaf4f3}
+.deals-controls button:focus-visible,.deals-track:focus-visible{outline:2px solid #16697a;outline-offset:4px}
+.deals-track{display:flex;align-items:stretch;gap:16px;overflow-x:auto;padding:6px 0 12px;overscroll-behavior-x:contain;scrollbar-width:none}
+.deals-card{flex:0 0 clamp(190px,22vw,230px);min-width:0}
+.deals-card .count-card{height:100%}
+.deals-track>[data-deals-copy]{flex-shrink:0}
+@media(max-width:600px){.deals-card{flex-basis:min(74vw,260px)}.deals-controls{justify-content:flex-start}}
 @media (prefers-reduced-motion: reduce) {
   html{scroll-behavior:auto}
   *, *::before, *::after { animation: none !important; transition: none !important; }

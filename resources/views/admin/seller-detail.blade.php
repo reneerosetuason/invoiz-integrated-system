@@ -275,7 +275,7 @@
             </div>
           </div>
           @if($idUrl)
-            <a href="{{ $idUrl }}" target="_blank" class="doc-btn">
+            <a data-image-viewer="document" href="{{ $idUrl }}"  class="doc-btn">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               View Document
             </a>
@@ -285,14 +285,14 @@
         </div>
         @if($idUrl && !str_ends_with(strtolower($seller->id_image ?? ''), '.pdf'))
           <div style="margin-top:10px;">
-            <a href="{{ $idUrl }}" target="_blank">
+            <a data-image-viewer="document" href="{{ $idUrl }}" >
               <img src="{{ $idUrl }}" alt="Govt ID" class="doc-preview-img" onerror="this.style.display='none'">
             </a>
           </div>
         @elseif($idUrl)
           <div style="margin-top:8px; font-size:12px; color:#16697A; font-weight:600; display:flex; align-items:center; gap:5px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <span>PDF Document uploaded · <a href="{{ $idUrl }}" target="_blank" style="text-decoration:underline;">Click to open PDF</a></span>
+            <span>PDF Document uploaded · <a data-image-viewer="document" href="{{ $idUrl }}"  style="text-decoration:underline;">Click to open PDF</a></span>
           </div>
         @endif
       </div>
@@ -310,7 +310,7 @@
             </div>
           </div>
           @if($dtiUrl)
-            <a href="{{ $dtiUrl }}" target="_blank" class="doc-btn">
+            <a data-image-viewer="document" href="{{ $dtiUrl }}"  class="doc-btn">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               View Document
             </a>
@@ -320,14 +320,14 @@
         </div>
         @if($dtiUrl && !str_ends_with(strtolower($seller->dti_certificate ?? $seller->business_permit ?? ''), '.pdf'))
           <div style="margin-top:10px;">
-            <a href="{{ $dtiUrl }}" target="_blank">
+            <a data-image-viewer="document" href="{{ $dtiUrl }}" >
               <img src="{{ $dtiUrl }}" alt="DTI" class="doc-preview-img" onerror="this.style.display='none'">
             </a>
           </div>
         @elseif($dtiUrl)
           <div style="margin-top:8px; font-size:12px; color:#16697A; font-weight:600; display:flex; align-items:center; gap:5px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <span>PDF Document uploaded · <a href="{{ $dtiUrl }}" target="_blank" style="text-decoration:underline;">Click to open PDF</a></span>
+            <span>PDF Document uploaded · <a data-image-viewer="document" href="{{ $dtiUrl }}"  style="text-decoration:underline;">Click to open PDF</a></span>
           </div>
         @endif
       </div>
@@ -345,7 +345,7 @@
             </div>
           </div>
           @if($birUrl)
-            <a href="{{ $birUrl }}" target="_blank" class="doc-btn">
+            <a data-image-viewer="document" href="{{ $birUrl }}"  class="doc-btn">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
               View Document
             </a>
@@ -355,14 +355,14 @@
         </div>
         @if($birUrl && !str_ends_with(strtolower($seller->bir_2303 ?? ''), '.pdf'))
           <div style="margin-top:10px;">
-            <a href="{{ $birUrl }}" target="_blank">
+            <a data-image-viewer="document" href="{{ $birUrl }}" >
               <img src="{{ $birUrl }}" alt="BIR 2303" class="doc-preview-img" onerror="this.style.display='none'">
             </a>
           </div>
         @elseif($birUrl)
           <div style="margin-top:8px; font-size:12px; color:#16697A; font-weight:600; display:flex; align-items:center; gap:5px;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <span>PDF Document uploaded · <a href="{{ $birUrl }}" target="_blank" style="text-decoration:underline;">Click to open PDF</a></span>
+            <span>PDF Document uploaded · <a data-image-viewer="document" href="{{ $birUrl }}"  style="text-decoration:underline;">Click to open PDF</a></span>
           </div>
         @endif
       </div>

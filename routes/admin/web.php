@@ -89,6 +89,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::post('buyers/{user}/review', [UserManagementController::class, 'reviewBuyer'])->name('admin.buyers.review');
     Route::get('riders', function (\Illuminate\Http\Request $request) { $r = \App\Models\User::where('role','rider')->orderBy('created_at','desc')->paginate(10); return view('admin.riders', ['riders' => $r]); })->name('admin.riders');
     Route::get('products', [ProductController::class, 'index'])->name('admin.products');
+    Route::post('products/{product}/feature', [ProductController::class, 'feature'])->name('admin.product.feature');
     Route::post('products/{product}/status', [ProductController::class, 'updateStatus'])->name('admin.product.status');
     Route::get('categories', [CategoryController::class, 'index'])->name('admin.categories');
     Route::post('categories', [CategoryController::class, 'store'])->name('admin.categories.store');

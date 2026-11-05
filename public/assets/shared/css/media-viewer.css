@@ -1,0 +1,21 @@
+.media-viewer{position:fixed;inset:0;margin:auto;width:min(1100px,96vw);max-width:96vw;height:min(900px,94dvh);max-height:94dvh;padding:0;border:0;border-radius:16px;background:#151c20;color:#fff;box-shadow:0 20px 80px #0006}
+.media-viewer::backdrop{background:#071419dc}
+.media-viewer[open]{display:flex;flex-direction:column}
+.media-viewer header{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #ffffff25;flex-shrink:0}
+.media-viewer h2{margin:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:600 15px/1.4 system-ui;color:#fff}
+.media-viewer button{min-width:44px;min-height:44px;padding:8px 12px;border:1px solid #ffffff40;border-radius:8px;background:transparent;color:#fff;font:600 14px system-ui;cursor:pointer}
+.media-viewer button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.media-viewer-stage{display:flex;align-items:center;justify-content:center;flex:1;min-height:0;overflow:auto;padding:16px;overscroll-behavior:contain}
+.media-viewer-stage img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+.media-viewer-stage.is-zoomed{display:block;text-align:center}
+.media-viewer-stage.is-zoomed img{max-width:none;max-height:none;margin:auto}
+.media-viewer-stage iframe{width:100%;height:100%;border:0;background:#fff}
+.media-viewer-status{font:400 15px/1.5 system-ui;text-align:center;color:#fff}
+[data-image-viewer]{cursor:zoom-in}
+.media-image-button{display:block;padding:0;border:0;background:transparent;width:100%;color:inherit}
+.media-image-button:focus-visible{outline:3px solid #16697a;outline-offset:4px}
+.shopx .gmain .media-image-button{height:100%}
+.featured-product-picture{display:flex;align-items:center;justify-content:center;aspect-ratio:1;width:100%;max-width:440px;margin-inline:auto;overflow:hidden;background:#fff;border-radius:12px}
+.featured-product-picture img{width:100%;height:100%;object-fit:contain}
+.featured-product-placeholder{display:grid;place-items:center;aspect-ratio:1;width:100%;max-width:440px;margin-inline:auto;background:#eaf4f3;font-size:4rem;color:#16697a}
+@media(max-width:600px){.media-viewer{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}.media-viewer header{padding:8px 12px}.media-viewer-stage{padding:12px}}

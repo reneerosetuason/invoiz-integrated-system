@@ -84,6 +84,9 @@ class GcashEscrowService
 
     public static function assertFunded(Order $order): void
     {
+        if (self::isGcash($order) && $order->payment_status === 'refunded') {
+            throw ValidationException::withMessages(['gcash' => 'This payment was fully refunded. Fulfillment cannot restart.']);
+        }
         if (self::isGcash($order) && ! self::funded($order)) {
             throw ValidationException::withMessages(['gcash' => 'Verify the buyer receipt and remit the full order payment to escrow. Admin must confirm the deposit before this order can proceed.']);
         }

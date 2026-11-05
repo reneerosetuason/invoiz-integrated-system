@@ -114,7 +114,10 @@
               @else
                 <div class="st-rating" style="color:var(--text3);font-weight:500">No ratings yet</div>
               @endif
-              <div class="st-price">₱{{ number_format($p->price,2) }}</div>
+              @php $storePrice = \App\Support\Sales::priceFor($p); @endphp
+              @php $storeRegular = \App\Support\Sales::regularPrice($p); @endphp
+              <div class="st-price">&#8369;{{ number_format($storePrice,2) }}</div>
+              @if(\App\Support\Sales::percentOff($storeRegular, $storePrice) > 0)<div style="font-size:12px;margin-top:4px"><s>&#8369;{{ number_format($storeRegular,2) }}</s> <strong>&minus;{{ (int)round((1-$storePrice/$storeRegular)*100) }}%</strong></div>@endif
             </div>
           </div>
         </a>

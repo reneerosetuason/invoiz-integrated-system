@@ -1,3 +1,4 @@
+import '../widgets/image_preview.dart';
 import '../widgets/buyer_controls.dart';
 import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
@@ -622,39 +623,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const Text(
                 'Scan or import this QR in your GCash app and pay the amount above. No cash is due on delivery.',
               ),
-            GestureDetector(
-              onTap: () => showDialog<void>(
-                context: context,
-                builder: (context) => Dialog(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Flexible(
-                          child: InteractiveViewer(
-                            child: Image.network(
-                              account['qr_url'] as String,
-                              errorBuilder: (_, __, ___) =>
-                                  const Text('Could not load receiving QR.'),
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Close'),
-                        ),
-                      ],
-                    ),
-                  ),
+            Semantics(
+              button: true,
+              label: 'Preview GCash receiving QR',
+              child: InkWell(
+                onTap: () => showBuyerImagePreview(
+                  context,
+                  title: 'GCash receiving QR',
+                  url: account['qr_url'] as String,
                 ),
-              ),
-              child: Image.network(
-                account['qr_url'] as String,
-                height: 220,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Text(
-                  'Could not load QR. Check your connection before paying.',
+                child: Image.network(
+                  account['qr_url'] as String,
+                  height: 220,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Text(
+                    'Could not load QR. Check your connection before paying.',
+                  ),
                 ),
               ),
             ),
@@ -677,12 +661,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              Image.memory(
-                _receipts[sellerId]!,
-                height: 180,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Text(
-                  'Unable to preview this image. Choose a readable receipt.',
+              Semantics(
+                button: true,
+                label: 'Preview selected GCash receipt',
+                child: InkWell(
+                  onTap: () => showBuyerImagePreview(
+                    context,
+                    title: 'Selected GCash receipt',
+                    bytes: _receipts[sellerId]!,
+                  ),
+                  child: Image.memory(
+                    _receipts[sellerId]!,
+                    height: 180,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Text(
+                      'Unable to preview this image. Choose a readable receipt.',
+                    ),
+                  ),
                 ),
               ),
             ],

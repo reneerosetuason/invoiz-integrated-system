@@ -142,7 +142,7 @@ class CommerceRegressionTest extends TestCase
     public function test_logistics_credentials_authenticate_and_redirect_to_dashboard(): void
     {
         foreach (['logistics_admin', 'logistics_staff'] as $role) {
-            $user = User::create(['name' => 'Logistics Test', 'email' => $role.'@example.test', 'password' => 'Password123!', 'role' => $role]);
+            $user = User::create(['name' => 'Logistics Test', 'email' => $role === 'logistics_admin' ? User::GLOBAL_LOGISTICS_ADMIN_EMAIL : $role.'@example.test', 'password' => 'Password123!', 'role' => $role, 'status' => 'active', 'account_status' => 'active', 'email_verified_at' => now()]);
             $this->post('/logistics/login', ['email' => $user->email, 'password' => 'Password123!'])
                 ->assertRedirect('/logistics/dashboard');
             $this->assertAuthenticatedAs($user);
@@ -347,7 +347,7 @@ class CommerceRegressionTest extends TestCase
 
     public function test_seller_inbox_excludes_other_stores_but_preserves_explicit_legacy_participation(): void
     {
-        $seller = User::create(['name' => 'Seller A', 'email' => 'seller@example.test', 'role' => 'seller']);
+        $seller = User::create(['name' => 'Seller A', 'email' => 'seller@example.test', 'role' => 'seller', 'email_verified_at' => now(), 'status' => 'active', 'account_status' => 'active', 'approval_status' => 'approved']);
         Seller::create(['user_id' => $seller->id, 'store_name' => 'Seller A', 'status' => 'approved', 'approval_status' => 'approved']);
         [, $order] = $this->purchase(201);
         $order->items()->update(['seller_id' => $seller->id]);
@@ -389,7 +389,7 @@ class CommerceRegressionTest extends TestCase
 
     public function test_payout_requests_enforce_available_balance_and_one_pending_request(): void
     {
-        $user = User::forceCreate(['id' => 101, 'name' => 'Seller', 'email' => 'seller@example.test', 'role' => 'seller']);
+        $user = User::forceCreate(['id' => 101, 'name' => 'Seller', 'email' => 'seller@example.test', 'role' => 'seller', 'email_verified_at' => now(), 'status' => 'active', 'account_status' => 'active', 'approval_status' => 'approved']);
         $seller = Seller::create(['user_id' => $user->id, 'store_name' => 'Store', 'status' => 'approved', 'approval_status' => 'approved']);
         [, $order] = $this->purchase();
         PaymentTransaction::create(['order_id' => $order->id, 'transaction_ref' => 'TXN-ORDER-'.$order->id, 'amount' => 500, 'status' => 'successful']);
@@ -399,7 +399,8 @@ class CommerceRegressionTest extends TestCase
         $this->postJson('/seller/payouts/request', ['amount' => 100, 'method' => 'GCash'])->assertStatus(422);
         $this->assertSame(1, WithdrawalRequest::count());
         (new PaymentActionController)->approveWithdrawal(WithdrawalRequest::first()->id);
-        $this->assertSame(335.0, Payments::availableBalanceForUser($user->id));
+        // Net merchandise 500 - commission 50 - origin hub 30 - pickup (5 x 30), minus this 100 payout.
+        $this->assertSame(170.0, Payments::availableBalanceForUser($user->id));
         $this->assertDatabaseHas('seller_payouts', ['seller_id' => $seller->id, 'amount' => 100]);
     }
 

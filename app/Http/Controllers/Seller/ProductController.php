@@ -62,6 +62,8 @@ class ProductController extends Controller
             'category_id'  => ['required', 'exists:categories,id'],
             'description'  => ['nullable', 'string', 'min:20', 'max:3000'],
             'price'        => ['required', 'numeric', 'min:1', 'max:1000000', 'decimal:0,2'],
+            'item_sale_enabled' => ['sometimes', 'boolean'],
+            'discounted_price' => ['exclude_unless:item_sale_enabled,1', 'required', 'numeric', 'min:1', 'decimal:0,2', 'lt:price'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
             'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
@@ -74,6 +76,7 @@ class ProductController extends Controller
         ]);
 
         $validated['seller_id'] = auth()->id();
+        $validated = $this->itemPricing($validated, $request);
         $validated['low_stock_threshold'] ??= 5;
 
         $this->variantRows($request, (int) $validated['stock']);
@@ -97,6 +100,21 @@ class ProductController extends Controller
             ->with('success', 'Product added successfully.');
     }
 
+    private function itemPricing(array $data, Request $request, ?Product $product = null): array
+    {
+        if ($request->has('item_sale_enabled')) {
+            if ($request->boolean('item_sale_enabled') && \App\Support\Sales::percentOff((float) $data['price'], (float) $data['discounted_price']) === 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['discounted_price' => 'The discount must display at least 1% off. A discount that rounds to 0% cannot be put on sale.']);
+            }
+            $data['compare_at_price'] = $request->boolean('item_sale_enabled') ? $data['price'] : null;
+            if ($request->boolean('item_sale_enabled')) { $data['price'] = $data['discounted_price']; }
+        } elseif ($product && $product->compare_at_price && (float) $data['price'] >= (float) $product->compare_at_price) {
+            $data['compare_at_price'] = null;
+        }
+        unset($data['item_sale_enabled'], $data['discounted_price']);
+        return $data;
+    }
+
     public function edit($id)
     {
         $product = Product::forSeller(auth()->id())
@@ -117,6 +135,8 @@ class ProductController extends Controller
             'category_id'  => ['required', 'exists:categories,id'],
             'description'  => ['nullable', 'string', 'min:20', 'max:3000'],
             'price'        => ['required', 'numeric', 'min:1', 'max:1000000', 'decimal:0,2'],
+            'item_sale_enabled' => ['sometimes', 'boolean'],
+            'discounted_price' => ['exclude_unless:item_sale_enabled,1', 'required', 'numeric', 'min:1', 'decimal:0,2', 'lt:price'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
             'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
@@ -130,6 +150,7 @@ class ProductController extends Controller
 
         $validated['low_stock_threshold'] ??= 5;
 
+        $validated = $this->itemPricing($validated, $request, $product);
         $this->variantRows($request, (int) $validated['stock'], $product);
 
         if ($request->hasFile('image')) {

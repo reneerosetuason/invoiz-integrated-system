@@ -98,6 +98,8 @@
         document.body.classList.remove('sb-drawer-open');
         var scrim = buyerScrim();
         if (scrim) scrim.hidden = true;
+        var btn = document.getElementById('buyerMenuBtn');
+        if (btn) { btn.setAttribute('aria-expanded', 'false'); if (!DESKTOP.matches) btn.focus({preventScroll:true}); }
     }
     function toggleBuyer() {
         var aside = buyerAside();
@@ -127,6 +129,7 @@
         if (!aside) return;
         var btn = document.getElementById('buyerMenuBtn');
         if (btn) btn.addEventListener('click', toggleBuyer);
+        aside.querySelector('[data-buyer-drawer-close]')?.addEventListener('click', closeBuyerDrawer);
         var scrim = buyerScrim();
         if (scrim) scrim.addEventListener('click', closeBuyerDrawer);
         document.addEventListener('keydown', function (e) {
@@ -145,6 +148,10 @@
         });
         window.addEventListener('scroll', tipHide, true);
         window.addEventListener('resize', function () { tipHide(); renderBadges(aside); });
+        DESKTOP.addEventListener('change', function () {
+            closeBuyerDrawer();
+            if (btn) btn.setAttribute('aria-expanded', DESKTOP.matches && !aside.classList.contains('sidebar-collapsed') ? 'true' : 'false');
+        });
         // Restore collapsed rail on desktop only; mobile always starts closed.
         try {
             if (DESKTOP.matches && localStorage.getItem(BUYER_KEY) === '1') {

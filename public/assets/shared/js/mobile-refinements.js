@@ -33,6 +33,7 @@
           links.forEach(link => {
             const anchor = document.createElement('a');
             anchor.href = link.href; anchor.textContent = link.textContent.trim() || 'Open';
+            if (link.hasAttribute('data-image-viewer')) anchor.dataset.imageViewer = link.dataset.imageViewer;
             if (link.target === '_blank') { anchor.target = '_blank'; anchor.rel = 'noopener'; }
             nav.append(anchor);
           });

@@ -104,7 +104,7 @@ class _ProductCardState extends State<ProductCard> {
                       label: product.name,
                     ),
                   ),
-                  if (product.discountPercent > 0)
+                  if (product.isOnSale)
                     Positioned(
                       left: 8,
                       top: 8,
@@ -183,6 +183,17 @@ class _ProductCardState extends State<ProductCard> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  if (product.isOnSale)
+                    Text(
+                      '₱${product.compareAtPrice!.toStringAsFixed(2)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
                   const SizedBox(height: 4),
                   Row(
                     children: [

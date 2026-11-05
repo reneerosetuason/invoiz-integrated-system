@@ -165,7 +165,31 @@ class Product {
     final vars = json['variants'];
     final revs = json['reviews'];
     final shop = json['shop'];
-    final gallery = json['gallery'];
+    final gallery = <String>[];
+    final galleryData = json['gallery'];
+    if (galleryData is List) gallery.addAll(galleryData.whereType<String>());
+    final imageRows = json['images'];
+    if (imageRows is List) {
+      for (final row in imageRows.whereType<Map>()) {
+        final path = row['path'];
+        final legacyPath = row['image_path'];
+        if (path is String && path.trim().isNotEmpty) {
+          gallery.add(path);
+        } else if (legacyPath is String && legacyPath.trim().isNotEmpty) {
+          gallery.add(legacyPath);
+        }
+      }
+    }
+    final effective =
+        double.tryParse('${json['effective_price'] ?? json['price']}') ?? 0;
+    final regular = double.tryParse('${json['compare_at_price']}');
+    final percent =
+        json['on_sale'] != false &&
+            regular != null &&
+            regular > effective &&
+            regular > 0
+        ? ((regular - effective) * 100 / regular).round()
+        : 0;
     return Product(
       id: json['id'] as int,
       sellerId: json['seller_id'] as int?,
@@ -180,12 +204,9 @@ class Product {
       weight: json['weight'] as String?,
       warranty: json['warranty'] as String?,
       origin: json['origin'] as String?,
-      price:
-          double.tryParse('${json['effective_price'] ?? json['price']}') ?? 0,
-      compareAtPrice: json['compare_at_price'] != null
-          ? double.tryParse('${json['compare_at_price']}')
-          : null,
-      discountPercent: (json['discount_percent'] as int?) ?? 0,
+      price: effective,
+      compareAtPrice: percent > 0 ? regular : null,
+      discountPercent: percent,
       stock: (json['stock'] as int?) ?? 0,
       image: json['image'] as String?,
       rating: json['rating'] != null
@@ -193,9 +214,7 @@ class Product {
           : null,
       status: json['status'] as String?,
       sold: (json['sold'] as int?) ?? 0,
-      gallery: gallery is List
-          ? gallery.whereType<String>().toList()
-          : const [],
+      gallery: gallery,
       category: cat is Map<String, dynamic> ? Category.fromJson(cat) : null,
       variants: vars is List
           ? vars
@@ -218,6 +237,9 @@ class Product {
           : null,
     );
   }
+
+  bool get isOnSale =>
+      discountPercent > 0 && compareAtPrice != null && compareAtPrice! > price;
 
   int get availableStock {
     final allocated = variants.isEmpty

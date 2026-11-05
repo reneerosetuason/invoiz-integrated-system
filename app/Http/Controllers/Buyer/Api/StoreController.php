@@ -81,6 +81,9 @@ class StoreController extends Controller
         $products->getCollection()->each(function ($product) use ($counts) {
             $product->sold = $counts[$product->id] ?? 0;
             $product->effective_price = Sales::priceFor($product);
+            $regular = Sales::regularPrice($product);
+            $product->on_sale = Sales::percentOff($regular, $product->effective_price) > 0;
+            $product->compare_at_price = $product->on_sale ? $regular : null;
         });
 
         $store = $this->storeInfo($request, $sellerUserId, $products->total());

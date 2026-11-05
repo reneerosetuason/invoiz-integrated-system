@@ -4,6 +4,7 @@
 @if($navigationRole === 'buyer')
 @if(($navigationVariant ?? '') === 'website')
 <aside id="sidebar" class="sb2 sb2--buyer" aria-label="Buyer sidebar">
+      <div class="sb-drawer-head"><strong>Menu</strong><button type="button" data-buyer-drawer-close aria-label="Close navigation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
       <nav class="sidebar-nav" aria-label="Buyer navigation">
         <div role="group" aria-labelledby="bbLblMenu">
           <div class="nav-section sb-hide-collapsed" id="bbLblMenu">Menu</div>
@@ -146,6 +147,7 @@ $bInitials = strtoupper(substr($buyer['first_name'] ?? '', 0, 1).substr($buyer['
                    lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0 lg:z-auto print:hidden no-print transition-[width] duration-200"
             aria-label="Seller Center sidebar"
             x-cloak>
+        <div class="sb-drawer-head"><strong>Seller menu</strong><button type="button" @click="sidebarOpen = false" aria-label="Close navigation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
         {{-- Brand header --}}
         <div class="sb-brand-header relative px-4 pb-3 pt-4">
             <div class="sb-logo-row flex items-center gap-2.5">
@@ -787,13 +789,9 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <x-icon name="store" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Sellers</span>
           </a>
-          <a class="nav-link" href="/admin/buyers" title="Manage Buyers">
+          <a class="nav-link" href="/admin/buyers" data-nav-alias="/admin/account-deletions" title="Manage Buyers">
             <x-icon name="users" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Buyers</span>
-          </a>
-          <a class="nav-link {{ request()->is('admin/account-deletions*') ? 'active' : '' }}" href="{{ route('admin.account-deletions.index') }}" title="Account Deletion Requests">
-            <x-icon name="users" class="nav-icon" aria-hidden="true" />
-            <span class="nav-text sb-label sb-hide-collapsed">Account Deletion Requests</span>
           </a>
           <a class="nav-link" href="/admin/riders" title="Rider Directory">
             <x-icon name="truck" class="nav-icon" aria-hidden="true" />

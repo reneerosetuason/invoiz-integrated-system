@@ -13,25 +13,25 @@
 <script src="{{ asset('assets/buyer/js/landing-2.js') }}"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
-<link rel="stylesheet" href="{{ asset('assets/buyer/css/landing.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/buyer/css/landing.css') }}?v={{ filemtime(public_path('assets/buyer/css/landing.css')) }}">
 </head>
 <body class="font-sans bg-ivory text-ink antialiased text-[15px] md:text-base leading-relaxed">
 @include('shared.navigation.navbar', ['navigationRole' => 'buyer', 'navigationVariant' => 'landing'])
 <main>
-@php $slides = collect($deals ?? [])->take(4)->values(); @endphp
-<section id="market" aria-label="Featured deals">
+@php $slides = collect($featured ?? [])->values(); @endphp
+<section id="market" aria-label="Featured products">
 <div class="mx-auto px-4 sm:px-6 lg:px-8 pt-6 md:pt-10" style="max-width:1200px">
-<div x-data="heroSlider({{ $slides->count() }})" x-init="init()" @mouseenter="pause()" @mouseleave="play()" @focusin="pause()" @focusout="play()" role="region" aria-roledescription="carousel" aria-label="Featured deals" tabindex="0" @keydown.arrow-right.prevent="next()" @keydown.arrow-left.prevent="prev()" @touchstart.passive="tx=$event.touches[0].clientX" @touchend="swipe($event)" class="relative">
+<div x-data="heroSlider({{ $slides->count() }})" x-init="init()" @mouseenter="pause()" @mouseleave="play()" @focusin="pause()" @focusout="play()" role="region" aria-roledescription="carousel" aria-label="Featured products" tabindex="0" @keydown.arrow-right.prevent="next()" @keydown.arrow-left.prevent="prev()" @touchstart.passive="tx=$event.touches[0].clientX" @touchend="swipe($event)" class="relative">
 <div class="grid">
 @forelse($slides as $i => $d)
 <div x-show="ready && active==={{ $i }}" x-transition:enter="transition ease-out duration-500" x-transition:enter-start="opacity-0 translate-x-8" x-transition:enter-end="opacity-100 translate-x-0" x-transition:leave="transition ease-in duration-300" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0" class="relative overflow-hidden p-5 md:p-8 [grid-area:1/1]" style="border-radius:24px;border:1px solid rgba(15,76,92,.12);background:linear-gradient(100deg,#FDFCF8 0%,#F4F0E7 52%,#E2EEEB 100%)" role="group" aria-roledescription="slide" aria-label="{{ $i+1 }} of {{ max($slides->count(),1) }}">
 <div class="relative z-10 grid items-center gap-6 lg:grid-cols-2" style="min-height:340px">
 <div>
-<p class="eyebrow rv">Today's deal</p>
+<p class="eyebrow rv">Featured product</p>
 <h1 class="rv font-display mt-3 leading-[1.05] tracking-[-0.02em] line-clamp-2" style="font-weight:560;font-size:clamp(2.25rem,5vw,4rem);transition-delay:80ms">{{ $d['name'] }}</h1>
-<p class="rv mt-3 text-base md:text-lg" style="transition-delay:160ms"><span class="font-bold tnum">₱{{ number_format($d['price']) }}</span><span class="text-muted"> · {{ $d['store'] ?: 'Local seller' }}</span>@if(!empty($d['pct']))<span class="ml-2 font-bold text-teal-dark tnum">−{{ $d['pct'] }}% today</span>@endif</p>
+<p class="rv mt-3 text-base md:text-lg" style="transition-delay:160ms"><span class="font-bold tnum">₱{{ number_format($d['price']) }}</span><span class="text-muted"> · {{ $d['store'] ?: 'Local seller' }}</span>@if(!empty($d['pct']))<span class="ml-2 font-bold text-teal-dark tnum">−{{ $d['pct'] }}% off</span>@endif</p>
 <div class="rv mt-5 flex flex-wrap items-center gap-4" style="transition-delay:240ms">
-<a href="{{ url('/shop') }}" class="press shine rounded-full bg-teal-dark px-7 text-sm font-bold text-white" style="height:48px;line-height:48px">Start shopping</a>
+<a href="{{ url('/product/'.$d['id']) }}" class="press shine rounded-full bg-teal-dark px-7 text-sm font-bold text-white" style="height:48px;line-height:48px">View product</a>
 <form method="POST" action="{{ url('/wishlist/'.$d['id'].'/toggle') }}">@csrf<button type="submit" class="press rounded-full bg-white px-5 text-sm font-bold text-teal-dark flex items-center gap-1.5" style="height:48px;border:1px solid rgba(15,76,92,.18)">
   @if(in_array((int)$d['id'], $favoriteIds ?? [], true))
     <svg width="16" height="16" viewBox="0 0 24 24" fill="#dc2626" stroke="#dc2626" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -43,11 +43,14 @@
 </button></form>
 </div>
 </div>
-<div class="relative">
-@if(!empty($d['image']))<img src="{{ $d['image'] }}" alt="{{ $d['name'] }}" @if($i > 0) loading="lazy"@endif x-transition:enter="transition ease-out duration-[900ms]" x-transition:enter-start="opacity-0 scale-[1.04] translate-x-6" x-transition:enter-end="opacity-100 scale-100 translate-x-0" class="relative h-[280px] w-full object-contain md:h-[380px]" style="-webkit-mask-image:linear-gradient(to right,transparent 0,#000 20%),linear-gradient(to bottom,#000 78%,transparent 99%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0,#000 20%),linear-gradient(to bottom,#000 78%,transparent 99%);mask-composite:intersect">@else<span class="flex h-[280px] w-full items-center justify-center bg-teal-pale text-5xl font-extrabold text-teal md:h-[380px]">{{ strtoupper(mb_substr($d['name'],0,1)) }}</span>@endif
-<div class="pointer-events-none absolute inset-y-0 left-0 hidden w-1/3 md:block" style="background:linear-gradient(to right,#F4F0E7 0%,rgba(244,240,231,0) 100%)" aria-hidden="true"></div>
-<div class="pointer-events-none absolute inset-x-0 top-0 h-20 md:hidden" style="background:linear-gradient(to bottom,#F5F1E8 0%,rgba(245,241,232,0) 100%)" aria-hidden="true"></div>
-<div class="pointer-events-none absolute inset-y-0 left-0 hidden w-2/5 md:block" style="backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);-webkit-mask-image:linear-gradient(to right,#000,transparent);mask-image:linear-gradient(to right,#000,transparent)" aria-hidden="true"></div>
+<div>
+@if(!empty($d['image']))
+<button type="button" class="media-image-button featured-product-picture" data-image-viewer data-image-src="{{ $d['image'] }}" aria-label="Preview {{ $d['name'] }}">
+<img src="{{ $d['image'] }}" alt="{{ $d['name'] }}" @if($i > 0) loading="lazy"@endif>
+</button>
+@else
+<span class="featured-product-placeholder">{{ strtoupper(mb_substr($d['name'],0,1)) }}</span>
+@endif
 </div>
 </div>
 </div>
@@ -105,38 +108,32 @@
 </div>
 </div>
 </section>
-<section id="deals">
+<section id="deals" data-deals-carousel aria-label="Today's sale products">
 <div class="mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-24" style="max-width:1200px">
 <div class="rv flex flex-wrap items-center gap-x-5 gap-y-3">
 <div>
-<p class="eyebrow">Limited time</p>
+<p class="eyebrow">Seller offers</p>
 <h2 class="font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.75rem,3vw,2.25rem);line-height:1.1">Today's deals</h2>
 </div>
-<p class="rounded-full bg-white px-3.5 py-1.5 text-[13px] font-bold tnum" style="border:1px solid rgba(15,76,92,.12)">ENDS IN <span id="deal-countdown" class="text-ink">--:--:--</span></p>
 <a href="{{ url('/sale') }}" class="group ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-teal-dark">View all <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1">→</span></a>
 </div>
-<form method="GET" action="{{ url('/') }}" style="display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:16px">
-<label for="landing-sort" class="text-xs font-semibold text-muted">Sort featured products</label>
-<select id="landing-sort" name="sort" style="padding:8px 12px;border:1px solid rgba(15,76,92,.18);border-radius:999px;background:#fff;font-size:12px">
-<option value="recommended" @selected(($sort ?? 'recommended') === 'recommended')>Recommended</option>
-<option value="newest" @selected(($sort ?? '') === 'newest')>Newest</option>
-<option value="price_asc" @selected(($sort ?? '') === 'price_asc')>Price: Low to High</option>
-<option value="price_desc" @selected(($sort ?? '') === 'price_desc')>Price: High to Low</option>
-<option value="rating" @selected(($sort ?? '') === 'rating')>Top Rated</option>
-<option value="most_reviewed" @selected(($sort ?? '') === 'most_reviewed')>Most Reviewed</option>
-</select>
-<button type="submit" class="rounded-full px-4 py-2 text-xs font-bold text-white" style="background:#0E4A57">Apply</button>
-</form>
-<div class="mt-8 flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory no-scrollbar md:grid md:grid-cols-3 md:overflow-visible xl:grid-cols-6">
+@if(count($deals ?? []) > 1)
+<div class="deals-controls" aria-label="Sale carousel controls">
+<button type="button" data-deals-prev aria-label="Previous sale products" aria-controls="sale-products-track">&larr;</button>
+<button type="button" data-deals-pause aria-pressed="false" aria-controls="sale-products-track">Pause movement</button>
+<button type="button" data-deals-next aria-label="Next sale products" aria-controls="sale-products-track">&rarr;</button>
+</div>
+@endif
+<div id="sale-products-track" class="deals-track mt-8 no-scrollbar" data-deals-track tabindex="0" aria-label="Discounted products, scroll to browse">
 @forelse(($deals ?? []) as $d)
-<div class="relative min-w-[68%] snap-start sm:min-w-[42%] md:min-w-0 rv">
+<div class="deals-card relative" data-sale-product="{{ $d['id'] }}">
 <a href="{{ url('/product/'.$d['id'].'?'.http_build_query(array_filter(['source_landing'=>1,'sort'=>$sort ?? null]))) }}" class="count-card block h-full overflow-hidden rounded-[14px] bg-white" style="border:1px solid rgba(15,76,92,.12)">
 <div class="relative overflow-hidden">
 @if(!empty($d['image']))<img src="{{ $d['image'] }}" alt="{{ $d['name'] }}" loading="lazy" class="zoom aspect-[4/5] w-full object-cover">@else<span class="flex aspect-[4/5] w-full flex-col items-center justify-center gap-1 px-3 text-center" style="background:linear-gradient(180deg,#FDFCF8,#EAF4F3)"><span class="font-display font-bold text-teal-dark" style="font-size:1.25rem">INVOIZ</span><span class="text-[11px] text-muted">Product image coming soon</span></span>@endif
 @if(!empty($d['pct']))<span class="absolute left-2.5 top-2.5 rounded-full bg-amber px-2 py-0.5 text-[13px] font-bold text-ink tnum">−{{ $d['pct'] }}%</span>@endif
 </div>
 <div class="p-3.5">
-<h3 class="font-display font-medium leading-snug line-clamp-2 min-h-[2.75rem" style="font-size:1.02rem">{{ $d['name'] }}</h3>
+<h3 class="font-display font-medium leading-snug line-clamp-2 min-h-[2.75rem]" style="font-size:1.02rem">{{ $d['name'] }}</h3>
 @if(!empty($d['rating']))<p class="mt-1 text-xs font-semibold text-amber-dark flex items-center gap-1"><svg width="12" height="12" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> {{ number_format((float)$d['rating'],1) }} <span class="font-normal text-muted">product rating</span></p>@endif
 <div class="mt-1.5 flex items-baseline gap-2">
 <span class="text-base font-bold tnum">₱{{ number_format($d['price']) }}</span>
@@ -155,7 +152,7 @@
 <p class="col-span-full rounded-[14px] bg-white p-6 text-base" style="border:1px solid rgba(15,76,92,.12)">No deals right now — <a href="{{ url('/shop') }}" class="lnk font-semibold text-teal-dark">browse the shop</a>.</p>
 @endforelse
 </div>
-<script src="{{ asset('assets/buyer/js/landing-3.js') }}"></script>
+<script src="{{ asset('assets/buyer/js/landing-3.js') }}?v={{ filemtime(public_path('assets/buyer/js/landing-3.js')) }}" defer></script>
 </div>
 </section>
 <section id="categories">
@@ -262,5 +259,6 @@
 <button id="toTop" aria-label="Back to top" class="fixed bottom-5 right-5 z-50 hidden h-11 w-11 items-center justify-center rounded-full border-teal bg-white text-lg font-bold text-teal-dark" style="border:1px solid rgba(15,76,92,.25)">↑</button>
 <script src="{{ asset('assets/buyer/js/landing-4.js') }}"></script>
 <script src="{{ asset('assets/buyer/js/landing-5.js') }}"></script>
+@include('shared.partials.media-viewer')
 </body>
 </html>

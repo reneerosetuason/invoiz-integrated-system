@@ -256,7 +256,7 @@
             @if($order->payment?->method === 'gcash' && $order->payment?->proof_path)
                 <div class="mb-4 rounded-lg border border-gray-200 p-3">
                     <p class="mb-2 text-sm font-semibold">GCash payment proof</p>
-                    <a href="{{ route('seller.orders.payment-proof', $order->id) }}" target="_blank" rel="noopener" class="text-sm font-semibold underline">View buyer's GCash receipt</a>
+                    <a data-image-viewer="document" href="{{ route('seller.orders.payment-proof', $order->id) }}"   class="text-sm font-semibold underline">View buyer's GCash receipt</a>
                     <p class="mt-2 text-xs text-ink-light">Check this receipt against your GCash transactions. Uploading a receipt does not automatically confirm payment.</p>
                 </div>
             @endif

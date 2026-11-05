@@ -265,6 +265,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           _fmt(_unitPrice),
           size: MediaQuery.sizeOf(context).width < 600 ? 22 : 26,
         ),
+        if (p.isOnSale)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 4,
+              children: [
+                Text(
+                  _fmt(p.compareAtPrice!),
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    decoration: TextDecoration.lineThrough,
+                  ),
+                ),
+                Text(
+                  '${p.discountPercent}% off base price',
+                  style: const TextStyle(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 14,

@@ -25,15 +25,14 @@ class ProductController extends Controller
         if ($request->filled('category') && $request->category !== 'all') {
             $query->whereHas('category', function ($q) use ($request) {
                 $q->where('slug', $request->category)->orWhere('name', $request->category);
+                if (ctype_digit((string) $request->category)) { $q->orWhere('id', (int) $request->category); }
             });
         }
 
-        $products = $query->orderBy('created_at', 'desc')->paginate(10);
+        $products = $query->orderBy('created_at', 'desc')->orderByDesc('id')->paginate(10)->withQueryString();
         $grouped = $products->getCollection()->groupBy(function ($p) { return $p->category->name ?? 'Uncategorized'; })->sortKeys();
         // Stats split: shop-visible (approved sellers) vs needing attention.
-        $categories = \App\Models\Category::withCount(['products' => function ($q) {
-            $q->whereHas('seller', fn ($qq) => $qq->approved());
-        }])->orderBy('name')->get();
+        $categories = \App\Models\Category::withCount('products')->orderBy('name')->get();
         $stats = [
             'all' => Product::count(),
             'visible' => Product::whereHas('seller', fn ($q) => $q->approved())->count(),
@@ -43,7 +42,18 @@ class ProductController extends Controller
             'categories' => \App\Models\Category::count(),
             'hidden_pending' => Product::whereDoesntHave('seller', fn ($q) => $q->approved())->count(),
         ];
-        return view('admin.products', compact('products', 'grouped', 'categories', 'stats'));
+        $featuredIds = \App\Support\LandingFeatures::ids();
+        return view('admin.products', compact('products', 'grouped', 'categories', 'stats', 'featuredIds'));
+    }
+
+    public function feature(Request $request, Product $product)
+    {
+        $request->validate(['featured' => ['required', 'boolean']]);
+        if ($request->boolean('featured') && ! Product::storefront()->whereKey($product->id)->exists()) {
+            return back()->withErrors(['featured' => 'Only active products from approved, active sellers can be featured.']);
+        }
+        \App\Models\Setting::set('landing_featured_product_'.$product->id, $request->boolean('featured') ? '1' : '0');
+        return back()->with('status', $request->boolean('featured') ? 'Product added to the landing-page banner.' : 'Product removed from the landing-page banner.');
     }
 
     public function updateStatus(Request $request, Product $product)

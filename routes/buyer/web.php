@@ -604,7 +604,7 @@ Route::post('/orders/{id}/returns', function($id, Request $request){
         ? $order->voucherDiscountForSeller((int) $item->seller_id) * $item->lineTotal / $sellerSubtotal
         : 0;
       $lineNet = round(max(0, $item->lineTotal - $discount), 2);
-      $remainingRefund = round(max(0, $lineNet - (float) (clone $completed)->sum('refund_amount')), 2);
+      $remainingRefund = round(max(0, $lineNet - (float) (clone $completed)->get()->sum(fn ($r) => $r->merchandiseRefundAmount())), 2);
       $refund = $qty === $remaining
         ? $remainingRefund
         : min(round($lineNet * $qty / $item->quantity, 2), $remainingRefund);

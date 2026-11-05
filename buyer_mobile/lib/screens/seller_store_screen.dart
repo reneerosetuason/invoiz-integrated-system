@@ -1,3 +1,4 @@
+import '../models/product.dart';
 import '../widgets/buyer_dialog.dart';
 import '../widgets/buyer_controls.dart';
 import 'package:flutter/cupertino.dart';
@@ -815,7 +816,8 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
   }
 
   Widget _productCard(Map<String, dynamic> p) {
-    final price = double.tryParse('${p['effective_price'] ?? p['price']}') ?? 0;
+    final product = Product.fromJson(p);
+    final price = product.price;
     final rating = p['rating'] != null
         ? double.tryParse('${p['rating']}')
         : null;
@@ -841,7 +843,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
               child: Container(
                 width: double.infinity,
                 color: AppColors.surfaceSoft,
-                child: _productImage(p['image'] as String?),
+                child: _productImage(product.displayImages.firstOrNull),
               ),
             ),
             SizedBox(
@@ -874,6 +876,16 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
                         fontSize: 16,
                       ),
                     ),
+                    if (product.isOnSale)
+                      Text(
+                        '${product.discountPercent}% off · Was ${_formatPrice(product.compareAtPrice!)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
                     const Spacer(),
                     Row(
                       children: [

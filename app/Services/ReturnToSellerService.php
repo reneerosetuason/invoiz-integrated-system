@@ -209,7 +209,7 @@ class ReturnToSellerService
                         'to_status' => 'cancelled',
                         'note' => 'Order cancelled: parcel confirmed returned to seller.'.($restocked ? ' Stock restored.' : ' Stock was not added to saleable inventory.'),
                     ]);
-                    Payments::voidForCancel($order);
+                    Payments::voidForCancel($order, strict: true);
                 }
             }
 
