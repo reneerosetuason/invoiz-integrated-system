@@ -147,6 +147,11 @@ class Payments
                     'status'          => 'pending',
                 ]);
             }
+            if ((float) $tx->refunded_amount > 0) {
+                // A later cash reconciliation must never erase an earlier refund.
+                EscrowEarnings::syncRemittancesForOrder($order, $tx);
+                return;
+            }
             if ($tx->status === 'successful' && ! $force) {
                 EscrowEarnings::syncRemittancesForOrder($order, $tx);
 
@@ -192,6 +197,17 @@ class Payments
     {
         try {
             $tx = self::transactionFor($order);
+            // Prepaid cancellation creates an outstanding refund obligation, not a failed payment.
+            if (\Illuminate\Support\Facades\Schema::hasTable('return_workflows')
+                && (($order->payment?->method === 'gcash' && $order->payment?->proof_path)
+                    || in_array($order->payment_status, ['paid', 'partially_refunded'], true))) {
+                $remaining = round(max(0, (float) $order->total_amount - (float) ($tx?->refunded_amount ?? 0)), 2);
+                if ($remaining > 0 && ! $order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()) {
+                    \App\Services\ReturnWorkflowService::queueRefund($order, $remaining, 'Cancelled prepaid order: verify and refund the original payment, including unused shipping.');
+                }
+                EscrowEarnings::syncRemittancesForOrder($order);
+                return;
+            }
             if ($tx && $tx->status === 'pending') {
                 $tx->update(['status' => 'failed']);
             } elseif (! $tx) {
@@ -255,7 +271,7 @@ class Payments
      * across all of their catalog identities minus paid out / in-flight
      * amounts. Never throws (fail-open is handled by the caller).
      */
-    public static function availableBalanceForUser(int $userId): float
+    public static function availableBalanceForUser(int $userId, ?int $excludePayoutId = null, ?int $excludeWithdrawalId = null): float
     {
         $catalogIds = self::catalogIdsForUser($userId);
         $earned = 0.0;
@@ -269,7 +285,8 @@ class Payments
                 continue;
             }
             $tx = self::transactionFor($order);
-            if (! $tx || $tx->status !== 'successful') {
+            if (! $tx || ! in_array($tx->status, ['successful', 'partially_refunded'], true)
+                || $order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()) {
                 continue;
             }
             foreach (self::splitForSellers($order) as $sid => $share) {
@@ -282,8 +299,10 @@ class Payments
         $committed = 0.0;
         if ($sellerRows) {
             $committed += (float) SellerPayout::whereIn('seller_id', $sellerRows)
+                ->when($excludePayoutId, fn ($q) => $q->where('id', '!=', $excludePayoutId))
                 ->whereIn('status', ['pending', 'processing', 'paid'])->sum('amount');
             $committed += (float) WithdrawalRequest::whereIn('seller_id', $sellerRows)
+                ->when($excludeWithdrawalId, fn ($q) => $q->where('id', '!=', $excludeWithdrawalId))
                 ->where('status', 'pending')->sum('amount');
         }
         return round(max(0, $earned - $committed), 2);

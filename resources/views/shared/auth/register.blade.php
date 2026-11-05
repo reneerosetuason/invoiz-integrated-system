@@ -135,7 +135,7 @@
 </div>
 <label class="flex cursor-pointer items-start gap-2.5 text-[13px] leading-relaxed text-muted">
 <input type="checkbox" name="terms" id="buyer-terms" value="1" {{ old('terms') ? 'checked' : '' }} class="mt-0.5 h-4 w-4 shrink-0 accent-[#0E4A57]">
-<span>I agree to the <a href="{{ url('/help') }}" class="lnk font-bold text-teal-dark">Terms of Service</a> and <a href="{{ url('/help') }}" class="lnk font-bold text-teal-dark">Privacy Policy</a>.</span>
+<span>I agree to the <a href="{{ route('legal.terms') }}" target="_blank" rel="noopener" class="lnk font-bold text-teal-dark">Terms of Service</a> and <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener" class="lnk font-bold text-teal-dark">Privacy Policy</a>.</span>
 </label>
 @if($errors->has('terms'))
 <p id="terms-error" class="err-msg mt-1.5 flex items-start gap-1.5 text-[13px] font-medium" style="color:#B42318"><svg class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>{{ $errors->first('terms') }}</span></p>

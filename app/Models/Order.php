@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Order extends Model
 {
+    public function paymentDisputes() { return $this->hasMany(PaymentDispute::class); }
+    public function gcashEscrowDeposit() { return $this->hasOne(GcashEscrowDeposit::class); }
     use HasFactory, SoftDeletes;
 
     protected $fillable = [

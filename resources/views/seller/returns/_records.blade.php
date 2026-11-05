@@ -37,7 +37,7 @@
                         <td class="text-right font-bold">{{ peso($r->refund_amount) }}</td>
                         <td>
                             <span class="badge {{ $r->status === 'refunded' ? 'bg-[#E8F5EE] !text-successc' : ($r->status === 'rejected' ? 'bg-red-50 !text-red-700' : 'badge-pending') }}">
-                                {{ $r->status === 'refunded' ? 'Refund recorded' : ucwords(str_replace('_', ' ', $r->status)) }}
+                                {{ $r->status === 'refunded' ? ($r->workflow?->buyer_confirmed_at ? 'Refund confirmed' : 'Legacy refund record') : ucwords(str_replace('_', ' ', $r->status)) }}
                             </span>
                         </td>
                         <td class="text-right">
@@ -48,11 +48,8 @@
                                     <button name="action" value="approve" class="btn btn-primary btn-xs">Approve</button>
                                     <button name="action" value="reject" class="btn btn-ghost btn-xs">Reject</button>
                                 </form>
-                            @elseif($r->status === 'approved')
-                                <form method="POST" action="{{ route('seller.returns.update', $r->id) }}">
-                                    @csrf
-                                    <button name="action" value="receive" class="btn btn-primary btn-xs">Receive &amp; record refund</button>
-                                </form>
+                            @elseif(in_array($r->status, ['approved', 'item_received']))
+                                <a class="btn btn-outline btn-xs" href="{{ route('returns.center') }}">View return steps</a>
                             @else
                                 <span class="text-xs text-ink-light">{{ $r->resolved_at?->format('M j, Y') ?? '—' }}</span>
                             @endif

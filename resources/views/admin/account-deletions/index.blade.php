@@ -1,7 +1,8 @@
 @extends('admin.layout')
 @section('content')
-<h1 class="text-2xl font-bold mb-4">Account Deletion Requests</h1>
-<form method="GET" class="flex flex-wrap gap-3 mb-4">
+<section class="admin-deletion-list">
+<h1 class="page-title text-2xl font-bold mb-4">Account Deletion Requests</h1>
+<form method="GET" class="admin-deletion-filters flex flex-wrap gap-3 mb-4">
     <input name="search" value="{{ request('search') }}" placeholder="Buyer name, email or request ID" aria-label="Search deletion requests" class="border rounded p-2">
     <select name="status" aria-label="Request status" class="border rounded p-2">
         <option value="">All requests</option>
@@ -9,7 +10,7 @@
     </select>
     <button class="btn btn-primary" type="submit">Filter</button>
 </form>
-<div class="overflow-x-auto bg-white rounded-lg border">
+<div class="admin-deletion-table overflow-x-auto bg-white rounded-lg border">
 <table class="w-full text-sm text-left">
     <thead><tr>@foreach(['ID','Buyer','Email','Reason','Request date','Scheduled deletion','Status','Actions'] as $label)<th class="p-3">{{ $label }}</th>@endforeach</tr></thead>
     <tbody>@forelse($requests as $record)<tr class="border-t">
@@ -20,4 +21,5 @@
     </tr>@empty<tr><td colspan="8" class="p-4">No account deletion requests.</td></tr>@endforelse</tbody>
 </table></div>
 {{ $requests->links() }}
+</section>
 @endsection

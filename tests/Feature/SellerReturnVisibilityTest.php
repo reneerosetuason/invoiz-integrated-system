@@ -17,6 +17,9 @@ class SellerReturnVisibilityTest extends TestCase
     {
         parent::setUp();
         $this->createMobileDatabase();
+        (require database_path('migrations/2026_11_05_180000_create_return_workflows.php'))->up();
+        (require database_path('migrations/2026_10_31_180000_add_evidence_to_return_requests_table.php'))->up();
+        \Illuminate\Support\Facades\Storage::fake('public');
         Schema::table('return_requests', function (Blueprint $table) {
             $table->text('decision_note')->nullable();
             $table->timestamp('resolved_at')->nullable();
@@ -32,6 +35,11 @@ class SellerReturnVisibilityTest extends TestCase
             $table->boolean('is_read')->default(false);
             $table->timestamps();
         });
+    }
+
+    private function evidence(): \Illuminate\Http\UploadedFile
+    {
+        return \Illuminate\Http\UploadedFile::fake()->createWithContent('evidence.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5X8AAAAASUVORK5CYII='));
     }
 
     private function account(string $name, string $role = 'buyer'): User
@@ -77,12 +85,12 @@ class SellerReturnVisibilityTest extends TestCase
         [$order, $item] = $this->purchase($buyer, $seller, 'Requested fixture item');
         Sanctum::actingAs($buyer);
         $created = $this->postJson('/api/orders/'.$order->id.'/returns', [
-            'order_item_id' => $item->id, 'reason' => 'wrong_item', 'quantity' => 1, 'reason_details' => 'wrong',
+            'evidence' => $this->evidence(), 'order_item_id' => $item->id, 'reason' => 'wrong_item', 'quantity' => 1, 'reason_details' => 'wrong',
         ])->assertCreated()->assertJsonPath('return.seller_id', $seller->id);
         $returnId = $created->json('return.id');
         $this->assertDatabaseHas('seller_notifications', ['seller_id' => $seller->id, 'type' => 'return_requested', 'order_id' => $order->id]);
         $this->postJson('/api/orders/'.$order->id.'/returns', [
-            'order_item_id' => $item->id, 'reason' => 'wrong_item', 'quantity' => 1,
+            'evidence' => $this->evidence(), 'order_item_id' => $item->id, 'reason' => 'wrong_item', 'quantity' => 1,
         ])->assertStatus(409)->assertJsonPath('return.id', $returnId);
         $this->assertDatabaseCount('return_requests', 1);
         $this->assertDatabaseCount('seller_notifications', 1);
@@ -120,7 +128,7 @@ class SellerReturnVisibilityTest extends TestCase
         Auth::forgetGuards();
         Sanctum::actingAs($buyer);
         $created = $this->postJson('/api/orders/'.$order->id.'/returns', [
-            'order_item_id' => $item->id, 'reason' => 'damaged', 'reason_details' => 'broken',
+            'evidence' => $this->evidence(), 'order_item_id' => $item->id, 'reason' => 'damaged', 'reason_details' => 'broken',
         ])->assertCreated();
         $feed = $this->sellerSession($seller)->getJson('/seller/returns')->assertOk()->assertJsonPath('counts.all', 1);
         $this->assertNotSame($initialVersion, $feed->json('version'));
@@ -169,7 +177,7 @@ class SellerReturnVisibilityTest extends TestCase
             ->assertSee('No return requests yet.')->assertDontSee('Unsubmitted fixture item');
         Auth::forgetGuards();
         Sanctum::actingAs($buyer);
-        $this->postJson('/api/orders/'.$order->id.'/returns', ['order_item_id' => $item->id, 'reason' => 'other'])
+        $this->postJson('/api/orders/'.$order->id.'/returns', ['evidence' => $this->evidence(), 'order_item_id' => $item->id, 'reason' => 'other'])
             ->assertUnprocessable()->assertJsonValidationErrors('reason_details');
         $this->assertDatabaseCount('return_requests', 0);
     }

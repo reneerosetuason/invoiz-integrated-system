@@ -33,22 +33,22 @@ class PaymentController extends Controller
             'refunded' => (clone $txQuery)->whereIn('status', ['refunded', 'partially_refunded'])->count(),
             'refunded_amount' => (clone $txQuery)->sum('refunded_amount'),
             'partially_refunded' => (clone $txQuery)->where('status', 'partially_refunded')->count(),
-            'admin_earnings' => (clone $txQuery)->where('status', 'successful')->sum('platform_commission'),
-            'commission' => (clone $txQuery)->where('status', 'successful')->sum('platform_commission'),
-            'rider_fees' => (clone $txQuery)->where('status', 'successful')->sum('rider_fee'),
-            'seller_earnings' => (clone $txQuery)->where('status', 'successful')->sum('seller_earning'),
-            'origin_hub_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->where('status', 'successful')->sum('origin_hub_fee') : 0.0,
-            'pickup_rider_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->where('status', 'successful')->sum('pickup_rider_fee') : 0.0,
-            'inter_hub_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->where('status', 'successful')->sum('inter_hub_driver_fee') : 0.0,
-            'destination_hub_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->where('status', 'successful')->sum('destination_hub_fee') : 0.0,
-            'last_mile_rider_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->where('status', 'successful')->sum('last_mile_rider_fee') : 0.0,
+            'admin_earnings' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('platform_commission'),
+            'commission' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('platform_commission'),
+            'rider_fees' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('rider_fee'),
+            'seller_earnings' => (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('seller_earning'),
+            'origin_hub_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('origin_hub_fee') : 0.0,
+            'pickup_rider_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('pickup_rider_fee') : 0.0,
+            'inter_hub_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('inter_hub_driver_fee') : 0.0,
+            'destination_hub_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('destination_hub_fee') : 0.0,
+            'last_mile_rider_fees' => $hasEscrowBreakdown ? (float) (clone $txQuery)->whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('last_mile_rider_fee') : 0.0,
         ];
 
         $status = $request->query('status');
         // Stat cards stay global; the list honors the status pill server-side
         // (the old client-side row filter only saw the current page).
         $transactions = (clone $txQuery)
-            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($status, fn ($q) => $status === 'refunded' ? $q->whereIn('status', ['refunded', 'partially_refunded']) : $q->where('status', $status))
             ->orderByDesc('created_at')->paginate(10, ['*'], 'tx_page');
 
         $escrowRemittances = $hasEscrowTable

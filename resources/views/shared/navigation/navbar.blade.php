@@ -221,9 +221,9 @@
 {{-- ==================== LOGISTICS ==================== --}}
 @elseif($navigationRole === 'logistics')
 @if(($navigationVariant ?? '') === 'workspace')
-<header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
+<header class="logistics-topbar sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-gray-200">
                     <div class="flex items-center justify-between px-4 sm:px-6 h-16">
-                        <div class="flex items-center gap-3">
+                        <div class="logistics-topbar-identity flex items-center gap-3">
                             <button type="button" class="ld-mobile-menu" @click="toggleSidebar()" :aria-expanded="sidebarVisible.toString()" aria-label="Toggle logistics menu" aria-controls="app-sidebar">
                                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
                             </button>

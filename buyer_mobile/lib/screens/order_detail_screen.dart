@@ -60,12 +60,78 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
       );
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
     } finally {
       if (mounted) setState(() => _loadingReceipt = false);
+    }
+  }
+
+  Future<void> _confirmRefund(int returnId) async {
+    if (_actionBusy) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Refund received?'),
+        content: const Text(
+          'Confirm only after the refund appears in your own receiving account.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not yet'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('I received it'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _actionBusy = true);
+    try {
+      await _api.post('returns/$returnId/confirm', {});
+      await _load();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
+  }
+
+  Future<void> _viewRefundProof(int returnId) async {
+    try {
+      final bytes = await _api.getImage('returns/$returnId/proof');
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Refund transfer proof'),
+          content: InteractiveViewer(
+            child: Image.memory(bytes, fit: BoxFit.contain),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
     }
   }
 
@@ -303,10 +369,11 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         ),
       );
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
     } finally {
       if (mounted) setState(() => _actionBusy = false);
     }
@@ -394,12 +461,34 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   Text('Store note: ${record['decision_note']}'),
                 if (record['status'] == 'approved')
                   const Text(
-                    'Contact the store to arrange sending the item back.',
+                    'Logistics will arrange return collection and track the parcel back to the seller.',
                   ),
+                if (record['progress'] is Map) ...[
+                  Text(
+                    'Return progress: ${'${(record['progress'] as Map)['stage']}'.replaceAll('_', ' ')}',
+                  ),
+                  if ((record['progress'] as Map)['refund_reference'] != null)
+                    Text(
+                      'Refund reference: ${(record['progress'] as Map)['refund_reference']}',
+                    ),
+                  if ((record['progress'] as Map)['refund_sent_at'] !=
+                      null) ...[
+                    BuyerButton.plain(
+                      onPressed: () => _viewRefundProof(record['id'] as int),
+                      label: const Text('View refund proof'),
+                    ),
+                    if ((record['progress'] as Map)['buyer_confirmed_at'] ==
+                        null)
+                      BuyerButton.plain(
+                        onPressed: _actionBusy
+                            ? null
+                            : () => _confirmRefund(record['id'] as int),
+                        label: const Text('Confirm refund received'),
+                      ),
+                  ],
+                ],
                 if (record['status'] == 'refunded')
-                  const Text(
-                    'Refund recorded by the store. Contact the store if payment has not arrived.',
-                  ),
+                  Text('Refund receipt confirmed.'),
               ],
             ),
           ),

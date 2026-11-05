@@ -78,6 +78,11 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         ->whereNumber('order')
         ->whereNumber('delivery');
     Route::post('/orders/{id}/returns', [App\Http\Controllers\Buyer\Api\OrderController::class, 'requestReturn'])->whereNumber('id');
+    Route::post('/returns/{returnRequest}/confirm', function (\Illuminate\Http\Request $request, \App\Models\ReturnRequest $returnRequest) {
+        \App\Services\ReturnWorkflowService::change($returnRequest, $request->user(), 'confirm_refund');
+        return response()->json(['message' => 'Refund receipt confirmed.', 'return' => $returnRequest->fresh()]);
+    });
+    Route::get('/returns/{returnRequest}/proof', [\App\Http\Controllers\ReturnWorkflowController::class, 'proof']);
 
     Route::get('/help/complaints', [App\Http\Controllers\Buyer\Api\HelpController::class, 'myComplaints']);
     Route::post('/help/complaint', [App\Http\Controllers\Buyer\Api\HelpController::class, 'storeComplaint']);

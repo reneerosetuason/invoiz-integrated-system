@@ -15,7 +15,7 @@
   <script src="{{ asset('assets/buyer/js/layouts/website.js') }}"></script>
   <script src="{{ asset('assets/shared/js/app-sidebar.js') }}?v={{ filemtime(public_path('assets/shared/js/app-sidebar.js')) }}" defer></script>
   <script src="{{ asset('assets/buyer/js/shop.js') }}?v={{ filemtime(public_path('assets/buyer/js/shop.js')) }}" defer></script>
-  <link rel="stylesheet" href="{{ asset('assets/buyer/css/layouts/website.css') }}">
+  <link rel="stylesheet" href="{{ asset('assets/buyer/css/layouts/website.css') }}?v={{ filemtime(public_path('assets/buyer/css/layouts/website.css')) }}">
 </head>
 <body>
   @php
@@ -59,6 +59,7 @@
       </main>
       <footer class="footer buyerfoot">
         <div class="buyerfoot-mark">INVOIZ</div>
+        <nav class="buyerfoot-links" aria-label="Policies"><a href="{{ route('legal.terms') }}">Terms of Service</a><a href="{{ route('legal.privacy') }}">Privacy Policy</a></nav>
         <div>&copy; 2026 Invoiz Online Shopping. All rights reserved.</div>
       </footer>
     </div>
@@ -66,5 +67,7 @@
   @stack('scripts')
   <script src="{{ asset('assets/buyer/js/app.js') }}?v={{ filemtime(public_path('assets/buyer/js/app.js')) }}"></script>
   @include('buyer.partials.support-chat')
+<link rel="stylesheet" href="{{ asset('assets/shared/css/mobile-refinements.css') }}?v={{ filemtime(public_path('assets/shared/css/mobile-refinements.css')) }}">
+<script src="{{ asset('assets/shared/js/mobile-refinements.js') }}?v={{ filemtime(public_path('assets/shared/js/mobile-refinements.js')) }}" defer></script>
 </body>
 </html>

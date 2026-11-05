@@ -637,7 +637,7 @@
                     {{-- Terms consent (required server-side; submit stays disabled until checked) --}}
                     <label class="mt-5 flex cursor-pointer items-start gap-2.5 rounded-xl border border-gray-200 bg-white p-4 text-sm text-gray-800">
                         <input type="checkbox" name="terms" value="1" x-model="termsAccepted" class="mt-1 h-4 w-4 shrink-0 accent-[#16697A]">
-                        <span>I agree to the Logistics Terms of Service and consent to the processing of this application. <span class="font-bold text-teal">*</span></span>
+                        <span>I agree to the <a href="{{ route('legal.terms') }}" target="_blank" rel="noopener" class="underline">Terms of Service</a> and acknowledge the <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener" class="underline">Privacy Policy</a>, and consent to the processing of this application. <span class="font-bold text-teal">*</span></span>
                     </label>
                     @error('terms')<p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>@enderror
                 </section>

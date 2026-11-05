@@ -1,5 +1,6 @@
 @extends('buyer.layouts.website')
 @section('content')
+<p style="margin:12px 0"><a href="{{ route('returns.center') }}">Track returns &amp; confirm refund payment</a></p>
 @php
   $o = $order;
   $pay = $o->payment;
@@ -207,9 +208,9 @@
               </div>
             @endif
             @if($openReturn->status === 'approved')
-              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">The seller approved your return. Please contact the seller via chat to arrange return handover.</div>
+              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">Your return is approved. Logistics will arrange collection; follow its handoffs in the return center.</div>
             @elseif($openReturn->status === 'item_received')
-              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">The seller received the item. Refund will be settled shortly.</div>
+              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">The seller received the item. Admin will record the refund transfer; confirm it once received.</div>
             @endif
             @if($openReturn->decision_note)
               <div style="margin-top:4px;font-size:11px;color:#1e3a8a"><b>Store note:</b> {{ $openReturn->decision_note }}</div>

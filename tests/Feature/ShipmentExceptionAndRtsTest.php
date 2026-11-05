@@ -275,7 +275,7 @@ class ShipmentExceptionAndRtsTest extends TestCase
         );
     }
 
-    public function test_seller_confirmation_restores_stock_once_and_creates_no_money(): void
+    public function test_damaged_return_receipt_keeps_stock_quarantined_and_creates_no_money(): void
     {
         [$sellerUser, $seller] = $this->sellerAccount();
         [$order, $product] = $this->orderWithStock($seller);
@@ -307,7 +307,7 @@ class ShipmentExceptionAndRtsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $this->assertSame('returned_to_seller', $delivery->fresh()->status);
-        $this->assertSame(12, (int) $product->fresh()->stock);
+        $this->assertSame(10, (int) $product->fresh()->stock);
         $this->assertSame(
             1,
             DeliveryStatusLog::where('delivery_id', $delivery->id)->where('status', 'return_received_by_seller')->count()
@@ -319,11 +319,38 @@ class ShipmentExceptionAndRtsTest extends TestCase
             ->post(route('seller.returns.confirm', $delivery))
             ->assertRedirect();
 
-        $this->assertSame(12, (int) $product->fresh()->stock);
+        $this->assertSame(10, (int) $product->fresh()->stock);
         $this->assertSame(
             1,
             DeliveryStatusLog::where('delivery_id', $delivery->id)->where('status', 'return_received_by_seller')->count()
         );
+    }
+
+    public function test_shared_order_returns_are_owned_and_restocked_per_seller_parcel_once(): void
+    {
+        [$ownerA, $sellerA] = $this->sellerAccount();
+        [$ownerB] = $this->sellerAccount();
+        [$order, $productA] = $this->orderWithStock($sellerA);
+        $productB = Product::create(['seller_id' => $ownerB->id, 'name' => 'Other store product', 'slug' => 'other-store-return', 'price' => 50, 'stock' => 10, 'status' => 'active']);
+        OrderItem::create(['order_id' => $order->id, 'seller_id' => $ownerB->id, 'product_id' => $productB->id, 'product_name' => $productB->name, 'quantity' => 1, 'unit_price' => 50, 'total_price' => 50]);
+        $parcels = [];
+        foreach ([$ownerA, $ownerB] as $owner) {
+            $parcel = $this->delivery(['order_id' => $order->id, 'seller_id' => $owner->id, 'status' => 'delivery_failed', 'returned_at' => now()]);
+            DeliveryStatusLog::create(['delivery_id' => $parcel->id, 'status' => 'return_dispatched_to_seller']);
+            $parcels[] = $parcel;
+        }
+        $service = app(\App\Services\ReturnToSellerService::class);
+        try { $service->confirm($parcels[0], $ownerB); $this->fail('Another seller confirmed this parcel.'); }
+        catch (\Symfony\Component\HttpKernel\Exception\HttpException $e) { $this->assertSame(403, $e->getStatusCode()); }
+        $service->confirm($parcels[0], $ownerA);
+        $service->confirm($parcels[0], $ownerA);
+        $this->assertSame(12, (int)$productA->fresh()->stock);
+        $this->assertSame(10, (int)$productB->fresh()->stock);
+        $this->assertSame('out_for_delivery', $order->fresh()->status);
+        $service->confirm($parcels[1], $ownerB);
+        $this->assertSame(12, (int)$productA->fresh()->stock);
+        $this->assertSame(11, (int)$productB->fresh()->stock);
+        $this->assertSame('cancelled', $order->fresh()->status);
     }
 
     public function test_other_seller_cannot_confirm_return_and_confirmation_requires_dispatch(): void

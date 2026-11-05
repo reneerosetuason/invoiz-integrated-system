@@ -71,6 +71,20 @@ class ReturnServer {
   late final api = ApiService(
     client: MockClient((request) async {
       if (request.method == 'POST' &&
+          request.url.path.endsWith('/returns/77/confirm')) {
+        records = [
+          {
+            ...records.single,
+            'status': 'refunded',
+            'progress': {
+              ...(records.single['progress'] as Map),
+              'buyer_confirmed_at': '2026-11-05T12:00:00Z',
+            },
+          },
+        ];
+        return json({'return': records.single});
+      }
+      if (request.method == 'POST' &&
           request.url.path.endsWith('/orders/42/returns')) {
         final body = jsonDecode(request.body) as Map<String, dynamic>;
         sent.add(body);
@@ -356,6 +370,40 @@ void main() {
       await tester.pumpAndSettle();
       expect(server.sent.length, 1);
       expect(find.textContaining('Return #77 saved.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'buyer confirms the actual refund after reviewing the transfer reference',
+    (tester) async {
+      final server = ReturnServer()
+        ..records = [
+          {
+            ...returnCase('item_received'),
+            'progress': {
+              'stage': 'refund_sent',
+              'refund_reference': 'GCASH-REFUND-77',
+              'refund_sent_at': '2026-11-05T11:00:00Z',
+              'buyer_confirmed_at': null,
+            },
+          },
+        ];
+      await open(tester, server);
+      await tester.scrollUntilVisible(
+        find.text('Confirm refund received'),
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.ensureVisible(find.text('Confirm refund received'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm refund received'));
+      await tester.pumpAndSettle();
+      expect(server.records.single['status'], 'item_received');
+      await tester.tap(find.text('I received it'));
+      await tester.pumpAndSettle();
+      expect(server.records.single['status'], 'refunded');
+      expect(find.text('Confirm refund received'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );

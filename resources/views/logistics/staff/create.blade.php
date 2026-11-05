@@ -77,7 +77,7 @@
 
             <label class="mt-6 flex items-start gap-2.5 text-sm text-gray-700">
                 <input type="checkbox" name="terms" id="terms" value="1" {{ old('terms') ? 'checked' : '' }} class="mt-1 h-4 w-4 accent-teal-700">
-                <span>I agree to the Logistics Terms of Service and consent to the processing of this account's information. <span class="text-red-500">*</span></span>
+                <span>I agree to the <a href="{{ route('legal.terms') }}" target="_blank" rel="noopener" class="underline">Terms of Service</a> and acknowledge the <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener" class="underline">Privacy Policy</a>, and consent to the processing of this account's information. <span class="text-red-500">*</span></span>
             </label>
             @error('terms')<p class="text-red-500 text-xs mt-1">{{ $message }}</p>@enderror
 

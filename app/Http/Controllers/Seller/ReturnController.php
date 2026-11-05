@@ -48,7 +48,7 @@ class ReturnController extends Controller
 
         $data = $request->validate([
             'action' => ['required', 'in:approve,reject,receive'],
-            'note'   => ['nullable', 'string', 'max:500'],
+            'note'   => ['required_if:action,reject', 'nullable', 'string', 'max:500'],
         ]);
 
         return DB::transaction(function () use ($returnRequest, $data, $keys) {
@@ -65,11 +65,12 @@ class ReturnController extends Controller
                     'decision_note' => $data['note'] ?? null,
                 ]);
 
-                return back()->with('success', 'Return approved. Ask the buyer to ship the item back.');
+                \App\Services\ReturnWorkflowService::start($returnRequest);
+                return back()->with('success', 'Return approved. Logistics will arrange collection and track the parcel back to you.');
             }
 
             if ($data['action'] === 'reject') {
-                if (! in_array($returnRequest->status, ['requested', 'approved'], true)) {
+                if ($returnRequest->status !== 'requested') {
                     return back()->with('error', 'This return can no longer be rejected.');
                 }
                 $returnRequest->update([
@@ -86,9 +87,9 @@ class ReturnController extends Controller
                 return back()->with('error', 'Approve the return before marking the item received.');
             }
 
-            Returns::complete($returnRequest);
+            \App\Services\ReturnWorkflowService::change($returnRequest, auth()->user(), 'receive', ['restock' => false]);
 
-            return back()->with('success', 'Item received — refund recorded and stock restored. Arrange the refund payment with the buyer.');
+            return back()->with('success', 'Item received — awaiting admin refund payment. Stock stays unchanged unless inspected and marked resellable.');
         }, 3);
     }
 

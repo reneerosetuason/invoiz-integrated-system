@@ -161,7 +161,7 @@ class OrderController extends Controller
 
         $returns->confirm($delivery, $request->user(), $validated['note'] ?? null);
 
-        return back()->with('success', 'Returned parcel confirmed. Stock has been restored once for this return.');
+        return back()->with('success', 'Returned parcel confirmed. Eligible undamaged stock is restored once; prepaid refunds await admin payment review.');
     }
 
     public function updateStatus(Request $request, $id)

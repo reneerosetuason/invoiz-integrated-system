@@ -38,3 +38,5 @@
       .buyerbar .btn-login,.buyerbar .btn-register{padding:9px 10px;font-size:12px;white-space:nowrap}
     }
     @media(max-width:359.98px){.buyerbar .brand-text{display:none}}
+
+.buyerfoot-links{display:flex;flex-wrap:wrap;justify-content:center;gap:8px 20px;margin:10px 0;font-size:12px}.buyerfoot-links a{color:inherit;text-underline-offset:3px}

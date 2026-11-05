@@ -41,5 +41,7 @@
   <script src="{{ asset('assets/admin/js/layout-3.js') }}"></script>
   <script src="{{ asset('assets/shared/js/table-enhancer.js') }}"></script>
   @stack('scripts')
+<link rel="stylesheet" href="{{ asset('assets/shared/css/mobile-refinements.css') }}?v={{ filemtime(public_path('assets/shared/css/mobile-refinements.css')) }}">
+<script src="{{ asset('assets/shared/js/mobile-refinements.js') }}?v={{ filemtime(public_path('assets/shared/js/mobile-refinements.js')) }}" defer></script>
 </body>
 </html>

@@ -6,7 +6,7 @@
 <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
         <h2 class="text-xl font-extrabold tracking-tight">Returns &amp; Refunds</h2>
-        <p class="mt-0.5 text-sm text-ink-light">Buyers can request a return within {{ $windowDays }} days of delivery. Confirm receipt only after the item comes back. Refund payments must be arranged with the buyer.</p>
+        <p class="mt-0.5 text-sm text-ink-light">Buyers can request a return within {{ $windowDays }} days of delivery. Confirm receipt only after the item comes back. Logistics tracks collection and handoffs; admin records the actual refund transfer, then the buyer confirms receipt.</p>
     </div>
     <a href="{{ route('seller.returns.index') }}" class="btn btn-outline" data-return-refresh>Refresh requests</a>
 </div>
@@ -33,11 +33,12 @@
         <div class="mt-1 text-2xl font-extrabold" data-return-count="approved">{{ $counts['approved'] }}</div>
     </div>
     <div class="card px-4 py-3">
-        <div class="text-xs font-bold uppercase tracking-wide text-ink-light">Refund recorded</div>
+        <div class="text-xs font-bold uppercase tracking-wide text-ink-light">Refund confirmed</div>
         <div class="mt-1 text-2xl font-extrabold text-successc" data-return-count="refunded">{{ $counts['refunded'] }}</div>
     </div>
 </div>
 
+<p class="mt-4"><a href="{{ route('returns.center') }}" class="btn btn-outline">Open tracked returns &amp; refund payments</a></p>
 <div data-return-records data-version="{{ $version }}">
     @include('seller.returns._records')
 </div>

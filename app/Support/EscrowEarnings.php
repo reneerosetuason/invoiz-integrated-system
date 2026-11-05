@@ -318,6 +318,18 @@ class EscrowEarnings
         $grossMerch = round($order->sellerSubtotal($sellerId), 2);
         $merchDiscount = round($order->voucherDiscountForSeller($sellerId), 2);
         $netMerch = round(max(0.0, $grossMerch - $merchDiscount), 2);
+        // Reverse merchandise and its commission, while preserving completed logistics work.
+        // Older refunded cases have no workflow; new cases count as soon as money is sent.
+        if (Schema::hasTable('return_requests')) {
+            $refunds = \App\Models\ReturnRequest::where('order_id', $order->id)->where('seller_id', $sellerId)
+                ->where(function ($q) {
+                    $q->where('status', 'refunded');
+                    if (Schema::hasTable('return_workflows')) {
+                        $q->orWhereHas('workflow', fn ($w) => $w->whereNotNull('refund_sent_at'));
+                    }
+                })->sum('refund_amount');
+            $netMerch = round(max(0.0, $netMerch - (float) $refunds), 2);
+        }
 
         // Buyer shipping uses the same flat fee the checkout charges; the
         // last-mile rider rate happens to match it, but they stay separate so
@@ -730,8 +742,10 @@ class EscrowEarnings
             $order->loadMissing(['items', 'orderVouchers.voucher']);
             $tx ??= Payments::transactionFor($order);
 
-            $isCancelled = $order->status === 'cancelled' || in_array($tx?->status, ['failed', 'refunded'], true);
-            $isSettled = $order->payment_status === 'paid' || $tx?->status === 'successful';
+            $isCancelled = $order->status === 'cancelled' || $tx?->status === 'failed'
+                || ($tx?->status === 'refunded' && ! in_array($order->status, ['delivered', 'completed'], true));
+            $isSettled = in_array($order->payment_status, ['paid', 'partially_refunded', 'refunded'], true)
+                || in_array($tx?->status, ['successful', 'partially_refunded'], true);
             $isGcash = \App\Services\GcashEscrowService::isGcash($order);
             $gcashFunded = $isGcash && \App\Services\GcashEscrowService::funded($order);
             $adminUser = ($isGcash ? User::where('is_admin', true) : User::where('role', 'admin'))->orderBy('id')->first();

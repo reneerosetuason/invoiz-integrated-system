@@ -25,7 +25,18 @@ class ReturnRequest extends Model
 
     protected $appends = [
         'evidence_url',
+        'progress',
     ];
+
+    public function workflow() { return $this->hasOne(ReturnWorkflow::class); }
+
+    public function getProgressAttribute(): ?array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('return_workflows')) {
+            return null;
+        }
+        return $this->workflow?->toArray();
+    }
 
     public function getEvidenceUrlAttribute(): ?string
     {

@@ -138,5 +138,7 @@
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/logistics-density.css') }}?v={{ filemtime(public_path('assets/logistics/css/logistics-density.css')) }}">
         <script src="{{ asset('assets/logistics/js/logistics-density.js') }}?v={{ filemtime(public_path('assets/logistics/js/logistics-density.js')) }}" defer></script>
         @stack('scripts')
-    </body>
+    <link rel="stylesheet" href="{{ asset('assets/shared/css/mobile-refinements.css') }}?v={{ filemtime(public_path('assets/shared/css/mobile-refinements.css')) }}">
+<script src="{{ asset('assets/shared/js/mobile-refinements.js') }}?v={{ filemtime(public_path('assets/shared/js/mobile-refinements.js')) }}" defer></script>
+</body>
 </html>

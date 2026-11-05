@@ -77,7 +77,8 @@ class GcashEscrowService
         $deposit = GcashEscrowDeposit::where('order_id', $order->id)->first();
 
         return $deposit && $deposit->status === 'funded' && $deposit->confirmed_at
-            && $order->payment_status === 'paid' && $order->payment?->status === 'paid'
+            && in_array($order->payment_status, ['paid', 'partially_refunded', 'refunded'], true)
+            && in_array($order->payment?->status, ['paid', 'partially_refunded', 'refunded'], true)
             && (int) round((float) $deposit->amount * 100) === (int) round((float) $order->total_amount * 100);
     }
 

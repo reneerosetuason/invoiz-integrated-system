@@ -38,7 +38,7 @@ class CommerceRegressionTest extends TestCase
             'deliveries' => 'order_id seller_id status tracking_number archived_at center_id picked_up_at cancelled_at cancellation_reason delivered_at',
             'delivery_status_logs' => 'delivery_id status notes changed_by',
             'pickup_requests' => 'delivery_id center_id status requested_at reviewed_at',
-            'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity reason reason_details refund_amount status decision_note resolved_at',
+            'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity reason reason_details refund_amount status decision_note resolved_at evidence_path evidence_type',
             'seller_notifications' => 'seller_id order_id product_id type title body is_read',
             'payment_transactions' => 'order_id transaction_ref gateway amount status seller_earning platform_commission rider_fee logistics_fee refunded_amount paid_at',
             'payments' => 'order_id method amount status paid_at',
@@ -74,6 +74,9 @@ class CommerceRegressionTest extends TestCase
         }
         Schema::table('orders', fn (Blueprint $table) => $table->unique('order_number'));
         Schema::table('payment_transactions', fn (Blueprint $table) => $table->unique('transaction_ref'));
+        (require database_path('migrations/2026_10_31_110000_create_earnings_and_escrow_allocations.php'))->up();
+        (require database_path('migrations/2026_11_05_180000_create_return_workflows.php'))->up();
+        \Illuminate\Support\Facades\Storage::fake('public');
     }
 
     private function buyer(): User
@@ -95,6 +98,31 @@ class CommerceRegressionTest extends TestCase
         return ReturnRequest::create(['order_id' => $order->id, 'order_item_id' => $item->id, 'product_id' => $item->product_id,
             'buyer_id' => $order->buyer_id, 'seller_id' => 101, 'quantity' => $quantity, 'refund_amount' => $quantity * 100,
             'reason' => 'wrong_item', 'status' => 'approved']);
+    }
+
+    private function completeReturn(ReturnRequest $case): void
+    {
+        $account = function (int $id, string $role) {
+            return User::unguarded(fn () => User::firstOrCreate(['id' => $id], ['name' => $role, 'email' => "fixture-$id@test.local", 'password' => 'Password123!', 'role' => $role, 'status' => 'active', 'is_admin' => $role === 'admin']));
+        };
+        $buyer = $account((int)$case->buyer_id, 'buyer');
+        if ($case->fresh()->status === 'refunded') {
+            \App\Services\ReturnWorkflowService::change($case, $buyer, 'confirm_refund');
+            return;
+        }
+        \App\Models\ReturnWorkflow::firstOrCreate(['return_request_id' => $case->id], ['stage' => 'sent_to_seller']);
+        \App\Services\ReturnWorkflowService::change($case, $account(101, 'seller'), 'receive', ['restock' => true]);
+        Payments::recordCheckout($case->order);
+        Payments::transactionFor($case->order)->update(['status' => 'successful']);
+        \App\Services\ReturnWorkflowService::change($case, $account(901, 'admin'), 'refund', [
+            'reference' => 'REFUND-'.$case->id, 'proof_path' => 'fixture.png', 'recovery_amount' => 1000,
+            'recovery_reference' => 'RECOVERY-'.$case->id, 'recovery_proof_path' => 'incoming.png']);
+        \App\Services\ReturnWorkflowService::change($case, $buyer, 'confirm_refund');
+    }
+
+    private function evidence(): \Illuminate\Http\UploadedFile
+    {
+        return \Illuminate\Http\UploadedFile::fake()->createWithContent('evidence.png', base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5X8AAAAASUVORK5CYII='));
     }
 
     public function test_delivery_repair_is_repeatable_and_preserves_existing_shipments(): void
@@ -141,8 +169,8 @@ class CommerceRegressionTest extends TestCase
     {
         [$product, $order, $item] = $this->purchase();
         $return = $this->approvedReturn($order, $item);
-        Returns::complete($return);
-        Returns::complete($return);
+        $this->completeReturn($return);
+        $this->completeReturn($return);
         $this->assertSame(11, (int) $product->fresh()->stock);
         $this->assertSame('refunded', $return->fresh()->status);
         $this->assertSame(100.0, (float) Payments::transactionFor($order)->refunded_amount);
@@ -155,7 +183,7 @@ class CommerceRegressionTest extends TestCase
         [$product, $order, $item] = $this->purchase();
         $variantId = DB::table('product_variants')->insertGetId(['product_id' => $product->id, 'stock' => 3, 'status' => 'active']);
         $item->update(['product_variant_id' => $variantId]);
-        Returns::complete($this->approvedReturn($order, $item, 2));
+        $this->completeReturn($this->approvedReturn($order, $item, 2));
         $this->assertDatabaseHas('product_variants', ['id' => $variantId, 'stock' => 5]);
         $this->assertSame(12, (int) $product->fresh()->stock);
     }
@@ -164,30 +192,31 @@ class CommerceRegressionTest extends TestCase
     {
         [, $order] = $this->purchase();
         Payments::refund($order, 100);
-        $dispute = PaymentDispute::create(['order_id' => $order->id, 'amount' => 500, 'status' => 'open']);
+        $dispute = PaymentDispute::create(['order_id' => $order->id, 'amount' => 400, 'status' => 'open']);
         $request = Request::create('/', 'POST', ['resolution' => 'refund_buyer']);
         $controller = new PaymentActionController;
         $controller->resolveDispute($request, $dispute->id);
         $controller->resolveDispute($request, $dispute->id);
-        $this->assertSame(500.0, (float) Payments::transactionFor($order)->refunded_amount);
-        $this->assertSame('refunded', $order->fresh()->payment_status);
-        $this->assertSame(0.0, Payments::refund($order, 100));
-        $this->assertSame('resolved', $dispute->fresh()->status);
+        $this->assertSame(100.0, (float) Payments::transactionFor($order)->refunded_amount);
+        $this->assertSame('partially_refunded', $order->fresh()->payment_status);
+        $this->assertSame('awaiting_refund', $dispute->fresh()->status);
+        $this->assertDatabaseCount('return_requests', 1);
+
     }
 
-    public function test_failed_refund_does_not_complete_return_or_restore_stock(): void
+    public function test_failed_refund_keeps_the_received_item_pending_payment(): void
     {
         [$product, $order, $item] = $this->purchase();
         $return = $this->approvedReturn($order, $item);
         Schema::drop('payment_transactions');
         try {
-            Returns::complete($return);
+            $this->completeReturn($return);
             $this->fail('The unavailable ledger must fail the transaction.');
         } catch (QueryException $exception) {
             $this->assertStringContainsString('payment_transactions', $exception->getMessage());
         }
-        $this->assertSame(10, (int) $product->fresh()->stock);
-        $this->assertSame('approved', $return->fresh()->status);
+        $this->assertSame(11, (int) $product->fresh()->stock);
+        $this->assertSame('item_received', $return->fresh()->status);
         $this->assertSame('paid', $order->fresh()->payment_status);
     }
 
@@ -195,15 +224,15 @@ class CommerceRegressionTest extends TestCase
     {
         $buyer = $this->buyer();
         [$product, $order, $item] = $this->purchase($buyer->id);
-        Returns::complete($this->approvedReturn($order, $item, 2));
+        $this->completeReturn($this->approvedReturn($order, $item, 2));
         Sanctum::actingAs($buyer);
         $uri = '/api/orders/'.$order->id.'/returns';
-        $data = ['product_id' => $product->id, 'reason' => 'wrong_item'];
+        $data = ['product_id' => $product->id, 'reason' => 'wrong_item', 'evidence' => $this->evidence()];
         $this->postJson($uri, $data + ['quantity' => 4])->assertStatus(422);
         $response = $this->postJson($uri, $data + ['quantity' => 3])->assertCreated()->assertJsonPath('return.refund_amount', '300.00');
         $return = ReturnRequest::findOrFail($response->json('return.id'));
         $return->update(['status' => 'approved']);
-        Returns::complete($return);
+        $this->completeReturn($return);
         $this->postJson($uri, $data + ['quantity' => 1])->assertStatus(422);
         $this->assertSame(15, (int) $product->fresh()->stock);
     }
@@ -269,7 +298,7 @@ class CommerceRegressionTest extends TestCase
         DB::table('vouchers')->insert(['id' => 1, 'discount_type' => 'fixed', 'seller_id' => 101]);
         DB::table('order_vouchers')->insert(['order_id' => $order->id, 'voucher_id' => 1, 'discount_amount' => 50]);
         Sanctum::actingAs($buyer);
-        $this->postJson('/api/orders/'.$order->id.'/returns', ['product_id' => $product->id, 'reason' => 'wrong_item', 'quantity' => 1])
+        $this->postJson('/api/orders/'.$order->id.'/returns', ['product_id' => $product->id, 'reason' => 'wrong_item', 'quantity' => 1, 'evidence' => $this->evidence()])
             ->assertCreated()->assertJsonPath('return.refund_amount', '90.00');
     }
 
@@ -339,6 +368,8 @@ class CommerceRegressionTest extends TestCase
     public function test_withdrawal_approval_is_atomic_and_idempotent(): void
     {
         $seller = Seller::create(['user_id' => 101, 'store_name' => 'Test store']);
+        [, $order] = $this->purchase();
+        PaymentTransaction::create(['order_id' => $order->id, 'transaction_ref' => 'TXN-ORDER-'.$order->id, 'amount' => 500, 'status' => 'successful']);
         $withdrawal = WithdrawalRequest::create(['seller_id' => $seller->id, 'amount' => 100, 'status' => 'pending', 'method' => 'GCash']);
         $controller = new PaymentActionController;
         $controller->approveWithdrawal($withdrawal->id);

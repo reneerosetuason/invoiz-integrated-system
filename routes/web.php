@@ -40,6 +40,8 @@ Route::get('/downloads/invoiz-rider.apk', static function () {
 require __DIR__.'/buyer/landing.php';
 require __DIR__.'/buyer/mobile-web.php';
 require __DIR__.'/seller/application.php';
+require __DIR__.'/shared/legal.php';
+require __DIR__.'/shared/returns.php';
 require __DIR__.'/shared/auth.php';
 require __DIR__.'/buyer/web.php';
 require __DIR__.'/seller/web.php';

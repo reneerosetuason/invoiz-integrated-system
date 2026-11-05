@@ -269,9 +269,9 @@
             <input type="checkbox" name="terms" id="terms" value="1" required @checked(old('terms', false)) class="mt-0.5 h-4 w-4 rounded text-teal accent-[#16697A]">
             <span class="text-xs sm:text-sm text-gray-700 leading-snug">
               I certify that all provided details and documents are authentic. I agree to the
-              <a href="{{ url('/help') }}" target="_blank" class="font-bold text-teal underline">Terms of Service</a>
+              <a href="{{ route('legal.terms') }}" target="_blank" rel="noopener" class="font-bold text-teal underline">Terms of Service</a>
               and
-              <a href="{{ url('/help') }}" target="_blank" class="font-bold text-teal underline">Privacy Policy</a>.
+              <a href="{{ route('legal.privacy') }}" target="_blank" rel="noopener" class="font-bold text-teal underline">Privacy Policy</a>.
             </span>
           </label>
         </div>

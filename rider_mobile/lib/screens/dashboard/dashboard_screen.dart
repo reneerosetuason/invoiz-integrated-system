@@ -18,6 +18,7 @@ import '../../widgets/stagger_in.dart';
 import '../deliveries/deliveries_screen.dart';
 import '../deliveries/delivery_detail_screen.dart';
 import '../earnings/earnings_screen.dart';
+import '../deliveries/return_collections_screen.dart';
 
 /// Rider dashboard: greeting, availability switch, stats, earnings,
 /// current delivery and recent completions.
@@ -33,6 +34,17 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Dashboard'),
         automaticallyImplyLeading: false,
+        actions: [
+          IconButton(
+            tooltip: 'Return collections',
+            icon: const Icon(Icons.assignment_return_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ReturnCollectionsScreen(),
+              ),
+            ),
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -101,7 +113,15 @@ class DashboardScreen extends StatelessWidget {
             onToggle: () => _toggleAvailability(context, riderProvider),
           ),
         ),
-        Card(child: ListTile(leading: const Icon(Icons.two_wheeler), title: const Text('DELIVERY RIDER · HUB-TO-DOOR'), subtitle: Text('${rider.vehicleType ?? 'Vehicle'} · ${rider.licensePlate ?? 'Plate not set'}\n${rider.company ?? 'Logistics company'} · ${rider.hubName ?? 'Assigned hub'}'))),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.two_wheeler),
+            title: const Text('DELIVERY RIDER · HUB-TO-DOOR'),
+            subtitle: Text(
+              '${rider.vehicleType ?? 'Vehicle'} · ${rider.licensePlate ?? 'Plate not set'}\n${rider.company ?? 'Logistics company'} · ${rider.hubName ?? 'Assigned hub'}',
+            ),
+          ),
+        ),
         if (rider.isOnline && riderProvider.locationWarning != null) ...[
           const SizedBox(height: 12),
           StaggerIn(
@@ -517,8 +537,11 @@ class _LocationWarning extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.location_off_outlined,
-                  color: AppColors.warning, size: 20),
+              const Icon(
+                Icons.location_off_outlined,
+                color: AppColors.warning,
+                size: 20,
+              ),
               const SizedBox(width: AppGaps.sm),
               Expanded(
                 child: Column(
@@ -532,7 +555,10 @@ class _LocationWarning extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(message, style: AppText.secondary.copyWith(fontSize: 12)),
+                    Text(
+                      message,
+                      style: AppText.secondary.copyWith(fontSize: 12),
+                    ),
                   ],
                 ),
               ),

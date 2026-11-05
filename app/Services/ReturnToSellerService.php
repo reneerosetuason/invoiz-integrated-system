@@ -130,22 +130,20 @@ class ReturnToSellerService
 
     public function confirm(Delivery $delivery, User $sellerUser, ?string $note = null): Delivery
     {
-        $sellerKeys = array_values(array_unique(array_filter([
-            (int) $sellerUser->id,
-            (int) ($sellerUser->seller?->id ?? 0),
-            ...array_map('intval', Remittances::sellerKeys($sellerUser->id)),
-        ])));
+        $sellerKeys = [(int) $sellerUser->id];
 
         return DB::transaction(function () use ($delivery, $sellerUser, $sellerKeys, $note) {
+            $order = Order::with('items')->whereKey($delivery->order_id)->lockForUpdate()->first();
             $locked = Delivery::query()->whereKey($delivery->id)->lockForUpdate()->firstOrFail();
-            $order = Order::with('items')->find($locked->order_id);
 
             $sellerIds = $order
                 ? $order->items->pluck('seller_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all()
                 : [];
 
-            if ($locked->seller_id) {
-                $sellerIds[] = (int) $locked->seller_id;
+            // A parcel belongs to its seller, never to every store in a legacy order.
+            $sellerIds = $locked->seller_id ? [(int) $locked->seller_id] : $sellerIds;
+            if (count($sellerIds) !== 1) {
+                throw ValidationException::withMessages(['return' => 'Resolve the seller identity for this parcel before confirming receipt.']);
             }
 
             if (! array_intersect($sellerKeys, array_values(array_unique($sellerIds)))) {
@@ -178,15 +176,19 @@ class ReturnToSellerService
             ]);
 
             $locked->update(['status' => 'returned_to_seller']);
+            $restocked = false;
 
             if ($order) {
                 $items = $order->items
                     ->whereIn('seller_id', array_values(array_unique($sellerIds)))
                     ->values();
 
+                $alreadyRestored = $order->deliveries()->where('id', '!=', $locked->id)
+                    ->where('seller_id', $sellerIds[0])->where('status', 'returned_to_seller')->exists();
                 foreach ($items as $item) {
-                    if ($item instanceof OrderItem) {
+                    if ($item instanceof OrderItem && ! $alreadyRestored && $delivery->status !== 'damaged') {
                         Stock::restore($item);
+                        $restocked = true;
                     }
                 }
 
@@ -205,7 +207,7 @@ class ReturnToSellerService
                         'order_id' => $order->id,
                         'from_status' => $fromStatus,
                         'to_status' => 'cancelled',
-                        'note' => 'Order cancelled: parcel confirmed returned to seller. Stock restored.',
+                        'note' => 'Order cancelled: parcel confirmed returned to seller.'.($restocked ? ' Stock restored.' : ' Stock was not added to saleable inventory.'),
                     ]);
                     Payments::voidForCancel($order);
                 }
@@ -227,7 +229,7 @@ class ReturnToSellerService
                 'order_id' => $locked->order_id,
                 'type' => 'return_received',
                 'title' => 'Return Received',
-                'body' => "You confirmed receipt of returned parcel {$locked->tracking_number}. Stock was restored.",
+                'body' => "You confirmed receipt of returned parcel {$locked->tracking_number}.".($restocked ? ' Stock was restored.' : ' Saleable stock was not increased.'),
             ]);
 
             app(AuditLogger::class)->record(

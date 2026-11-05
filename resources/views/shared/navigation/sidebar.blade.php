@@ -326,6 +326,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeSettings  = request()->routeIs('settings.*');
 @endphp
 
+
 <link rel="stylesheet" href="{{ asset('assets/logistics/css/sidebar.css') }}">
 
 <aside id="app-sidebar" class="sb2 sb2--log sidebar-root sidebar-pane fixed inset-y-0 left-0 z-40"
@@ -371,6 +372,10 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
          x-init="$nextTick(() => { try { $el.scrollTop = Number(sessionStorage.getItem(sidebarKey + ':scroll')) || 0; } catch (e) {} })"
          @scroll.passive="(() => { try { sessionStorage.setItem(sidebarKey + ':scroll', $el.scrollTop); } catch (e) {} })()">
 
+        <a href="{{ route('returns.center') }}" aria-label="Return center" data-tip="Returns &amp; Refunds" class="relative group flex items-center h-10 w-full rounded-xl gap-3 hover:bg-teal-light" :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 14-5-5 5-5M4 9h10a6 6 0 0 1 0 12h-3"/></svg>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium">Returns &amp; Refunds</span>
+        </a>
         {{-- Dashboard --}}
         <a href="{{ route('dashboard') }}"
            aria-label="Dashboard" data-tip="Dashboard"
@@ -810,6 +815,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
 
         <div class="admin-nav-group" role="group" aria-label="Finance">
           <div class="nav-section sb-hide-collapsed" aria-hidden="true">Finance</div>
+          <a class="nav-link" href="{{ route('returns.center') }}" title="Return center">Returns &amp; Refunds</a>
           <a class="nav-link" href="/admin/payments" title="Manage Payments">
             <x-icon name="card" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Manage Payments</span>

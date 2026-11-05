@@ -82,6 +82,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user']);
 
     Route::middleware('role:rider')->prefix('rider')->group(function () {
+        Route::get('/returns', [\App\Http\Controllers\ReturnWorkflowController::class, 'riderJobs']);
+        Route::post('/returns/{returnRequest}/pickup', [\App\Http\Controllers\ReturnWorkflowController::class, 'riderPickup']);
         Route::get('/profile', [RiderController::class, 'profile']);
         Route::patch('/profile', [RiderController::class, 'updateProfile']);
         Route::post('/profile/photo', [RiderController::class, 'updatePhoto']);

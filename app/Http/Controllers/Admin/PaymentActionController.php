@@ -25,7 +25,15 @@ class PaymentActionController extends Controller
             return back()->with('status', 'That payout is already marked paid.');
         }
 
-        $payout->update(['status' => 'paid', 'paid_at' => now()]);
+        DB::transaction(function () use ($payout) {
+            $seller = Seller::lockForUpdate()->findOrFail($payout->seller_id);
+            $locked = SellerPayout::lockForUpdate()->findOrFail($payout->id);
+            if ($locked->status === 'paid') { return; }
+            if (Payments::availableBalanceForUser((int) $seller->user_id, $locked->id) < (float) $locked->amount) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['payout' => 'Recheck this seller balance after unresolved returns or refunds before paying.']);
+            }
+            $locked->update(['status' => 'paid', 'paid_at' => now()]);
+        });
 
         return back()->with('status', 'Payout marked as paid.');
     }
@@ -44,6 +52,10 @@ class PaymentActionController extends Controller
             if ($remittance->status !== 'pending_remittance') {
                 return null;
             }
+            if ($order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()
+                || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['return' => 'Resolve the return or dispute before releasing this order payout.']);
+            }
 
             $isGcash = \App\Services\GcashEscrowService::isGcash($order);
             if ($isGcash) {
@@ -54,7 +66,7 @@ class PaymentActionController extends Controller
                 }
                 if ($order->deliveries()->where('status', '!=', 'delivered')->exists()
                     || ! $order->deliveries()->exists() || in_array($order->status, ['cancelled', 'refunded', 'returned'], true)
-                    || $order->returnRequests()->whereNotIn('status', ['rejected', 'cancelled', 'resolved', 'completed'])->exists()
+                    || $order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()
                     || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists()) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Complete delivery and resolve returns or disputes before releasing GCash escrow.']);
                 }
@@ -63,7 +75,10 @@ class PaymentActionController extends Controller
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Assign the recipient before releasing this allocation.']);
                 }
                 $releasedTotal = (float) EscrowRemittance::where('order_id', $order->id)->whereIn('status', ['remitted', 'accepted'])->sum('amount');
-                if (round($releasedTotal + (float) $remittance->amount, 2) > round((float) $order->total_amount, 2)) {
+                $refunds = (float) (Payments::transactionFor($order)?->refunded_amount ?? 0);
+                $recovered = \Illuminate\Support\Facades\Schema::hasTable('return_workflows')
+                    ? (float) \App\Models\ReturnWorkflow::whereHas('returnRequest', fn ($q) => $q->where('order_id', $order->id))->sum('recovery_amount') : 0;
+                if (round($releasedTotal + $refunds + (float) $remittance->amount, 2) > round((float) $order->total_amount + $recovered, 2)) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'This release exceeds the confirmed escrow balance. Review allocation funding.']);
                 }
             }
@@ -123,6 +138,8 @@ class PaymentActionController extends Controller
             $rows = EscrowRemittance::query()
                 ->where('status', 'pending_remittance')
                 ->whereHas('order', fn ($q) => $q->whereDoesntHave('payment', fn ($p) => $p->where('method', 'gcash')))
+                ->whereHas('order', fn ($q) => $q->whereDoesntHave('returnRequests', fn ($r) => $r->whereIn('status', ['requested', 'approved', 'item_received'])))
+                ->whereDoesntHave('order', fn ($q) => $q->whereHas('paymentDisputes', fn ($d) => $d->whereNotIn('status', ['resolved', 'rejected'])))
                 ->lockForUpdate()
                 ->get();
 
@@ -180,10 +197,13 @@ class PaymentActionController extends Controller
     {
         $created = DB::transaction(function () use ($id): bool {
             $record = WithdrawalRequest::findOrFail($id);
-            Seller::query()->whereKey($record->seller_id)->lockForUpdate()->firstOrFail();
+            $seller = Seller::query()->whereKey($record->seller_id)->lockForUpdate()->firstOrFail();
             $withdrawal = WithdrawalRequest::query()->lockForUpdate()->findOrFail($id);
             if ($withdrawal->status !== 'pending') {
                 return false;
+            }
+            if (Payments::availableBalanceForUser((int) $seller->user_id, null, $withdrawal->id) < (float) $withdrawal->amount) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['payout' => 'This balance is held for returns or has changed after a refund.']);
             }
             SellerPayout::create([
                 'seller_id' => $withdrawal->seller_id,
@@ -235,19 +255,24 @@ class PaymentActionController extends Controller
             $record = PaymentDispute::findOrFail($id);
             $order = Order::query()->lockForUpdate()->findOrFail($record->order_id);
             $dispute = PaymentDispute::query()->lockForUpdate()->findOrFail($id);
-            if (in_array($dispute->status, ['resolved', 'rejected'], true)) {
+            if (in_array($dispute->status, ['resolved', 'rejected', 'awaiting_refund'], true)) {
                 return null;
             }
             if ($validated['resolution'] === 'refund_buyer') {
-                Payments::refund($order, (float) $dispute->amount ?: null, $validated['note'] ?? null);
-                $status = 'resolved';
+                $remaining = max(0, (float) $order->total_amount - (float) (Payments::transactionFor($order)?->refunded_amount ?? 0));
+                $amount = (float) $dispute->amount ?: $remaining;
+                if ($amount <= 0 || $amount > $remaining) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'This dispute exceeds the remaining refundable payment.']);
+                }
+                \App\Services\ReturnWorkflowService::queueRefund($order, $amount, 'Approved payment dispute #'.$dispute->id.'. '.($validated['note'] ?? ''));
+                $status = 'awaiting_refund';
             } else {
                 $status = 'rejected';
             }
             $dispute->update([
                 'status' => $status,
                 'resolution_note' => $validated['note'] ?? null,
-                'resolved_at' => now(),
+                'resolved_at' => $status === 'awaiting_refund' ? null : now(),
             ]);
             return $status;
         });
@@ -255,8 +280,8 @@ class PaymentActionController extends Controller
             return back()->with('status', 'That dispute was already processed.');
         }
 
-        return back()->with('status', $status === 'resolved'
-            ? 'Dispute resolved — the buyer was refunded.'
+        return back()->with('status', $status === 'awaiting_refund'
+            ? 'Refund approved. Open the Return center to record the actual transfer; the buyer must confirm receipt.'
             : 'Dispute rejected.');
     }
 }

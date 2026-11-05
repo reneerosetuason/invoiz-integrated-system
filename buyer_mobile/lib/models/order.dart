@@ -189,7 +189,7 @@ class Order {
     'requested' => 'Awaiting seller review',
     'approved' => 'Return approved',
     'item_received' => 'Item received',
-    'refunded' => 'Refund recorded',
+    'refunded' => 'Refund closed',
     'rejected' => 'Return rejected',
     'cancelled' => 'Return cancelled',
     _ => 'Return requested',

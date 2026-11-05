@@ -2,17 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ $title }} — Invoiz Report</title>
 <link rel="stylesheet" href="{{ asset('assets/admin/css/report-print.css') }}">
 </head>
-<body>
+<body class="report-preview">
   <div class="noprint">
     <button onclick="window.print()">Print / Save as PDF</button>
     <a href="{{ url('/admin/reports') }}">Back to Reports</a>
     <span style="margin-left:auto; font-size:12px; color:#6E6E73;">Tip: Use landscape for wide tables</span>
   </div>
 
-  <div class="page">
+  <main class="page">
     <div class="head">
       <div class="brand">
         <div class="logo">I</div>
@@ -125,8 +126,10 @@
       <span>Generated automatically by the Invoiz Reporting System · {{ now()->format('Y') }} Invoiz Marketplace</span>
       <span>Page 1 · {{ $title }}</span>
     </div>
-  </div>
+  </main>
 
   <script src="{{ asset('assets/admin/js/report-print.js') }}"></script>
+<link rel="stylesheet" href="{{ asset('assets/shared/css/mobile-refinements.css') }}?v={{ filemtime(public_path('assets/shared/css/mobile-refinements.css')) }}">
+<script src="{{ asset('assets/shared/js/mobile-refinements.js') }}?v={{ filemtime(public_path('assets/shared/js/mobile-refinements.js')) }}" defer></script>
 </body>
 </html>

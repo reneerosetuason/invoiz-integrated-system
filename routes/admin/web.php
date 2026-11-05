@@ -29,9 +29,9 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
         $stats = [
             'revenue' => (clone $settledBase)->sum($paidTotal()),
             'today_revenue' => (clone $settledBase)->whereDate('created_at', today())->sum($paidTotal()),
-            'commission_earned' => (float) \App\Models\PaymentTransaction::where('status', 'successful')->sum('platform_commission'),
+            'commission_earned' => (float) \App\Models\PaymentTransaction::whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('platform_commission'),
             'logistics_earned' => \Illuminate\Support\Facades\Schema::hasColumn('payment_transactions', 'logistics_fee')
-                ? (float) \App\Models\PaymentTransaction::where('status', 'successful')->sum('logistics_fee')
+                ? (float) \App\Models\PaymentTransaction::whereIn('status', ['successful', 'partially_refunded', 'refunded'])->sum('logistics_fee')
                 : 0.0,
             'orders' => (clone $orders)->count(),
             'delivered' => (clone $orders)->where('status', 'delivered')->count(),
