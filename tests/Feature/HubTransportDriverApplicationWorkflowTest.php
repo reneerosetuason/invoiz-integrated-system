@@ -81,6 +81,7 @@ class HubTransportDriverApplicationWorkflowTest extends TestCase
         }
 
         $manager = new User([
+            'phone' => '09171234567',
             'name' => 'Global Logistics Admin',
             'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
             'password' => 'TestManager123!',
@@ -137,6 +138,7 @@ class HubTransportDriverApplicationWorkflowTest extends TestCase
     private function staffUser(LogisticsCompany $company, LogisticsCenter $center): User
     {
         return User::create([
+            'phone' => '09171234567',
             'name' => 'Hub Staff '.(++$this->seq),
             'email' => $this->uniqueEmail('staff'),
             'password' => Hash::make('password123'),
@@ -324,6 +326,7 @@ class HubTransportDriverApplicationWorkflowTest extends TestCase
         $this->assertNotNull($user);
         $this->assertSame('rider', $user->role);
         $this->assertSame('active', $user->status);
+        $this->assertSame($app->phone, $user->phone);
         $this->assertSame($user->id, $driver->user_id);
 
         // 4. Verify no delivery rider or truck record auto-created

@@ -22,6 +22,7 @@ class HubTransportDriverManagementTest extends TestCase
     private function platformAdmin(): User
     {
         return User::create([
+            'phone' => '09171234567',
             'name' => 'Platform Admin',
             'email' => 'hub-driver-admin-'.uniqid().'@test.local',
             'password' => Hash::make('secret123'),
@@ -36,6 +37,7 @@ class HubTransportDriverManagementTest extends TestCase
     private function logisticsStaff(): User
     {
         return User::create([
+            'phone' => '09171234567',
             'name' => 'Logistics Staff',
             'email' => 'hub-driver-staff-'.uniqid().'@test.local',
             'password' => Hash::make('secret123'),

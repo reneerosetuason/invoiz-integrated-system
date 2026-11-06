@@ -64,6 +64,10 @@ class RiderApplicationController extends Controller
             $request->merge(['phone' => PhilippinePhone::normalize($request->input('phone'))]);
         }
 
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => \App\Support\AccountEmailGuard::normalize($request->input('email'))]);
+        }
+
         $activeApplication = fn ($query) => $query->whereIn('status', ['pending', 'approved']);
         $isHubDriver = $appType === 'hub_transport_driver';
         $isDriverOwnedHub = $isHubDriver && in_array($request->input('vehicle_ownership'), ['driver_owned', 'own'], true);
@@ -82,6 +86,33 @@ class RiderApplicationController extends Controller
                 $isHubDriver ? 'unique:hub_transport_drivers,email' : 'unique:riders,email',
                 Rule::unique('rider_applications', 'email')->where($activeApplication),
                 new \App\Rules\SeparateAccountEmail('logistics'),
+                function ($attribute, $value, $fail) {
+                    $email = strtolower(trim((string) $value));
+                    if (\App\Models\User::where('email', $email)->where(function ($q) {
+                        $q->whereIn('role', ['buyer', 'seller'])->orWhereHas('seller');
+                    })->exists()) {
+                        $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Rider account.');
+                        return;
+                    }
+
+                    if (\App\Models\User::whereRaw('LOWER(email) = ?', [$email])->where(function ($q) {
+                        $q->whereIn('role', \App\Support\AccountEmailGuard::LOGISTICS_ROLES)->orWhere('is_admin', true);
+                    })->exists()) {
+                        $fail('This email is already registered to a Logistics account and cannot be reused.');
+                    }
+                },
+                function ($attribute, $value, $fail) use ($isHubDriver) {
+                    $email = strtolower(trim((string) $value));
+                    $conflict = $isHubDriver
+                        ? \App\Models\Rider::whereRaw('LOWER(email) = ?', [$email])->exists()
+                        : \App\Models\HubTransportDriver::whereRaw('LOWER(email) = ?', [$email])->exists();
+
+                    if ($conflict) {
+                        $fail($isHubDriver
+                            ? 'This email is already registered to a Delivery Rider account and cannot be reused.'
+                            : 'This email is already registered to a Hub Transport Driver account and cannot be reused.');
+                    }
+                },
             ],
             'phone' => [
                 'required',

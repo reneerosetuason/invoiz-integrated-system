@@ -7,6 +7,7 @@ import '../core/network/api_exception.dart';
 import '../core/storage/token_storage.dart';
 import '../models/rider.dart';
 import '../models/hub_courier.dart';
+import '../models/logistics_account.dart';
 import '../services/auth_service.dart';
 import '../services/rider_service.dart';
 import '../services/hub_courier_service.dart';
@@ -33,12 +34,15 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.unknown;
   Rider? _rider;
   HubCourier? _courier;
+  LogisticsAccount? _logistics;
   String? _error;
 
   AuthStatus get status => _status;
   Rider? get rider => _rider;
   HubCourier? get courier => _courier;
+  LogisticsAccount? get logistics => _logistics;
   bool get isHubCourier => _courier != null;
+  bool get isLogistics => _logistics != null;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   String? get error => _error;
   bool get isOnline => _rider?.isOnline ?? false;
@@ -58,7 +62,9 @@ class AuthProvider extends ChangeNotifier {
     // Fall back to the cached profile so the splash resolves offline.
     final cached = await _storage.readCachedUser();
     if (cached != null) {
-      if (cached['workflow_type'] == 'hub_courier' ||
+      if (cached['workflow_type'] == 'logistics') {
+        _logistics = LogisticsAccount.fromJson(cached['logistics']);
+      } else if (cached['workflow_type'] == 'hub_courier' ||
           cached['workflow_type'] == 'hub_transport_driver') {
         _courier = HubCourier.fromJson(
           Map<String, dynamic>.from(cached['courier'] as Map? ?? {}),
@@ -71,7 +77,19 @@ class AuthProvider extends ChangeNotifier {
     }
 
     try {
-      if (_courier != null) {
+      if (_logistics != null) {
+        final result = await _authService.currentUser();
+        _logistics = result.logistics;
+        _courier = result.courier;
+        _rider = result.rider;
+        if (result.logistics != null) {
+          await _persistLogistics(result.logistics!);
+        } else if (result.courier != null) {
+          await _persistCourier(result.courier!);
+        } else if (result.rider != null) {
+          await _persistUser(result.rider!);
+        }
+      } else if (_courier != null) {
         final courier = await _courierService.profile();
         _courier = courier;
         await _persistCourier(courier);
@@ -85,6 +103,9 @@ class AuthProvider extends ChangeNotifier {
       if (e.type == ApiErrorType.unauthorized) {
         await _storage.clear();
         _api.setToken(null);
+        _rider = null;
+        _courier = null;
+        _logistics = null;
         _status = AuthStatus.unauthenticated;
       } else if (cached != null) {
         // Keep the cached session during network failure.
@@ -115,16 +136,23 @@ class AuthProvider extends ChangeNotifier {
       _api.setToken(result.token);
       await _storage.saveToken(result.token);
 
-      if (result.accountType == 'hub_transport_driver' ||
+      if (result.logistics != null) {
+        _logistics = result.logistics;
+        _rider = null;
+        _courier = null;
+        await _persistLogistics(result.logistics!);
+      } else if (result.accountType == 'hub_transport_driver' ||
           result.courier != null) {
         _courier = result.courier;
         _rider = null;
+        _logistics = null;
         if (_courier != null) {
           await _persistCourier(_courier!);
         }
       } else {
         _rider = result.rider;
         _courier = null;
+        _logistics = null;
         if (_rider != null) {
           await _persistUser(_rider!);
         }
@@ -145,6 +173,7 @@ class AuthProvider extends ChangeNotifier {
           await _storage.saveToken(result.token);
           _courier = result.courier;
           _rider = null;
+          _logistics = null;
           await _persistCourier(result.courier);
           _status = AuthStatus.authenticated;
           notifyListeners();
@@ -190,6 +219,7 @@ class AuthProvider extends ChangeNotifier {
     await _storage.clear();
     _rider = null;
     _courier = null;
+    _logistics = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
   }
@@ -206,6 +236,12 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateLogistics(LogisticsAccount account) {
+    _logistics = account;
+    _persistLogistics(account);
+    notifyListeners();
+  }
+
   Future<void> _persistUser(Rider rider) async {
     final payload = {
       'workflow_type': 'delivery_rider',
@@ -217,6 +253,15 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _persistCourier(HubCourier courier) async {
     await _storage.saveUser(
       jsonEncode({'workflow_type': 'hub_courier', 'courier': courier.toJson()}),
+    );
+  }
+
+  Future<void> _persistLogistics(LogisticsAccount account) async {
+    await _storage.saveUser(
+      jsonEncode({
+        'workflow_type': 'logistics',
+        'logistics': account.toJson(),
+      }),
     );
   }
 

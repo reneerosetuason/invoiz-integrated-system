@@ -49,6 +49,8 @@ import '../lib/screens/remittances/hub_courier_remittances_screen.dart';
 import '../lib/widgets/receipt_confirmation.dart';
 import '../lib/screens/scan/parcel_scan_controller.dart';
 import '../lib/screens/scan/scan_parcel_screen.dart';
+import '../lib/models/logistics_account.dart';
+import '../lib/screens/logistics/logistics_scan_screen.dart';
 
 class _MemoryStorage extends TokenStorage {
   @override
@@ -65,6 +67,21 @@ class _MemoryStorage extends TokenStorage {
 
 const _name = 'Alexandria Maria Dela Cruz';
 const _email = 'alexandria.delacruz@logistics.example.test';
+Map<String, dynamic> _logisticsPayload({bool readOnly = false}) => {
+  'account_type': readOnly ? 'platform_admin' : 'logistics_staff',
+  'user': {'id': 3, 'name': _name, 'email': _email, 'phone': '09171234567'},
+  'logistics': {
+    'scope': readOnly ? 'global' : 'hub',
+    'can_scan': !readOnly,
+    'company': {'id': 1, 'name': 'INVOIZ Provincial Logistics Company'},
+    'facility': {
+      'id': 1,
+      'name': 'San Antonio Provincial Logistics Hub',
+      'city': 'San Antonio',
+      'address': '123 Provincial Highway',
+    },
+  },
+};
 const _rider = {
   'id': 1,
   'name': _name,
@@ -330,6 +347,8 @@ void main() {
     'tutorial': const RiderTutorialScreen(workflowType: 'delivery_rider'),
     'hub-tutorial': const RiderTutorialScreen(workflowType: 'hub_courier'),
     'scan': const SizedBox(),
+    'logistics-scan': const SizedBox(),
+    'logistics-readonly': const SizedBox(),
   };
   for (final config in [
     (320.0, 1.4),
@@ -361,14 +380,26 @@ void main() {
               (r) async =>
                   psgcFixture(r) ??
                   http.Response(
-                    jsonEncode(_response(r.url.path)),
+                    jsonEncode(
+                      r.url.path.endsWith('/scan/context')
+                          ? _logisticsPayload(
+                              readOnly: entry.key == 'logistics-readonly',
+                            )
+                          : _response(r.url.path),
+                    ),
                     200,
                     headers: {'content-type': 'application/json'},
                   ),
             ),
           );
           final auth = AuthProvider(api: api, storage: _MemoryStorage());
-          if (entry.key.startsWith('hub-')) {
+          if (entry.key.startsWith('logistics-')) {
+            auth.updateLogistics(
+              LogisticsAccount.fromJson(
+                _logisticsPayload(readOnly: entry.key == 'logistics-readonly'),
+              ),
+            );
+          } else if (entry.key.startsWith('hub-')) {
             auth.updateCourier(
               HubCourier.fromJson(Map<String, dynamic>.from(_courier)),
             );
@@ -396,6 +427,8 @@ void main() {
             'apply' => ApplyScreen(apiClient: api),
             'hub-apply' => HubTransportDriverApplyScreen(apiClient: api),
             'scan' => ScanParcelScreen(cameraEnabled: false, controller: scan),
+            'logistics-scan' || 'logistics-readonly' =>
+              const LogisticsScanScreen(cameraEnabled: false),
             _ => entry.value,
           };
           final errors = <String>[];

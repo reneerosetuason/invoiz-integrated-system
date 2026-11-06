@@ -9,6 +9,7 @@ use App\Models\RiderEmailVerification;
 use App\Rules\BusinessName;
 use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
+use App\Support\AccountEmailGuard;
 use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -79,6 +80,25 @@ class CenterApplicationService
                 $notRejected('email'),
                 new \App\Rules\SeparateAccountEmail('logistics'),
                 function ($attribute, $value, $fail) {
+                    $email = strtolower(trim((string) $value));
+                    if (\App\Models\User::where('email', $email)->where(function ($q) {
+                        $q->whereIn('role', ['buyer', 'seller'])->orWhereHas('seller');
+                    })->exists()) {
+                        $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Logistics Center application.');
+                        return;
+                    }
+
+                    if ((\Illuminate\Support\Facades\Schema::hasTable('riders') && \App\Models\Rider::whereRaw('LOWER(TRIM(email)) = ?', [$email])->exists())
+                        || (\Illuminate\Support\Facades\Schema::hasTable('hub_transport_drivers') && \App\Models\HubTransportDriver::whereRaw('LOWER(TRIM(email)) = ?', [$email])->exists())) {
+                        $fail('This email is already registered to a Delivery Rider or Hub Transport Driver account and cannot be used for a Logistics Center application.');
+                        return;
+                    }
+
+                    if (AccountEmailGuard::hasPendingApplication($email)) {
+                        $fail('This email already has a pending rider or driver application on file.');
+                        return;
+                    }
+
                     if (is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL)
                         && ! RiderEmailVerification::isVerified($value)) {
                         $fail('Please verify your email address before submitting your application.');

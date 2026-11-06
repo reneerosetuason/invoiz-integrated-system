@@ -103,6 +103,30 @@ class AuthController extends Controller
             ]);
         }
 
+        // Logistics personnel (admin, logistics admin, company manager, staff,
+        // or a provisioned center assignment). The backend decides the role;
+        // the client only receives the resolved account type and facility.
+        if ($user && ! $user->rider && $user->isLogisticsStaff()) {
+            if (! $user->isActive()) {
+                return response()->json([
+                    'message' => 'Your account is not active. Please contact support.',
+                ], 403);
+            }
+
+            $user->tokens()->where('name', 'logistics-mobile')->delete();
+            $token = $user->createToken('logistics-mobile', ['logistics'])->plainTextToken;
+            $payload = app(LogisticsScanController::class)->accountPayload($user);
+
+            return response()->json([
+                'message' => 'Login successful.',
+                'token' => $token,
+                'account_type' => $payload['account_type'],
+                'role' => $payload['role'],
+                'user' => $payload['user'],
+                'logistics' => $payload['logistics'],
+            ]);
+        }
+
         // Neither rider profile nor driver record exists: check application status
         $application = RiderApplication::whereRaw('LOWER(email) = ?', [$email])->latest()->first();
         if ($application && $application->status === 'pending') {
@@ -152,6 +176,17 @@ class AuthController extends Controller
                 'role' => 'hub_transport_driver',
                 'user' => $this->userPayloadForDriver($actor, $actor->user),
                 'courier' => $courierPayload,
+            ]);
+        }
+
+        if ($actor instanceof User && $actor->currentAccessToken()?->can('logistics')) {
+            $payload = app(LogisticsScanController::class)->accountPayload($actor);
+
+            return response()->json([
+                'account_type' => $payload['account_type'],
+                'role' => $payload['role'],
+                'user' => $payload['user'],
+                'logistics' => $payload['logistics'],
             ]);
         }
 

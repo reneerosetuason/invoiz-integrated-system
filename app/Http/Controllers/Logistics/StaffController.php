@@ -7,6 +7,7 @@ use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
 use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
+use App\Support\AccountEmailGuard;
 use App\Support\NameNormalizer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,7 @@ class StaffController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $this->normalizeNameInput($request);
+        $this->normalizeEmailInput($request);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100', new PersonName()],
@@ -69,6 +71,24 @@ class StaffController extends Controller
                 'max:150',
                 'unique:users,email',
                 new \App\Rules\SeparateAccountEmail('logistics'),
+                function ($attribute, $value, $fail) {
+                    $email = strtolower(trim((string) $value));
+                    if (\App\Models\User::where('email', $email)->where(function ($q) {
+                        $q->whereIn('role', ['buyer', 'seller'])->orWhereHas('seller');
+                    })->exists()) {
+                        $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Logistics account.');
+                        return;
+                    }
+
+                    if ($message = AccountEmailGuard::conflict($email)) {
+                        $fail($message);
+                        return;
+                    }
+
+                    if (AccountEmailGuard::hasPendingApplication($email)) {
+                        $fail('This email already has a pending rider or driver application on file.');
+                    }
+                },
             ],
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             'terms' => 'accepted',
@@ -114,13 +134,25 @@ class StaffController extends Controller
         $this->ensureStaffAccount($staff, manage: true);
 
         $this->normalizeNameInput($request);
+        $this->normalizeEmailInput($request);
 
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:100', new PersonName()],
             'last_name' => ['required', 'string', 'max:100', new PersonName()],
             'middle_initial' => ['nullable', 'string', 'max:10', new PersonName()],
             'sex' => 'required|in:male,female,other',
-            'email' => ['required', 'email', 'max:150', \Illuminate\Validation\Rule::unique('users', 'email')->ignore($staff->id), new \App\Rules\SeparateAccountEmail('logistics', $staff->id)],
+            'email' => [
+                'required',
+                'email',
+                'max:150',
+                \Illuminate\Validation\Rule::unique('users', 'email')->ignore($staff->id),
+                new \App\Rules\SeparateAccountEmail('logistics', $staff->id),
+                function ($attribute, $value, $fail) use ($staff) {
+                    if ($message = AccountEmailGuard::conflict((string) $value, ['user_id' => $staff->id])) {
+                        $fail($message);
+                    }
+                },
+            ],
             'phone' => ['required', new PhilippinePhone],
             'birthday' => 'required|date|before:today',
             'center_id' => ['required', 'exists:logistics_centers,id', function ($attribute, $value, $fail): void { $this->validateCenterCompany((int) $value, $fail); }],
@@ -163,6 +195,13 @@ class StaffController extends Controller
             $request->only(['first_name', 'last_name', 'middle_initial']),
             ['first_name', 'last_name', 'middle_initial']
         ));
+    }
+
+    private function normalizeEmailInput(Request $request): void
+    {
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => AccountEmailGuard::normalize($request->input('email'))]);
+        }
     }
 
     private function ensureStaffAccount(User $staff, bool $manage = false): void

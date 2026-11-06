@@ -6,7 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/deep_link_service.dart';
 import '../../widgets/deep_link_broker.dart';
 import '../auth/login_screen.dart';
-import '../home/home_shell.dart';
+import '../home/role_home.dart';
 
 /// Splash screen: restores the session, then routes to login or the shell.
 class SplashScreen extends StatefulWidget {
@@ -37,7 +37,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     final target = auth.isAuthenticated
-        ? const HomeShell()
+        ? homeForAuth(auth)
         : const LoginScreen();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(

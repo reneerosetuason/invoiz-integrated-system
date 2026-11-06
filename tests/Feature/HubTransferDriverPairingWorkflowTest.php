@@ -50,6 +50,7 @@ class HubTransferDriverPairingWorkflowTest extends TestCase
     private function manager(LogisticsCompany $company): User
     {
         return User::create([
+            'phone' => '09171234567',
             'name' => 'Pairing Manager',
             'email' => 'pairing-mgr-'.uniqid().'@test.local',
             'password' => Hash::make('password123'),

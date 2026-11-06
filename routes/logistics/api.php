@@ -18,6 +18,7 @@ use App\Http\Controllers\Logistics\Api\RiderPasswordResetController;
 use App\Http\Controllers\Logistics\Api\RiderRemittanceController;
 use App\Http\Controllers\Logistics\Api\VehicleTypeController;
 use App\Http\Controllers\Logistics\Api\HubCourierController;
+use App\Http\Controllers\Logistics\Api\LogisticsScanController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('logistics')->group(function () {
@@ -47,6 +48,12 @@ Route::middleware('auth:sanctum')->prefix('courier')->group(function () {
     Route::post('/transfers/{transfer}/complete-loading', [HubCourierController::class, 'completeLoading']);
     Route::post('/transfers/{transfer}/dispatch', [HubCourierController::class, 'dispatch']);
     Route::post('/transfers/{transfer}/destination-arrival', [HubCourierController::class, 'destinationArrival']);
+});
+
+Route::middleware(['auth:sanctum', 'logistics.mobile'])->prefix('scan')->group(function () {
+    Route::get('/context', [LogisticsScanController::class, 'context']);
+    Route::post('/lookup', [LogisticsScanController::class, 'lookup'])->middleware('throttle:60,1');
+    Route::post('/confirm', [LogisticsScanController::class, 'confirm'])->middleware('throttle:60,1');
 });
 
 Route::get('/vehicle-types', [VehicleTypeController::class, 'index']);

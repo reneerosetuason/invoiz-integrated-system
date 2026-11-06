@@ -1,5 +1,6 @@
 import '../core/network/api_client.dart';
 import '../models/hub_courier.dart';
+import '../models/logistics_account.dart';
 import '../models/rider.dart';
 
 typedef AuthResult = ({
@@ -7,7 +8,15 @@ typedef AuthResult = ({
   String accountType,
   Rider? rider,
   HubCourier? courier,
+  LogisticsAccount? logistics,
 });
+
+const Set<String> _logisticsAccountTypes = {
+  'logistics_staff',
+  'logistics_admin',
+  'company_manager',
+  'platform_admin',
+};
 
 /// Authentication service (login / logout / session).
 class AuthService {
@@ -29,15 +38,26 @@ class AuthService {
       throw Exception('Login failed: no token returned.');
     }
 
-    final accountType = data['account_type'] as String? ??
-        (data['courier'] != null ? 'hub_transport_driver' : 'delivery_rider');
+    final accountType =
+        data['account_type'] as String? ??
+        (data['courier'] != null
+            ? 'hub_transport_driver'
+            : data['logistics'] != null
+            ? 'logistics_staff'
+            : 'delivery_rider');
 
     Rider? rider;
     HubCourier? courier;
+    LogisticsAccount? logistics;
 
-    if (accountType == 'hub_transport_driver' || data['courier'] != null) {
-      final courierMap =
-          Map<String, dynamic>.from(data['courier'] as Map? ?? {});
+    if (_logisticsAccountTypes.contains(accountType) ||
+        data['logistics'] != null) {
+      logistics = LogisticsAccount.fromJson(data);
+    } else if (accountType == 'hub_transport_driver' ||
+        data['courier'] != null) {
+      final courierMap = Map<String, dynamic>.from(
+        data['courier'] as Map? ?? {},
+      );
       courier = HubCourier.fromJson(courierMap);
     } else {
       final riderMap = Map<String, dynamic>.from(
@@ -52,21 +72,40 @@ class AuthService {
       accountType: accountType,
       rider: rider,
       courier: courier,
+      logistics: logistics,
     );
   }
 
-  Future<({String accountType, Rider? rider, HubCourier? courier})>
+  Future<
+    ({
+      String accountType,
+      Rider? rider,
+      HubCourier? courier,
+      LogisticsAccount? logistics,
+    })
+  >
   currentUser() async {
     final data = await _api.get('/user');
-    final accountType = data['account_type'] as String? ??
-        (data['courier'] != null ? 'hub_transport_driver' : 'delivery_rider');
+    final accountType =
+        data['account_type'] as String? ??
+        (data['courier'] != null
+            ? 'hub_transport_driver'
+            : data['logistics'] != null
+            ? 'logistics_staff'
+            : 'delivery_rider');
 
     Rider? rider;
     HubCourier? courier;
+    LogisticsAccount? logistics;
 
-    if (accountType == 'hub_transport_driver' || data['courier'] != null) {
-      final courierMap =
-          Map<String, dynamic>.from(data['courier'] as Map? ?? {});
+    if (_logisticsAccountTypes.contains(accountType) ||
+        data['logistics'] != null) {
+      logistics = LogisticsAccount.fromJson(data);
+    } else if (accountType == 'hub_transport_driver' ||
+        data['courier'] != null) {
+      final courierMap = Map<String, dynamic>.from(
+        data['courier'] as Map? ?? {},
+      );
       courier = HubCourier.fromJson(courierMap);
     } else {
       final riderMap = Map<String, dynamic>.from(
@@ -76,7 +115,12 @@ class AuthService {
       rider = Rider.fromJson(riderMap);
     }
 
-    return (accountType: accountType, rider: rider, courier: courier);
+    return (
+      accountType: accountType,
+      rider: rider,
+      courier: courier,
+      logistics: logistics,
+    );
   }
 
   Future<void> logout() async {

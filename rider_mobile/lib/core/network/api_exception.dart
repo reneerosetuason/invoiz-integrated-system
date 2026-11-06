@@ -17,12 +17,17 @@ class ApiException implements Exception {
     required this.message,
     this.statusCode,
     this.errors,
+    this.data,
   });
 
   final ApiErrorType type;
   final String message;
   final int? statusCode;
   final Map<String, List<String>>? errors;
+
+  /// Parsed response body for error statuses that carry structured detail
+  /// (for example a scan preview with the parcel's current status).
+  final Map<String, dynamic>? data;
 
   @override
   String toString() => 'ApiException(${type.name}): $message';

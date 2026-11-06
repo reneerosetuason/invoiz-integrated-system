@@ -6,7 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../apply/application_type_select_screen.dart';
 import '../apply/application_status_screen.dart';
-import '../home/home_shell.dart';
+import '../home/role_home.dart';
 import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
 import 'forgot_password_screen.dart';
@@ -99,9 +99,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       // Clear the whole stack so a deep-link / prior shell can never leave a
-      // duplicate HomeShell or a stale login route behind.
+      // duplicate HomeShell or a stale login route behind. Logistics
+      // accounts open the scanning workspace instead of the rider shell.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const HomeShell()),
+        MaterialPageRoute(builder: (_) => homeForAuth(auth)),
         (route) => false,
       );
     } else {
