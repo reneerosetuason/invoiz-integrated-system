@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Logistics;
 
 use App\Mail\CenterApplicationApprovedMail;
 use App\Mail\CenterApplicationRejectedMail;
+use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCenterApplication;
 use App\Models\LogisticsCenterApplicationDocument;
 use App\Models\LogisticsCompany;
 use App\Models\Notification;
+use App\Models\Rider;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -141,6 +143,16 @@ class CenterApplicationAdminController extends Controller
                 $user?->isDesignatedLogisticsAdminAccount() || $user?->isAdmin() || $user?->isLogisticsAdmin(),
                 422,
                 'The global Logistics Admin and Platform Administrator cannot be assigned as company staff.'
+            );
+
+            // One email belongs to one logistics role. A rider or driver
+            // account is never converted into a staff login by approval.
+            $approvalEmail = strtolower(trim((string) $application->email));
+            abort_if(
+                Rider::whereRaw('LOWER(email) = ?', [$approvalEmail])->exists()
+                    || HubTransportDriver::whereRaw('LOWER(email) = ?', [$approvalEmail])->exists(),
+                422,
+                'This email already belongs to a Delivery Rider or Hub Transport Driver account and cannot be converted into a Logistics staff account.'
             );
             $keepLogin = $user && $user->keepsOwnLogin();
             if (! $user) {

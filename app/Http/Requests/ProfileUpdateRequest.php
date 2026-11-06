@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\User;
 use App\Rules\PersonName;
+use App\Support\AccountEmailGuard;
 use App\Support\NameNormalizer;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -34,6 +35,11 @@ class ProfileUpdateRequest extends FormRequest
                 'email',
                 'max:255',
                 Rule::unique(User::class)->ignore($this->user()->id),
+                function ($attribute, $value, $fail) {
+                    if ($message = AccountEmailGuard::conflict((string) $value, ['user_id' => $this->user()->id])) {
+                        $fail($message);
+                    }
+                },
             ],
             'phone' => ['nullable', 'string', 'max:20'],
             'photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],

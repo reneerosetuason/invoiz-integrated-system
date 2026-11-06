@@ -9,6 +9,7 @@ use App\Models\RiderEmailVerification;
 use App\Rules\BusinessName;
 use App\Rules\PersonName;
 use App\Rules\PhilippinePhone;
+use App\Support\AccountEmailGuard;
 use App\Support\NameNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -83,6 +84,17 @@ class CenterApplicationService
                         $q->whereIn('role', ['buyer', 'seller'])->orWhereHas('seller');
                     })->exists()) {
                         $fail('This email is already registered as a Buyer or Seller on INVOIZ and cannot be used for a Logistics Center application.');
+                        return;
+                    }
+
+                    if (\App\Models\Rider::whereRaw('LOWER(email) = ?', [$email])->exists()
+                        || \App\Models\HubTransportDriver::whereRaw('LOWER(email) = ?', [$email])->exists()) {
+                        $fail('This email is already registered to a Delivery Rider or Hub Transport Driver account and cannot be used for a Logistics Center application.');
+                        return;
+                    }
+
+                    if (AccountEmailGuard::hasPendingApplication($email)) {
+                        $fail('This email already has a pending rider or driver application on file.');
                         return;
                     }
 

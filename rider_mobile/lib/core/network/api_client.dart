@@ -239,6 +239,8 @@ class ApiClient {
       );
     }
 
+    final payload = data is Map ? Map<String, dynamic>.from(data) : null;
+
     switch (status) {
       case 401:
         return ApiException(
@@ -246,6 +248,7 @@ class ApiClient {
           message: message,
           statusCode: status,
           errors: errors,
+          data: payload,
         );
       case 403:
         return ApiException(
@@ -253,6 +256,7 @@ class ApiClient {
           message: message,
           statusCode: status,
           errors: errors,
+          data: payload,
         );
       case 404:
         return ApiException(
@@ -260,6 +264,7 @@ class ApiClient {
           message: message,
           statusCode: status,
           errors: errors,
+          data: payload,
         );
       case 409:
         return ApiException(
@@ -267,6 +272,7 @@ class ApiClient {
           message: message,
           statusCode: status,
           errors: errors,
+          data: payload,
         );
       case 422:
         return ApiException(
@@ -274,6 +280,7 @@ class ApiClient {
           message: message,
           statusCode: status,
           errors: errors,
+          data: payload,
         );
       default:
         return ApiException(
@@ -281,6 +288,7 @@ class ApiClient {
           message: message,
           statusCode: status,
           errors: errors,
+          data: payload,
         );
     }
   }

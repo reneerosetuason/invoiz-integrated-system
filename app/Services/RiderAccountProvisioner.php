@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
 use App\Models\Notification;
 use App\Models\Rider;
@@ -83,6 +84,20 @@ class RiderAccountProvisioner
                 ->select(['id', 'name', 'email', 'first_name', 'last_name', 'role', 'is_admin', 'status', 'account_status'])
                 ->where('email', $email)
                 ->first();
+
+            // One email belongs to one logistics role. Never convert a staff
+            // or hub-driver account into a rider through approval.
+            if ($user && $user->isLogisticsStaff()) {
+                throw ValidationException::withMessages([
+                    'email' => 'This email belongs to a Logistics staff account and cannot be provisioned as a rider.',
+                ]);
+            }
+            if (HubTransportDriver::whereRaw('LOWER(email) = ?', [$email])->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => 'This email belongs to a Hub Transport Driver account and cannot be provisioned as a rider.',
+                ]);
+            }
+
             if (! $user) {
                 $user = User::create([
                     'name' => $application->name,

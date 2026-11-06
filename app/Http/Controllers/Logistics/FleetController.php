@@ -7,6 +7,7 @@ use App\Models\LogisticsCompany;
 use App\Models\LogisticsTruck;
 use App\Models\VehicleIncident;
 use App\Models\VehicleMaintenanceRecord;
+use App\Support\AccountEmailGuard;
 use App\Support\LogisticsVehicleCategory;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -214,11 +215,29 @@ class FleetController extends Controller
         $this->authorizeManager($request);
         $company = $this->resolveCentralCompany($request);
 
+        if (is_string($request->input('email'))) {
+            $request->merge(['email' => AccountEmailGuard::normalize($request->input('email'))]);
+        }
+
         $data = $request->validate([
             'name' => 'required|string|max:160',
             'phone' => 'nullable|string|max:30',
             'license_number' => ['nullable', 'string', 'max:100', Rule::unique('hub_transport_drivers')->where('logistics_company_id', $company->id)],
-            'email' => ['required', 'email', 'max:255', 'unique:hub_transport_drivers,email'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                'unique:hub_transport_drivers,email',
+                function ($attribute, $value, $fail) {
+                    if ($message = AccountEmailGuard::conflict((string) $value)) {
+                        $fail($message);
+                        return;
+                    }
+                    if (AccountEmailGuard::hasPendingApplication((string) $value)) {
+                        $fail('This email already has a pending rider or driver application on file.');
+                    }
+                },
+            ],
             'password' => 'required|string|min:8|confirmed',
             'logistics_truck_id' => 'required|integer|exists:logistics_trucks,id',
             'remarks' => 'nullable|string|max:2000',

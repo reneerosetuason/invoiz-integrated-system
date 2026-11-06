@@ -6,6 +6,7 @@ use App\Mail\RiderAccountApprovedMail;
 use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
 use App\Models\Notification;
+use App\Models\Rider;
 use App\Models\RiderApplication;
 use App\Models\RiderApplicationLog;
 use App\Models\User;
@@ -81,6 +82,20 @@ class HubTransportDriverProvisioner
             if ($existingMarketplace) {
                 throw ValidationException::withMessages([
                     'email' => "This email is registered to a {$existingMarketplace->role} account on INVOIZ and cannot be used for a driver account.",
+                ]);
+            }
+
+            // One email belongs to one logistics role. Existing staff and
+            // rider accounts are never absorbed into a driver account.
+            $existingStaff = User::whereRaw('LOWER(email) = ?', [$email])->first();
+            if ($existingStaff && $existingStaff->isLogisticsStaff()) {
+                throw ValidationException::withMessages([
+                    'email' => 'This email belongs to a Logistics staff account and cannot be provisioned as a Hub Transport Driver.',
+                ]);
+            }
+            if (Rider::whereRaw('LOWER(email) = ?', [$email])->exists()) {
+                throw ValidationException::withMessages([
+                    'email' => 'This email belongs to a Delivery Rider account and cannot be provisioned as a Hub Transport Driver.',
                 ]);
             }
 
