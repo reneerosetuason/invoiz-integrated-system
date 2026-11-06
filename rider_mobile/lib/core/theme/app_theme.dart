@@ -1,6 +1,5 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-
-import '../../widgets/app_transitions.dart';
 
 /// Invoiz brand palette — single source of truth for the Rider app.
 ///
@@ -14,15 +13,17 @@ class AppColors {
   static const Color primaryDark = Color(0xFF0E4A57);
   static const Color secondary = Color(0xFFF0A202);
   static const Color accent = Color(0xFFEAF4F3);
-  static const Color background = Color(0xFFF8FAF9);
+  static const Color background = Color(0xFFF2F2F7);
+  static const Color paper = Color(0xFFFAFAFC);
+  static const Color danger = Color(0xFFB3261E);
   static const Color card = Color(0xFFFFFFFF);
-  static const Color textPrimary = Color(0xFF1F2933);
-  static const Color textSecondary = Color(0xFF6E7B7B);
-  static const Color success = Color(0xFF2E8B57);
+  static const Color textPrimary = Color(0xFF1B1B1E);
+  static const Color textSecondary = Color(0xFF56696B);
+  static const Color success = Color(0xFF287660);
   static const Color warning = Color(0xFFE05A33);
   static const Color gold = Color(0xFFF5A623);
-  static const Color border = Color(0xFFE3E9E9);
-  static const Color surfaceSoft = Color(0xFFEDF1F1);
+  static const Color border = Color(0xFFDCDCE1);
+  static const Color surfaceSoft = Color(0xFFEDF3F1);
 
   /// Elevated surface for primary cards (always above [background]).
   static const Color surface = Color(0xFFFFFFFF);
@@ -37,8 +38,8 @@ class AppRadius {
 
   static const double xs = 10;
   static const double sm = 14;
-  static const double md = 18;
-  static const double lg = 24;
+  static const double md = 16;
+  static const double lg = 20;
   static const double xl = 32;
   static const double pill = 999;
 }
@@ -63,8 +64,9 @@ class AppText {
 
   /// Hero numbers and greetings.
   static const TextStyle display = TextStyle(
-    fontSize: 30,
-    fontWeight: FontWeight.w800,
+    fontFamily: 'Inter',
+    fontSize: 32,
+    fontWeight: FontWeight.w600,
     letterSpacing: -0.5,
     color: AppColors.textPrimary,
     height: 1.1,
@@ -72,8 +74,9 @@ class AppText {
 
   /// Page titles.
   static const TextStyle title = TextStyle(
-    fontSize: 22,
-    fontWeight: FontWeight.w800,
+    fontFamily: 'Inter',
+    fontSize: 24,
+    fontWeight: FontWeight.w600,
     letterSpacing: -0.3,
     color: AppColors.textPrimary,
     height: 1.2,
@@ -81,14 +84,16 @@ class AppText {
 
   /// Section headings.
   static const TextStyle section = TextStyle(
+    fontFamily: 'Inter',
     fontSize: 16,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
     color: AppColors.textPrimary,
   );
 
   /// Card titles and emphasized rows.
   static const TextStyle cardTitle = TextStyle(
+    fontFamily: 'Inter',
     fontSize: 15,
     fontWeight: FontWeight.w700,
     color: AppColors.textPrimary,
@@ -97,6 +102,7 @@ class AppText {
 
   /// Default body copy.
   static const TextStyle body = TextStyle(
+    fontFamily: 'Inter',
     fontSize: 14,
     color: AppColors.textPrimary,
     height: 1.45,
@@ -104,6 +110,7 @@ class AppText {
 
   /// Supporting descriptions and metadata.
   static const TextStyle secondary = TextStyle(
+    fontFamily: 'Inter',
     fontSize: 13,
     color: AppColors.textSecondary,
     height: 1.4,
@@ -111,6 +118,7 @@ class AppText {
 
   /// Eyebrow labels, captions, timestamps.
   static const TextStyle caption = TextStyle(
+    fontFamily: 'Inter',
     fontSize: 11,
     fontWeight: FontWeight.w600,
     color: AppColors.textSecondary,
@@ -119,16 +127,18 @@ class AppText {
 
   /// Small caps eyebrow used above sections and KPI groups.
   static const TextStyle eyebrow = TextStyle(
+    fontFamily: 'Inter',
     fontSize: 11,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w600,
     letterSpacing: 1.1,
     color: AppColors.textSecondary,
   );
 
   /// Tracking/waybill numbers — tabular, high-contrast, easy to locate.
   static const TextStyle tracking = TextStyle(
+    fontFamily: 'Inter',
     fontSize: 17,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w600,
     letterSpacing: 0.2,
     color: AppColors.textPrimary,
     fontFeatures: [FontFeature.tabularFigures()],
@@ -136,13 +146,14 @@ class AppText {
 
   /// Large KPI values.
   static TextStyle kpi([double size = 28]) => TextStyle(
-        fontSize: size,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.5,
-        color: AppColors.textPrimary,
-        height: 1.05,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      );
+    fontFamily: 'Inter',
+    fontSize: size,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.5,
+    color: AppColors.textPrimary,
+    height: 1.05,
+    fontFeatures: const [FontFeature.tabularFigures()],
+  );
 }
 
 /// Invoize Rider application theme.
@@ -160,8 +171,8 @@ class AppTheme {
   static const Color success = AppColors.success;
   static const Color warning = AppColors.warning;
 
-  /// Errors use the brand warning tone (no arbitrary reds).
-  static const Color danger = AppColors.warning;
+  /// Keep errors distinct from delivery warnings.
+  static const Color danger = AppColors.danger;
 
   static const Color background = AppColors.background;
   static const Color textPrimary = AppColors.textPrimary;
@@ -172,26 +183,73 @@ class AppTheme {
   static ThemeData light() {
     final base = ThemeData(
       useMaterial3: true,
+      platform: TargetPlatform.iOS,
+      fontFamily: 'Inter',
       colorScheme: ColorScheme.fromSeed(
         seedColor: primary,
         primary: primary,
         secondary: secondary,
         surface: AppColors.card,
-        error: warning,
+        error: danger,
+        onSurface: textPrimary,
+        outline: border,
       ),
       scaffoldBackgroundColor: background,
     );
 
     return base.copyWith(
+      cupertinoOverrideTheme: const CupertinoThemeData(
+        brightness: Brightness.light,
+        primaryColor: primary,
+        scaffoldBackgroundColor: background,
+        barBackgroundColor: AppColors.paper,
+        textTheme: CupertinoTextThemeData(
+          textStyle: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 16,
+            color: textPrimary,
+          ),
+          navTitleTextStyle: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            color: textPrimary,
+          ),
+          actionTextStyle: TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 16,
+            color: primary,
+          ),
+        ),
+      ),
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      visualDensity: VisualDensity.standard,
+      textTheme: base.textTheme
+          .apply(bodyColor: textPrimary, displayColor: primaryDark)
+          .copyWith(
+            headlineMedium: AppText.display,
+            headlineSmall: AppText.title,
+            titleLarge: AppText.title.copyWith(fontSize: 20),
+            titleMedium: AppText.cardTitle,
+          ),
+      dividerTheme: const DividerThemeData(color: border, thickness: .6),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.paper,
+        surfaceTintColor: Colors.transparent,
+      ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.card,
+        backgroundColor: AppColors.paper,
+        surfaceTintColor: Colors.transparent,
+        scrolledUnderElevation: 0,
         foregroundColor: textPrimary,
         elevation: 0,
-        centerTitle: false,
+        centerTitle: true,
         titleTextStyle: TextStyle(
           color: textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w700,
+          fontFamily: 'Inter',
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
         ),
       ),
       cardTheme: CardThemeData(
@@ -204,14 +262,15 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
+          backgroundColor: primaryDark,
           foregroundColor: Colors.white,
           disabledBackgroundColor: primary.withValues(alpha: 0.5),
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(44, 48),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
           textStyle: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -219,13 +278,14 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size.fromHeight(52),
+          minimumSize: const Size(44, 48),
           foregroundColor: primary,
-          side: const BorderSide(color: primary, width: 1.5),
+          side: const BorderSide(color: border),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
           textStyle: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
@@ -234,22 +294,37 @@ class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(foregroundColor: primary),
       ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: primaryDark,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(44, 48),
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+          shape: const StadiumBorder(),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: surfaceSoft,
+        fillColor: AppColors.card,
         hintStyle: TextStyle(
           color: textSecondary.withValues(alpha: 0.7),
           fontSize: 14,
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
@@ -257,11 +332,11 @@ class AppTheme {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: warning),
+          borderSide: const BorderSide(color: danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: const BorderSide(color: warning, width: 1.6),
+          borderSide: const BorderSide(color: danger, width: 1.6),
         ),
       ),
       chipTheme: const ChipThemeData(
@@ -269,9 +344,9 @@ class AppTheme {
         side: BorderSide(color: border),
       ),
       dialogTheme: DialogThemeData(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        backgroundColor: AppColors.paper,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       snackBarTheme: const SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
@@ -279,11 +354,11 @@ class AppTheme {
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: FadeSlidePageTransitionsBuilder(),
-          TargetPlatform.iOS: FadeSlidePageTransitionsBuilder(),
-          TargetPlatform.windows: FadeSlidePageTransitionsBuilder(),
-          TargetPlatform.macOS: FadeSlidePageTransitionsBuilder(),
-          TargetPlatform.linux: FadeSlidePageTransitionsBuilder(),
+          TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
         },
       ),
     );

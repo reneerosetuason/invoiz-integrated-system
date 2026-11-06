@@ -5,6 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../models/hub_courier.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/hub_courier_service.dart';
+import '../../widgets/receipt_confirmation.dart';
 
 class HubCourierRemittancesScreen extends StatefulWidget {
   const HubCourierRemittancesScreen({super.key});
@@ -44,25 +45,13 @@ class _HubCourierRemittancesScreenState
     if (_accepting != null) return;
     final id = asJsonInt(payout['id']);
     final amount = asJsonDouble(payout['amount']);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm payment received'),
-        content: Text(
-          'Have you received ₱${amount.toStringAsFixed(2)}? '
-          'Confirm only after checking the payment in your receiving account.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm receipt'),
-          ),
-        ],
-      ),
+    final confirmed = await showReceiptConfirmation(
+      context,
+      title: 'Confirm payment received',
+      message:
+          'Have you received ₱${amount.toStringAsFixed(2)}? Confirm only after checking the payment in your receiving account.',
+      cancelLabel: 'Cancel',
+      confirmLabel: 'Confirm receipt',
     );
     if (confirmed != true || !mounted) return;
     setState(() => _accepting = id);

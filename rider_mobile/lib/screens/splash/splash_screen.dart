@@ -10,10 +10,7 @@ import '../home/home_shell.dart';
 
 /// Splash screen: restores the session, then routes to login or the shell.
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({
-    super.key,
-    this.startupDeepLinkGate,
-  });
+  const SplashScreen({super.key, this.startupDeepLinkGate});
 
   final StartupDeepLinkGate? startupDeepLinkGate;
 
@@ -39,7 +36,9 @@ class _SplashScreenState extends State<SplashScreen> {
     } catch (_) {}
     if (!mounted) return;
 
-    final target = auth.isAuthenticated ? const HomeShell() : const LoginScreen();
+    final target = auth.isAuthenticated
+        ? const HomeShell()
+        : const LoginScreen();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         settings: auth.isAuthenticated
@@ -57,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primary,
+      backgroundColor: AppColors.background,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -66,23 +65,21 @@ class _SplashScreenState extends State<SplashScreen> {
               width: 92,
               height: 92,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(28),
               ),
               padding: const EdgeInsets.all(12),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'images/logo.png',
-                  fit: BoxFit.contain,
-                ),
+                child: Image.asset('images/logo.png', fit: BoxFit.contain),
               ),
             ),
             const SizedBox(height: 24),
             const Text(
-              'Invoize Rider',
+              'INVOIZ Rider',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.primaryDark,
+                fontFamily: 'Inter',
                 fontSize: 26,
                 fontWeight: FontWeight.w800,
               ),
@@ -90,7 +87,7 @@ class _SplashScreenState extends State<SplashScreen> {
             const SizedBox(height: 8),
             const Text(
               'Delivering happiness, on time.',
-              style: TextStyle(color: Colors.white70, fontSize: 14),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 40),
             const SizedBox(
@@ -98,7 +95,7 @@ class _SplashScreenState extends State<SplashScreen> {
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                color: Colors.white,
+                color: AppColors.primaryDark,
               ),
             ),
           ],

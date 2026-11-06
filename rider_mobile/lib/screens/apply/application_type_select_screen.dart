@@ -46,10 +46,7 @@ class ApplicationTypeSelectScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('Apply as a Rider'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Apply as a Rider'), elevation: 0),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -69,8 +66,9 @@ class ApplicationTypeSelectScreen extends StatelessWidget {
               const Text(
                 'Join the INVOIZ Fleet',
                 style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
+                  fontFamily: 'Inter',
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary,
                   letterSpacing: -0.3,
                 ),
@@ -139,10 +137,7 @@ class ApplicationTypeSelectScreen extends StatelessWidget {
                   icon: const Icon(Icons.search, size: 18),
                   label: const Text(
                     'Already applied? Check your application status',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   style: TextButton.styleFrom(
                     foregroundColor: AppTheme.primary,
@@ -243,7 +238,10 @@ class _RoleCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: badgeColor.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8),

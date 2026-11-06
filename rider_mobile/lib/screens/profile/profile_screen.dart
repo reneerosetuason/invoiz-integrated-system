@@ -38,7 +38,8 @@ class ProfilePhotoPicker {
     );
     if (result == null || result.files.isEmpty) return null;
     final file = result.files.first;
-    final bytes = file.bytes ??
+    final bytes =
+        file.bytes ??
         (file.path != null ? await file.xFile.readAsBytes() : null);
     if (bytes == null || bytes.isEmpty) return null;
     return (bytes: bytes, filename: file.name);
@@ -152,15 +153,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(AppGaps.xl),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.primary, AppTheme.primaryDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppColors.card,
+              border: Border.all(color: AppColors.border),
               borderRadius: BorderRadius.circular(AppRadius.lg),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.3),
+                  color: AppTheme.primary.withValues(alpha: 0.02),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -182,14 +180,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: GestureDetector(
                         onTap: _uploadingPhoto
                             ? null
-                            : () => _uploadRiderPhoto(context, riderProvider, auth),
+                            : () => _uploadRiderPhoto(
+                                context,
+                                riderProvider,
+                                auth,
+                              ),
                         child: Container(
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
                             color: AppColors.secondary,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(
+                              color: AppColors.primaryDark,
+                              width: 2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.2),
@@ -200,7 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: const Icon(
                             Icons.camera_alt,
                             size: 14,
-                            color: Colors.white,
+                            color: AppColors.primaryDark,
                           ),
                         ),
                       ),
@@ -212,9 +217,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 16,
                         height: 16,
                         decoration: BoxDecoration(
-                          color: isOnline ? AppTheme.success : AppColors.textSecondary,
+                          color: isOnline
+                              ? AppTheme.success
+                              : AppColors.textSecondary,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppTheme.primaryDark, width: 2.5),
+                          border: Border.all(
+                            color: AppTheme.primaryDark,
+                            width: 2.5,
+                          ),
                         ),
                       ),
                     ),
@@ -224,35 +234,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   name,
                   textAlign: TextAlign.center,
-                  style: AppText.title.copyWith(fontSize: 20, color: Colors.white),
+                  style: AppText.title.copyWith(
+                    fontSize: 20,
+                    color: AppColors.primaryDark,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   email,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.white70),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: AppColors.tint,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.two_wheeler, size: 13, color: Colors.white),
+                          Icon(
+                            Icons.two_wheeler,
+                            size: 13,
+                            color: AppColors.primaryDark,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'Delivery Rider',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ],
@@ -260,18 +285,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: AppColors.tint,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isOnline ? Icons.bolt_outlined : Icons.bedtime_outlined,
+                            isOnline
+                                ? Icons.bolt_outlined
+                                : Icons.bedtime_outlined,
                             size: 13,
-                            color: Colors.white,
+                            color: AppColors.primaryDark,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -279,7 +309,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ],
@@ -413,7 +443,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(height: 16),
 
-        const StaggerIn(index: 3, child: SectionHeader(title: 'Delivery Stats')),
+        const StaggerIn(
+          index: 3,
+          child: SectionHeader(title: 'Delivery Stats'),
+        ),
         const SizedBox(height: 10),
         StaggerIn(
           index: 3,
@@ -448,7 +481,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 24),
 
         OutlinedButton.icon(
-          onPressed: riderProvider.statusBusy || (!isOnline && !rider.canGoOnline)
+          onPressed:
+              riderProvider.statusBusy || (!isOnline && !rider.canGoOnline)
               ? null
               : () => _toggleAvailability(context, riderProvider),
           style: OutlinedButton.styleFrom(
@@ -505,15 +539,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(AppGaps.xl),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppTheme.primary, AppTheme.primaryDark],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: AppColors.card,
+              border: Border.all(color: AppColors.border),
               borderRadius: BorderRadius.circular(AppRadius.lg),
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primary.withValues(alpha: 0.3),
+                  color: AppTheme.primary.withValues(alpha: 0.02),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),
@@ -542,7 +573,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             color: AppColors.secondary,
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(
+                              color: AppColors.primaryDark,
+                              width: 2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.2),
@@ -553,7 +587,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: const Icon(
                             Icons.camera_alt,
                             size: 14,
-                            color: Colors.white,
+                            color: AppColors.primaryDark,
                           ),
                         ),
                       ),
@@ -565,9 +599,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         width: 16,
                         height: 16,
                         decoration: BoxDecoration(
-                          color: isOnline ? AppTheme.success : AppColors.textSecondary,
+                          color: isOnline
+                              ? AppTheme.success
+                              : AppColors.textSecondary,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppTheme.primaryDark, width: 2.5),
+                          border: Border.all(
+                            color: AppTheme.primaryDark,
+                            width: 2.5,
+                          ),
                         ),
                       ),
                     ),
@@ -577,35 +616,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(
                   name,
                   textAlign: TextAlign.center,
-                  style: AppText.title.copyWith(fontSize: 20, color: Colors.white),
+                  style: AppText.title.copyWith(
+                    fontSize: 20,
+                    color: AppColors.primaryDark,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   email,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.white70),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: AppColors.tint,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.local_shipping_outlined, size: 13, color: Colors.white),
+                          Icon(
+                            Icons.local_shipping_outlined,
+                            size: 13,
+                            color: AppColors.primaryDark,
+                          ),
                           SizedBox(width: 4),
                           Text(
                             'Hub Transport Driver',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ],
@@ -613,18 +667,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
+                        color: AppColors.tint,
                         borderRadius: BorderRadius.circular(AppRadius.pill),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isOnline ? Icons.bolt_outlined : Icons.bedtime_outlined,
+                            isOnline
+                                ? Icons.bolt_outlined
+                                : Icons.bedtime_outlined,
                             size: 13,
-                            color: Colors.white,
+                            color: AppColors.primaryDark,
                           ),
                           const SizedBox(width: 4),
                           Text(
@@ -632,7 +691,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ],
@@ -667,18 +726,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _InfoRow(
                   icon: Icons.business_outlined,
                   label: 'Company',
-                  value: courier.company.isEmpty ? 'Not provided' : courier.company,
+                  value: courier.company.isEmpty
+                      ? 'Not provided'
+                      : courier.company,
                   isProtected: true,
                 ),
                 const Divider(height: 1, indent: 56),
                 _InfoRow(
                   icon: Icons.local_shipping_outlined,
                   label: 'Arrangement',
-                  value: courier.isDriverOwned ? 'Driver-Owned Truck' : 'Company Fleet',
+                  value: courier.isDriverOwned
+                      ? 'Driver-Owned Truck'
+                      : 'Company Fleet',
                   isProtected: true,
                 ),
                 const Divider(height: 1, indent: 56),
-                _StatusRow(status: courier.status.isEmpty ? 'active' : courier.status),
+                _StatusRow(
+                  status: courier.status.isEmpty ? 'active' : courier.status,
+                ),
               ],
             ),
           ),
@@ -699,15 +764,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _InfoRow(
                   icon: Icons.local_shipping,
                   label: 'Vehicle',
-                  value: vehicle?['name']?.toString() ??
-                      (courier.isDriverOwned ? 'Driver-Owned Freight Truck' : 'Company Truck'),
+                  value:
+                      vehicle?['name']?.toString() ??
+                      (courier.isDriverOwned
+                          ? 'Driver-Owned Freight Truck'
+                          : 'Company Truck'),
                   isProtected: true,
                 ),
                 const Divider(height: 1, indent: 56),
                 _InfoRow(
                   icon: Icons.confirmation_number_outlined,
                   label: 'Plate No.',
-                  value: vehicle?['plate_number']?.toString() ?? 'Pending Assignment',
+                  value:
+                      vehicle?['plate_number']?.toString() ??
+                      'Pending Assignment',
                   isProtected: true,
                 ),
                 const Divider(height: 1, indent: 56),
@@ -722,7 +792,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _InfoRow(
                     icon: Icons.inventory_2_outlined,
                     label: 'Capacity',
-                    value: '${vehicle['parcel_capacity'] ?? 0} parcels (${vehicle['capacity_kg'] ?? 0} kg)',
+                    value:
+                        '${vehicle['parcel_capacity'] ?? 0} parcels (${vehicle['capacity_kg'] ?? 0} kg)',
                     isProtected: true,
                   ),
                 ],
@@ -732,7 +803,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   label: 'Verification',
                   value: courier.verificationStatus == 'approved'
                       ? 'Approved'
-                      : (courier.verificationStatus == 'rejected' ? 'Rejected' : 'Pending Review'),
+                      : (courier.verificationStatus == 'rejected'
+                            ? 'Rejected'
+                            : 'Pending Review'),
                   isProtected: true,
                 ),
               ],
@@ -777,7 +850,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to upload photo. Please try again.')),
+        const SnackBar(
+          content: Text('Unable to upload photo. Please try again.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
@@ -793,10 +868,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final picked = await widget.photoPicker.pickPhoto();
       if (picked == null) return;
 
-      final updated = await HubCourierService(auth.api).uploadPhoto(
-        fileBytes: picked.bytes,
-        filename: picked.filename,
-      );
+      final updated = await HubCourierService(
+        auth.api,
+      ).uploadPhoto(fileBytes: picked.bytes, filename: picked.filename);
 
       if (!context.mounted) return;
       auth.updateCourier(updated);
@@ -806,7 +880,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (_) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Unable to upload photo. Please try again.')),
+        const SnackBar(
+          content: Text('Unable to upload photo. Please try again.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
@@ -848,10 +924,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _openCourierEdit(BuildContext context, HubCourier courier) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => EditProfileScreen(
-          initialPhone: courier.phone,
-          isCourier: true,
-        ),
+        builder: (_) =>
+            EditProfileScreen(initialPhone: courier.phone, isCourier: true),
       ),
     );
   }
@@ -873,15 +947,18 @@ class _AvatarDisplay extends StatelessWidget {
     if (isBusy) {
       return const CircleAvatar(
         radius: 36,
-        backgroundColor: Colors.white24,
-        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+        backgroundColor: AppColors.tint,
+        child: CircularProgressIndicator(
+          color: AppColors.primaryDark,
+          strokeWidth: 2.5,
+        ),
       );
     }
 
     if (avatarUrl != null && avatarUrl!.isNotEmpty) {
       return CircleAvatar(
         radius: 36,
-        backgroundColor: Colors.white.withValues(alpha: 0.18),
+        backgroundColor: AppColors.tint,
         child: ClipOval(
           child: Image.network(
             avatarUrl!,
@@ -900,11 +977,12 @@ class _AvatarDisplay extends StatelessWidget {
   Widget _initialsWidget() {
     return CircleAvatar(
       radius: 36,
-      backgroundColor: Colors.white.withValues(alpha: 0.18),
+      backgroundColor: AppColors.tint,
       child: Text(
         initials,
         style: const TextStyle(
-          color: Colors.white,
+          fontFamily: 'Inter',
+          color: AppColors.primaryDark,
           fontSize: 26,
           fontWeight: FontWeight.w800,
         ),
@@ -1003,53 +1081,53 @@ class _InfoRow extends StatelessWidget {
     required this.value,
     this.isProtected = false,
   });
-
   final IconData icon;
   final String label;
   final String value;
   final bool isProtected;
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          IconTile(
-            icon: icon,
-            size: 38,
-            iconSize: 19,
-            color: AppColors.textSecondary,
-          ),
-          const SizedBox(width: AppGaps.md),
-          Text(label, style: AppText.secondary),
-          const Spacer(),
-          Flexible(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.right,
-                    style: AppText.body.copyWith(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                if (isProtected) ...[
-                  const SizedBox(width: 4),
-                  const Icon(
-                    Icons.lock_outline,
-                    size: 13,
-                    color: AppColors.textSecondary,
-                  ),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        IconTile(
+          icon: icon,
+          size: 38,
+          iconSize: 19,
+          color: AppColors.textSecondary,
+        ),
+        const SizedBox(width: AppGaps.md),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Text(label, style: AppText.caption)),
+                  if (isProtected)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 6),
+                      child: Icon(
+                        Icons.lock_outline,
+                        size: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
                 ],
-              ],
-            ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                style: AppText.body.copyWith(fontWeight: FontWeight.w500),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
 class _StatCard extends StatelessWidget {
@@ -1155,9 +1233,9 @@ class _DocumentRowState extends State<_DocumentRow> {
     }
     final uri = Uri.tryParse(url);
     if (uri == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid document URL.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Invalid document URL.')));
       return;
     }
     setState(() => _opening = true);
@@ -1187,7 +1265,9 @@ class _DocumentRowState extends State<_DocumentRow> {
       child: Row(
         children: [
           IconTile(
-            icon: doc.isImage ? Icons.image_outlined : Icons.description_outlined,
+            icon: doc.isImage
+                ? Icons.image_outlined
+                : Icons.description_outlined,
             size: 38,
             iconSize: 19,
             color: AppColors.textSecondary,
@@ -1311,7 +1391,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   bool get _dirty =>
       _phoneController.text.trim() != widget.initialPhone.trim() ||
-      _plateController.text.trim() != LicensePlate.normalize(widget.initialPlate) ||
+      _plateController.text.trim() !=
+          LicensePlate.normalize(widget.initialPlate) ||
       _vehicle != widget.initialVehicle;
 
   String? _validatePhone(String? value) => PhilippineMobile.validate(value);
@@ -1335,7 +1416,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (widget.isCourier || auth.isHubCourier) {
       try {
-        final updated = await HubCourierService(auth.api).updateProfile(phone: phone);
+        final updated = await HubCourierService(
+          auth.api,
+        ).updateProfile(phone: phone);
         if (!mounted) return;
         _saved = true;
         auth.updateCourier(updated);
@@ -1392,7 +1475,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

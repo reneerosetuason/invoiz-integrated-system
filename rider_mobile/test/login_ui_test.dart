@@ -369,10 +369,8 @@ void main() {
 
       // With the fuller card, small phones scroll; the scroll view must
       // still expose every action with no overflow.
-      final scrollable = tester.widget<SingleChildScrollView>(
-        find.byType(SingleChildScrollView),
-      );
-      expect(scrollable.physics, isA<AlwaysScrollableScrollPhysics>());
+      await tester.ensureVisible(find.text('Check Application Status'));
+      expect(find.text('Check Application Status').hitTestable(), findsOneWidget);
 
       await tester.fling(
         find.byType(SingleChildScrollView),

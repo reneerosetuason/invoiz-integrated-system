@@ -41,16 +41,16 @@ class DeliveryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      delivery.trackingNumber,
-                      style: AppText.tracking,
-                    ),
-                  ),
+                  Text(delivery.trackingNumber, style: AppText.tracking),
                   StatusBadge(
-                      status: delivery.status, label: delivery.statusLabel),
+                    status: delivery.status,
+                    label: delivery.statusLabel,
+                  ),
                 ],
               ),
               const SizedBox(height: AppGaps.md),
@@ -80,7 +80,9 @@ class DeliveryCard extends StatelessWidget {
                   if (delivery.isCashOnDelivery)
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.secondary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
@@ -111,8 +113,10 @@ class DeliveryCard extends StatelessWidget {
   }
 
   String _itemsSummary() {
-    final count =
-        delivery.items.fold<int>(0, (sum, item) => sum + item.quantity);
+    final count = delivery.items.fold<int>(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
     final names = delivery.items.map((item) => item.name).toList();
     final shown = names.take(2).join(' • ');
     final extra = names.length > 2 ? ' +${names.length - 2} more' : '';
@@ -167,11 +171,7 @@ class _Stop extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        IconTile(
-          icon: icon,
-          size: 36,
-          iconSize: 18,
-        ),
+        IconTile(icon: icon, size: 36, iconSize: 18),
         const SizedBox(width: AppGaps.md),
         Expanded(
           child: Column(

@@ -241,6 +241,28 @@
 </div>
 </div>
 </div>
+<div class="rv mt-4 grid gap-4 md:grid-cols-2" id="downloads">
+<div class="relative overflow-hidden rounded-3xl p-8 md:p-10" style="background:linear-gradient(160deg,#FDFCF8,#F1ECE1);border:1px solid rgba(15,76,92,.12)">
+<div class="orb-drift pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,rgba(190,170,140,.28),transparent 65%);filter:blur(50px)" aria-hidden="true"></div>
+<div class="relative">
+<p class="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal/10"><i data-lucide="smartphone" class="h-5 w-5 text-teal"></i></p>
+<p class="eyebrow mt-4">Android</p>
+<h2 class="font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.5rem,2.6vw,2rem);line-height:1.1">Download Buyer app</h2>
+<p class="mt-2 max-w-sm text-[15px] text-teal-dark">Shop, pay cash on delivery, and track your orders. APK · 138 MB</p>
+<a href="{{ url('/downloads/invoiz-buyer.apk') }}" download class="press group mt-6 inline-flex items-center gap-2 rounded-full bg-teal-dark px-6 text-sm font-bold text-white" style="height:44px">Download APK <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1">↓</span></a>
+</div>
+</div>
+<div class="relative overflow-hidden rounded-3xl p-8 md:p-10" style="background:linear-gradient(160deg,#F2F8F7,#E2EFEC);border:1px solid rgba(15,76,92,.12)">
+<div class="orb-drift pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full" style="background:radial-gradient(circle,rgba(22,105,122,.22),transparent 65%);filter:blur(50px)" aria-hidden="true"></div>
+<div class="relative">
+<p class="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal/10"><i data-lucide="navigation" class="h-5 w-5 text-teal"></i></p>
+<p class="eyebrow mt-4">Android</p>
+<h2 class="font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.5rem,2.6vw,2rem);line-height:1.1">Download INVOIZ Rider</h2>
+<p class="mt-2 max-w-sm text-[15px] text-teal-dark">Pick up, sort, and deliver parcels as a rider. APK · 120 MB</p>
+<a href="{{ url('/downloads/invoiz-rider.apk') }}" download class="press group mt-6 inline-flex items-center gap-2 rounded-full bg-teal px-6 text-sm font-bold text-white" style="height:44px;border:1px solid rgba(15,76,92,.12)">Download APK <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1">↓</span></a>
+</div>
+</div>
+</div>
 </div>
 </section>
 </main>

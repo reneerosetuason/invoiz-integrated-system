@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
@@ -66,9 +64,7 @@ class IconTile extends StatelessWidget {
 
 // ── Brand badge ────────────────────────────────────────────────────
 
-/// INVOIZ brand badge from the reference system: amber ring, deeper inner
-/// edge, white medallion holding the INVOIZ logo asset. Used on splash and
-/// login so branding reads identically in both places.
+/// Quiet paper logo tile matching the buyer identity.
 class BrandBadge extends StatelessWidget {
   const BrandBadge({super.key, this.size = 120, this.elevation = true});
 
@@ -77,42 +73,25 @@ class BrandBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ring = size * 0.11;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [AppColors.gold, AppColors.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(
-          color: const Color(0xFFB87700).withValues(alpha: 0.55),
-          width: math.max(2, size * 0.018),
-        ),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(size * .25),
+        border: Border.all(color: AppColors.border),
         boxShadow: elevation
             ? [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.28),
-                  blurRadius: size * 0.22,
-                  offset: Offset(0, size * 0.07),
+                  color: AppColors.primaryDark.withValues(alpha: .05),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
                 ),
               ]
             : null,
       ),
-      padding: EdgeInsets.all(ring),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
-        ),
-        padding: EdgeInsets.all(size * 0.13),
-        child: ClipOval(
-          child: Image.asset('images/logo.png', fit: BoxFit.contain),
-        ),
-      ),
+      padding: EdgeInsets.all(size * .15),
+      child: Image.asset('images/logo.png', fit: BoxFit.contain),
     );
   }
 }
@@ -213,14 +192,20 @@ class InfoTile extends StatelessWidget {
                   Text(title, style: AppText.cardTitle.copyWith(fontSize: 14)),
                   if (subtitle != null && subtitle!.isNotEmpty) ...[
                     const SizedBox(height: 2),
-                    Text(subtitle!, style: AppText.secondary.copyWith(fontSize: 12)),
+                    Text(
+                      subtitle!,
+                      style: AppText.secondary.copyWith(fontSize: 12),
+                    ),
                   ],
                 ],
               ),
             ),
             trailing ??
                 (onTap != null
-                    ? const Icon(Icons.chevron_right, color: AppColors.textSecondary)
+                    ? const Icon(
+                        Icons.chevron_right,
+                        color: AppColors.textSecondary,
+                      )
                     : const SizedBox.shrink()),
           ],
         ),
@@ -308,11 +293,18 @@ class EmptyView extends StatelessWidget {
               child: Icon(icon, size: 34, color: AppTheme.primary),
             ),
             const SizedBox(height: AppGaps.lg),
-            Text(title, textAlign: TextAlign.center, style: AppText.section.copyWith(fontSize: 17)),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppText.section.copyWith(fontSize: 17),
+            ),
             if (message != null) ...[
               const SizedBox(height: AppGaps.sm),
-              Text(message!,
-                  textAlign: TextAlign.center, style: AppText.secondary),
+              Text(
+                message!,
+                textAlign: TextAlign.center,
+                style: AppText.secondary,
+              ),
             ],
             if (action != null) ...[
               const SizedBox(height: AppGaps.lg),
@@ -433,9 +425,10 @@ class _PulseState extends State<_Pulse> with SingleTickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 1100),
     )..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 0.55, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _opacity = Tween<double>(
+      begin: 0.55,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override

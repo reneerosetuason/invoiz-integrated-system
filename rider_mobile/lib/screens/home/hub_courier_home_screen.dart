@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/theme/app_theme.dart';
 import '../../models/hub_courier.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/hub_courier_service.dart';
@@ -192,8 +193,10 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
                       'HUB TRANSPORT DRIVER',
@@ -206,14 +209,10 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: courier.isDriverOwned
-                            ? Colors.purple.shade50
-                            : Colors.blue.shade50,
+                            ? AppColors.surfaceSoft
+                            : AppColors.paper,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: courier.isDriverOwned
-                              ? Colors.purple.shade200
-                              : Colors.blue.shade200,
-                        ),
+                        border: Border.all(color: AppColors.border),
                       ),
                       child: Text(
                         courier.isDriverOwned
@@ -222,9 +221,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
-                          color: courier.isDriverOwned
-                              ? Colors.purple.shade800
-                              : Colors.blue.shade800,
+                          color: AppColors.primaryDark,
                         ),
                       ),
                     ),
@@ -242,7 +239,10 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                 const Divider(height: 20),
 
                 // Vehicle Details Section
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Icon(
                       Icons.local_shipping_outlined,
@@ -254,7 +254,6 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                       'Vehicle: ${vehicle['plate_number'] ?? 'Not Assigned'}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    const Spacer(),
                     if (vehicle['status'] != null)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -293,7 +292,9 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                 ),
                 if (courier.isDriverOwned) ...[
                   const SizedBox(height: 4),
-                  Row(
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
                     children: [
                       const Text(
                         'Ownership Verification: ',
@@ -334,7 +335,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                   'Capacity: ${vehicle['parcel_capacity'] ?? 0} parcels · ${vehicle['capacity_kg'] ?? 0} kg',
                   style: const TextStyle(fontSize: 11, color: Colors.black54),
                 ),
-                SwitchListTile(
+                SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   title: Text(
                     courier.online
@@ -364,8 +365,10 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     const Text(
                       'CONFIRMED TRIP EARNINGS',

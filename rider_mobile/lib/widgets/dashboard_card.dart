@@ -42,17 +42,9 @@ class DashboardCard extends StatelessWidget {
             children: [
               IconTile(icon: icon, size: 38, iconSize: 20, color: color),
               const SizedBox(height: AppGaps.sm),
-              Text(
-                value,
-                style: AppText.kpi(24).copyWith(color: color),
-              ),
+              Text(value, style: AppText.kpi(24).copyWith(color: color)),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: AppText.caption,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              Text(label, style: AppText.caption),
             ],
           ),
         ),

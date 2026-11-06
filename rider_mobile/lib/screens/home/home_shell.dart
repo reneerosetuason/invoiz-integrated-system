@@ -66,7 +66,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   static const _courierSlots = [
     LiquidNavSlot(Icons.dashboard_outlined, Icons.dashboard, 'Dashboard', 0),
-    LiquidNavSlot(Icons.local_shipping_outlined, Icons.local_shipping, 'Transfers', 1),
+    LiquidNavSlot(
+      Icons.local_shipping_outlined,
+      Icons.local_shipping,
+      'Transfers',
+      1,
+    ),
     LiquidNavSlot(Icons.settings_outlined, Icons.settings, 'Settings', 3),
     LiquidNavSlot(Icons.person_outline, Icons.person, 'Profile', 4),
   ];
@@ -252,7 +257,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('No active transfer in progress. Please check your assigned transfers.'),
+            content: Text(
+              'No active transfer in progress. Please check your assigned transfers.',
+            ),
           ),
         );
         return;
@@ -264,7 +271,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Transfer #$transferId is currently in status "$status". Parcels can only be scanned during Loading.'),
+            content: Text(
+              'Transfer #$transferId is currently in status "$status". Parcels can only be scanned during Loading.',
+            ),
           ),
         );
         return;
@@ -274,7 +283,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Parcel $tracking successfully loaded into transfer #$transferId!'),
+          content: Text(
+            'Parcel $tracking successfully loaded into transfer #$transferId!',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -378,7 +389,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       ),
       body: Padding(
         // Clearance so tab content never hides under the floating dock.
-        padding: const EdgeInsets.only(bottom: 92),
+        padding: EdgeInsets.only(
+          bottom:
+              LiquidNavBar.heightFor(context) +
+              12 +
+              MediaQuery.viewPaddingOf(context).bottom,
+        ),
         child: IndexedStack(index: _screenIndex, children: screens),
       ),
       bottomNavigationBar: SafeArea(

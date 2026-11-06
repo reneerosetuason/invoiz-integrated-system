@@ -39,9 +39,12 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
     setState(() {
       _transfersFuture = future;
     });
-    return future.then<void>((_) {}, onError: (_) {
-      // FutureBuilder renders the error state.
-    });
+    return future.then<void>(
+      (_) {},
+      onError: (_) {
+        // FutureBuilder renders the error state.
+      },
+    );
   }
 
   bool inActiveStatus(String status) {
@@ -103,12 +106,22 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                          const Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: Colors.red,
+                          ),
                           const SizedBox(height: 12),
                           const Text('Failed to load transfers'),
-                          Text(snapshot.error.toString(), textAlign: TextAlign.center),
+                          Text(
+                            snapshot.error.toString(),
+                            textAlign: TextAlign.center,
+                          ),
                           const SizedBox(height: 12),
-                          ElevatedButton(onPressed: _load, child: const Text('Retry')),
+                          ElevatedButton(
+                            onPressed: _load,
+                            child: const Text('Retry'),
+                          ),
                         ],
                       ),
                     ),
@@ -124,13 +137,20 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.local_shipping_outlined, size: 48, color: Colors.grey),
+                          const Icon(
+                            Icons.local_shipping_outlined,
+                            size: 48,
+                            color: Colors.grey,
+                          ),
                           const SizedBox(height: 12),
                           Text(
                             _selectedFilter == 'all'
                                 ? 'No hub transfer manifests assigned.'
                                 : 'No transfers match this filter.',
-                            style: const TextStyle(color: Colors.black54, fontSize: 14),
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              fontSize: 14,
+                            ),
                           ),
                         ],
                       ),
@@ -185,7 +205,9 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isActive ? const Color(0xFF16697A).withOpacity(0.5) : Colors.grey.shade200,
+          color: isActive
+              ? const Color(0xFF16697A).withOpacity(0.5)
+              : Colors.grey.shade200,
           width: isActive ? 1.5 : 1,
         ),
       ),
@@ -203,8 +225,10 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Manifest Ref & Status Badge
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     job.reference,
@@ -215,7 +239,10 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.12),
                       borderRadius: BorderRadius.circular(6),
@@ -237,25 +264,43 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
               // Route: Origin -> Destination
               Row(
                 children: [
-                  const Icon(Icons.storefront, size: 16, color: Color(0xFF16697A)),
+                  const Icon(
+                    Icons.storefront,
+                    size: 16,
+                    color: Color(0xFF16697A),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       job.origin['name'] ?? 'Origin Hub',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 6),
-                    child: Icon(Icons.arrow_forward, size: 14, color: Colors.grey),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      size: 14,
+                      color: Colors.grey,
+                    ),
                   ),
-                  const Icon(Icons.warehouse, size: 16, color: Color(0xFF0E4A57)),
+                  const Icon(
+                    Icons.warehouse,
+                    size: 16,
+                    color: Color(0xFF0E4A57),
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       job.destination['name'] ?? 'Destination Hub',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -264,26 +309,46 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
               const Divider(height: 18),
 
               // Vehicle & Parcel details
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.local_shipping_outlined, size: 15, color: Colors.black54),
+                      const Icon(
+                        Icons.local_shipping_outlined,
+                        size: 15,
+                        color: Colors.black54,
+                      ),
                       const SizedBox(width: 4),
-                      Text(
-                        '${vehicle['plate_number'] ?? 'No vehicle'} · ${vehicle['type'] ?? 'Truck'}',
-                        style: const TextStyle(fontSize: 11, color: Colors.black87),
+                      Flexible(
+                        child: Text(
+                          '${vehicle['plate_number'] ?? 'No vehicle'} · ${vehicle['type'] ?? 'Truck'}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black87,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.inventory_2_outlined, size: 15, color: Colors.black54),
+                      const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 15,
+                        color: Colors.black54,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         '${job.loadedCount}/${job.parcelCount} loaded',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -309,7 +374,10 @@ class _HubTransfersScreenState extends State<HubTransfersScreen> {
                     const SizedBox(width: 4),
                     Text(
                       'Dispatch: ${job.data['planned_dispatch_at']}',
-                      style: const TextStyle(fontSize: 11, color: Colors.black54),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black54,
+                      ),
                     ),
                   ],
                 ),

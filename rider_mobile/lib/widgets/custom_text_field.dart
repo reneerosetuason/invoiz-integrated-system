@@ -46,7 +46,7 @@ class CustomTextField extends StatelessWidget {
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: AppColors.textSecondary,
-            letterSpacing: 0.8,
+            letterSpacing: 0.3,
           ),
         ),
         const SizedBox(height: 8),
@@ -72,18 +72,18 @@ class CustomTextField extends StatelessWidget {
                 : Icon(icon, color: AppColors.textSecondary, size: 20),
             suffixIcon: suffix,
             filled: true,
-            fillColor: AppColors.surfaceSoft,
+            fillColor: AppColors.card,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 16,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+              borderSide: const BorderSide(color: AppColors.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide.none,
+              borderSide: const BorderSide(color: AppColors.border),
             ),
             focusedBorder: const OutlineInputBorder(
               borderRadius: BorderRadius.all(Radius.circular(16)),
@@ -91,14 +91,11 @@ class CustomTextField extends StatelessWidget {
             ),
             errorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppColors.warning),
+              borderSide: const BorderSide(color: AppColors.danger),
             ),
             focusedErrorBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(
-                color: AppColors.warning,
-                width: 1.6,
-              ),
+              borderSide: const BorderSide(color: AppColors.danger, width: 1.6),
             ),
             errorStyle: const TextStyle(fontSize: 12),
           ),

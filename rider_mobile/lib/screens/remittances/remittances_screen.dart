@@ -9,6 +9,7 @@ import '../../providers/earnings_provider.dart';
 import '../../widgets/dashboard_card.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
+import '../../widgets/receipt_confirmation.dart';
 
 /// Cash-on-Delivery collections the rider must hand over to logistics.
 class RemittancesScreen extends StatefulWidget {
@@ -170,24 +171,13 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
     RemittanceProvider provider,
     EscrowPayout payout,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Confirm payout received'),
-        content: Text(
+    final confirmed = await showReceiptConfirmation(
+      context,
+      title: 'Confirm payout received',
+      message:
           'Have you received ${FormatUtils.peso(payout.amount)} in your account? Confirm only after checking the actual transfer.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Not yet'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Yes, received'),
-          ),
-        ],
-      ),
+      cancelLabel: 'Not yet',
+      confirmLabel: 'Yes, received',
     );
     if (confirmed != true || !context.mounted) return;
     final accepted = await provider.acceptPayout(payout.id);

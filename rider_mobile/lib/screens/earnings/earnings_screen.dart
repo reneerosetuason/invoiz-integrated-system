@@ -43,15 +43,12 @@ class EarningsScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(AppGaps.xl),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.primary, AppTheme.primaryDark],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppColors.card,
+            border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(AppRadius.lg),
             boxShadow: [
               BoxShadow(
-                color: AppTheme.primary.withValues(alpha: 0.3),
+                color: AppTheme.primary.withValues(alpha: 0.03),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -64,14 +61,14 @@ class EarningsScreen extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.account_balance_wallet_outlined,
-                    color: Colors.white70,
+                    color: AppColors.textSecondary,
                     size: 14,
                   ),
                   SizedBox(width: 6),
                   Text(
                     "Today's Earnings",
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: AppColors.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -81,7 +78,7 @@ class EarningsScreen extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 FormatUtils.peso(summary.today),
-                style: AppText.kpi(34).copyWith(color: Colors.white),
+                style: AppText.kpi(34).copyWith(color: AppColors.primaryDark),
               ),
             ],
           ),
@@ -94,7 +91,7 @@ class EarningsScreen extends StatelessWidget {
                 label: 'This Week',
                 value: FormatUtils.peso(summary.thisWeek),
                 icon: Icons.date_range_outlined,
-                color: const Color(0xFF1D6FE0),
+                color: AppColors.primaryDark,
               ),
             ),
             const SizedBox(width: 10),

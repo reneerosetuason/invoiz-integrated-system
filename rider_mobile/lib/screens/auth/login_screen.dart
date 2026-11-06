@@ -11,7 +11,7 @@ import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
 import 'forgot_password_screen.dart';
 
-/// Rider login screen with curved teal header, rounded card, and test credentials.
+/// Rider sign-in using the shared buyer-app visual language.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -30,8 +30,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordFocus = FocusNode();
 
   static const _belowHeaderEstimate = 575.0;
-  static const _minHeader = 132.0;
-  static const _maxHeader = 230.0;
+  static const _minHeader = 100.0;
+  static const _maxHeader = 140.0;
 
   bool _obscure = true;
   bool _busy = false;
@@ -209,6 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   textStyle: const TextStyle(
+                    fontFamily: 'Inter',
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -231,10 +232,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // The page fits on one screen: scrolling is disabled unless the
-    // keyboard is open (when it is needed to avoid overflow).
-    final keyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -254,9 +251,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   )
                 : _minHeader;
             return SingleChildScrollView(
-              physics: (keyboardOpen || !fitsOnePage)
-                  ? const AlwaysScrollableScrollPhysics()
-                  : const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.symmetric(
+                horizontal:
+                    ((constraints.maxWidth - 520).clamp(0, double.infinity)) /
+                    2,
+              ),
+              physics: const ClampingScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
@@ -275,9 +275,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           const Text(
                             'Rider Login',
                             style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
+                              fontFamily: 'Inter',
+                              fontSize: 30,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryDark,
                             ),
                           ),
                           const SizedBox(height: 6),
@@ -303,8 +304,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
-                                  blurRadius: 16,
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
@@ -410,6 +411,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       style: TextButton.styleFrom(
                                         foregroundColor: AppTheme.primary,
                                         textStyle: const TextStyle(
+                                          fontFamily: 'Inter',
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -420,8 +422,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         tapTargetSize:
                                             MaterialTapTargetSize.shrinkWrap,
                                       ),
-                                      child:
-                                          const Text('Forgot password?'),
+                                      child: const Text('Forgot password?'),
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -510,24 +511,24 @@ class _LoginScreenState extends State<LoginScreen> {
                                     onPressed: _isLocked
                                         ? null
                                         : () => Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const ApplicationTypeSelectScreen(),
-                                              ),
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const ApplicationTypeSelectScreen(),
                                             ),
+                                          ),
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppTheme.primary,
                                       side: const BorderSide(
-                                        color: AppTheme.primary,
-                                        width: 1.5,
+                                        color: AppColors.border,
                                       ),
-                                      minimumSize:
-                                          const Size.fromHeight(50),
+                                      minimumSize: const Size.fromHeight(50),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                       ),
                                       textStyle: const TextStyle(
+                                        fontFamily: 'Inter',
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -549,21 +550,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           OutlinedButton.icon(
                             onPressed: () => Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) =>
-                                    const ApplicationStatusScreen(),
+                                builder: (_) => const ApplicationStatusScreen(),
                               ),
                             ),
                             style: OutlinedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: AppTheme.primary,
-                              side: BorderSide(
-                                color: AppColors.border,
-                              ),
+                              side: BorderSide(color: AppColors.border),
                               minimumSize: const Size.fromHeight(50),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(999),
                               ),
                               textStyle: const TextStyle(
+                                fontFamily: 'Inter',
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -586,101 +585,59 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-/// Curved teal header with logo, app name, and "RIDER CENTER" subtitle.
+/// Compact identity row, shared in spirit with buyer sign-in.
 class _CurvedHeader extends StatelessWidget {
   const _CurvedHeader({required this.height});
-
   final double height;
 
   @override
-  Widget build(BuildContext context) {
-    final headerHeight = height;
-
-    return ClipRRect(
-      borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(32),
-        bottomRight: Radius.circular(32),
-      ),
-      child: SizedBox(
-        height: headerHeight,
-        width: double.infinity,
-        child: CustomPaint(
-          painter: _HeaderPainter(),
-          child: SafeArea(
-            top: false,
+  Widget build(BuildContext context) => SizedBox(
+    height: height,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border),
+            ),
+            padding: const EdgeInsets.all(8),
+            child: Image.asset('images/logo.png', fit: BoxFit.contain),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 4),
-                // Logo circle — uses Driver_app/images/logo.png
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryDark,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.15),
-                      width: 1.5,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(8),
-                  child: ClipOval(
-                    child: Image.asset('images/logo.png', fit: BoxFit.contain),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Invoiz',
+                Text(
+                  'INVOIZ',
                   style: TextStyle(
-                    fontSize: 24,
+                    fontSize: 21,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
+                    color: AppColors.primaryDark,
                   ),
                 ),
-                const SizedBox(height: 2),
-                const Text(
-                  'R  I  D  E  R     C  E  N  T  E  R',
+                SizedBox(height: 3),
+                Text(
+                  'RIDER CENTER',
                   style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white70,
-                    letterSpacing: 1,
+                    fontSize: 10,
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
-                  maxLines: 1,
                 ),
               ],
             ),
           ),
-        ),
+          const Icon(Icons.route_outlined, color: AppColors.primary, size: 24),
+        ],
       ),
-    );
-  }
-}
-
-/// Custom painter that fills the header with a teal gradient and rounded bottom.
-class _HeaderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final gradient = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [AppTheme.primaryDark, AppTheme.primary],
-    );
-
-    final paint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.fill;
-
-    final path = Path()
-      ..addRect(rect)
-      ..close();
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+    ),
+  );
 }

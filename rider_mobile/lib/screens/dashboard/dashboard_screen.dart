@@ -175,7 +175,7 @@ class DashboardScreen extends StatelessWidget {
                   label: 'In Transit',
                   value: '${dashboard?.stats['in_transit'] ?? 0}',
                   icon: Icons.delivery_dining_outlined,
-                  color: const Color(0xFF8A4BDF),
+                  color: AppColors.primaryDark,
                   onTap: () => _goToFiltered(context, 'in_transit'),
                 ),
               ),
@@ -362,14 +362,7 @@ class _Header extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppGaps.lg),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppTheme.primary.withValues(alpha: 0.12),
-            AppTheme.primary.withValues(alpha: 0.04),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(AppRadius.lg),
         border: Border.all(color: AppTheme.primary.withValues(alpha: 0.16)),
       ),
@@ -382,11 +375,7 @@ class _Header extends StatelessWidget {
                 width: 52,
                 height: 52,
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.primaryDark],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+                  color: AppColors.primaryDark,
                   borderRadius: BorderRadius.circular(AppRadius.lg),
                   boxShadow: [
                     BoxShadow(
@@ -424,7 +413,7 @@ class _Header extends StatelessWidget {
                 label: busy
                     ? 'Updating availability'
                     : (isOnline ? 'Go offline' : 'Go online'),
-                child: Switch(
+                child: Switch.adaptive(
                   value: isOnline,
                   onChanged: busy || (!isOnline && !canGoOnline)
                       ? null
@@ -644,11 +633,8 @@ class _EarningsBanner extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.primary, AppTheme.primaryDark],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppColors.card,
+            border: Border.all(color: AppColors.border),
             borderRadius: BorderRadius.circular(18),
           ),
           child: Row(
@@ -660,7 +646,7 @@ class _EarningsBanner extends StatelessWidget {
                     const Text(
                       "Today's Earnings",
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: AppColors.textSecondary,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
@@ -668,27 +654,36 @@ class _EarningsBanner extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       FormatUtils.peso(amount),
-                      style: AppText.kpi(30).copyWith(color: Colors.white),
+                      style: AppText.kpi(
+                        30,
+                      ).copyWith(color: AppColors.primaryDark),
                     ),
                     const SizedBox(height: 12),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.account_balance_wallet_outlined,
-                          color: Colors.white60,
+                          color: AppColors.textSecondary,
                           size: 14,
                         ),
-                        SizedBox(width: 6),
-                        Text(
-                          'Tap to view your earnings & delivery history',
-                          style: TextStyle(color: Colors.white60, fontSize: 12),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Tap to view your earnings & delivery history',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                            softWrap: true,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.white70),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
             ],
           ),
         ),
