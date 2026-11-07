@@ -475,6 +475,24 @@ class Delivery extends Model
         return 'last_mile';
     }
 
+    /** Explain the outstanding hub step without changing assignment eligibility. */
+    public function riderAssignmentBlockReason(): ?string
+    {
+        $scope = $this->riderAssignmentScope();
+        if ($scope['stage'] !== 'hub_processing') {
+            return null;
+        }
+
+        if ($scope['center_id'] !== null && $this->center_id !== null
+            && (int) $this->center_id !== (int) $scope['center_id']) {
+            return 'Parcel is at an intermediate hub and still needs transfer to its final destination hub before last-mile assignment.';
+        }
+
+        return $this->parcel_status === 'scanned'
+            ? 'Parcel must be sorted at its destination hub before last-mile assignment.'
+            : 'Parcel must be scanned and sorted at its destination hub before last-mile assignment.';
+    }
+
     /**
      * The reviewed destination is authoritative across transfer legs. Address
      * suggestions are a fallback, never a way to reroute an already routed

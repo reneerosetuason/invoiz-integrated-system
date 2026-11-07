@@ -30,7 +30,7 @@
     @if($buyer)
       <div style="position:relative">
         <button onclick="document.getElementById('profileDrop').classList.toggle('open')" class="profile-btn">
-          <img src="{{ $buyerAvatar ?: 'https://ui-avatars.com/api/?name='.urlencode($buyer['first_name'].' '.$buyer['last_name']).'&background=134e4a&color=fff&size=32' }}" alt="" class="profile-avatar">
+          <img src="{{ $buyerAvatar ?: 'https://ui-avatars.com/api/?name='.urlencode($buyer['first_name'].' '.$buyer['last_name']).'&background=134e4a&color=fff&size=32' }}" alt="" class="profile-avatar" style="width:32px!important;height:32px!important;min-width:32px!important;max-width:32px!important;min-height:32px!important;max-height:32px!important;border-radius:50%!important;object-fit:cover!important;flex-shrink:0!important;display:block!important;">
           <span style="font-weight:600;font-size:13.5px;max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ $buyer['first_name'] }}</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </button>

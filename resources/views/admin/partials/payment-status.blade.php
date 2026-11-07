@@ -9,6 +9,8 @@
     $statusLabel = match($paymentStatus) {
         'held_in_escrow' => 'Held',
         'pending_remittance' => 'Ready',
+        'remitted' => '✓ Remitted',
+        'accepted' => '✓ Received',
         default => ucwords(str_replace('_', ' ', $paymentStatus)),
     };
 @endphp

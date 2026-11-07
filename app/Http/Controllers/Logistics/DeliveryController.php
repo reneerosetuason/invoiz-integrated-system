@@ -497,6 +497,7 @@ class DeliveryController extends Controller
     {
         $weight = (float) ($delivery->weight ?? 0);
         $stage = $delivery->riderAssignmentScope()['stage'];
+        $hubBlockReason = $delivery->riderAssignmentBlockReason();
         $riderQuery = Rider::query();
         LogisticsAccess::scopeRiders($riderQuery, Auth::user());
 
@@ -517,7 +518,7 @@ class DeliveryController extends Controller
             ->withCount(['activeDeliveries as active_deliveries'])
             ->with('latestLocation')
             ->get()
-            ->map(function (Rider $rider) use ($weight, $delivery, $stage, $targetLat, $targetLng, $distanceBasis, $freshAfter, $freshBefore) {
+            ->map(function (Rider $rider) use ($weight, $delivery, $stage, $hubBlockReason, $targetLat, $targetLng, $distanceBasis, $freshAfter, $freshBefore) {
                 $reason = null;
                 $activeDeliveries = (int) ($rider->active_deliveries ?? 0);
                 $distanceKm = null;
@@ -557,7 +558,7 @@ class DeliveryController extends Controller
                 } elseif ($activeDeliveries >= Rider::MAX_ACTIVE_DELIVERIES) {
                     $reason = 'At delivery capacity ('.Rider::MAX_ACTIVE_DELIVERIES.' active)';
                 } elseif ($stage === 'hub_processing') {
-                    $reason = 'Parcel is still being processed at a logistics hub';
+                    $reason = $hubBlockReason;
                 } elseif (!$rider->matchesDestinationCenter($delivery)) {
                     $reason = $stage === 'pickup' ? 'Different pickup hub' : 'Different destination hub';
                 } elseif (!$rider->matchesServiceArea($delivery)) {
@@ -971,7 +972,7 @@ class DeliveryController extends Controller
             $stage = $lockedDelivery->riderAssignmentScope()['stage'];
 
             if ($stage === 'hub_processing') {
-                return ['error' => 'Cannot assign delivery. The parcel is still being processed at a logistics hub.'];
+                return ['error' => 'Cannot assign delivery. '.$lockedDelivery->riderAssignmentBlockReason()];
             }
 
             if (!$rider->matchesDestinationCenter($lockedDelivery)) {
@@ -1725,7 +1726,6 @@ class DeliveryController extends Controller
                     ->where('is_active', true)),
             ],
         ]);
-        $this->assertCompanyCenter((int) $validated['destination_center_id']);
         $this->ensureCenterAccess($delivery);
         if ($delivery->order_id && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
             return back()->with('error', 'This parcel has no recorded pickup and hub handoff. Correct custody before sorting it.');

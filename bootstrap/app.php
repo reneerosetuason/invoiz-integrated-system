@@ -30,7 +30,21 @@ return Application::configure(basePath: dirname(__DIR__))
             'logistics/logistics-center/verification/*',
         ]);
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
-        $middleware->redirectGuestsTo('/login');
+        // Session-expired (guest) redirects must land on the login page that
+        // matches the area the user was in: logistics pages -> the Logistics
+        // login, admin pages -> the Admin login, everything else -> the
+        // shared marketplace (buyer/seller) login.
+        $middleware->redirectGuestsTo(function (Illuminate\Http\Request $request) {
+            if ($request->is('logistics') || $request->is('logistics/*')) {
+                return '/logistics/login';
+            }
+
+            if ($request->is('admin') || $request->is('admin/*')) {
+                return '/admin/login';
+            }
+
+            return '/login';
+        });
         $middleware->redirectUsersTo('/home');
         $middleware->appendToGroup('web', [\App\Http\Middleware\EnsureActiveWebAccount::class, ApplyUserTimezone::class]);
         $middleware->alias([

@@ -11,6 +11,14 @@
             </a>
         </div>
 
+        <div class="rounded-xl border border-teal/20 bg-white p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">Receiving payment for your hub's services?</h2>
+                <p class="mt-1 text-sm text-gray-600">This page tracks COD cash handoffs. Hub service payments and their receipt confirmations are in Hub remittances.</p>
+            </div>
+            <a href="{{ route('remittances.hub-payouts.index') }}" class="mt-3 inline-flex min-h-[44px] shrink-0 items-center rounded-xl border border-teal px-4 text-sm font-semibold text-teal sm:mt-0">View hub payments &amp; confirm receipt &rarr;</a>
+        </div>
+
         @php
             $totalsArray = array_map(fn ($v) => (float) $v, $totals);
         @endphp

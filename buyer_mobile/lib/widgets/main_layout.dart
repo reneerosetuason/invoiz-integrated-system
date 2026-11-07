@@ -95,13 +95,10 @@ class MainLayout extends StatelessWidget {
         ),
       const SizedBox(width: 8),
     ];
-    final compactCatalog =
-        headerSearch != null && MediaQuery.sizeOf(context).width < 480;
     final stackActions =
-        compactCatalog ||
-        (headerSearch == null &&
-            MediaQuery.sizeOf(context).width < 380 &&
-            headerActions.length > 4);
+        headerSearch == null &&
+        MediaQuery.sizeOf(context).width < 380 &&
+        headerActions.length > 4;
     return BuyerScaffold(
       title: title.isEmpty ? 'INVOIZ' : title,
       showNavigationBar: showAppBar,
@@ -116,8 +113,7 @@ class MainLayout extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(child: headerSearch!),
                   const SizedBox(width: 4),
-                  if (!compactCatalog)
-                    ...headerActions.take(headerActions.length - 1),
+                  ...headerActions.take(headerActions.length - 1),
                 ],
               ),
             ),

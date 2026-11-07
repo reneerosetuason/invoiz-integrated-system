@@ -22,8 +22,8 @@ use Illuminate\Support\Facades\Mail;
  * - Register ALWAYS creates a buyer account and sends the user
  *   straight to the buyer shop (/shop).
  * - Login sends admins to /admin/dashboard and buyer accounts to /shop.
- * - Accounts with an approved store can use both buyer and seller areas and
- *   choose which dashboard to enter at /choose.
+ * - Primary sellers enter Seller Dashboard directly. Buyer accounts with an
+ *   approved store can choose a role, and account switching remains available.
  */
 class UnifiedAuthController extends Controller
 {
@@ -377,6 +377,7 @@ class UnifiedAuthController extends Controller
 
     protected function putBuyerSession(Request $request, User $user): void
     {
+        $request->session()->forget(['active_role', 'seller_id']);
         $request->session()->put('buyer', [
             'id' => $user->id,
             'first_name' => $user->first_name ?? strtok($user->displayName(), ' '),
@@ -544,8 +545,13 @@ class UnifiedAuthController extends Controller
         }
 
         if ($seller && $seller->isApproved()) {
-            // Approval changes the single stored role to "seller", but the
-            // account still has buyer access. Ask which side to enter first.
+            if ($user->isSeller()) {
+                session()->put('active_role', 'seller');
+                session()->put('seller_id', $seller->id);
+                session()->forget('buyer');
+                return redirect('/seller/dashboard');
+            }
+            // A buyer account with an approved store has both marketplace roles.
             session()->forget(['active_role', 'seller_id']);
             return redirect('/choose');
         }

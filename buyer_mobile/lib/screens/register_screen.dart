@@ -5,7 +5,6 @@ import '../widgets/buyer_controls.dart';
 import '../widgets/buyer_field.dart';
 import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_scaffold.dart';
-import '../widgets/buyer_page.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -253,6 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.zero,
               children: [
                 const Padding(
@@ -261,7 +261,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     registering: true,
                     title: 'Create your account',
                     description:
-                        'A few details to make shopping yours. Save favorites, talk to sellers and follow every delivery.',
+                        'Join Invoiz to save your favorites and track your orders.',
                   ),
                 ),
                 FadeSlideIn(
@@ -271,8 +271,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        BuyerPanel(
-                          title: 'Personal Information',
+                        BuyerAuthPanel(
+                          title: '1. Personal information',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -404,8 +404,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        BuyerPanel(
-                          title: 'Default Delivery Address',
+                        BuyerAuthPanel(
+                          title: '2. Delivery address',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [

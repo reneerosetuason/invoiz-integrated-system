@@ -57,19 +57,6 @@ class BuyerFeaturesController extends Controller
         $buyerId = $this->buyerId($request);
         if (! $buyerId) return redirect('/login')->with('error', 'Please login to claim vouchers.');
 
-        // Determine which sellers the buyer has in their cart so we only
-        // surface vouchers they can actually apply at checkout.
-        $cartSellerIds = \App\Models\Cart::linesFor($buyerId)
-            ->map(fn ($line) => (int) $line['product']->seller_id)
-            ->filter(fn ($id) => $id > 0)
-            ->unique()
-            ->values()
-            ->all();
-        // Cart items reference users.id; vouchers reference sellers.id.
-        // recordIds() includes safe legacy keys without crossing store ownership.
-        $voucherSellerIds = \App\Models\Seller::whereIn('user_id', $cartSellerIds)->get()
-            ->flatMap(fn ($seller) => $seller->recordIds())->unique()->values()->all();
-
         $voucherClaims = VoucherClaim::where('buyer_id', $buyerId)->get()->keyBy('voucher_id');
         $claimedIds = $voucherClaims->keys()->map(fn ($id) => (int) $id)->all();
 
@@ -77,14 +64,11 @@ class BuyerFeaturesController extends Controller
             ->where(function ($q) {
                 $q->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit');
             })
-            ->where(function ($q) use ($voucherSellerIds) {
-                // Platform-wide vouchers (no seller) or vouchers from a seller in the buyer's cart.
-                $q->whereNull('seller_id')
-                  ->orWhereIn('seller_id', $voucherSellerIds);
-            })
             ->latest()->paginate(12);
 
-        return view('buyer.vouchers', compact('vouchers', 'claimedIds', 'voucherClaims', 'cartSellerIds'));
+        // Discovery does not require a cart. Checkout still validates store,
+        // minimum spend, expiry and usage against the selected items.
+        return view('buyer.vouchers', compact('vouchers', 'claimedIds', 'voucherClaims'));
     }
 
     public function claimVoucher(Request $request, Voucher $voucher)

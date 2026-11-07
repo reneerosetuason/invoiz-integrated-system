@@ -31,11 +31,13 @@ class HubTransferController extends Controller
     {
         $global = $this->isNetworkAdmin($request);
         $company = $global ? null : $this->company($request);
-        $query = HubTransfer::query()->when($company, fn ($q) => $q->where('logistics_company_id', $company->id))
+        $query = HubTransfer::query()
             ->with(['origin', 'destination', 'truck', 'driver'])
             ->withCount(['parcels' => fn ($q) => $q->where('loading_status', '!=', 'removed')]);
         if (! $global) {
             $this->scopeTransfersToUser($query, $request);
+        } elseif ($company) {
+            $query->where('logistics_company_id', $company->id);
         }
 
         if (($search = trim((string) $request->query('search'))) !== '') {
@@ -48,9 +50,11 @@ class HubTransferController extends Controller
             $query->where('status', $status);
         }
 
-        $countsQuery = HubTransfer::query()->when($company, fn ($q) => $q->where('logistics_company_id', $company->id));
+        $countsQuery = HubTransfer::query();
         if (! $global) {
             $this->scopeTransfersToUser($countsQuery, $request);
+        } elseif ($company) {
+            $countsQuery->where('logistics_company_id', $company->id);
         }
         $counts = $countsQuery
             ->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
@@ -59,7 +63,7 @@ class HubTransferController extends Controller
             'company' => $company,
             'transfers' => $query->latest()->paginate(15)->withQueryString(),
             'counts' => $counts,
-            'centers' => $company ? $this->centersFor($company) : collect(),
+            'centers' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
             'global' => $global,
         ]);
     }
@@ -185,6 +189,7 @@ class HubTransferController extends Controller
             'companies' => $companies,
             'global' => $global,
             'centers' => $company ? $this->centersFor($company) : collect(),
+            'destinationCenters' => LogisticsCenter::where('is_active', true)->orderBy('name')->get(),
             'originCenterId' => $centerId ?: $selectedOriginId,
             // Hub-scoped staff are locked to their own hub; network admins and
             // company-wide managers may originate a transfer from any hub.
@@ -207,7 +212,7 @@ class HubTransferController extends Controller
         $validated = $request->validate([
             'logistics_company_id' => [$this->isNetworkAdmin($request) ? 'required' : 'prohibited', 'integer', 'exists:logistics_companies,id'],
             'origin_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)->where('is_active', true)],
-            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)->where('is_active', true)],
+            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('is_active', true)],
             // A truck paired with a driver in Fleet Management is stored as
             // `assigned`, so both available and assigned trucks are valid here.
             'truck_id' => ['required', 'integer', Rule::exists('logistics_trucks', 'id')->where('logistics_company_id', $company->id)->whereIn('status', [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED])],
@@ -418,7 +423,6 @@ class HubTransferController extends Controller
             ->filter(fn (array $option) => $option['driver'] !== null)
             ->values();
         $rerouteHubs = LogisticsCenter::query()
-            ->where('logistics_company_id', $hubTransfer->logistics_company_id)
             ->where('is_active', true)
             ->whereKeyNot($hubTransfer->origin_center_id)
             ->orderBy('name')
@@ -688,30 +692,30 @@ class HubTransferController extends Controller
     private function assertCenterAccess(Request $request, int $originId, int $destinationId): void
     {
         $user = $request->user();
-        abort_if($originId === $destinationId, 403, 'Origin and destination must differ.');
+        abort_if($originId === $destinationId, 422, 'Origin and destination must differ.');
+
+        abort_unless(
+            LogisticsCenter::whereKey($originId)->where('is_active', true)->exists()
+            && LogisticsCenter::whereKey($destinationId)->where('is_active', true)->exists(),
+            422,
+            'Both hubs must be active.'
+        );
 
         if (LogisticsAccess::isGlobal($user)) {
-            // Global accounts may operate every company, but both hubs must
-            // still belong to the same company.
-            $companyId = (int) (LogisticsCenter::whereKey($originId)->value('logistics_company_id') ?? 0);
-            $company = LogisticsCompany::whereKey($companyId)->where('status', 'active')->firstOrFail();
-            $hubs = LogisticsCenter::query()
-                ->where('logistics_company_id', $company->id)
-                ->whereIn('id', [$originId, $destinationId])
-                ->count();
-            abort_unless($hubs === 2, 403, 'Both hubs must belong to the same logistics company.');
-
             return;
         }
 
         $companyId = LogisticsAccess::companyId($user);
         abort_unless($companyId > 0, 403, 'Your account is not assigned to a logistics company.');
 
-        $hubs = LogisticsCenter::query()
-            ->where('logistics_company_id', $companyId)
-            ->whereIn('id', [$originId, $destinationId])
-            ->count();
-        abort_unless($hubs === 2, 403, 'Both hubs must belong to your logistics company.');
+        $originCompanyId = (int) (LogisticsCenter::whereKey($originId)->value('logistics_company_id') ?? 0);
+        $destCompanyId = (int) (LogisticsCenter::whereKey($destinationId)->value('logistics_company_id') ?? 0);
+
+        abort_unless(
+            $originCompanyId === $companyId || $destCompanyId === $companyId,
+            403,
+            'At least one hub must belong to your logistics company.'
+        );
 
         // Null center = company-wide manager; a non-null center is a hub
         // staff restriction that must cover one side of the transfer.
@@ -729,20 +733,35 @@ class HubTransferController extends Controller
 
     private function authorizeTransfer(Request $request, HubTransfer $transfer): void
     {
+        $user = $request->user();
+        if (LogisticsAccess::isGlobal($user)) {
+            return;
+        }
+
+        abort_unless((int) $transfer->origin_center_id !== (int) $transfer->destination_center_id, 404);
+
+        $companyId = LogisticsAccess::companyId($user);
+        abort_unless($companyId !== null && $companyId > 0, 403, 'Your account is not assigned to a logistics company.');
+
+        $originCompanyId = (int) (LogisticsCenter::whereKey($transfer->origin_center_id)->value('logistics_company_id') ?? 0);
+        $destCompanyId = (int) (LogisticsCenter::whereKey($transfer->destination_center_id)->value('logistics_company_id') ?? 0);
+
         abort_unless(
-            (int) $transfer->logistics_company_id > 0
-                && LogisticsAccess::canAccessCompany($request->user(), (int) $transfer->logistics_company_id),
-            404
+            (int) $transfer->logistics_company_id === $companyId
+            || $originCompanyId === $companyId
+            || $destCompanyId === $companyId,
+            403,
+            'You do not have access to this hub transfer.'
         );
 
-        $hubCount = LogisticsCenter::query()
-            ->where('logistics_company_id', $transfer->logistics_company_id)
-            ->whereIn('id', [$transfer->origin_center_id, $transfer->destination_center_id])
-            ->count();
-        abort_unless(
-            (int) $transfer->origin_center_id !== (int) $transfer->destination_center_id && $hubCount === 2,
-            404
-        );
+        $centerId = LogisticsAccess::centerId($user);
+        if ($centerId !== null) {
+            abort_unless(
+                $centerId > 0 && in_array($centerId, [(int) $transfer->origin_center_id, (int) $transfer->destination_center_id], true),
+                403,
+                'You may only access transfers touching your assigned hub.'
+            );
+        }
     }
 
     private function assertOriginAccess(Request $request, HubTransfer $transfer): void
@@ -753,7 +772,7 @@ class HubTransferController extends Controller
         if (! $this->isNetworkAdmin($request)) {
             $centerId = LogisticsAccess::centerId($request->user());
             if ($centerId !== null) {
-                abort_unless($centerId > 0 && $centerId === (int) $transfer->origin_center_id, 403);
+                abort_unless($centerId > 0 && $centerId === (int) $transfer->origin_center_id, 403, 'Only origin hub staff can perform this action.');
             }
         }
     }
@@ -766,7 +785,7 @@ class HubTransferController extends Controller
         if (! $this->isNetworkAdmin($request)) {
             $centerId = LogisticsAccess::centerId($request->user());
             if ($centerId !== null) {
-                abort_unless($centerId > 0 && $centerId === (int) $transfer->destination_center_id, 403);
+                abort_unless($centerId > 0 && $centerId === (int) $transfer->destination_center_id, 403, 'Only destination hub staff can perform this action.');
             }
         }
     }
@@ -786,13 +805,15 @@ class HubTransferController extends Controller
         $companyId = LogisticsAccess::companyId($user);
         abort_unless($companyId !== null && $companyId > 0, 403, 'Your account is not assigned to a logistics company.');
 
-        $query->where('logistics_company_id', $companyId)
-            ->whereHas('origin', fn ($center) => $center->where('logistics_company_id', $companyId))
-            ->whereHas('destination', fn ($center) => $center->where('logistics_company_id', $companyId));
-
         $centerId = LogisticsAccess::centerId($user);
         if ($centerId === null) {
             abort_unless($user->isCompanyManager(), 403, 'Your account does not have a valid transfer scope.');
+
+            $query->where(function ($q) use ($companyId): void {
+                $q->where('logistics_company_id', $companyId)
+                    ->orWhereHas('origin', fn ($c) => $c->where('logistics_company_id', $companyId))
+                    ->orWhereHas('destination', fn ($c) => $c->where('logistics_company_id', $companyId));
+            });
 
             return;
         }

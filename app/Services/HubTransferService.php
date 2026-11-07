@@ -435,7 +435,7 @@ class HubTransferService
         return DB::transaction(function () use ($transfer, $destination, $actor, $reason): HubTransfer {
             $locked = self::lockTransfer($transfer->id);
             abort_unless(in_array($locked->status, ['loading', 'ready_for_dispatch'], true), 409, 'The destination can only be corrected before dispatch.');
-            abort_unless((int) $destination->logistics_company_id === (int) $locked->logistics_company_id, 422, 'The destination hub must belong to this logistics company.');
+            abort_unless($destination->is_active, 422, 'The destination hub must be active.');
             abort_if((int) $destination->id === (int) $locked->origin_center_id, 422, 'Destination must differ from the origin hub.');
             abort_if((int) $destination->id === (int) $locked->destination_center_id, 422, 'This is already the destination hub.');
 

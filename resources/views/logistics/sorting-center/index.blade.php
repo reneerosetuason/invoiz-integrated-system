@@ -298,13 +298,14 @@
                                                     @php
                                                         // Suggest the hub the buyer's address resolves to. It is only a
                                                         // default: staff may route the parcel through any intermediate hub.
-                                                        $suggested = $delivery->suggestedDestination($serviceAreas);
+                                                        $suggested = $delivery->suggestedDestination($allServiceAreas ?? $serviceAreas);
                                                         $destSelected = (int) ($delivery->destination_center_id ?: 0);
                                                         if ($destSelected === 0 || $destSelected === (int) $delivery->center_id) {
                                                             $destSelected = (int) ($suggested['center_id'] ?? 0);
                                                         }
                                                         $areaSelected = (int) ($delivery->service_area_id ?: 0);
-                                                        $areaFitsDestination = $serviceAreas->contains(fn ($area) => (int) $area->id === $areaSelected
+                                                        $targetAreas = $allServiceAreas ?? $serviceAreas;
+                                                        $areaFitsDestination = $targetAreas->contains(fn ($area) => (int) $area->id === $areaSelected
                                                             && (int) $area->logistics_center_id === $destSelected);
                                                         if ($areaSelected === 0 || ! $areaFitsDestination) {
                                                             $areaSelected = (int) ($suggested['service_area_id'] ?? 0);
@@ -313,7 +314,7 @@
                                                     <label class="field-label text-xs">Destination Hub
                                                         <select name="destination_center_id" id="sort-center-{{ $delivery->id }}" data-sort-center data-area-target="sort-area-{{ $delivery->id }}" required class="select mt-1 text-xs">
                                                             <option value="">Select Logistics Hub</option>
-                                                            @foreach($centers as $center)
+                                                            @foreach(($allCenters ?? $centers) as $center)
                                                                 <option value="{{ $center->id }}" @selected($destSelected === (int) $center->id)>{{ $center->name }}</option>
                                                             @endforeach
                                                         </select>
@@ -321,7 +322,7 @@
                                                     <label class="field-label text-xs">Service Area
                                                         <select name="service_area_id" id="sort-area-{{ $delivery->id }}" data-sort-area required class="select mt-1 text-xs">
                                                             <option value="">Select area</option>
-                                                            @foreach($serviceAreas as $area)
+                                                            @foreach(($allServiceAreas ?? $serviceAreas) as $area)
                                                                 <option value="{{ $area->id }}" data-center-id="{{ $area->logistics_center_id }}" @selected($areaSelected === (int) $area->id)>{{ $area->name }}</option>
                                                             @endforeach
                                                         </select>
@@ -334,7 +335,7 @@
                                             @if($receiptUnverified)
                                                 <span class="text-[11px] font-semibold text-rose-600" title="Record the seller pickup and hub handoff before moving this parcel.">Resolve custody first</span>
                                             @elseif($routesToOtherHub)
-                                                <a href="{{ route('hub-transfers.create', array_filter(['logistics_company_id' => $delivery->destinationCenter?->logistics_company_id])) }}"
+                                                <a href="{{ route('hub-transfers.create') }}"
                                                    class="btn btn-outline btn-xs whitespace-nowrap"
                                                    title="Routed to {{ $delivery->destinationCenter?->name ?? 'another Logistics Hub' }}. Create a fleet hub transfer for this parcel.">Create hub transfer</a>
                                             @else

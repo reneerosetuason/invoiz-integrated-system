@@ -77,27 +77,11 @@ class SortingCenterController extends Controller
         $query->with($relations);
         $this->applyFilters($query, $context);
 
-        $centers = LogisticsCenter::where('is_active', true)->orderBy('name');
-        $serviceAreas = ServiceArea::where('is_active', true)->orderBy('name');
-        if ($context['companyId'] !== null) {
-            if ($context['companyId'] === 0) {
-                if ($context['staffCenterId'] === null) {
-                    $centers->whereRaw('1 = 0');
-                    $serviceAreas->whereRaw('1 = 0');
-                }
-            } else {
-                $centers->where('logistics_company_id', $context['companyId']);
-                $serviceAreas->whereHas('logisticsCenter', fn ($q) => $q->where('logistics_company_id', $context['companyId']));
-            }
-        } elseif ($context['staffCenterId'] !== null) {
-            if ($context['staffCenterId'] === 0) {
-                $centers->whereRaw('1 = 0');
-                $serviceAreas->whereRaw('1 = 0');
-            }
-        }
+        $allCenters = LogisticsCenter::where('is_active', true)->orderBy('name')->get();
+        $allServiceAreas = ServiceArea::where('is_active', true)->orderBy('name')->get();
 
-        $filterServiceAreas = (clone $serviceAreas);
         $destinationId = $context['destinationCenterId'] ?: $context['centerId'];
+        $filterServiceAreas = ServiceArea::where('is_active', true)->orderBy('name');
         if ($destinationId > 0) {
             $filterServiceAreas->where('logistics_center_id', $destinationId);
         }
@@ -113,8 +97,10 @@ class SortingCenterController extends Controller
             'destinationCenterId' => $context['destinationCenterId'],
             'centerId' => $context['centerId'],
             'serviceAreaId' => $context['serviceAreaId'],
-            'centers' => $centers->get(),
-            'serviceAreas' => $serviceAreas->get(),
+            'centers' => $allCenters,
+            'serviceAreas' => $allServiceAreas,
+            'allCenters' => $allCenters,
+            'allServiceAreas' => $allServiceAreas,
             'filterServiceAreas' => $filterServiceAreas->get(),
             'staffCenterId' => $context['staffCenterId'],
         ]);

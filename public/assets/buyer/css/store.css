@@ -8,7 +8,9 @@
 .st-follow{background:var(--green);color:#fff;border:none}
 .st-following{background:#fff;color:var(--text2);border:1px solid var(--border)}
 .st-chat{background:#fff;color:var(--green-dark);border:1px solid var(--border)}
-.st-tabs{display:flex;gap:8px;margin:16px 0}
+.st-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.st-vouchers h1{font-size:24px;line-height:1.2;margin:24px 0 8px;color:var(--primary-dark,#0E4A57)}
+.st-vouchers .bfp-description{font-size:14px;line-height:1.6;margin:0}
 .st-tab{padding:8px 18px;border-radius:999px;font-weight:700;font-size:12.5px;text-decoration:none;border:1px solid var(--border);color:var(--text2);background:#fff}
 .st-tab.active{background:var(--primary-dark,#0E4A57);color:#fff;border-color:var(--primary-dark,#0E4A57)}
 .st-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}

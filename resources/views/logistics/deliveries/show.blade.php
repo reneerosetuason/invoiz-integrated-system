@@ -38,6 +38,8 @@
         $isCodDelivery = \App\Support\Cod::isCod($delivery);
         $canOverride = auth()->user()->canManageRiders() && auth()->user()->isLogisticsAdmin();
         $codExpected = $isCodDelivery ? \App\Support\Cod::expected($delivery) : null;
+        $assignmentBlockReason = $delivery->riderAssignmentBlockReason();
+        $assignmentScope = $delivery->riderAssignmentScope();
     @endphp
 
     <div class="delivery-head">
@@ -629,6 +631,18 @@
         </div>
 
         @if(!$delivery->archived_at)
+            @if($assignmentBlockReason && $delivery->status === 'waiting_for_rider')
+                <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+                    <p class="font-semibold">Next step before last-mile assignment</p>
+                    <p class="mt-1">{{ $assignmentBlockReason }}</p>
+                    @if($assignmentScope['center_id'] && $delivery->center_id && (int) $assignmentScope['center_id'] !== (int) $delivery->center_id)
+                        <p class="mt-1">Current hub: {{ $delivery->logisticsCenter?->name ?? 'Handling hub' }}. Final destination: {{ $delivery->destinationCenter?->name ?? 'Destination hub' }}. Completing one transfer does not complete the remaining route.</p>
+                        <a class="btn btn-outline btn-sm mt-3" href="{{ route('hub-transfers.index', ['search' => $delivery->tracking_number]) }}">Continue in Hub Transfers &rarr;</a>
+                    @else
+                        <a class="btn btn-outline btn-sm mt-3" href="{{ route('sorting-center.index', ['search' => $delivery->tracking_number]) }}">Continue in Sorting Center &rarr;</a>
+                    @endif
+                </div>
+            @endif
             <div class="delivery-processing-actions flex flex-wrap gap-3">
                 @if(! $hasActiveHubTransfer && Auth::user()->canManageRiders() && $delivery->status === 'waiting_for_rider')
                     <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-2xl">
@@ -674,7 +688,7 @@
                             </div>
                         </div>
                         @if($riderEligibility->where('eligible', true)->isEmpty())
-                            <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination Logistics Hub and service area.</p>
+                            <p class="mt-2 text-xs text-amber-600">{{ $assignmentBlockReason ?? 'No eligible riders right now. Riders must be approved, active, online, have a verified two-wheel vehicle, available delivery capacity, sufficient weight capacity, and serve this assignment\'s hub and service area.' }}</p>
                         @endif
                         @if($errors->has('rider_id'))
                             <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>

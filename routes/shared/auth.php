@@ -25,7 +25,7 @@ Route::get('/home', function () {
         return match (session('active_role')) {
             'seller' => redirect('/seller/dashboard'),
             'buyer' => redirect('/shop'),
-            default => redirect('/choose'),
+            default => app(UnifiedAuthController::class)->redirectForRole($user),
         };
     }
 

@@ -12,6 +12,9 @@ class AuthController extends Controller
     public function showLogin()
     {
         if (Auth::check() && Auth::user()->canSell()) {
+            if (Auth::user()->isSeller()) {
+                return app(\App\Http\Controllers\Shared\UnifiedAuthController::class)->redirectForRole(Auth::user());
+            }
             return session('active_role') === 'seller'
                 ? redirect()->route('seller.dashboard')
                 : redirect()->route('choose');
@@ -87,11 +90,11 @@ class AuthController extends Controller
                 ])->onlyInput('email');
             }
 
-            // Seller approval accounts also have buyer access. Clear any old
-            // role selection so the user chooses which dashboard to enter.
+            // Start from the stored marketplace role, with no stale selection
+            // from an earlier session. Dual-role buyers can still choose.
             $request->session()->forget(['active_role', 'seller_id', 'buyer']);
 
-            return redirect()->route('choose');
+            return app(\App\Http\Controllers\Shared\UnifiedAuthController::class)->redirectForRole($user);
         }
 
         return back()->withErrors([

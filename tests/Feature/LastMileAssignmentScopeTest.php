@@ -56,6 +56,31 @@ class LastMileAssignmentScopeTest extends TestCase
         $this->assertSame('hub_processing', $this->parcel(['center_id' => 8])->riderAssignmentStage());
     }
 
+    public function test_completed_sorting_at_intermediate_hub_explains_missing_transfer(): void
+    {
+        $delivery = $this->parcel(['center_id' => 8, 'sorted_at' => now()]);
+        $this->assertSame('hub_processing', $delivery->riderAssignmentScope()['stage']);
+        $this->assertSame(
+            'Parcel is at an intermediate hub and still needs transfer to its final destination hub before last-mile assignment.',
+            $delivery->riderAssignmentBlockReason(),
+        );
+    }
+
+    public function test_destination_processing_message_identifies_the_remaining_step(): void
+    {
+        $this->assertSame(
+            'Parcel must be scanned and sorted at its destination hub before last-mile assignment.',
+            $this->parcel(['parcel_status' => 'received'])->riderAssignmentBlockReason(),
+        );
+        $this->assertSame(
+            'Parcel must be sorted at its destination hub before last-mile assignment.',
+            $this->parcel(['parcel_status' => 'scanned'])->riderAssignmentBlockReason(),
+        );
+        $this->assertNull($this->parcel()->riderAssignmentBlockReason());
+        $this->assertNull($this->parcel(['parcel_status' => 'dispatched'])->riderAssignmentBlockReason());
+        $this->assertNull($this->parcel(['received_at' => null, 'parcel_status' => 'pending_arrival'])->riderAssignmentBlockReason());
+    }
+
     public function test_receiving_alone_does_not_skip_destination_scan_and_sort(): void
     {
         foreach (['received', 'scanned'] as $status) {

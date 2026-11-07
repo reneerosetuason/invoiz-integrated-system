@@ -59,7 +59,7 @@ class HubRemittanceAcceptanceTest extends TestCase
         $foreign = $this->payout(['logistics_center_id' => 12]);
         $this->actingAs($this->user())->get(route('remittances.hub-payouts.index'))->assertOk()
             ->assertViewHas('totals', fn ($totals) => $totals === ['accepted' => 40.0, 'remitted' => 30.0, 'awaiting_release' => 50.0])
-            ->assertSee('Accept remittance')->assertSee('Hub remittances')->assertDontSee('data-payout-id="'.$foreign->id.'"', false);
+            ->assertSee('Confirm received')->assertSee('Received · recorded in hub earnings')->assertSee('Hub remittances')->assertDontSee('data-payout-id="'.$foreign->id.'"', false);
     }
 
     public function test_both_origin_and_destination_cuts_require_receipt_acceptance(): void
@@ -113,7 +113,7 @@ class HubRemittanceAcceptanceTest extends TestCase
     {
         $payout = $this->payout();
         $this->actingAs($this->user(['role' => 'admin', 'is_admin' => true, 'center_id' => null]))
-            ->get(route('remittances.hub-payouts.index'))->assertOk()->assertSee('Lumban Hub')->assertDontSee('Accept remittance');
+            ->get(route('remittances.hub-payouts.index'))->assertOk()->assertSee('Lumban Hub')->assertDontSee('Confirm received</button>', false);
         $this->post(route('remittances.hub-payouts.accept', $payout->id), ['confirm_received' => 1])->assertForbidden();
     }
 
