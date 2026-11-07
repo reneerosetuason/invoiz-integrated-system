@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/logistics_scan_service.dart';
 import '../auth/login_screen.dart';
 import '../scan/parcel_tracking.dart';
+import '../remittances/return_remittances_screen.dart';
 
 /// Scanning workspace for Logistics Admin, Company Manager, and Logistics
 /// Staff accounts in the unified mobile app.
@@ -198,6 +199,15 @@ class _LogisticsScanScreenState extends State<LogisticsScanScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Return payments & earnings',
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ReturnRemittancesScreen(),
+              ),
+            ),
+          ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: const Text('Cancel'),

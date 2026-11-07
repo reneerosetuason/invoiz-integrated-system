@@ -322,6 +322,10 @@
               <select name="reason" id="return-reason-{{ $it->id }}" onchange="handleReturnReasonChange({{ $it->id }})" required style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:#fff">
                 <option value="damaged">Damaged item</option>
                 <option value="wrong_item">Wrong item</option>
+                <option value="ordered_wrong_size">I ordered the wrong size</option>
+                <option value="ordered_wrong_color">I ordered the wrong color</option>
+                <option value="received_wrong_size">Seller sent a different size</option>
+                <option value="received_wrong_color">Seller sent a different color</option>
                 <option value="not_as_described">Not as described</option>
                 <option value="changed_mind">Changed my mind</option>
                 <option value="other">Other</option>

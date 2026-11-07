@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/main_layout.dart';
 import '../widgets/order_return_dialog.dart';
+import 'return_agreement_screen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
   final int orderId;
@@ -448,6 +449,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   const Text(
                     'Logistics will arrange return collection and track the parcel back to the seller.',
                   ),
+                if (record['has_return_agreement'] == true)
+                  BuyerButton.plain(
+                    onPressed: () async {
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => ReturnAgreementScreen(
+                            returnId: record['id'] as int,
+                            api: _api,
+                          ),
+                        ),
+                      );
+                      if (mounted) await _load();
+                    },
+                    label: const Text('Agreement, fees & funding'),
+                  ),
                 if (record['progress'] is Map) ...[
                   Text(
                     'Return progress: ${'${(record['progress'] as Map)['stage']}'.replaceAll('_', ' ')}',
@@ -473,7 +489,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ],
                 ],
                 if (record['status'] == 'refunded')
-                  Text('Refund receipt confirmed.'),
+                  Text(
+                    (record['progress'] as Map?)?['stage'] ==
+                            'exchange_completed'
+                        ? 'Replacement receipt confirmed.'
+                        : ((record['progress'] as Map?)?['stage'] ==
+                                  'completed_no_refund'
+                              ? 'Resolution completed; no cash refund due.'
+                              : 'Refund receipt confirmed.'),
+                  ),
               ],
             ),
           ),

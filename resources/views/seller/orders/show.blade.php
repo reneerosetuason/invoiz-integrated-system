@@ -357,15 +357,11 @@
             <div>
                 <label class="field-label">Logistics Center (Courier Hub)</label>
                 <select name="center_id" class="select" required>
-                    <option value="">Select logistics center to pick up items...</option>
-                    @foreach($logisticsCenters ?? [] as $center)
-                        <option value="{{ $center->id }}"
-                                @selected((int) old('center_id', $order->delivery?->center_id ?? $order->delivery?->pickupRequest?->center_id) === (int) $center->id)>
-                            {{ $center->name }} ({{ $center->code }}{{ $center->city ? ' · ' . $center->city : '' }})
-                        </option>
-                    @endforeach
+                    @include('seller.orders.partials.pickup-center-options', ['selectedCenterId' => old('center_id', $order->delivery?->center_id ?? $order->delivery?->pickupRequest?->center_id)])
                 </select>
                 <p class="mt-1 text-[11px] text-ink-light">Your pickup request will be routed directly to this logistics center so their staff can assign a rider.</p>
+                <p class="mt-1 text-[11px] text-ink-light">Recommended hubs are within {{ \App\Services\PickupHubRecommendations::NEARBY_KM }} km of your pickup location. Estimates use municipality locations when exact coordinates are unavailable, not driving distance. You can choose any listed hub.</p>
+                <p class="mt-1 text-[11px] text-ink-light">Locality data: <a href="https://www.geonames.org/" class="underline">GeoNames</a>.</p>
             </div>
             <div>
                 <label class="field-label">Pickup Date &amp; Time</label>

@@ -550,7 +550,7 @@ Route::post('/orders/{id}/returns', function($id, Request $request){
 
   $validated = $request->validate([
     'order_item_id' => ['required', 'integer', 'min:1'],
-    'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
+    'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,ordered_wrong_size,ordered_wrong_color,received_wrong_size,received_wrong_color,other'],
     'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'max:300'],
     'quantity' => ['required', 'integer', 'min:1', 'max:9999'],
     'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,mp4,mov,avi,webm,quicktime', 'max:51200'],
@@ -565,7 +565,7 @@ Route::post('/orders/{id}/returns', function($id, Request $request){
   }
 
   try {
-    \Illuminate\Support\Facades\DB::transaction(function() use ($buyer, $validated, $id) {
+    \Illuminate\Support\Facades\DB::transaction(function() use ($buyer, $validated, $id, $request) {
       $order = \App\Models\Order::with('items')->where('buyer_id', $buyer['id'])->lockForUpdate()->findOrFail($id);
       if ($order->status !== 'delivered') {
         throw new \Exception('You can only request a return after the order is delivered.');
@@ -632,6 +632,8 @@ Route::post('/orders/{id}/returns', function($id, Request $request){
         'refund_amount' => $refund,
         'status' => 'requested',
       ]);
+
+      \App\Services\ReturnSettlementService::ensure($ret);
 
       \App\Models\SellerNotification::create([
         'seller_id' => $item->seller_id,

@@ -10,7 +10,9 @@ import '../lib/core/network/api_client.dart';
 import '../lib/core/storage/token_storage.dart';
 import '../lib/providers/auth_provider.dart';
 
-const _secureChannel = MethodChannel('plugins.it_nomads.com/flutter_secure_storage');
+const _secureChannel = MethodChannel(
+  'plugins.it_nomads.com/flutter_secure_storage',
+);
 
 http.Response _json(Object body, [int status = 200]) => http.Response(
   jsonEncode(body),
@@ -76,16 +78,103 @@ void main() {
         .setMockMethodCallHandler(_secureChannel, null);
   });
 
+  test(
+    'logistics login and session restore never use rider endpoints',
+    () async {
+      final requests = <String>[];
+      final payload = {
+        'account_type': 'logistics_staff',
+        'user': {
+          'id': 42,
+          'name': 'Approved Hub Staff',
+          'role': 'logistics_staff',
+        },
+        'logistics': {
+          'scope': 'hub',
+          'can_scan': true,
+          'facility': {'id': 8, 'name': 'Assigned Hub'},
+        },
+      };
+      final api = ApiClient(
+        client: MockClient((request) async {
+          requests.add(request.url.path);
+          if (request.url.path.endsWith('/login')) {
+            return _json({'token': 'logistics-test-token', ...payload});
+          }
+          if (request.url.path.endsWith('/user')) return _json(payload);
+          return _json({
+            'message':
+                'Forbidden. You are not authorized to access this resource.',
+          }, 403);
+        }),
+      );
+      final storage = TokenStorage();
+      final auth = AuthProvider(api: api, storage: storage);
+      expect(
+        await auth.login(
+          email: 'hub@example.test',
+          password: 'fixture-password',
+        ),
+        isTrue,
+      );
+      expect(auth.isLogistics, isTrue);
+      expect(auth.logistics?.facilityId, 8);
+      expect(auth.rider, isNull);
+      final restored = AuthProvider(api: api, storage: storage);
+      await restored.restoreSession();
+      expect(restored.isAuthenticated, isTrue);
+      expect(restored.isLogistics, isTrue);
+      expect(requests, ['/api/logistics/login', '/api/logistics/user']);
+    },
+  );
+
+  test('repairs a logistics session cached as a rider by an old APK', () async {
+    final requests = <String>[];
+    final api = ApiClient(
+      client: MockClient((request) async {
+        requests.add(request.url.path);
+        if (request.url.path.endsWith('/user')) {
+          return _json({
+            'account_type': 'logistics_staff',
+            'user': {'id': 42, 'name': 'Hub Staff', 'role': 'logistics_staff'},
+            'logistics': {
+              'scope': 'hub',
+              'can_scan': true,
+              'facility': {'id': 8, 'name': 'Assigned Hub'},
+            },
+          });
+        }
+        return _json({
+          'message':
+              'Forbidden. You are not authorized to access this resource.',
+        }, 403);
+      }),
+    );
+    final storage = TokenStorage();
+    await storage.saveToken('logistics-test-token');
+    await storage.saveUser(
+      jsonEncode({
+        'workflow_type': 'delivery_rider',
+        'rider': {'id': 0},
+      }),
+    );
+    final auth = AuthProvider(api: api, storage: storage);
+    await auth.restoreSession();
+    expect(auth.isAuthenticated, isTrue);
+    expect(auth.isLogistics, isTrue);
+    expect(auth.rider, isNull);
+    expect(auth.logistics?.facilityId, 8);
+    expect(requests, ['/api/logistics/rider/profile', '/api/logistics/user']);
+    expect((await storage.readCachedUser())?['workflow_type'], 'logistics');
+  });
+
   test('a 403 from the rider login falls back to hub courier login', () async {
     final requests = <String>[];
     final api = ApiClient(
       client: MockClient((request) async {
         requests.add(request.url.path);
         if (request.url.path.endsWith('/courier/login')) {
-          return _json({
-            'token': 'courier-token',
-            'courier': _courier(),
-          });
+          return _json({'token': 'courier-token', 'courier': _courier()});
         }
         if (request.url.path.endsWith('/login')) {
           return _json({

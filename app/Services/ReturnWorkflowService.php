@@ -7,7 +7,7 @@ use App\Support\{LogisticsAccess, Payments, Stock, EscrowEarnings};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-/** Reverse custody is separate from forward deliveries: never collect COD or award delivery fees twice. */
+/** Reverse custody is separate from forward deliveries and has its own funded service ledger. */
 class ReturnWorkflowService
 {
     /** No physical return is required for a cancelled, unfulfilled prepaid order. */
@@ -40,6 +40,7 @@ class ReturnWorkflowService
 
     public static function start(ReturnRequest $return): ReturnWorkflow
     {
+        ReturnSettlementService::ensure($return);
         $delivery = EscrowEarnings::deliveryForSeller($return->order, (int) $return->seller_id);
         return ReturnWorkflow::firstOrCreate(['return_request_id' => $return->id], [
             'center_id' => $delivery?->destination_center_id ?: $delivery?->center_id,
@@ -60,8 +61,12 @@ class ReturnWorkflowService
             $assigned = $actor->role === 'rider' && $actor->rider && (int) $actor->rider->id === (int) $flow->rider_id;
             $stage = $flow->stage;
             $updates = [];
-            if (in_array($action, ['route_hub', 'assign', 'pickup', 'intake', 'transfer', 'receive_transfer', 'dispatch_seller'], true)) {
+            if (in_array($action, ['route_hub', 'assign', 'pickup', 'intake', 'transfer', 'receive_transfer', 'dispatch_seller', 'deliver_seller'], true)) {
                 self::require($return->status === 'approved', 'Only an approved open return can move through logistics.');
+            }
+
+            if (in_array($action, ['route_hub', 'assign', 'pickup', 'intake', 'transfer', 'receive_transfer', 'dispatch_seller', 'deliver_seller', 'receive'], true)) {
+                ReturnSettlementService::beforeCustody($return, $action, $data);
             }
 
             if ($action === 'route_hub') {
@@ -101,9 +106,14 @@ class ReturnWorkflowService
                 self::require($stage === 'at_hub', 'Receive the returned parcel at the hub first.');
                 self::require(! empty($data['reference']), 'Enter the seller handover or transport reference.');
                 $updates = ['stage' => 'sent_to_seller', 'transport_reference' => $data['reference']];
+                if (ReturnSettlementService::ensure($return)) $updates['rider_id'] = $data['rider_id'] ?? null;
+            } elseif ($action === 'deliver_seller') {
+                abort_unless($assigned, 403);
+                self::require($stage === 'sent_to_seller' && ! empty($data['proof_path']), 'Record the seller-delivery handover photo.');
+                $updates = ['stage' => 'seller_arrival'];
             } elseif ($action === 'receive') {
                 abort_unless($seller, 403);
-                self::require($return->status === 'approved' && $stage === 'sent_to_seller', 'Logistics must dispatch this return before you confirm physical receipt.');
+                self::require($return->status === 'approved' && in_array($stage, ['sent_to_seller', 'seller_arrival'], true), 'Logistics must dispatch this return before you confirm physical receipt.');
                 self::require($return->item && (int) $return->item->seller_id === (int) $return->seller_id, 'The return item does not belong to this seller.');
                 $otherQuantity = (int) ReturnRequest::where('order_item_id', $return->order_item_id)->whereKeyNot($return->id)
                     ->whereIn('status', ['approved', 'item_received', 'refunded'])->sum('quantity');
@@ -114,13 +124,24 @@ class ReturnWorkflowService
                 }
                 $return->update(['status' => 'item_received']);
                 $updates['stage'] = 'refund_pending';
-                if ((float) $return->refund_amount <= 0) {
+                if ((float) $return->refund_amount <= 0 && ! ReturnSettlementService::ensure($return)) {
                     $return->update(['status' => 'refunded', 'resolved_at' => now()]);
                     $updates['stage'] = 'completed_no_refund';
                 }
             } elseif ($action === 'refund') {
                 abort_unless($actor->isAdmin(), 403);
-                self::require($return->status === 'item_received' && ! $flow->refund_sent_at, 'This refund is not awaiting payment.');
+                if ($agreement = ReturnSettlementService::ensure($return)) {
+                    ReturnSettlementService::assertFunded($return);
+                    self::require($agreement->resolution !== 'exchange', 'An exchange closes after the buyer receives the replacement, not through a cash refund.');
+                    self::require($agreement->destination_verified_at !== null && ! empty($agreement->refund_destination), 'The buyer must verify their private refund receiving details first.');
+                    self::require(ReturnSettlementService::cents($return->refund_amount) === (int) $agreement->net_refund_cents, 'The refund must match the agreed net amount.');
+                    self::require((float) ($data['recovery_amount'] ?? 0) === 0.0, 'Submit and verify refund recovery through the agreement ledger before funding is unlocked.');
+                    $data['reference'] = strtoupper(preg_replace('/\s+/', '', trim($data['reference'] ?? '')));
+                    self::require(strlen($data['reference']) >= 4 && ! \App\Models\ReturnAllocation::where('reference', $data['reference'])->exists()
+                        && ! \App\Models\EscrowRemittance::where('bank_reference', $data['reference'])->exists(), 'Use a unique actual outgoing refund reference.');
+                }
+                $waived = isset($agreement) && $agreement && ! $agreement->physicalReturn() && $return->status === 'approved' && $flow->stage === 'refund_pending';
+                self::require(($return->status === 'item_received' || $waived) && ! $flow->refund_sent_at, 'This refund is not awaiting payment.');
                 self::require(! empty($data['reference']) && ! empty($data['proof_path']), 'Record the actual transfer reference and proof before sending the refund.');
                 $amount = (float) $return->refund_amount;
                 $tx = Payments::transactionFor($order);
@@ -151,9 +172,11 @@ class ReturnWorkflowService
             } else {
                 throw ValidationException::withMessages(['return' => 'Unknown return action.']);
             }
+            ReturnSettlementService::custody($return, $action, $data, $actor);
             $events = $flow->events ?? [];
             $events[] = ['action' => $action, 'actor_id' => $actor->id, 'at' => now()->toIso8601String(), 'reference' => $data['reference'] ?? null,
-                'from' => $stage, 'to' => $updates['stage'] ?? $stage, 'restocked' => $updates['stock_restored'] ?? false];
+                'from' => $stage, 'to' => $updates['stage'] ?? $stage, 'restocked' => $updates['stock_restored'] ?? false,
+                'proof_path' => $data['proof_path'] ?? null];
             $flow->update($updates + ['events' => $events]);
             if ($action === 'refund') {
                 $fresh = $order->fresh();
@@ -181,11 +204,21 @@ class ReturnWorkflowService
             $released += (float) EscrowRemittance::where('order_id', $order->id)->where('settlement_mode', 'cod_retained')->whereIn('status', ['remitted', 'accepted'])->sum('amount');
         }
         $previousRecovery = (float) ReturnWorkflow::whereHas('returnRequest', fn ($q) => $q->where('order_id', $order->id))->sum('recovery_amount');
+        $returnReserves = 0;
+        if (\Illuminate\Support\Facades\Schema::hasTable('return_settlements')) {
+            $recoveryQuery = \App\Models\ReturnFundPayment::whereHas('settlement', fn ($q) => $q->where('order_id', $order->id))
+                ->where('purpose', 'refund_recovery')->where('status', 'verified');
+            $previousRecovery += ((clone $recoveryQuery)->sum('amount_cents') - (clone $recoveryQuery)->sum('returned_cents')) / 100;
+            $returnReserves = \App\Models\ReturnSettlement::where('order_id', $order->id)->sum('reserved_cents') / 100;
+            $returnReserves += \App\Models\ReturnAllocation::whereHas('settlement', fn ($q) => $q->where('order_id', $order->id))
+                ->whereNotNull('fund_payment_id')->where('status', 'eligible')->sum('amount_cents') / 100;
+        }
         $reservedLogistics = (float) EscrowRemittance::where('order_id', $order->id)
             ->whereNotIn('recipient_role', [EscrowRemittance::ROLE_SELLER, EscrowRemittance::ROLE_ADMIN])
             ->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount');
-        $shortfall = round(max(0, $amount + $released + $reservedLogistics + (float) ($tx?->refunded_amount ?? 0) - $funded - $previousRecovery), 2);
-        return ['funded' => $funded, 'shortfall' => $shortfall, 'released' => $released, 'reserved_logistics' => $reservedLogistics];
+        $shortfall = round(max(0, $amount + $released + $reservedLogistics + $returnReserves + (float) ($tx?->refunded_amount ?? 0) - $funded - $previousRecovery), 2);
+        $available = round(max(0, $funded + $previousRecovery - $released - $reservedLogistics - $returnReserves - (float) ($tx?->refunded_amount ?? 0)), 2);
+        return ['funded' => $funded, 'shortfall' => $shortfall, 'released' => $released, 'reserved_logistics' => $reservedLogistics, 'return_reserves' => $returnReserves, 'available' => $available];
     }
 
     private static function sameCompany(int $origin, int $destination): bool

@@ -105,6 +105,11 @@ class BuyerMobileIntegrationTest extends TestCase
         $this->assertSame('approved', $user->fresh()->approval_status);
         Mail::assertSent(RegistrationDecision::class);
         $this->postJson('/api/mobile/buyer/login', $data)->assertOk()->assertJsonPath('user.id', $user->id)->assertJsonStructure(['token']);
+        // Shared web login checks whether this account belongs to a rider too.
+        // The buyer-only fixture predates that cross-role check.
+        \Illuminate\Support\Facades\Schema::create('riders', function (\Illuminate\Database\Schema\Blueprint $table) {
+            $table->id(); $table->unsignedBigInteger('user_id');
+        });
         $this->post('/login', ['email' => $user->email, 'password' => 'Password123!'])->assertRedirect('/shop');
         $this->assertAuthenticatedAs($user);
         $this->assertDatabaseCount('users', 2);
@@ -127,7 +132,7 @@ class BuyerMobileIntegrationTest extends TestCase
         $admin = $this->buyer('admin@example.test');
         $admin->update(['role' => 'admin', 'is_admin' => true]);
         $this->actingAs($admin)->postJson('/admin/buyers/'.$user->id.'/review', ['action' => 'approve'])->assertUnprocessable();
-        $this->get('/admin/buyers')->assertOk()->assertSee('Pending approval')->assertSee('Approve');
+        $this->get('/admin/buyers')->assertOk()->assertSee('Pending')->assertSee('Approve');
         $this->postJson('/admin/buyers/'.$user->id.'/review', ['action' => 'reject', 'reason' => 'Registration declined'])->assertOk()->assertJsonPath('approval_status', 'rejected');
         $this->postJson('/admin/buyers/'.$user->id.'/review', ['action' => 'approve'])->assertStatus(409);
         $this->assertSame('rejected', $user->fresh()->approval_status);

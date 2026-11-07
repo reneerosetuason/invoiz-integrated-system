@@ -104,6 +104,47 @@ class ApiClient {
     return _decode(response);
   }
 
+  Uri _sharedUri(String path) {
+    final base = AppConfig.apiBaseUrl.replaceFirst(RegExp(r'/+$'), '');
+    return Uri.parse(
+      '$base/',
+    ).resolve('../${path.replaceFirst(RegExp(r'^/+'), '')}');
+  }
+
+  Future<dynamic> getSharedAuthenticated(String path) async {
+    final response = await _guard(
+      () =>
+          _client.get(_sharedUri(path), headers: _headers()).timeout(_timeout),
+    );
+    return _decode(response);
+  }
+
+  Future<dynamic> postSharedAuthenticated(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final response = await _guard(
+      () => _client
+          .post(_sharedUri(path), headers: _headers(), body: jsonEncode(body))
+          .timeout(_timeout),
+    );
+    return _decode(response);
+  }
+
+  Future<Uint8List> getSharedImage(String path) async {
+    final response = await _guard(
+      () =>
+          _client.get(_sharedUri(path), headers: _headers()).timeout(_timeout),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decode(response);
+    }
+    if (!(response.headers['content-type'] ?? '').startsWith('image/')) {
+      throw const FormatException('The payment proof could not be loaded.');
+    }
+    return response.bodyBytes;
+  }
+
   Future<dynamic> patch(String path, {Map<String, dynamic>? body}) async {
     final response = await _guard(
       () => _client

@@ -53,7 +53,7 @@
 {{-- Products table --}}
 <div class="card mt-4 overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="table">
+        <table class="table inventory-table">
             <thead>
                 <tr>
                     <th>Product</th>

@@ -4,7 +4,8 @@
 <div class="return-center">
     <header class="review-head"><div><p class="review-eyebrow">Orders &amp; settlements</p>
     <h1>Return center</h1>
-    <p>Track collection, hub handoffs, seller inspection and the actual refund payment. Return parcels collect no cash and do not create a second delivery earning.</p></div></header>
+    <p>Track collection, hub handoffs, seller inspection and the actual refund payment. New return services use a separate agreed and funded budget; riders collect no cash.</p></div></header>
+    @if(\Illuminate\Support\Facades\Schema::hasTable('return_settlements'))<nav class="return-nav"><a class="review-action" href="{{ route('returns.remittances') }}">Return payments &amp; earnings</a><a class="review-action" href="{{ route('returns.guide') }}">Button-by-button guide</a></nav>@endif
     @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
     @if($errors->any())<p role="alert">{{ $errors->first() }}</p>@endif
     @if($escrowIssues->isNotEmpty())
@@ -19,21 +20,28 @@
             $stage = $flow?->stage;
             $staff = $flow && \App\Support\LogisticsAccess::isCenterStaff($user, (int)$flow->center_id);
             $actions = [];
+            $agreement = \Illuminate\Support\Facades\Schema::hasTable('return_settlements') ? $case->settlement : null;
+            $managed = \Illuminate\Support\Facades\Schema::hasTable('return_settlements') && $case->quantity > 0
+                && ($agreement || ($case->isOpen() && (!$flow || $stage === 'awaiting_collection')));
+            $ready = !$managed || ($agreement?->funded_at && $agreement->agreed());
             if ($case->status === 'approved' && $flow && !$flow->center_id && $user->isLogisticsAdmin()) $actions['route_hub'] = 'Route to collection hub';
-            if ($case->status === 'approved' && $staff) {
+            if ($case->status === 'approved' && $staff && $ready) {
                 if (in_array($stage, ['awaiting_collection', 'pickup_assigned'])) $actions['assign'] = 'Assign collection rider';
                 if ($stage === 'collected') $actions['intake'] = 'Confirm hub receipt';
                 if ($stage === 'at_hub') $actions += ['transfer' => 'Dispatch to another hub', 'dispatch_seller' => 'Dispatch back to seller'];
             }
             if ($flow && $stage === 'in_transfer' && \App\Support\LogisticsAccess::isCenterStaff($user, (int)$flow->destination_center_id)) $actions['receive_transfer'] = 'Confirm arrival at this hub';
             if ($flow && $stage === 'pickup_assigned' && $user->role === 'rider' && (int)$flow->rider_id === (int)$user->rider?->id) $actions['pickup'] = 'Confirm collected from buyer';
-            if ($stage === 'sent_to_seller' && (int)$case->seller_id === (int)$user->id) $actions['receive'] = 'Confirm physical receipt';
-            if ($case->status === 'item_received' && !$flow?->refund_sent_at && $user->isAdmin()) $actions['refund'] = 'Record actual refund transfer';
+            if (in_array($stage, ['sent_to_seller', 'seller_arrival']) && (int)$case->seller_id === (int)$user->id && $ready) $actions['receive'] = 'Confirm physical receipt';
+            if ($stage === 'sent_to_seller' && $user->role === 'rider' && (int)$flow->rider_id === (int)$user->rider?->id) $actions['deliver_seller'] = 'Record delivery to seller';
+            if (($case->status === 'item_received' || ($managed && $agreement && !$agreement->physicalReturn() && $stage === 'refund_pending')) && !$flow?->refund_sent_at && $user->isAdmin() && $ready && $agreement?->resolution !== 'exchange' && (!$managed || $case->refund_amount > 0)) $actions['refund'] = 'Record actual refund transfer';
             if ($flow?->refund_sent_at && !$flow->buyer_confirmed_at && (int)$case->buyer_id === (int)$user->id) $actions['confirm_refund'] = 'I received the refund';
         @endphp
         <article>
             <div class="return-heading"><h2>Return #{{ $case->id }} <small>Order #{{ $case->order_id }}</small></h2><strong>{{ peso($case->refund_amount) }}</strong></div>
             <p>{{ $case->item?->product_name ?? 'Purchased item' }} · {{ $case->quantity > 0 ? $case->quantity.' item(s)' : 'Payment adjustment; no return shipment' }}</p>
+            @if($managed)<a class="review-action" href="{{ route('returns.agreement', $case) }}">View agreement, fees &amp; funding</a>@endif
+            @if($managed && !$ready && !$agreement?->closed_at)<p class="review-warning">Agree on the resolution and verify funding before scheduling or continuing return transport.</p>@endif
             <details><summary>Parcel, collection address and return destination</summary>
                 @php($original = \App\Support\EscrowEarnings::deliveryForSeller($case->order, (int)$case->seller_id))
                 <p>Reason: {{ ucwords(str_replace('_', ' ', $case->reason)) }}. {{ $case->reason_details }}</p>
@@ -64,11 +72,14 @@
                         <label>Transfer destination<select name="destination_center_id"><option value="">Choose a hub for a transfer</option>@foreach(\App\Models\LogisticsCenter::where('logistics_company_id', \App\Models\LogisticsCenter::whereKey($flow->center_id)->value('logistics_company_id'))->where('id', '!=', $flow->center_id)->get() as $hub)<option value="{{ $hub->id }}">{{ $hub->name }} (#{{ $hub->id }})</option>@endforeach</select></label>
                     @endif
                     @if(isset($actions['transfer']) || isset($actions['dispatch_seller']) || isset($actions['refund']))<label>Transport / payment reference<input name="reference" maxlength="150"></label>@endif
+                    @if($managed && isset($actions['transfer']))<label>Inter-hub return driver<select name="driver_id"><option value="">Choose the driver for the quoted leg</option>@foreach(\App\Models\HubTransportDriver::where('logistics_company_id', \App\Models\LogisticsCenter::whereKey($flow->center_id)->value('logistics_company_id'))->where('status','!=','inactive')->get() as $driver)<option value="{{ $driver->id }}">{{ $driver->name }}</option>@endforeach</select></label>@endif
+                    @if($managed && isset($actions['dispatch_seller']))<label>Rider delivering back to seller<select name="rider_id"><option value="">Choose an approved rider</option>@foreach(\App\Models\Rider::where('center_id', $flow->center_id)->whereNotNull('approved_at')->get() as $rider)<option value="{{ $rider->id }}">{{ $rider->name }}</option>@endforeach</select></label>@endif
+                    @if(isset($actions['deliver_seller']) || ($managed && isset($actions['pickup'])))<label>Parcel handover photo<input name="proof" type="file" accept="image/jpeg,image/png,image/webp" required></label>@endif
                     @if(isset($actions['receive']))<label class="return-check"><input type="checkbox" name="restock" value="1"> Inspected and resellable: restore this quantity to stock</label>@endif
                     @if(isset($actions['refund']))
                         @php($funding = \App\Services\ReturnWorkflowService::fundingSummary($case->order, (float)$case->refund_amount))
                         <p><b>Additional escrow funding required before refund: {{ peso($funding['shortfall']) }}</b><br>Original reconciled payment: {{ peso($funding['funded']) }}. Completed logistics still reserved: {{ peso($funding['reserved_logistics']) }}. Recheck before transferring money; balances are validated again when submitted.</p>
-                        <p>Verify the buyer's receiving details through the existing conversation. Transfer the exact amount above and upload proof. Do not submit before the money has actually been sent. Completed logistics fees remain payable; any funding shortfall must first be recovered into escrow.</p>
+                        <p>For new agreements, use the private verified receiving account on the agreement page. Transfer the exact net refund and upload proof only after the payment succeeds. Completed logistics fees remain payable; any funding shortfall must first be recovered into escrow.</p>
                         <label>Buyer refund transfer proof<input type="file" name="proof" accept="image/jpeg,image/png,image/webp" required></label>
                         <details @if($funding['shortfall'] > 0) open @endif><summary>Record additional escrow funding / recovered money</summary>
                             <label>Amount actually recovered into escrow<input type="number" name="recovery_amount" min="0" step="0.01"></label>
@@ -80,7 +91,9 @@
                     <button type="submit">Confirm step</button>
                 </form>
             @endif
-            @if($flow?->events)<details><summary>Handoff history</summary><ol>@foreach($flow->events as $event)<li>{{ ucwords(str_replace('_', ' ', $event['action'])) }} · {{ $event['at'] }} · Account #{{ $event['actor_id'] }} @if($event['reference'] ?? null) · {{ $event['reference'] }} @endif</li>@endforeach</ol></details>@endif
+            @if($flow?->events)<details><summary>Handoff history</summary><ol>@foreach($flow->events as $event)<li>{{ ucwords(str_replace('_', ' ', $event['action'])) }} · {{ $event['at'] }} · Account #{{ $event['actor_id'] }} @if($event['reference'] ?? null) · {{ $event['reference'] }} @endif
+                @if(($event['proof_path'] ?? null) && in_array($event['action'], ['pickup','deliver_seller']) && \Illuminate\Support\Facades\Schema::hasTable('return_settlements'))<a class="review-action" data-image-viewer="document" href="{{ route('returns.file', ['kind'=>'custody','id'=>$case->id,'event'=>$loop->index]) }}">View handover photo</a>@endif
+            </li>@endforeach</ol></details>@endif
         </article>
     @empty<p>No return requests to display.</p>@endforelse
     {{ $returns->links() }}

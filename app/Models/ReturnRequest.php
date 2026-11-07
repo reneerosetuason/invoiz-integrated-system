@@ -26,13 +26,27 @@ class ReturnRequest extends Model
     protected $appends = [
         'evidence_url',
         'progress',
+        'has_return_agreement',
     ];
 
     public function workflow() { return $this->hasOne(ReturnWorkflow::class); }
+    public function settlement() { return $this->hasOne(ReturnSettlement::class); }
+
+    public function getHasReturnAgreementAttribute(): bool
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('return_settlements') || $this->quantity <= 0) return false;
+        return $this->settlement()->exists() || ($this->isOpen() && (! $this->workflow || $this->workflow->stage === 'awaiting_collection'));
+    }
 
     /** Financial adjustments can include unused shipping, which must not reduce merchandise twice. */
     public function merchandiseRefundAmount(): float
     {
+        if (\Illuminate\Support\Facades\Schema::hasTable('return_settlements')) {
+            $agreement = $this->settlement;
+            if ($agreement && $agreement->resolution !== 'exchange' && $agreement->funded_at) {
+                return $agreement->merchandise_cents / 100;
+            }
+        }
         if (\Illuminate\Support\Facades\Schema::hasTable('return_workflows')) {
             $events = $this->workflow?->events ?? [];
             if (isset($events[0]['merchandise_amount'])) {

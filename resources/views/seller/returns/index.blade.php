@@ -6,7 +6,7 @@
 <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
         <h2 class="text-xl font-extrabold tracking-tight">Returns &amp; Refunds</h2>
-        <p class="mt-0.5 text-sm text-ink-light">Buyers can request a return within {{ $windowDays }} days of delivery. Confirm receipt only after the item comes back. Logistics tracks collection and handoffs; admin records the actual refund transfer, then the buyer confirms receipt.</p>
+        <p class="mt-0.5 text-sm text-ink-light">Buyers can request a return within {{ $windowDays }} days of delivery. Review the agreement, responsibility and fees first. Physical returns need verified funding; refund-only cases let the buyer keep the item. Admin records the refund transfer, then the buyer confirms receipt.</p>
     </div>
     <a href="{{ route('seller.returns.index') }}" class="btn btn-outline" data-return-refresh>Refresh requests</a>
 </div>

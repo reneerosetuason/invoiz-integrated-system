@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:invoize_rider/core/network/api_client.dart';
 import 'package:invoize_rider/core/storage/token_storage.dart';
 import 'package:invoize_rider/core/theme/app_theme.dart';
@@ -19,6 +21,13 @@ void main() {
         client: MockClient((request) async {
           if (request.method == 'POST') {
             expect(request.url.path, endsWith('/rider/returns/7/pickup'));
+            expect(
+              request.headers['content-type'],
+              contains('multipart/form-data'),
+            );
+            final multipartBody = latin1.decode(request.bodyBytes);
+            expect(multipartBody, contains('name="proof"'));
+            expect(multipartBody, contains('pickup'));
             collected = true;
             return http.Response(
               '{"message":"Collected"}',
@@ -59,7 +68,13 @@ void main() {
             theme: AppTheme.light().copyWith(
               splashFactory: NoSplash.splashFactory,
             ),
-            home: const ReturnCollectionsScreen(),
+            home: ReturnCollectionsScreen(
+              takeHandoverPhoto: () async => XFile.fromData(
+                Uint8List.fromList([137, 80, 78, 71]),
+                name: 'handover.png',
+                mimeType: 'image/png',
+              ),
+            ),
           ),
         ),
       );

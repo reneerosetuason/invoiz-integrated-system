@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../providers/auth_provider.dart';
 
 class ReturnCollectionsScreen extends StatefulWidget {
-  const ReturnCollectionsScreen({super.key});
+  const ReturnCollectionsScreen({super.key, this.takeHandoverPhoto});
+  final Future<XFile?> Function()? takeHandoverPhoto;
 
   @override
   State<ReturnCollectionsScreen> createState() =>
@@ -39,13 +41,17 @@ class _ReturnCollectionsScreenState extends State<ReturnCollectionsScreen> {
     }
   }
 
-  Future<void> _collect(int id) async {
+  Future<void> _collect(int id, {bool deliverToSeller = false}) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Parcel collected?'),
-        content: const Text(
-          'Confirm only when the returned item is physically with you. Collect no cash and bring it to the handling hub.',
+        title: Text(
+          deliverToSeller ? 'Delivered to seller?' : 'Parcel collected?',
+        ),
+        content: Text(
+          deliverToSeller
+              ? 'Record the actual seller handover. The seller must separately confirm inspection and receipt.'
+              : 'Confirm only when the returned item is physically with you. Collect no cash and bring it to the handling hub.',
         ),
         actions: [
           TextButton(
@@ -54,7 +60,9 @@ class _ReturnCollectionsScreenState extends State<ReturnCollectionsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm collection'),
+            child: Text(
+              deliverToSeller ? 'Confirm delivery' : 'Confirm collection',
+            ),
           ),
         ],
       ),
@@ -62,9 +70,22 @@ class _ReturnCollectionsScreenState extends State<ReturnCollectionsScreen> {
     if (confirmed != true || !mounted || _busy != null) return;
     setState(() => _busy = id);
     try {
-      await context.read<AuthProvider>().api.post(
+      final photo = widget.takeHandoverPhoto != null
+          ? await widget.takeHandoverPhoto!()
+          : await ImagePicker().pickImage(
+              source: ImageSource.camera,
+              maxWidth: 1800,
+              imageQuality: 85,
+            );
+      if (photo == null || !mounted) return;
+      final bytes = await photo.readAsBytes();
+      if (!mounted) return;
+      await context.read<AuthProvider>().api.postMultipart(
         '/rider/returns/$id/pickup',
-        body: {},
+        fileField: 'proof',
+        fileBytes: bytes,
+        filename: photo.name,
+        fields: {'action': deliverToSeller ? 'deliver_seller' : 'pickup'},
       );
       await _load();
     } catch (error) {
@@ -80,14 +101,14 @@ class _ReturnCollectionsScreenState extends State<ReturnCollectionsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Return collections')),
+    appBar: AppBar(title: const Text('Return jobs')),
     body: RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           const Text(
-            'Buyer returns collect no cash. Confirm collection, then hand the parcel to hub staff. These jobs do not create a second forward-delivery earning.',
+            'Collect no cash. Photograph the handover and wait for the receiving party to confirm it. Return service fees use their own remittances and need your receipt acceptance.',
           ),
           const SizedBox(height: 16),
           if (_loading) const Center(child: CircularProgressIndicator()),
@@ -119,6 +140,28 @@ class _ReturnCollectionsScreenState extends State<ReturnCollectionsScreen> {
                     Text(
                       'Handling hub #${job['center_id']} · No cash to collect',
                     ),
+                    if ([
+                      'sent_to_seller',
+                      'seller_arrival',
+                    ].contains(job['stage'])) ...[
+                      Text(
+                        'Deliver to: ${job['seller_name'] ?? ''} · ${job['seller_phone'] ?? ''}',
+                      ),
+                      Text('${job['seller_address'] ?? ''}'),
+                    ],
+                    if (job['stage'] == 'sent_to_seller')
+                      TextButton.icon(
+                        onPressed: _busy != null
+                            ? null
+                            : () => _collect(
+                                job['id'] as int,
+                                deliverToSeller: true,
+                              ),
+                        icon: const Icon(Icons.local_shipping_outlined),
+                        label: const Text('Record delivery to seller'),
+                      ),
+                    if (job['stage'] == 'seller_arrival')
+                      const Text('Awaiting seller receipt confirmation.'),
                     if (job['stage'] == 'pickup_assigned')
                       TextButton.icon(
                         onPressed: _busy != null

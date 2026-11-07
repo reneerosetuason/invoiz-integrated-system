@@ -77,6 +77,24 @@ class SellerReturnVisibilityTest extends TestCase
         return $this->actingAs($seller)->withSession(['active_role' => 'seller']);
     }
 
+    public function test_browser_return_accepts_size_and_color_reasons_and_starts_the_agreement_with_evidence(): void
+    {
+        (require database_path('migrations/2026_11_06_180000_create_return_settlement_ledgers.php'))->up();
+        $buyer=$this->account('web-return-buyer');$seller=$this->seller('web-return-owner');
+        foreach (['ordered_wrong_size','ordered_wrong_color','received_wrong_size','received_wrong_color'] as $reason) {
+            [$order,$item]=$this->purchase($buyer,$seller,'Browser '.$reason);
+            $this->actingAs($buyer)->withSession(['active_role'=>'buyer'])->post('/orders/'.$order->id.'/returns',[
+                'evidence'=>$this->evidence(),'order_item_id'=>$item->id,'reason'=>$reason,'quantity'=>1,
+            ])->assertRedirect('/orders/'.$order->id)->assertSessionHasNoErrors()->assertSessionMissing('error')->assertSessionHas('success');
+            $case=ReturnRequest::where('order_id',$order->id)->firstOrFail();
+            $this->assertSame($reason,$case->reason);
+            $this->assertNotNull($case->evidence_path);
+            \Illuminate\Support\Facades\Storage::disk('public')->assertExists($case->evidence_path);
+            $this->assertSame('draft',$case->settlement->status);
+            $this->assertSame('awaiting_collection',$case->workflow->stage);
+        }
+    }
+
     public function test_mobile_return_appears_on_the_exact_sellers_web_page_and_can_be_reviewed(): void
     {
         $buyer = $this->account('return-buyer');

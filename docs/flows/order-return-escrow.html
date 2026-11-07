@@ -7,7 +7,7 @@
 *{box-sizing:border-box}body{margin:0;background:#f5f6f4;color:#21393f;font:15px/1.5 system-ui,sans-serif}main{max-width:1400px;margin:auto;padding:32px 24px}h1{font-size:30px;margin:0 0 8px}header p{color:#607176;max-width:850px}button{padding:9px 15px;border:1px solid #b8c7c7;background:white;border-radius:8px;color:inherit;cursor:pointer}.charts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;margin-top:28px}section{min-width:0}h2{font-size:20px}ol{list-style:none;padding:0;margin:0}li{position:relative;border:1px solid #c8d6d5;background:white;border-radius:10px;padding:14px 16px;margin-bottom:28px;overflow-wrap:anywhere}li:not(:last-child):after{content:'↓';position:absolute;left:calc(50% - 8px);bottom:-27px;color:#50767e;font-size:23px}li b{display:block;font-size:14px}li small{display:block;color:#617278;margin-top:5px}.branch{background:#edf3f2}.roles{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0}.roles span{border:1px solid #d9e2e1;border-radius:6px;padding:7px;font-size:12px}.note{padding:16px;border-top:1px solid #cdd8d7;margin-top:20px;color:#566b70}a{color:#246878}@media(max-width:850px){.charts{grid-template-columns:1fr}main{padding:22px 16px}section{max-width:600px;width:100%;margin:auto}h1{font-size:25px}}@media print{body{background:white}main{padding:0}.charts{gap:16px}button{display:none}li{break-inside:avoid;font-size:12px;padding:10px}h1{font-size:23px}h2{font-size:17px}.note{font-size:11px}}
 </style>
 <main>
-<header><h1>Orders, returns &amp; earnings</h1><p>Invoiz process guide · November 5, 2026. Arrows show the normal sequence. Transfers are made manually and recorded with references and proof.</p><button onclick="window.print()">Print / Save as PDF</button></header>
+<header><h1>Orders, returns &amp; earnings</h1><p>Invoiz process guide · November 6, 2026. Arrows show the normal sequence. Transfers are made manually and recorded with references and proof. <a href="return-refund-ui-guide.html">Open the detailed return/refund button guide</a>.</p><button onclick="window.print()">Print / Save as PDF</button></header>
 <div class="charts">
 <section><h2>1. Ordering</h2><ol>
 <li><b>Buyer places order</b><small>Choose COD or GCash.</small></li>
@@ -23,11 +23,14 @@
 </ol></section>
 <section><h2>2. Return / refund</h2><ol>
 <li><b>Buyer requests return with evidence</b><small>Specific item, reason and eligible quantity.</small></li>
-<li class="branch"><b>Seller reviews</b><small>Approve → tracked collection. Reject with explanation → buyer may ask support for review.</small></li>
+<li class="branch"><b>Agree resolution and responsibility</b><small>Return/refund, refund-only, partial refund or exchange. Compare the saved variation and evidence. Buyer/seller accept the version; admin reviews responsibility.</small></li>
+<li class="branch"><b>Fund refund and new transport</b><small>Quote actual services. Responsible party deposits to platform escrow, or admin reserves an agreed buyer deduction from available funds. Verify actual money before collection.</small></li>
+<li class="branch"><b>Buyer keeps item?</b><small>Refund-only / partial refund skip physical custody and stock restoration. Admin sends the agreed net refund; buyer confirms receipt.</small></li>
 <li><b>Hub assigns collection rider</b><small>Rider confirms physical collection. No cash.</small></li>
 <li><b>Hub confirms return receipt</b><small>Record any return transfer and receiving-hub confirmation.</small></li>
 <li><b>Logistics dispatches back to seller</b><small>Record transport / handover reference.</small></li>
 <li><b>Seller receives &amp; inspects</b><small>Restore stock only if marked resellable.</small></li>
+<li class="branch"><b>Exchange?</b><small>Reserve replacement stock before collection. Record replacement dispatch, variation and rider. Buyer confirms receipt; no second sale or COD collection.</small></li>
 <li class="branch"><b>Admin checks refund funding</b><small>Recover any shortfall into escrow first. Preserve fees for completed logistics work.</small></li>
 <li><b>Admin transfers refund to buyer</b><small>Exact amount, real reference, private proof and verification. This records REFUND SENT.</small></li>
 <li><b>Buyer confirms receipt</b><small>Check the receiving account first. Then the case closes.</small></li>
@@ -37,6 +40,7 @@
 <li class="branch"><b>Payment method — choose one path</b><div class="roles"><span><strong>GCash</strong><br>Buyer → seller → FULL escrow deposit. Admin verifies incoming funds.</span><span><strong>COD</strong><br>Buyer → delivery rider. Retain eligible last-mile cut and reconcile remaining cash.</span></div><small>Both paths feed the allocations below. A buyer's GCash receipt alone does not unlock acceptance.</small></li>
 <li><b>Allocate by verified work and route</b><div class="roles"><span>Admin<br>Net merchandise commission</span><span>Seller<br>Remaining product proceeds</span><span>Origin hub<br>Configured hub fee</span><span>Pickup rider<br>Configured per-item fee</span><span>Inter-hub driver<br>Eligible transport fee</span><span>Destination hub<br>Eligible receiving fee</span><span>Delivery rider<br>Last-mile fee</span></div><small>GCash allocations stay held until delivery. COD pickup earnings can follow verified hub handoff.</small></li>
 <li class="branch"><b>Open return / dispute?</b><small>Hold further payouts. Complete the refund and any required recovery first. Reverse the refunded merchandise commission.</small></li>
+<li class="branch"><b>Separate return service budget</b><small>New collection, hubs, inter-hub driver and seller/replacement delivery earn only after verified work. Admin records actual transfer; each recipient accepts before confirmed return earnings. Preserve completed original-delivery earnings.</small></li>
 <li><b>Release only eligible, funded amounts</b><small>GCash: individual actual transfer reference per allocation. Refunds reduce the available escrow balance.</small></li>
 <li><b>Recipient confirms where applicable</b><small>A rider's GCash earning is credited only after that rider accepts the incoming remittance.</small></li>
 <li><b>Record once</b><small>No GCash cash deduction, duplicate refund, duplicate stock restoration or second forward-delivery earning for a reverse collection.</small></li>

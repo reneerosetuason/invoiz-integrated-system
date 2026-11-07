@@ -62,9 +62,17 @@
     const first = plain[0];
     const second = plain.find(index => index !== first && /amount|total|status|balance/i.test(labels[index])) ?? plain[1];
     const visible = new Set([first, second, ...controls]);
+    // Keep a concise desktop overview too; full values remain in View.
+    const desktop = new Set([first, second, ...controls]);
+    const price = plain.find(index => /price|amount|total/i.test(labels[index]));
+    if (price !== undefined) desktop.add(price);
+    plain.filter(index => /stock|status|balance/i.test(labels[index]))
+      .slice(0, 2).forEach(index => desktop.add(index));
+    if (desktop.size < 3 && plain.length > 2) desktop.add(plain[2]);
     table.dataset.mobileReady = '1';table.dataset.mobileHasControls = String(controls.size > 0);table.classList.add('mobile-summary-table');
     [...header.cells].forEach((cell,index) => {
       cell.dataset.mobileField = visible.has(index) ? 'summary' : 'detail';
+      cell.dataset.desktopField = desktop.has(index) ? 'summary' : 'detail';
       if (controls.has(index)) cell.dataset.mobileControls = 'true';
       if (index === second) {
         cell.dataset.mobileMetric = 'true';
@@ -77,6 +85,7 @@
       if (!normalRows.includes(row)) { if(row.cells.length===1&&row.cells[0].colSpan===originalCount)row.cells[0].colSpan++;return; }
       [...row.cells].forEach((cell,index) => {
         cell.dataset.mobileField = visible.has(index) ? 'summary' : 'detail';
+        cell.dataset.desktopField = desktop.has(index) ? 'summary' : 'detail';
         if (controls.has(index)) cell.dataset.mobileControls = 'true';
         if (index === second) {
           cell.dataset.mobileMetric = 'true';

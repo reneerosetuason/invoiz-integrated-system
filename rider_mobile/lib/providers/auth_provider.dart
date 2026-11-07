@@ -94,9 +94,21 @@ class AuthProvider extends ChangeNotifier {
         _courier = courier;
         await _persistCourier(courier);
       } else {
-        final profile = await _riderService.getProfile();
-        _rider = profile;
-        await _persistUser(profile);
+        try {
+          final profile = await _riderService.getProfile();
+          _rider = profile;
+          await _persistUser(profile);
+        } on ApiException catch (error) {
+          if (error.type != ApiErrorType.forbidden) rethrow;
+          // Older APKs cached logistics identities as riders. Resolve the
+          // identity through the shared endpoint without weakening rider access.
+          final result = await _authService.currentUser();
+          if (result.logistics == null) rethrow;
+          _logistics = result.logistics;
+          _rider = null;
+          _courier = null;
+          await _persistLogistics(result.logistics!);
+        }
       }
       _status = AuthStatus.authenticated;
     } on ApiException catch (e) {
@@ -129,10 +141,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _authService.login(
-        email: email,
-        password: password,
-      );
+      final result = await _authService.login(email: email, password: password);
       _api.setToken(result.token);
       await _storage.saveToken(result.token);
 
@@ -258,10 +267,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> _persistLogistics(LogisticsAccount account) async {
     await _storage.saveUser(
-      jsonEncode({
-        'workflow_type': 'logistics',
-        'logistics': account.toJson(),
-      }),
+      jsonEncode({'workflow_type': 'logistics', 'logistics': account.toJson()}),
     );
   }
 

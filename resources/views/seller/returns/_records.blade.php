@@ -41,7 +41,10 @@
                             </span>
                         </td>
                         <td class="text-right">
-                            @if($r->status === 'requested')
+                            @if($r->has_return_agreement)
+                                <a class="btn btn-outline btn-xs" href="{{ route('returns.agreement', $r) }}">Review agreement &amp; fees</a>
+                                <a class="btn btn-ghost btn-xs" href="{{ route('returns.center') }}">View return steps</a>
+                            @elseif($r->status === 'requested')
                                 <form method="POST" action="{{ route('seller.returns.update', $r->id) }}" class="flex justify-end gap-1.5">
                                     @csrf
                                     <input type="text" name="note" maxlength="500" placeholder="Note (optional)" class="input !w-36 !py-1.5 !text-xs">

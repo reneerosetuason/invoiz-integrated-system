@@ -6,6 +6,7 @@ import '../../models/hub_courier.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/hub_courier_service.dart';
 import '../../widgets/receipt_confirmation.dart';
+import 'return_remittances_screen.dart';
 
 class HubCourierRemittancesScreen extends StatefulWidget {
   const HubCourierRemittancesScreen({super.key});
@@ -80,7 +81,18 @@ class _HubCourierRemittancesScreenState
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Interhub remittances')),
+    appBar: AppBar(
+      title: const Text('Interhub remittances'),
+      actions: [
+        IconButton(
+          tooltip: 'Return payments & earnings',
+          icon: const Icon(Icons.assignment_return_outlined),
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const ReturnRemittancesScreen()),
+          ),
+        ),
+      ],
+    ),
     body: FutureBuilder<Map<String, dynamic>>(
       future: _result,
       builder: (context, snapshot) {

@@ -413,7 +413,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             'order_item_id' => ['required_without:product_id', 'integer', 'min:1'],
             'product_id' => ['required_without:order_item_id', 'integer', 'min:1'],
-            'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,other'],
+            'reason' => ['required', 'in:damaged,wrong_item,not_as_described,changed_mind,ordered_wrong_size,ordered_wrong_color,received_wrong_size,received_wrong_color,other'],
             'reason_details' => ['nullable', 'required_if:reason,other', 'string', 'max:300', ...($request->input('reason') === 'other' ? ['min:10'] : [])],
             'quantity' => ['nullable', 'integer', 'min:1', 'max:9999'],
             'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,mp4,mov,avi,webm,quicktime', 'max:51200'],
@@ -498,6 +498,7 @@ class OrderController extends Controller
                 'refund_amount' => $refund,
                 'status' => 'requested',
             ]);
+            \App\Services\ReturnSettlementService::ensure($return);
 
             SellerNotification::create([
                 'seller_id' => $item->seller_id,

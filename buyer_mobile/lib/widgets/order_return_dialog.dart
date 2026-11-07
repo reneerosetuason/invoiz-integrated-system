@@ -273,6 +273,22 @@ class _OrderReturnDialogState extends State<OrderReturnDialog> {
                             child: Text('Changed my mind'),
                           ),
                           DropdownMenuItem(
+                            value: 'ordered_wrong_size',
+                            child: Text('I ordered the wrong size'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'ordered_wrong_color',
+                            child: Text('I ordered the wrong color'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'received_wrong_size',
+                            child: Text('Seller sent a different size'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'received_wrong_color',
+                            child: Text('Seller sent a different color'),
+                          ),
+                          DropdownMenuItem(
                             value: 'other',
                             child: Text('Other'),
                           ),

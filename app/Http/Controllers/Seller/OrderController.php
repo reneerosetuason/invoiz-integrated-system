@@ -148,9 +148,17 @@ class OrderController extends Controller
             ->orderBy('name')
             ->get();
 
+        $hubSuggestions = app(\App\Services\PickupHubRecommendations::class)->forPickup(
+            $logisticsCenters,
+            $sellerDelivery,
+            \App\Models\Seller::where('user_id', $sellerId)->first(),
+        );
+        $logisticsCenters = $hubSuggestions['centers'];
+        $pickupRecommendations = $hubSuggestions['recommendations'];
+
         $timeline = \App\Support\CustomerTracking::timeline($order, $sellerDelivery);
 
-        return view('seller.orders.show', compact('order', 'returnState', 'logisticsCenters', 'timeline'));
+        return view('seller.orders.show', compact('order', 'returnState', 'logisticsCenters', 'timeline', 'pickupRecommendations'));
     }
 
     public function confirmReturn(Request $request, Delivery $delivery, ReturnToSellerService $returns)

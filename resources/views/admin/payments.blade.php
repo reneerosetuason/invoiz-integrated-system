@@ -8,6 +8,7 @@
 @endpush
 
 @section('content')
+    @if(\Illuminate\Support\Facades\Schema::hasTable('return_settlements'))<p><a class="btn btn-outline" href="{{ route('returns.remittances') }}">Return payments &amp; remittances</a> <a class="btn btn-outline" href="{{ route('returns.center') }}">Return funding &amp; refunds</a></p>@endif
 @php
     $escrowRemittancesList = $escrowRemittancesList ?? $escrowRemittances ?? null;
     $pendingEscrowRemittances = $pendingEscrowRemittances ?? (isset($escrowRemittancesList) ? collect($escrowRemittancesList->items())->where('status', 'pending_remittance')->filter(fn ($row) => $row->order?->payment?->method !== 'gcash') : collect());

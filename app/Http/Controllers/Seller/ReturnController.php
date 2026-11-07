@@ -60,6 +60,9 @@ class ReturnController extends Controller
                 if ($returnRequest->status !== 'requested') {
                     return back()->with('error', 'Only newly requested returns can be approved.');
                 }
+                if (\App\Services\ReturnSettlementService::ensure($returnRequest)) {
+                    return redirect()->route('returns.agreement', $returnRequest)->with('success', 'Propose the resolution, fees and responsibility before collection is approved.');
+                }
                 $returnRequest->update([
                     'status'        => 'approved',
                     'decision_note' => $data['note'] ?? null,
@@ -72,6 +75,10 @@ class ReturnController extends Controller
             if ($data['action'] === 'reject') {
                 if ($returnRequest->status !== 'requested') {
                     return back()->with('error', 'This return can no longer be rejected.');
+                }
+                if (\App\Services\ReturnSettlementService::ensure($returnRequest)) {
+                    \App\Services\ReturnSettlementService::change($returnRequest, auth()->user(), 'dispute', ['note' => $data['note'] ?? '']);
+                    return redirect()->route('returns.agreement', $returnRequest)->with('success', 'Seller disagreement recorded for admin review. Verified funds remain protected.');
                 }
                 $returnRequest->update([
                     'status'        => 'rejected',

@@ -10,6 +10,7 @@ import '../../widgets/dashboard_card.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/receipt_confirmation.dart';
+import 'return_remittances_screen.dart';
 
 /// Cash-on-Delivery collections the rider must hand over to logistics.
 class RemittancesScreen extends StatefulWidget {
@@ -34,7 +35,20 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
     final page = provider.page;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Remittances')),
+      appBar: AppBar(
+        title: const Text('Remittances'),
+        actions: [
+          IconButton(
+            tooltip: 'Return payments & earnings',
+            icon: const Icon(Icons.assignment_return_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ReturnRemittancesScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: provider.load,
         child: provider.loading && page == null
