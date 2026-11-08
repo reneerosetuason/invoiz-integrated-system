@@ -14,14 +14,14 @@ class LogisticsScanService {
   final ApiClient _api;
 
   Future<LogisticsAccount> context() async {
-    final data = await _api.get('/logistics/scan/context');
+    final data = await _api.get('/scan/context');
     return LogisticsAccount.fromJson(data);
   }
 
   Future<LogisticsScanOutcome> lookup(String trackingNumber) async {
     try {
       final data = await _api.post(
-        '/logistics/scan/lookup',
+        '/scan/lookup',
         body: {'tracking_number': trackingNumber},
       );
       return LogisticsScanOutcome.fromJson(data, statusCode: 200);
@@ -39,7 +39,7 @@ class LogisticsScanService {
   Future<LogisticsScanOutcome> confirm(String trackingNumber) async {
     try {
       final data = await _api.post(
-        '/logistics/scan/confirm',
+        '/scan/confirm',
         body: {'tracking_number': trackingNumber},
       );
       return LogisticsScanOutcome.fromJson(data, statusCode: 200);
