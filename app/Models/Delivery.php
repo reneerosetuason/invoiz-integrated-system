@@ -311,6 +311,16 @@ class Delivery extends Model
             ->orderByDesc('id');
     }
 
+    /**
+     * Latest manifest entry regardless of transfer status. Used to explain a
+     * parcel that was already received at a destination hub, where the active
+     * transfer relation no longer matches after the manifest is finalized.
+     */
+    public function latestHubTransferParcel(): HasOne
+    {
+        return $this->hasOne(HubTransferParcel::class, 'delivery_id')->latestOfMany();
+    }
+
     /** Center's own parcels plus parcels the fleet is bringing to it. */
     public function scopeAtOrIncomingToHub($query, int $centerId)
     {

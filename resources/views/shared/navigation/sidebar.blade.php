@@ -300,6 +300,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeDeliveries = request()->routeIs('deliveries.*');
     $activeScan      = request()->routeIs('deliveries.scan-page');
     $activeArchived  = request()->routeIs('deliveries.archived');
+    $activeOperations = request()->routeIs('operations.*');
     $statusQuery     = request()->query('status');
     $isDeliveriesIndex = request()->routeIs('deliveries.index');
     $activeAllDeliveries = ($isDeliveriesIndex && empty($statusQuery)) || request()->routeIs('deliveries.create', 'deliveries.show', 'deliveries.edit');
@@ -392,6 +393,18 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         </a>
 
         @if(!$isRider)
+
+        {{-- Operations (unified hub queue: receipt, sorting, transfers, last mile) --}}
+        <a href="{{ route('operations.index') }}"
+           aria-label="Operations" data-tip="Operations"
+           @if($activeOperations) aria-current="page" @endif
+           class="{{ $activeOperations ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
+           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 flex-shrink-0 {{ $activeOperations ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 13h4l2 3h4l2-3h4M4 13V6a2 2 0 012-2h12a2 2 0 012 2v7M4 13v5a2 2 0 002 2h12a2 2 0 002-2v-5" />
+            </svg>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeOperations ? 'text-teal-dark' : 'text-[#1F2933]' }}">Operations</span>
+        </a>
 
         {{-- Deliveries (collapsible parent) --}}
         <button type="button"

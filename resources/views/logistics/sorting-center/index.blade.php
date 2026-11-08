@@ -148,6 +148,8 @@
                                 $handoffVerified = \App\Services\FulfillmentWorkflow::hasPickupHandoff($delivery);
                                 $receiptUnverified = $delivery->order_id && ! $handoffVerified
                                     && in_array($delivery->parcel_status, ['received', 'scanned', 'sorted', 'dispatched'], true);
+                                $custodyAccepted = $inboundEntry && $inboundEntry->receiving_status === 'received';
+                                $workflow = \App\Support\ParcelWorkflow::describe($delivery, $delivery->latestHubTransferParcel, auth()->user());
                             @endphp
                             <tr class="hover:bg-[#FCFBF9] transition-colors">
                                 <td class="align-middle">
@@ -173,7 +175,9 @@
                                             @if($receiptUnverified)
                                                 <span class="badge badge-cancelled" title="No pickup or hub handoff is recorded for this parcel. Its hub processing is unverified; do not transfer or dispatch it until custody is corrected.">Receipt unverified</span>
                                             @endif
-                                            @if($inboundTransfer)
+                                            @if($inboundTransfer && $custodyAccepted)
+                                                <span class="badge badge-delivered" title="Destination staff accepted custody of this parcel. It can be scanned and sorted here while the manifest finishes its other parcels.">Custody accepted · {{ $inboundTransfer->reference }}</span>
+                                            @elseif($inboundTransfer)
                                                 <span class="badge badge-ready_for_delivery" title="Reserved to a fleet hub transfer. Continue receiving and custody actions from its manifest.">Hub transfer · {{ $inboundTransfer->reference }}</span>
                                             @endif
                                         </div>
@@ -189,7 +193,7 @@
                                     </div>
                                 </td>
                                 <td class="align-middle">
-                                    <span class="badge badge-inactive">{{ ucfirst(str_replace('_', ' ', $delivery->parcel_status)) }}</span>
+                                    <span class="badge badge-inactive" title="Backend parcel state: {{ $delivery->parcel_status }}">{{ $workflow['label'] }}</span>
                                 </td>
                                 <td class="align-middle">
                                     <x-status-badge :status="$delivery->status" />
@@ -240,7 +244,7 @@
                                             @elseif($inboundEntry->receiving_status === 'missing')
                                                 <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-danger btn-xs whitespace-nowrap" title="This parcel was reported missing on arrival. Review the transfer manifest.">Reported missing</a>
                                             @else
-                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-ghost btn-xs whitespace-nowrap" title="Receipt is recorded. Finalize the transfer to release custody, then process it from the Received tab.">Finalize transfer</a>
+                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-ghost btn-xs whitespace-nowrap" title="Custody is accepted. Continue scanning and sorting here; finalize the manifest once every parcel is accounted for.">Manifest</a>
                                             @endif
                                         @endif
                                         @php
@@ -276,14 +280,14 @@
                                                 </form>
                                             @endif
                                         @endif
-                                        @if(! $inboundTransfer && $delivery->parcel_status === 'received' && ! $receiptUnverified)
+                                        @if((! $inboundTransfer || $custodyAccepted) && $delivery->parcel_status === 'received' && ! $receiptUnverified)
                                             <form method="POST" action="{{ route('deliveries.scan', $delivery) }}" class="inline">
                                                 @csrf
                                                 @method('PATCH')
                                                 <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap" title="Logistics Hub Staff verify the received parcel against its records.">Scan</button>
                                             </form>
                                         @endif
-                                        @if(! $inboundTransfer && $delivery->parcel_status === 'scanned' && ! $receiptUnverified)
+                                        @if((! $inboundTransfer || $custodyAccepted) && $delivery->parcel_status === 'scanned' && ! $receiptUnverified)
                                             <div class="relative inline-block text-left" data-sort-dropdown>
                                                 <button type="button" data-sort-trigger aria-haspopup="true" aria-expanded="false"
                                                         class="btn btn-primary btn-xs cursor-pointer inline-flex items-center gap-1 select-none whitespace-nowrap"
@@ -330,13 +334,13 @@
                                                 </form>
                                             </div>
                                         @endif
-                                        @if(! $inboundTransfer && $delivery->parcel_status === 'sorted')
+                                        @if((! $inboundTransfer || $custodyAccepted) && $delivery->parcel_status === 'sorted')
                                             @if($receiptUnverified)
                                                 <span class="text-[11px] font-semibold text-rose-600" title="Record the seller pickup and hub handoff before moving this parcel.">Resolve custody first</span>
                                             @elseif($routesToOtherHub)
-                                                <a href="{{ route('hub-transfers.create', array_filter(['logistics_company_id' => $delivery->destinationCenter?->logistics_company_id])) }}"
+                                                <a href="{{ route('hub-transfers.create', array_filter(['origin_center_id' => $delivery->center_id, 'parcel' => $delivery->id])) }}"
                                                    class="btn btn-outline btn-xs whitespace-nowrap"
-                                                   title="Routed to {{ $delivery->destinationCenter?->name ?? 'another Logistics Hub' }}. Create a fleet hub transfer for this parcel.">Create hub transfer</a>
+                                                   title="Routed to {{ $delivery->destinationCenter?->name ?? 'another Logistics Hub' }}. This parcel is preselected on the transfer manifest.">Create hub transfer</a>
                                             @else
                                                 <form method="POST" action="{{ route('deliveries.dispatch', $delivery) }}" class="inline">
                                                     @csrf

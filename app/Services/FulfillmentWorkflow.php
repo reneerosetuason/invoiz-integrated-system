@@ -37,7 +37,12 @@ class FulfillmentWorkflow
         }
     }
 
-    /** An active fleet transfer owns custody; last-mile assignment must wait. */
+    /**
+     * An active fleet transfer owns custody until the destination hub accepts
+     * this specific parcel. Arrival alone never releases it, and accepting
+     * custody never finalizes the trip: other manifest parcels, exceptions and
+     * driver settlement remain on the transfer until complete() is called.
+     */
     public static function hasActiveHubTransfer(Delivery $delivery): bool
     {
         try {
@@ -48,6 +53,7 @@ class FulfillmentWorkflow
             return HubTransferParcel::query()
                 ->where('delivery_id', $delivery->id)
                 ->where('loading_status', '!=', 'removed')
+                ->where('receiving_status', '!=', 'received')
                 ->whereHas('transfer', fn ($query) => $query->whereIn('status', HubTransfer::ACTIVE_STATUSES))
                 ->exists();
         } catch (\Throwable $e) {

@@ -186,10 +186,21 @@ class HubTransferManualControlsTest extends TestCase
             'event_type' => 'rerouted',
         ]);
 
+        // The shared network permits any eligible active hub as the next hop,
+        // including a hub owned by another logistics company.
         $foreignHub = $this->center($this->company('Other Company'), 'Foreign Hub');
         $this->actingAs($admin)
-            ->post(route('hub-transfers.reroute', $transfer), ['destination_center_id' => $foreignHub->id, 'reason' => 'Attempt cross-company'])
-            ->assertSessionHasErrors('destination_center_id');
+            ->post(route('hub-transfers.reroute', $transfer), ['destination_center_id' => $foreignHub->id, 'reason' => 'Shared network next hop'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame($foreignHub->id, $transfer->fresh()->destination_center_id);
+        $this->assertSame($foreignHub->id, $parcel->fresh()->destination_center_id);
+
+        $audit = $transfer->fresh()->events()->where('event_type', 'rerouted')->latest('id')->firstOrFail();
+        $this->assertSame($admin->id, $audit->actor_id);
+        $this->assertStringContainsString('Hub #'.$corrected->id, $audit->notes);
+        $this->assertStringContainsString('Hub #'.$foreignHub->id, $audit->notes);
+        $this->assertStringContainsString('Shared network next hop', $audit->notes);
 
         $this->actingAs($admin)
             ->post(route('hub-transfers.reroute', $transfer), ['destination_center_id' => $origin->id, 'reason' => 'Route back to origin'])

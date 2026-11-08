@@ -89,7 +89,10 @@ class HubTransferController extends Controller
             }
         }
 
-        $selectedOriginId = $request->integer('origin_center_id') ?: $centerId ?: ($company?->centers()->value('id'));
+        // Hub staff are always pinned to their own hub, even if a query string
+        // asks for another origin. Managers and network admins may originate
+        // from any eligible hub.
+        $selectedOriginId = $centerId ?: ($request->integer('origin_center_id') ?: ($company?->centers()->value('id')));
 
         $parcelsQuery = Delivery::query()
             ->with(['logisticsCenter', 'destinationCenter', 'order.items'])
@@ -115,6 +118,15 @@ class HubTransferController extends Controller
         }
         $parcelsByDestination = $parcels->groupBy('destination_center_id');
         $destinationHubs = LogisticsCenter::whereIn('id', $parcelsByDestination->keys())->get()->keyBy('id');
+
+        // Queue deep-links can hand us the parcel(s) the operator already chose
+        // on the Sorting Center or Operations page. Only eligible parcels that
+        // survived the query above are preselected.
+        $requestedParcels = array_filter(array_map(
+            'intval',
+            array_merge((array) $request->query('parcels', []), [$request->integer('parcel')])
+        ));
+        $preselectedParcelIds = $parcels->whereIn('id', $requestedParcels)->pluck('id')->all();
 
         // Only expose fleet pairs that can actually operate a transfer:
         // an eligible four-wheel truck with an available, licensed driver
@@ -185,7 +197,7 @@ class HubTransferController extends Controller
             'companies' => $companies,
             'global' => $global,
             'centers' => $company ? $this->centersFor($company) : collect(),
-            'originCenterId' => $centerId ?: $selectedOriginId,
+            'originCenterId' => $selectedOriginId,
             // Hub-scoped staff are locked to their own hub; network admins and
             // company-wide managers may originate a transfer from any hub.
             'originSelectable' => $global || $centerId === null,
@@ -196,6 +208,8 @@ class HubTransferController extends Controller
             'parcels' => $parcels,
             'parcelsByDestination' => $parcelsByDestination,
             'destinationHubs' => $destinationHubs,
+            'preselectedParcelIds' => $preselectedParcelIds,
+            'selectedDestinationId' => $request->integer('destination_center_id') ?: null,
         ]);
     }
 
@@ -418,7 +432,6 @@ class HubTransferController extends Controller
             ->filter(fn (array $option) => $option['driver'] !== null)
             ->values();
         $rerouteHubs = LogisticsCenter::query()
-            ->where('logistics_company_id', $hubTransfer->logistics_company_id)
             ->where('is_active', true)
             ->whereKeyNot($hubTransfer->origin_center_id)
             ->orderBy('name')
@@ -613,7 +626,7 @@ class HubTransferController extends Controller
     {
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate([
-            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $hubTransfer->logistics_company_id)],
+            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('is_active', true)],
             'reason' => ['required', 'string', 'min:3', 'max:1000'],
         ]);
         HubTransferService::reroute(

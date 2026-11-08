@@ -79,7 +79,7 @@
                                 <option value="">Select next-hop hub</option>
                                 @foreach($centers as $center)
                                     @if(!$originCenterId || $originCenterId != $center->id)
-                                        <option value="{{ $center->id }}" @selected(old('destination_center_id') == $center->id)>{{ $center->name }}</option>
+                                        <option value="{{ $center->id }}" @selected(old('destination_center_id', $selectedDestinationId ?? null) == $center->id)>{{ $center->name }}</option>
                                     @endif
                                 @endforeach
                             </select>
@@ -162,6 +162,13 @@
                         </div>
                     </div>
 
+                    @if(!empty($preselectedParcelIds))
+                        <div class="rounded-lg border border-[#B9DED6] bg-[#F0F9F7] px-4 py-2.5 text-xs text-[#0E4A57]">
+                            <span class="font-bold">{{ count($preselectedParcelIds) }} parcel{{ count($preselectedParcelIds) === 1 ? '' : 's' }}</span>
+                            preselected from your queue. Check the route and fleet, then review the manifest before creating the transfer.
+                        </div>
+                    @endif
+
                     @if($parcelsByDestination->isEmpty())
                         <div class="py-12 text-center text-xs text-[#6E6E73]">
                             <svg class="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -219,7 +226,7 @@
                                                             data-weight="{{ $parcel->weight ?? 0 }}"
                                                             data-weighed="{{ $parcel->weight !== null ? '1' : '0' }}"
                                                             data-tracking="{{ $parcel->tracking_number }}"
-                                                            @checked(in_array($parcel->id, old('parcels', [])))>
+                                                            @checked(in_array($parcel->id, old('parcels', $preselectedParcelIds ?? [])))>
                                                     </td>
                                                     <td class="font-mono font-bold text-[#16697A] text-xs">
                                                         {{ $parcel->tracking_number }}

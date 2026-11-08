@@ -429,22 +429,58 @@ class HubTransferService
         });
     }
 
-    /** Correct the destination hub before the truck leaves the origin. */
+    /**
+     * Correct the transfer's next-hop hub before the truck leaves the origin.
+     *
+     * The shared network is cross-company: any active hub can be a next hop,
+     * even when it belongs to another logistics company. The manifest parcels
+     * move with the corrected leg, and the previous/new hub, reason, actor and
+     * timestamp are recorded on the immutable transfer event trail. Custody is
+     * still at the origin, so nothing has to be reversed; once receiving has
+     * started, correcting the route requires a new transfer instead.
+     */
     public static function reroute(HubTransfer $transfer, LogisticsCenter $destination, User $actor, string $reason): HubTransfer
     {
         return DB::transaction(function () use ($transfer, $destination, $actor, $reason): HubTransfer {
             $locked = self::lockTransfer($transfer->id);
             abort_unless(in_array($locked->status, ['loading', 'ready_for_dispatch'], true), 409, 'The destination can only be corrected before dispatch.');
-            abort_unless((int) $destination->logistics_company_id === (int) $locked->logistics_company_id, 422, 'The destination hub must belong to this logistics company.');
+            abort_unless(LogisticsCenter::query()->whereKey($destination->id)->where('is_active', true)->exists(), 422, 'The destination hub must be active.');
             abort_if((int) $destination->id === (int) $locked->origin_center_id, 422, 'Destination must differ from the origin hub.');
             abort_if((int) $destination->id === (int) $locked->destination_center_id, 422, 'This is already the destination hub.');
 
-            $previous = $locked->destination?->name ?? '—';
-            Delivery::query()
-                ->whereIn('id', $locked->parcels()->where('loading_status', '!=', 'removed')->select('delivery_id'))
-                ->update(['destination_center_id' => $destination->id]);
+            $deliveryIds = $locked->parcels()
+                ->where('loading_status', '!=', 'removed')
+                ->pluck('delivery_id');
+
+            // A parcel must never be sent back through a hub it already
+            // visited on an earlier completed leg.
+            $alreadyVisited = DB::table('hub_transfer_parcels as htp')
+                ->join('hub_transfers as ht', 'ht.id', '=', 'htp.hub_transfer_id')
+                ->whereIn('htp.delivery_id', $deliveryIds)
+                ->where('htp.loading_status', '!=', 'removed')
+                ->where('htp.receiving_status', 'received')
+                ->where('ht.id', '!=', $locked->id)
+                ->where('ht.status', '!=', 'cancelled')
+                ->where(function ($leg) use ($destination): void {
+                    $leg->where('ht.origin_center_id', $destination->id)
+                        ->orWhere('ht.destination_center_id', $destination->id);
+                })
+                ->exists();
+            abort_if($alreadyVisited, 422, 'Every parcel on this manifest has already passed through the selected hub. Choose a hub they have not visited.');
+
+            $previousId = (int) $locked->destination_center_id;
+            $previous = $locked->destination?->name ?? ('Hub #'.$previousId);
+
+            Delivery::query()->whereIn('id', $deliveryIds)->update(['destination_center_id' => $destination->id]);
             $locked->update(['destination_center_id' => $destination->id]);
-            self::event($locked, 'rerouted', null, null, 'Destination corrected from '.$previous.' to '.$destination->name.': '.$reason, $actor);
+            self::event(
+                $locked,
+                'rerouted',
+                null,
+                null,
+                'Next-hop hub corrected from '.$previous.' (Hub #'.$previousId.') to '.$destination->name.' (Hub #'.$destination->id.'). Reason: '.$reason,
+                $actor,
+            );
 
             return $locked;
         });

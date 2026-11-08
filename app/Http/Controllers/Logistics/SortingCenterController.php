@@ -74,6 +74,7 @@ class SortingCenterController extends Controller
             }
         };
         $relations[] = 'incomingTransferParcel.transfer';
+        $relations[] = 'latestHubTransferParcel.transfer';
         $query->with($relations);
         $this->applyFilters($query, $context);
 

@@ -444,6 +444,9 @@ class DeliveryController extends Controller
             'pickupRequest.center',
             'pickupRequest.reviewer',
             'transaction',
+            'hubTransferParcels.transfer.events',
+            'hubTransferParcels.transfer.origin',
+            'hubTransferParcels.transfer.destination',
         ]);
 
         // Read-only order-side context for the unified shipping waybill via Waybill helper.
@@ -456,6 +459,11 @@ class DeliveryController extends Controller
 
         $riderEligibility = $this->riderEligibilityFor($delivery);
         $hasActiveHubTransfer = $this->hasActiveHubTransfer($delivery);
+        $workflow = \App\Support\ParcelWorkflow::describe(
+            $delivery,
+            $delivery->hubTransferParcels->where('loading_status', '!=', 'removed')->sortByDesc('id')->first(),
+            Auth::user(),
+        );
 
         $centerOptions = LogisticsCenter::where('is_active', true)->orderBy('name');
         $serviceAreaOptions = ServiceArea::where('is_active', true)->orderBy('name');
@@ -471,6 +479,7 @@ class DeliveryController extends Controller
             'waybillStores' => $waybillStores,
             'riderEligibility' => $riderEligibility,
             'hasActiveHubTransfer' => $hasActiveHubTransfer,
+            'workflow' => $workflow,
             'failureReasons' => config('logistics.failure_reasons'),
             'cancellationReasons' => config('logistics.cancellation_reasons'),
             'exceptionReasons' => config('logistics.exception_reasons'),

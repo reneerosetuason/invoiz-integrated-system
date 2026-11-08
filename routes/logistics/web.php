@@ -23,6 +23,7 @@ use App\Http\Controllers\Logistics\CenterApplicationPublicController;
 use App\Http\Controllers\Logistics\CenterEmailVerificationController;
 use App\Http\Controllers\Logistics\PickupRequestController;
 use App\Http\Controllers\Logistics\HubTransferController;
+use App\Http\Controllers\Logistics\OperationsController;
 use App\Http\Controllers\Logistics\HubTransportDriverController;
 use App\Http\Controllers\Logistics\FleetController;
 use App\Http\Controllers\Logistics\CompanyStructureController;
@@ -58,6 +59,10 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard');
 
 Route::middleware(['auth', 'verified', 'staff'])->group(function () {
+
+    // Unified hub operations queue (read-only aggregation; every action links
+    // to the canonical delivery/transfer page that performs the mutation).
+    Route::get('operations', [OperationsController::class, 'index'])->name('operations.index');
 
     Route::get('hub-transfers', [HubTransferController::class, 'index'])->name('hub-transfers.index');
     Route::get('hub-transfers/create', [HubTransferController::class, 'create'])->name('hub-transfers.create');

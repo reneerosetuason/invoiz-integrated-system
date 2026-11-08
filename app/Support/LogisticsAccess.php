@@ -115,6 +115,19 @@ final class LogisticsAccess
         return true;
     }
 
+    /**
+     * Parcel counter operations (receiving from delivery riders, intake,
+     * scanning, sorting, last-mile dispatch and hub-transfer loading or
+     * receiving) belong exclusively to operational logistics staff assigned
+     * to a hub. Management accounts - platform administrators, the designated
+     * Logistics Admin and company managers - keep read-only parcel, transfer
+     * and exception monitoring.
+     */
+    public static function canProcessParcels(?User $user): bool
+    {
+        return self::isCenterStaff($user);
+    }
+
     public static function canAccessCompany(?User $user, ?int $companyId): bool
     {
         if (self::isGlobal($user)) {

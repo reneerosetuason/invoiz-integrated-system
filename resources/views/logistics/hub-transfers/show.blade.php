@@ -1,6 +1,21 @@
 <x-app-layout>
 @php
-    $isTransferAdmin = auth()->user()->isAdmin() || auth()->user()->isLogisticsAdmin();
+    $isTransferReadOnly = ! \App\Support\LogisticsAccess::canProcessParcels(auth()->user());
+    $manifestParcels = $transfer->parcels->where('loading_status', '!=', 'removed');
+    $remainingLoad = $manifestParcels->filter(fn ($entry) => $entry->loading_status !== 'loaded')->count();
+    $pendingReceiving = $manifestParcels->where('receiving_status', 'pending')->count();
+    $resolvedReceiving = $manifestParcels->whereIn('receiving_status', ['received', 'missing'])->count();
+    $stage = match (true) {
+        $transfer->status === 'on_hold' => ['title' => 'On hold — movement paused', 'hint' => 'Resume the transfer to continue. No parcel movement is allowed while held.', 'action' => 'Resume transfer', 'anchor' => '#transfer-actions', 'tone' => 'amber'],
+        $transfer->status === 'loading' => ['title' => $remainingLoad > 0 ? $remainingLoad.' parcel'.($remainingLoad === 1 ? '' : 's').' still to scan' : 'Manifest fully scanned', 'hint' => 'Scan each parcel below. Dispatch unlocks only when every manifest parcel is loaded.', 'action' => 'Go to manifest', 'anchor' => '#manifest', 'tone' => 'teal'],
+        $transfer->status === 'ready_for_dispatch' => ['title' => 'Ready to dispatch', 'hint' => 'Every parcel is loaded. Confirm dispatch when the truck physically leaves the origin hub.', 'action' => 'Go to dispatch', 'anchor' => '#transfer-actions', 'tone' => 'teal'],
+        $transfer->status === 'in_transit' => ['title' => 'In transit', 'hint' => 'Arrival is recorded by destination staff. It does not accept parcel custody.', 'action' => 'Go to arrival', 'anchor' => '#transfer-actions', 'tone' => 'indigo'],
+        in_array($transfer->status, ['arrived', 'receiving', 'exception'], true) && $pendingReceiving > 0 => ['title' => $pendingReceiving.' parcel'.($pendingReceiving === 1 ? '' : 's').' awaiting receiving', 'hint' => 'Record Good, Damaged, or Missing for each parcel. A damaged or missing parcel needs a reason.', 'action' => 'Go to receiving', 'anchor' => '#manifest', 'tone' => 'amber'],
+        in_array($transfer->status, ['arrived', 'receiving', 'exception'], true) => ['title' => 'All parcels accounted for', 'hint' => $resolvedReceiving.' parcel outcome'.($resolvedReceiving === 1 ? '' : 's').' recorded. Finalize receiving to close the trip and settle the driver trip.', 'action' => 'Go to finalize', 'anchor' => '#transfer-actions', 'tone' => 'green'],
+        $transfer->status === 'received' => ['title' => 'Receiving finalized', 'hint' => 'Custody is closed for this manifest. Continue scan, sort, and rider assignment on each parcel.', 'action' => null, 'anchor' => null, 'tone' => 'green'],
+        $transfer->status === 'cancelled' => ['title' => 'Transfer cancelled', 'hint' => 'Parcels remain at the origin hub. Build a new transfer when they are ready.', 'action' => null, 'anchor' => null, 'tone' => 'gray'],
+        default => ['title' => \App\Support\HubTransferProgress::transferLabel($transfer->status), 'hint' => 'Review the manifest and transfer history.', 'action' => null, 'anchor' => null, 'tone' => 'gray'],
+    };
 @endphp
     <div class="space-y-4">
         <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -49,8 +64,23 @@
             </div>
         @endif
 
+        {{-- One primary next step derived from the transfer's real status. --}}
+        <div class="card p-4 border-l-4 {{ $stage['tone'] === 'amber' ? 'border-l-amber-500 bg-amber-50/60' : ($stage['tone'] === 'indigo' ? 'border-l-indigo-500 bg-indigo-50/50' : ($stage['tone'] === 'green' ? 'border-l-emerald-600 bg-emerald-50/50' : ($stage['tone'] === 'gray' ? 'border-l-[#8E8E93] bg-[#FAF9F6]' : 'border-l-[#16697A] bg-[#F0F9F7]'))) }} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <div class="text-[10px] font-bold uppercase tracking-wider text-[#6E6E73]">Next step</div>
+                <div class="mt-0.5 text-sm font-bold text-[#1B1B1E]">{{ $stage['title'] }}</div>
+                <p class="mt-0.5 text-xs text-[#6E6E73]">{{ $stage['hint'] }}</p>
+                @if($isTransferReadOnly)
+                    <p class="mt-1 text-[11px] font-semibold text-[#0E4A57]">Read-only monitoring: hub staff perform this step.</p>
+                @endif
+            </div>
+            @if($stage['action'] && ! $isTransferReadOnly)
+                <a href="{{ $stage['anchor'] }}" class="btn btn-primary btn-sm shrink-0">{{ $stage['action'] }}</a>
+            @endif
+        </div>
+
         {{-- Manifest Table --}}
-        <div class="card overflow-hidden">
+        <div id="manifest" class="card overflow-hidden">
             <div class="p-4 border-b border-[#E8E6E0] flex items-center justify-between">
                 <div>
                     <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Parcel manifest</h2>
@@ -67,7 +97,7 @@
                             <th>Loading</th>
                             <th>Receiving</th>
                             <th>Condition / Exception</th>
-                            @if(!$isTransferAdmin)
+                            @if(!$isTransferReadOnly)
                                 <th class="text-right">Action</th>
                             @endif
                         </tr>
@@ -107,7 +137,7 @@
                                         @endif
                                     </div>
                                 </td>
-                                @if(!$isTransferAdmin)
+                                @if(!$isTransferReadOnly)
                                 <td class="text-right">
                                     @if($entry->loading_status === 'removed')
                                         <span class="text-xs text-[#6E6E73] italic">Removed</span>
@@ -151,9 +181,9 @@
             </div>
         </div>
 
-        {{-- Workflow Controls / Admin Monitoring --}}
-        @if(!$isTransferAdmin)
-        <div class="card p-5 space-y-4">
+        {{-- Workflow Controls / Read-only Management Monitoring --}}
+        @if(!$isTransferReadOnly)
+        <div id="transfer-actions" class="card p-5 space-y-4">
             <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Transfer Actions &amp; Lifecycle</h2>
 
             @if($transfer->status === 'on_hold')

@@ -61,6 +61,59 @@
         </div>
     </div>
 
+    {{-- Current custody & next step (resolved from the same DB state the controllers enforce) --}}
+    @php
+        $wfTone = match ($workflow['tone']) {
+            'red' => ['panel' => 'border-red-200 bg-red-50/60', 'badge' => 'bg-red-100 text-red-700 ring-red-200', 'text' => 'text-red-800'],
+            'amber' => ['panel' => 'border-amber-200 bg-amber-50/60', 'badge' => 'bg-amber-100 text-amber-700 ring-amber-200', 'text' => 'text-amber-900'],
+            'indigo' => ['panel' => 'border-indigo-200 bg-indigo-50/60', 'badge' => 'bg-indigo-100 text-indigo-700 ring-indigo-200', 'text' => 'text-indigo-900'],
+            'green' => ['panel' => 'border-emerald-200 bg-emerald-50/60', 'badge' => 'bg-emerald-100 text-emerald-700 ring-emerald-200', 'text' => 'text-emerald-900'],
+            'gray' => ['panel' => 'border-gray-200 bg-gray-50', 'badge' => 'bg-gray-200 text-gray-600 ring-gray-300', 'text' => 'text-gray-700'],
+            default => ['panel' => 'border-teal-200 bg-teal-50/60', 'badge' => 'bg-white text-teal-dark ring-teal-200', 'text' => 'text-teal-dark'],
+        };
+        $nextUrl = $workflow['next']['url'];
+        $nextIsSelf = $nextUrl !== null && $nextUrl === route('deliveries.show', $delivery);
+        $nextHref = $nextIsSelf
+            ? ($workflow['next']['key'] === 'assign_rider' ? '#rider-assignment' : '#parcel-processing')
+            : $nextUrl;
+    @endphp
+    <div class="mb-6 rounded-2xl border {{ $wfTone['panel'] }} p-5">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="min-w-0 space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Current parcel state</p>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-bold rounded-full ring-1 ring-inset {{ $wfTone['badge'] }}">{{ $workflow['label'] }}</span>
+                    <span class="text-xs {{ $wfTone['text'] }}">{{ $workflow['custody'] }}</span>
+                </div>
+                <p class="text-xs text-gray-600">
+                    <span class="font-semibold">Physical location:</span> {{ $delivery->logisticsCenter?->name ?? 'In transit between hubs' }}
+                    @if($delivery->destinationCenter)
+                        <span class="mx-1 text-gray-300">·</span>
+                        <span class="font-semibold">Destination:</span> {{ $delivery->destinationCenter->name }}
+                    @endif
+                </p>
+                @if($workflow['transfer'])
+                    <a href="{{ route('hub-transfers.show', $workflow['transfer']) }}" class="inline-flex items-center gap-1 text-xs font-semibold text-[#16697A] hover:underline">
+                        Transfer {{ $workflow['transfer']->reference }}
+                        <span class="font-normal text-gray-500">· {{ \App\Support\HubTransferProgress::transferLabel($workflow['transfer']->status) }}</span>
+                        &rarr;
+                    </a>
+                @endif
+            </div>
+            <div class="shrink-0 sm:max-w-xs sm:text-right">
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Next required step</p>
+                @if($workflow['next']['enabled'] && $nextHref)
+                    <a href="{{ $nextHref }}" class="mt-2 inline-flex items-center justify-center gap-2 bg-[#16697A] hover:bg-[#0E4A57] text-white font-semibold px-4 py-2 rounded-xl transition text-sm">{{ $workflow['next']['label'] }}</a>
+                @else
+                    <span class="mt-2 inline-flex items-center justify-center rounded-xl bg-white/80 border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-500">{{ $workflow['next']['label'] }}</span>
+                    @if($workflow['next']['reason'])
+                        <p class="mt-2 text-xs text-gray-500">{{ $workflow['next']['reason'] }}</p>
+                    @endif
+                @endif
+            </div>
+        </div>
+    </div>
+
     {{-- Failure / Cancellation banner --}}
     @if($isTerminalBad && ($delivery->failure_reason || $delivery->cancellation_reason))
         <div class="mb-6 flex items-start gap-3 rounded-2xl border p-5 {{ in_array($delivery->status, ['delivery_failed', 'lost', 'damaged'], true) ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200' }}">
@@ -265,7 +318,7 @@
     </div>
 
     {{-- Parcel Processing (parcel status: sorting-center pipeline, independent of delivery status) --}}
-    <div class="delivery-panel">
+    <div class="delivery-panel" id="parcel-processing">
         <div class="delivery-processing-head flex items-center gap-2">
             <div class="h-2 w-1 rounded-full bg-teal"></div>
             <h2 class="text-lg font-semibold text-gray-900">Parcel Processing</h2>
@@ -335,7 +388,7 @@
             @endif
 
             @if($hasActiveHubTransfer)
-                <p class="mb-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">This parcel remains in fleet-transfer custody. Destination-hub processing is available after the transfer is finalized.</p>
+                <p class="mb-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">Receiving is still pending on the fleet transfer manifest. Once the destination hub records the parcel's condition, the parcel leaves transfer custody and can be sorted while the manifest remains open.</p>
             @endif
 
             @if($delivery->order_id && ($delivery->isInterHubRoute() || $delivery->originCenter))
@@ -560,13 +613,45 @@
         </div>
     @endif
 
-    {{-- Timeline --}}
-    @if($delivery->statusLogs->count())
+    {{-- Timeline: delivery-lifecycle logs merged with fleet-transfer events --}}
+    @php
+        $transferEventTitles = [
+            'dispatched' => 'Transfer dispatched',
+            'arrived' => 'Physical arrival at destination hub',
+            'parcel_received' => 'Receiving inspection — custody accepted',
+            'parcel_missing' => 'Receiving inspection — missing',
+            'completed' => 'Receiving finalized',
+            'cancelled' => 'Transfer cancelled',
+            'held' => 'Transfer placed on hold',
+            'resumed' => 'Transfer resumed',
+            'rerouted' => 'Destination hub corrected',
+            'truck_reassigned' => 'Fleet truck reassigned',
+            'driver_reassigned' => 'Fleet driver reassigned',
+        ];
+        $journeyRows = collect();
+        foreach ($delivery->statusLogs as $log) {
+            $journeyRows->push(['at' => $log->created_at, 'kind' => 'delivery', 'log' => $log]);
+        }
+        foreach ($delivery->hubTransferParcels as $entry) {
+            if (! $entry->transfer) {
+                continue;
+            }
+            foreach ($entry->transfer->events as $event) {
+                if ($event->delivery_id !== null && (int) $event->delivery_id !== (int) $delivery->id) {
+                    continue;
+                }
+                $journeyRows->push(['at' => $event->created_at, 'kind' => 'transfer', 'event' => $event, 'entry' => $entry]);
+            }
+        }
+        $journeyRows = $journeyRows->sortBy(fn ($row) => $row['at']->timestamp)->values();
+    @endphp
+    @if($journeyRows->isNotEmpty())
         <div class="delivery-panel">
-            <div class="flex items-center gap-2 mb-6">
+            <div class="flex items-center gap-2 mb-1">
                 <div class="h-2 w-1 rounded-full bg-teal"></div>
-                <h2 class="text-lg font-semibold text-gray-900">Status Timeline</h2>
+                <h2 class="text-lg font-semibold text-gray-900">Parcel Journey</h2>
             </div>
+            <p class="mb-6 text-xs text-gray-400">Chronological record of delivery status changes and fleet-transfer events. Physical movement, receiving inspection and custody acceptance are recorded separately.</p>
             <div class="relative">
                 <div class="absolute left-2 top-1 bottom-1 w-0.5 bg-gray-200"></div>
                 <div class="space-y-4">
@@ -579,31 +664,64 @@
                         $centerEventStatuses = ['sorting_center_handoff', 'sorting_center_pickup'];
                         $recordEventStatuses = ['archived', 'restored'];
                     @endphp
-                    @foreach($delivery->statusLogs->sortBy('created_at') as $log)
-                        <div class="relative pl-10">
-                            <div class="absolute left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white {{ $dotColors[$log->status] ?? 'bg-gray-400' }} shadow"></div>
-                            <div class="bg-gray-50 rounded-xl p-4">
-                                <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
-                                    <span class="text-sm font-semibold text-gray-900">
-                                        {{ \Illuminate\Support\Str::title(str_replace('_', ' ', $log->status)) }}
-                                        @if(in_array($log->status, ['delivery_failed', 'lost', 'returned_to_seller', 'cancelled']))<span class="ml-1 text-xs font-normal text-red-500">(final)</span>@endif
-                                        @if(in_array($log->status, $parcelEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark">Parcel</span>@endif
-                                        @if(in_array($log->status, $centerEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Hub Sorting</span>@endif
-                                        @if(in_array($log->status, $recordEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
-                                    </span>
-                                    <span class="text-xs text-gray-500">{{ $log->created_at->format('M d, Y · h:i A') }}</span>
+                    @foreach($journeyRows as $row)
+                        @if($row['kind'] === 'delivery')
+                            @php $log = $row['log']; @endphp
+                            <div class="relative pl-10">
+                                <div class="absolute left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white {{ $dotColors[$log->status] ?? 'bg-gray-400' }} shadow"></div>
+                                <div class="bg-gray-50 rounded-xl p-4">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                                        <span class="text-sm font-semibold text-gray-900">
+                                            {{ \Illuminate\Support\Str::title(str_replace('_', ' ', $log->status)) }}
+                                            @if(in_array($log->status, ['delivery_failed', 'lost', 'returned_to_seller', 'cancelled']))<span class="ml-1 text-xs font-normal text-red-500">(final)</span>@endif
+                                            @if(in_array($log->status, $parcelEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark">Parcel</span>@endif
+                                            @if(in_array($log->status, $centerEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Hub Sorting</span>@endif
+                                            @if(in_array($log->status, $recordEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
+                                        </span>
+                                        <span class="text-xs text-gray-500">{{ $log->created_at->format('M d, Y · h:i A') }}</span>
+                                    </div>
+                                    @if($log->notes)
+                                        <p class="text-sm text-gray-600">{{ $log->notes }}</p>
+                                    @endif
+                                    @if($log->changer)
+                                        <p class="text-xs text-gray-400 mt-1">Changed by: {{ $log->changer->name }}</p>
+                                    @endif
+                                    @if($log->location)
+                                        <p class="text-xs text-gray-500 mt-1">📍 {{ $log->location }}</p>
+                                    @endif
                                 </div>
-                                @if($log->notes)
-                                    <p class="text-sm text-gray-600">{{ $log->notes }}</p>
-                                @endif
-                                @if($log->changer)
-                                    <p class="text-xs text-gray-400 mt-1">Changed by: {{ $log->changer->name }}</p>
-                                @endif
-                                @if($log->location)
-                                    <p class="text-xs text-gray-500 mt-1">📍 {{ $log->location }}</p>
-                                @endif
                             </div>
-                        </div>
+                        @else
+                            @php
+                                $event = $row['event'];
+                                $transfer = $row['entry']->transfer;
+                                $eventTitle = $transferEventTitles[$event->event_type] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $event->event_type));
+                            @endphp
+                            <div class="relative pl-10">
+                                <div class="absolute left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white {{ $event->event_type === 'parcel_missing' ? 'bg-red-600' : ($event->event_type === 'parcel_received' ? 'bg-emerald-500' : 'bg-indigo-500') }} shadow"></div>
+                                <div class="bg-indigo-50/60 rounded-xl p-4 ring-1 ring-inset ring-indigo-100">
+                                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                                        <span class="text-sm font-semibold text-gray-900">
+                                            {{ $eventTitle }}
+                                            <span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-indigo-100 text-indigo-700">Transfer</span>
+                                        </span>
+                                        <span class="text-xs text-gray-500">{{ $event->created_at->format('M d, Y · h:i A') }}</span>
+                                    </div>
+                                    <p class="text-xs text-gray-600">
+                                        {{ $transfer->reference }} · {{ $transfer->origin?->name ?? 'Origin hub' }} &rarr; {{ $transfer->destination?->name ?? 'Destination hub' }}
+                                    </p>
+                                    @if($event->notes)
+                                        <p class="text-sm text-gray-600 mt-1">{{ $event->notes }}</p>
+                                    @endif
+                                    <p class="text-xs text-gray-400 mt-1">
+                                        {{ $event->actor_name ?: 'System (automatic)' }}
+                                        @if($event->previous_status || $event->new_status)
+                                            · {{ \App\Support\HubTransferProgress::transferLabel($event->previous_status ?? '') }} &rarr; {{ \App\Support\HubTransferProgress::transferLabel($event->new_status ?? '') }}
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+                        @endif
                     @endforeach
                 </div>
             </div>
