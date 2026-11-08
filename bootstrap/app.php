@@ -43,6 +43,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\Logistics\EnsureAdmin::class,
             'rider.web' => \App\Http\Middleware\Logistics\EnsureRiderWeb::class,
             'rider' => \App\Http\Middleware\Logistics\EnsureRiderRole::class,
+            // Physical parcel counter operations are staff-only. Management
+            // accounts keep read-only monitoring of the same screens.
+            'parcel.operator' => \App\Http\Middleware\Logistics\EnsureParcelOperator::class,
             'logistics.mobile' => \App\Http\Middleware\Logistics\EnsureLogisticsMobile::class,
             // routes/logistics/api.php gates the rider API on role:rider (the
             // alias the standalone logistic-web app used). Without this entry

@@ -288,27 +288,16 @@ class PickupRequestController extends Controller
 
     public function canReview(User $user, PickupRequest $pickupRequest): bool
     {
-        if (LogisticsAccess::isGlobal($user)) {
-            return true;
-        }
-
-        if (! $user->isLogisticsStaff() || ! $pickupRequest->center_id) {
+        // Approving or rejecting a pickup is a counter operation performed by
+        // the hub that will collect the parcel. Management accounts keep
+        // read-only visibility and may route unrouted requests.
+        if (! LogisticsAccess::canProcessParcels($user) || ! $pickupRequest->center_id) {
             return false;
         }
 
         $centerId = LogisticsAccess::centerId($user);
 
-        // Company managers may review every hub in their company.
-        if ($centerId === null) {
-            $centerCompanyId = (int) (LogisticsCenter::query()
-                ->whereKey((int) $pickupRequest->center_id)
-                ->value('logistics_company_id') ?? 0);
-
-            return LogisticsAccess::canAccessCompany($user, $centerCompanyId);
-        }
-
-        // Center-scoped staff: own hub only. A centerless account matches none.
-        return $centerId > 0 && (int) $pickupRequest->center_id === $centerId;
+        return $centerId !== null && $centerId > 0 && (int) $pickupRequest->center_id === $centerId;
     }
 
     private function canRoute(User $user, PickupRequest $pickupRequest): bool
@@ -362,9 +351,12 @@ class PickupRequestController extends Controller
 
     private function authorizeView(User $user, PickupRequest $pickupRequest): void
     {
-        if (! $this->canReview($user, $pickupRequest)) {
-            abort(403, 'You can only review pickup requests at your assigned logistics center.');
-        }
+        $visible = PickupRequest::query()
+            ->visibleTo($user)
+            ->whereKey($pickupRequest->id)
+            ->exists();
+
+        abort_unless($visible, 403, 'You can only view pickup requests within your logistics scope.');
     }
 }
 

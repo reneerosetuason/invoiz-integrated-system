@@ -138,6 +138,7 @@
                     </div>
                     <span class="text-lg font-extrabold text-[#16697A]">{{ number_format($needsAttention['waitingForRider']) }} &rarr;</span>
                 </a>
+                @if(\App\Support\LogisticsAccess::canProcessParcels(auth()->user()))
                 <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('sorting-center.index') }}">
                     <div>
                         <div class="text-xs font-semibold text-[#1B1B1E]">Awaiting Sorting / Dispatch</div>
@@ -145,6 +146,7 @@
                     </div>
                     <span class="text-lg font-extrabold text-[#16697A]">{{ number_format($needsAttention['processing']) }} &rarr;</span>
                 </a>
+                @endif
                 <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('pickup-requests.index', ['status' => 'pending']) }}">
                     <div>
                         <div class="text-xs font-semibold text-[#1B1B1E]">Pickup Requests to Review</div>

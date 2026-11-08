@@ -215,7 +215,7 @@ class HubTransferController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot create transfer manifests.');
+        abort_unless(LogisticsAccess::canProcessParcels($request->user()), 403, 'Transfer manifests are loaded and dispatched by logistics staff at a hub. Management accounts have read-only transfer monitoring.');
         $company = $this->company($request, $request->integer('logistics_company_id'));
         abort_unless($company, 422, 'Select a logistics company for this transfer.');
         $validated = $request->validate([
@@ -458,7 +458,7 @@ class HubTransferController extends Controller
 
     public function loadParcel(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
-        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
+        abort_unless(LogisticsAccess::canProcessParcels($request->user()), 403, 'Manifest loading is reserved for logistics staff at the origin hub. Management accounts have read-only transfer monitoring.');
         $this->authorizeTransfer($request, $hubTransfer);
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate(['tracking_number' => ['required', 'string', 'max:100']]);
@@ -481,6 +481,7 @@ class HubTransferController extends Controller
 
     public function dispatch(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
+        abort_unless(LogisticsAccess::canProcessParcels($request->user()), 403, 'Transfer dispatch is reserved for logistics staff at the origin hub. Management accounts have read-only transfer monitoring.');
         $this->authorizeTransfer($request, $hubTransfer);
         $this->assertOriginAccess($request, $hubTransfer);
         HubTransferService::dispatch($hubTransfer, $request->user());
@@ -490,6 +491,7 @@ class HubTransferController extends Controller
 
     public function arrive(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
+        abort_unless(LogisticsAccess::canProcessParcels($request->user()), 403, 'Transfer arrival is recorded by logistics staff at the hub. Management accounts have read-only transfer monitoring.');
         $this->authorizeTransfer($request, $hubTransfer);
         $this->assertDestinationAccess($request, $hubTransfer);
         HubTransferService::arrive($hubTransfer, $request->user());
@@ -499,7 +501,7 @@ class HubTransferController extends Controller
 
     public function removeParcel(Request $request, HubTransfer $hubTransfer, HubTransferParcel $parcel): RedirectResponse
     {
-        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot perform counter operations.');
+        abort_unless(LogisticsAccess::canProcessParcels($request->user()), 403, 'Manifest parcel removal is reserved for logistics staff at the origin hub. Management accounts have read-only transfer monitoring.');
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate(['reason' => ['required', 'string', 'max:1000']]);
         DB::transaction(function () use ($request, $hubTransfer, $parcel, $data): void {
@@ -518,7 +520,7 @@ class HubTransferController extends Controller
 
     public function receiveParcel(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
-        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
+        abort_unless(LogisticsAccess::canProcessParcels($request->user()), 403, 'Incoming transfer parcels are received by logistics staff at the destination hub. Management accounts have read-only transfer monitoring.');
         $this->authorizeTransfer($request, $hubTransfer);
         $this->assertDestinationAccess($request, $hubTransfer);
         $data = $request->validate([
@@ -553,7 +555,7 @@ class HubTransferController extends Controller
 
     public function complete(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
-        abort_if($request->user()->isAdmin() && ! $request->user()->logistics_company_id, 403, 'Platform administrators have read-only oversight and cannot complete receiving manifests.');
+        abort_unless(LogisticsAccess::canProcessParcels($request->user()), 403, 'Receiving manifests are finalized by logistics staff at the destination hub. Management accounts have read-only transfer monitoring.');
         $this->assertDestinationAccess($request, $hubTransfer);
         HubTransferService::complete($hubTransfer, $request->user());
 

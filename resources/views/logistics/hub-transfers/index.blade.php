@@ -6,7 +6,7 @@
                 <h1 class="text-2xl font-bold text-[#1B1B1E] mt-0.5">Hub Transfers</h1>
                 <p class="text-xs text-[#6E6E73] mt-0.5">Move parcels between approved Logistics Hubs.</p>
             </div>
-            @if(!auth()->user()->isAdmin() && !auth()->user()->isLogisticsAdmin())
+            @if(\App\Support\LogisticsAccess::canProcessParcels(auth()->user()))
             <a href="{{ route('hub-transfers.create') }}" class="btn btn-primary">
                 <x-icon name="plus" class="w-4 h-4" />
                 Create Transfer

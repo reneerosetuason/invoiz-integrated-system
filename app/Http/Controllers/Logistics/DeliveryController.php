@@ -424,6 +424,16 @@ class DeliveryController extends Controller
         return LogisticsAccess::isGlobal(Auth::user());
     }
 
+    /**
+     * Physical counter operations are staff-only; management roles keep
+     * read-only monitoring through the same pages.
+     */
+    private function assertParcelOperator(): void
+    {
+        abort_unless(LogisticsAccess::canProcessParcels(Auth::user()), 403,
+            'Parcel processing is reserved for logistics staff assigned to a logistics hub. Management accounts have read-only access.');
+    }
+
     public function show(Delivery $delivery): View
     {
         $this->ensureCenterAccess($delivery, true);
@@ -1071,6 +1081,12 @@ class DeliveryController extends Controller
         $target = $validated['status'];
         $current = $delivery->status;
         $isOverride = $request->boolean('override');
+        $isManagerOverride = $isOverride
+            && Auth::user()->canManageRiders()
+            && Auth::user()->isLogisticsAdmin();
+        if (! LogisticsAccess::canProcessParcels(Auth::user()) && ! $isManagerOverride) {
+            abort(403, 'Parcel status changes are reserved for logistics staff at the hub. Management accounts may only use a documented exception override.');
+        }
         FulfillmentWorkflow::assertActiveOrder($delivery);
         if ($isOverride) {
             abort_unless(Auth::user()->canManageRiders() && Auth::user()->isLogisticsAdmin(), 403, 'Only a logistics administrator can override a rider milestone.');
@@ -1330,6 +1346,7 @@ class DeliveryController extends Controller
         Delivery $delivery,
         ShipmentExceptionService $exceptions,
     ): RedirectResponse {
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         $validated = $request->validate([
@@ -1363,6 +1380,7 @@ class DeliveryController extends Controller
         Delivery $delivery,
         ReturnToSellerService $returns,
     ): RedirectResponse {
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         $validated = $request->validate([
@@ -1468,7 +1486,7 @@ class DeliveryController extends Controller
 
     public function receive(Request $request, Delivery $delivery): RedirectResponse
     {
-        abort_if(Auth::user()->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter parcel receiving.');
+        $this->assertParcelOperator();
         $validated = $request->validate([
             'center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('is_active', true)],
         ]);
@@ -1528,7 +1546,7 @@ class DeliveryController extends Controller
     public function scan(Delivery $delivery): RedirectResponse
     {
         $user = Auth::user();
-        abort_if($user->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
+        $this->assertParcelOperator();
         abort_unless(LogisticsAccess::canAccessDelivery($user, $delivery), 403,
             'You can only scan parcels at your assigned logistics center.');
         if ($delivery->order_id && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
@@ -1567,6 +1585,8 @@ class DeliveryController extends Controller
 
     public function scanPage(Request $request): View
     {
+        $this->assertParcelOperator();
+
         $expect = strtoupper(trim((string) $request->query('expect', '')));
         $user = Auth::user();
 
@@ -1600,7 +1620,7 @@ class DeliveryController extends Controller
 
     public function scanByTracking(Request $request): JsonResponse
     {
-        abort_if(Auth::user()->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter scanning.');
+        $this->assertParcelOperator();
         $rawTracking = strtoupper(trim((string) $request->input('tracking_number', '')));
         $request->merge(['tracking_number' => $rawTracking]);
 
@@ -1719,7 +1739,7 @@ class DeliveryController extends Controller
 
     public function sort(Request $request, Delivery $delivery): RedirectResponse
     {
-        abort_if(Auth::user()->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter sorting.');
+        $this->assertParcelOperator();
         $validated = $request->validate([
             'destination_center_id' => [
                 'required',
@@ -1800,7 +1820,7 @@ class DeliveryController extends Controller
     public function dispatch(Delivery $delivery): RedirectResponse
     {
         $user = Auth::user();
-        abort_if($user->isAdmin(), 403, 'Platform administrators have read-only oversight and cannot perform counter dispatch.');
+        $this->assertParcelOperator();
         $dispatched = DB::transaction(function () use ($delivery, $user): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             abort_if($this->hasActiveHubTransfer($lockedDelivery), 409, 'This parcel is reserved for hub-to-hub transfer.');

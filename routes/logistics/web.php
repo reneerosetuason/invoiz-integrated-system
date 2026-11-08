@@ -65,15 +65,15 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::get('operations', [OperationsController::class, 'index'])->name('operations.index');
 
     Route::get('hub-transfers', [HubTransferController::class, 'index'])->name('hub-transfers.index');
-    Route::get('hub-transfers/create', [HubTransferController::class, 'create'])->name('hub-transfers.create');
-    Route::post('hub-transfers', [HubTransferController::class, 'store'])->name('hub-transfers.store');
+    Route::get('hub-transfers/create', [HubTransferController::class, 'create'])->middleware('parcel.operator')->name('hub-transfers.create');
+    Route::post('hub-transfers', [HubTransferController::class, 'store'])->middleware('parcel.operator')->name('hub-transfers.store');
     Route::get('hub-transfers/{hubTransfer}', [HubTransferController::class, 'show'])->name('hub-transfers.show');
-    Route::post('hub-transfers/{hubTransfer}/load', [HubTransferController::class, 'loadParcel'])->name('hub-transfers.load');
-    Route::delete('hub-transfers/{hubTransfer}/parcels/{parcel}', [HubTransferController::class, 'removeParcel'])->name('hub-transfers.parcels.remove');
-    Route::post('hub-transfers/{hubTransfer}/dispatch', [HubTransferController::class, 'dispatch'])->name('hub-transfers.dispatch');
-    Route::post('hub-transfers/{hubTransfer}/arrive', [HubTransferController::class, 'arrive'])->name('hub-transfers.arrive');
-    Route::post('hub-transfers/{hubTransfer}/receive', [HubTransferController::class, 'receiveParcel'])->name('hub-transfers.receive');
-    Route::post('hub-transfers/{hubTransfer}/complete', [HubTransferController::class, 'complete'])->name('hub-transfers.complete');
+    Route::post('hub-transfers/{hubTransfer}/load', [HubTransferController::class, 'loadParcel'])->middleware('parcel.operator')->name('hub-transfers.load');
+    Route::delete('hub-transfers/{hubTransfer}/parcels/{parcel}', [HubTransferController::class, 'removeParcel'])->middleware('parcel.operator')->name('hub-transfers.parcels.remove');
+    Route::post('hub-transfers/{hubTransfer}/dispatch', [HubTransferController::class, 'dispatch'])->middleware('parcel.operator')->name('hub-transfers.dispatch');
+    Route::post('hub-transfers/{hubTransfer}/arrive', [HubTransferController::class, 'arrive'])->middleware('parcel.operator')->name('hub-transfers.arrive');
+    Route::post('hub-transfers/{hubTransfer}/receive', [HubTransferController::class, 'receiveParcel'])->middleware('parcel.operator')->name('hub-transfers.receive');
+    Route::post('hub-transfers/{hubTransfer}/complete', [HubTransferController::class, 'complete'])->middleware('parcel.operator')->name('hub-transfers.complete');
     Route::post('hub-transfers/{hubTransfer}/cancel', [HubTransferController::class, 'cancel'])->name('hub-transfers.cancel');
     Route::post('hub-transfers/{hubTransfer}/hold', [HubTransferController::class, 'hold'])->name('hub-transfers.hold');
     Route::post('hub-transfers/{hubTransfer}/resume', [HubTransferController::class, 'resume'])->name('hub-transfers.resume');
@@ -88,20 +88,20 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // Parcel QR scanner (page + verify endpoint). The GET route must be
     // registered before the resource below so "deliveries/scan" is not
     // captured by the "deliveries/{delivery}" show route.
-    Route::get('deliveries/scan', [DeliveryController::class, 'scanPage'])->name('deliveries.scan-page');
-    Route::post('deliveries/scan-verify', [DeliveryController::class, 'scanByTracking'])->name('deliveries.scan-verify');
+    Route::get('deliveries/scan', [DeliveryController::class, 'scanPage'])->middleware('parcel.operator')->name('deliveries.scan-page');
+    Route::post('deliveries/scan-verify', [DeliveryController::class, 'scanByTracking'])->middleware('parcel.operator')->name('deliveries.scan-verify');
     Route::post('deliveries/bulk-assign-rider', [DeliveryController::class, 'bulkAssignRider'])->middleware('rider.manager')->name('deliveries.bulk-assign');
     Route::get('deliveries/export', [DeliveryController::class, 'export'])->name('deliveries.export');
     Route::resource('deliveries', DeliveryController::class)->except(['destroy']);
     Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->middleware('rider.manager')->name('deliveries.assign-rider');
     Route::post('deliveries/{delivery}/auto-assign', [DeliveryController::class, 'autoAssign'])->middleware('rider.manager')->name('deliveries.auto-assign');
     Route::patch('deliveries/{delivery}/update-status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
-    Route::post('deliveries/{delivery}/exception', [DeliveryController::class, 'reportException'])->name('deliveries.exception');
-    Route::post('deliveries/{delivery}/return-to-seller', [DeliveryController::class, 'dispatchReturnToSeller'])->name('deliveries.return-to-seller');
-    Route::post('deliveries/{delivery}/receive', [DeliveryController::class, 'receive'])->name('deliveries.receive');
-    Route::patch('deliveries/{delivery}/scan', [DeliveryController::class, 'scan'])->name('deliveries.scan');
-    Route::post('deliveries/{delivery}/sort', [DeliveryController::class, 'sort'])->name('deliveries.sort');
-    Route::post('deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->name('deliveries.dispatch');
+    Route::post('deliveries/{delivery}/exception', [DeliveryController::class, 'reportException'])->middleware('parcel.operator')->name('deliveries.exception');
+    Route::post('deliveries/{delivery}/return-to-seller', [DeliveryController::class, 'dispatchReturnToSeller'])->middleware('parcel.operator')->name('deliveries.return-to-seller');
+    Route::post('deliveries/{delivery}/receive', [DeliveryController::class, 'receive'])->middleware('parcel.operator')->name('deliveries.receive');
+    Route::patch('deliveries/{delivery}/scan', [DeliveryController::class, 'scan'])->middleware('parcel.operator')->name('deliveries.scan');
+    Route::post('deliveries/{delivery}/sort', [DeliveryController::class, 'sort'])->middleware('parcel.operator')->name('deliveries.sort');
+    Route::post('deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->middleware('parcel.operator')->name('deliveries.dispatch');
 
     // Riders (Directory + Management)
     Route::get('riders', [RiderController::class, 'index'])->name('riders.index');
@@ -124,8 +124,8 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('pickup-requests/{pickupRequest}/route', [PickupRequestController::class, 'route'])
         ->middleware('admin')
         ->name('pickup-requests.route');
-    Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->name('pickup-requests.approve');
-    Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->name('pickup-requests.reject');
+    Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->middleware('parcel.operator')->name('pickup-requests.approve');
+    Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->middleware('parcel.operator')->name('pickup-requests.reject');
 
     // Fleet Management (Admin Only)
     Route::middleware('admin')->group(function () {
