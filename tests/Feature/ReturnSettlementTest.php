@@ -2,12 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Order, Payment, ReturnRequest, ReturnSettlement, ReturnAllocation, User, Rider, Delivery, GcashEscrowDeposit};
+use App\Models\{Order, Payment, ReturnRequest, ReturnSettlement, ReturnAllocation, User, Rider, Delivery, GcashEscrowDeposit, HubTransportDriver};
 use App\Services\{ReturnSettlementService as Settlements, ReturnWorkflowService};
 use App\Support\Payments;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\{Schema, DB, Storage};
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\Sanctum;
 
 class ReturnSettlementTest extends GcashEscrowWorkflowTest
 {
@@ -25,6 +26,15 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
             $t->id(); $t->string('name'); $t->boolean('is_active')->default(true); $t->unsignedBigInteger('logistics_company_id'); $t->timestamps();
         });
         DB::table('logistics_centers')->insert([['id'=>1,'name'=>'Return hub','is_active'=>true,'logistics_company_id'=>1], ['id'=>2,'name'=>'Other hub','is_active'=>true,'logistics_company_id'=>1]]);
+        Schema::create('logistics_companies', function (Blueprint $t) {
+            $t->id(); $t->string('name'); $t->string('status')->default('active'); $t->softDeletes(); $t->timestamps();
+        });
+        DB::table('logistics_companies')->insert([['id'=>1,'name'=>'Return company','status'=>'active'], ['id'=>2,'name'=>'Other company','status'=>'active']]);
+        Schema::create('hub_transport_drivers', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('logistics_company_id')->nullable(); $t->unsignedBigInteger('user_id')->nullable();
+            $t->string('name'); $t->string('email')->nullable(); $t->string('password')->nullable();
+            $t->string('status')->default('available'); $t->boolean('is_online')->default(false); $t->softDeletes(); $t->timestamps();
+        });
         Storage::fake('private'); Storage::disk('private')->put('test-proof.png', 'fixture');
     }
 
@@ -93,6 +103,30 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         ReturnWorkflowService::change($f['case'],$f['staff'],'intake');
         ReturnWorkflowService::change($f['case'],$f['staff'],'dispatch_seller',['reference'=>'RETURN-HANDOVER','rider_id'=>$f['rider']->id]);
         ReturnWorkflowService::change($f['case'],$f['seller'],'receive');
+    }
+
+    private function driver(string $status, int $company = 1): HubTransportDriver
+    {
+        return HubTransportDriver::create(['logistics_company_id'=>$company,'name'=>'Hub driver '.$status,
+            'email'=>uniqid().'@driver.test','password'=>'Secret123!','status'=>$status]);
+    }
+
+    private function transferReady(array $f): ReturnAllocation
+    {
+        $s=$f['case']->fresh()->settlement;
+        $s->update(['resolution'=>'return_refund','transport_cents'=>1000,'reserved_cents'=>1000,
+            'quoted_at'=>now(),'buyer_accepted_at'=>now(),'seller_accepted_at'=>now(),'admin_decided_at'=>now(),
+            'funded_at'=>now(),'status'=>'funded','collection_center_id'=>1,'seller_center_id'=>2]);
+        $f['case']->update(['status'=>'approved']);
+        $f['case']->workflow()->update(['stage'=>'at_hub','center_id'=>1]);
+
+        return $s->allocations()->create(['role'=>'inter_hub_driver','amount_cents'=>1000,'center_id'=>1]);
+    }
+
+    private function assignTransfer(array $f, HubTransportDriver $driver): void
+    {
+        ReturnWorkflowService::change($f['case'],$f['staff'],'transfer',
+            ['destination_center_id'=>2,'reference'=>'RET-TRANSFER','driver_id'=>$driver->id]);
     }
 
     public function test_refund_only_never_fakes_a_physical_return_or_creates_transport_work(): void
@@ -311,5 +345,57 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         $this->assertSame('requested',$f['case']->fresh()->status);
         $this->assertSame('disputed',$f['case']->fresh()->settlement->status);
         $this->assertEquals(2000,Settlements::poolCents($f['case']->fresh()->settlement));
+    }
+
+    public function test_active_inter_hub_driver_can_be_assigned_to_a_return_transfer(): void
+    {
+        $f=$this->fixture();$line=$this->transferReady($f);$driver=$this->driver('available');
+        $this->assignTransfer($f,$driver);
+        $this->assertEquals($driver->id,$line->fresh()->driver_id);
+        $this->assertSame('in_transfer',$f['case']->fresh()->workflow->stage);
+    }
+
+    public function test_inactive_inter_hub_driver_cannot_be_assigned_to_a_return_transfer(): void
+    {
+        $f=$this->fixture();$line=$this->transferReady($f);$driver=$this->driver('inactive');
+        try {$this->assignTransfer($f,$driver);$this->fail('Assigned an inactive inter-hub driver.');}catch(ValidationException $e){$this->assertArrayHasKey('return',$e->errors());}
+        $this->assertNull($line->fresh()->driver_id);
+        $this->assertSame('at_hub',$f['case']->fresh()->workflow->stage);
+    }
+
+    public function test_suspended_inter_hub_driver_cannot_be_assigned_to_a_return_transfer(): void
+    {
+        $f=$this->fixture();$line=$this->transferReady($f);$driver=$this->driver('suspended');
+        try {$this->assignTransfer($f,$driver);$this->fail('Assigned a suspended inter-hub driver.');}catch(ValidationException $e){$this->assertArrayHasKey('return',$e->errors());}
+        $this->assertNull($line->fresh()->driver_id);
+        $this->assertSame('at_hub',$f['case']->fresh()->workflow->stage);
+    }
+
+    public function test_inter_hub_driver_must_belong_to_the_return_company(): void
+    {
+        $f=$this->fixture();$line=$this->transferReady($f);$driver=$this->driver('available',2);
+        try {$this->assignTransfer($f,$driver);$this->fail('Assigned a driver from another company.');}catch(ValidationException $e){$this->assertArrayHasKey('return',$e->errors());}
+        $this->assertNull($line->fresh()->driver_id);
+    }
+
+    public function test_suspended_driver_cannot_use_return_settlement_endpoints(): void
+    {
+        $f=$this->fixture();$line=$this->transferReady($f);$driver=$this->driver('suspended');
+        $line->update(['driver_id'=>$driver->id,'status'=>'remitted','remitted_at'=>now()]);
+        Sanctum::actingAs($driver,['hub-courier']);
+        $this->getJson('/api/return-remittances')->assertForbidden();
+        $this->postJson('/api/return-remittances/'.$line->id,['action'=>'accept','confirm'=>1])->assertForbidden();
+        $this->getJson('/api/return-files/remittance/'.$line->id)->assertForbidden();
+        $this->getJson('/api/return-center/'.$f['case']->id.'/agreement')->assertForbidden();
+        $this->assertSame('remitted',$line->fresh()->status);
+    }
+
+    public function test_assigned_active_driver_still_accepts_return_remittances(): void
+    {
+        $f=$this->fixture();$line=$this->transferReady($f);$driver=$this->driver('available');
+        $line->update(['driver_id'=>$driver->id,'status'=>'remitted','remitted_at'=>now()]);
+        Sanctum::actingAs($driver,['hub-courier']);
+        $this->postJson('/api/return-remittances/'.$line->id,['action'=>'accept','confirm'=>1])->assertOk();
+        $this->assertSame('accepted',$line->fresh()->status);
     }
 }

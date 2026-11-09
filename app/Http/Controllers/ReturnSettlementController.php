@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\{DB, Storage, Schema};
 class ReturnSettlementController extends Controller
 {
     private function admin($actor): bool { return $actor instanceof User && $actor->isActive() && $actor->isAdmin(); }
+    private function blockedDriver($actor): bool { return $actor instanceof HubTransportDriver && $actor->isBlocked(); }
     private function layout($actor): string
     {
         return $this->admin($actor) ? 'admin.layout' : ($actor instanceof User && ($actor->isLogisticsStaff() || $actor->role === 'rider')
@@ -116,7 +117,7 @@ class ReturnSettlementController extends Controller
     public function remittances(Request $request)
     {
         $user = $request->user();
-        abort_unless(($user instanceof User && $user->isActive()) || ($user instanceof HubTransportDriver && $user->status !== 'inactive'), 403);
+        abort_unless(($user instanceof User && $user->isActive()) || ($user instanceof HubTransportDriver && ! $user->isBlocked()), 403);
         $admin = $this->admin($user);
         $query = ReturnAllocation::with(['settlement.returnRequest.item']);
         if (! $admin) {
@@ -135,6 +136,7 @@ class ReturnSettlementController extends Controller
 
     public function payout(Request $request, ReturnAllocation $allocation)
     {
+        abort_if($this->blockedDriver($request->user()), 403);
         $data = $request->validate([
             'action' => 'required|in:destination,remit,accept', 'confirm' => 'required|accepted',
             'provider' => 'required_if:action,destination|string|max:100', 'holder' => 'required_if:action,destination|string|max:150',
@@ -157,6 +159,7 @@ class ReturnSettlementController extends Controller
     public function proof(Request $request, string $kind, int $id)
     {
         $user = $request->user();
+        abort_if($this->blockedDriver($user), 403);
         if ($kind === 'deposit') {
             $record = ReturnFundPayment::findOrFail($id);
             abort_unless($this->admin($user) || ($user instanceof User && $user->isActive() && (int) $record->payer_user_id === (int) $user->id), 403);

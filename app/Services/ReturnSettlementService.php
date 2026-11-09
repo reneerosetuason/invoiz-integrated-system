@@ -42,7 +42,7 @@ class ReturnSettlementService
     public static function canView($actor, ReturnRequest $case): bool
     {
         if ($actor instanceof HubTransportDriver) {
-            return $actor->status !== 'inactive' && $case->settlement?->allocations()->where('driver_id', $actor->id)->exists();
+            return ! $actor->isBlocked() && $case->settlement?->allocations()->where('driver_id', $actor->id)->exists();
         }
         if (! $actor instanceof User || ! $actor->isActive()) return false;
         if ($actor->isAdmin() || in_array((int) $actor->id, [(int) $case->seller_id, (int) $case->buyer_id], true)) return true;
@@ -368,7 +368,7 @@ class ReturnSettlementService
         if ($action === 'transfer' && ($line = $s->allocations()->where('role', 'inter_hub_driver')->first())) {
             $driver = HubTransportDriver::findOrFail($data['driver_id'] ?? 0);
             $company = LogisticsCenter::findOrFail($s->collection_center_id)->logistics_company_id;
-            self::require($driver->status !== 'inactive' && $driver->logistics_company_id == $company && $driver->company?->status === 'active', 'Choose an active inter-hub driver from the return company.');
+            self::require(! $driver->isBlocked() && $driver->logistics_company_id == $company && $driver->company?->status === 'active', 'Choose an active inter-hub driver from the return company.');
             $line->update(['driver_id' => $driver->id]);
         }
         if ($action === 'receive_transfer') {
@@ -470,7 +470,7 @@ class ReturnSettlementService
             $order = Order::lockForUpdate()->findOrFail($record->settlement->order_id);
             $s = ReturnSettlement::lockForUpdate()->findOrFail($record->return_settlement_id);
             $line = ReturnAllocation::lockForUpdate()->findOrFail($record->id);
-            $active = $actor instanceof User ? $actor->isActive() : $actor->status !== 'inactive';
+            $active = $actor instanceof User ? $actor->isActive() : $actor instanceof HubTransportDriver && ! $actor->isBlocked();
             abort_unless($active, 403);
             if ($action === 'destination') {
                 abort_unless($line->canAccept($actor), 403);

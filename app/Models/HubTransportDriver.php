@@ -13,6 +13,15 @@ class HubTransportDriver extends Authenticatable
 {
     use HasApiTokens, SoftDeletes;
 
+    public const STATUS_AVAILABLE = 'available';
+    public const STATUS_ASSIGNED = 'assigned';
+    public const STATUS_IN_TRANSIT = 'in_transit';
+    public const STATUS_INACTIVE = 'inactive';
+    public const STATUS_SUSPENDED = 'suspended';
+
+    /** Statuses that prevent login and new assignments. */
+    public const BLOCKED_STATUSES = [self::STATUS_INACTIVE, self::STATUS_SUSPENDED];
+
     protected $fillable = [
         'user_id',
         'logistics_company_id',
@@ -133,5 +142,10 @@ class HubTransportDriver extends Authenticatable
     public function effectiveTruck(): ?LogisticsTruck
     {
         return $this->truck ?: $this->ownedTruck;
+    }
+
+    public function isBlocked(): bool
+    {
+        return in_array($this->status, self::BLOCKED_STATUSES, true);
     }
 }
