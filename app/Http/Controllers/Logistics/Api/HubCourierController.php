@@ -8,6 +8,7 @@ use App\Models\HubTransfer;
 use App\Models\HubTransferEvent;
 use App\Models\HubTransferParcel;
 use App\Models\HubTransportDriver;
+use App\Models\LogisticsCenter;
 use App\Models\LogisticsTruck;
 use App\Support\HubTransferProgress;
 use App\Support\LogisticsVehicleCategory;
@@ -309,6 +310,7 @@ class HubCourierController extends Controller
         $item = $this->assignedTransfer($request, $transfer);
         DB::transaction(function () use ($request, $item): void {
             $locked = HubTransfer::whereKey($item->id)->lockForUpdate()->firstOrFail();
+            $this->assertHubsActive($locked);
             abort_unless($locked->status === 'loading' && $locked->origin_arrived_at === null, 409, 'Origin arrival is not available in the current state.');
             $locked->update(['origin_arrived_at' => now()]);
             $this->event($locked, $request, 'courier_origin_arrived', 'Courier arrived at origin hub.');
@@ -323,6 +325,7 @@ class HubCourierController extends Controller
         $item = $this->assignedTransfer($request, $transfer);
         DB::transaction(function () use ($request, $item, $data): void {
             $locked = HubTransfer::whereKey($item->id)->lockForUpdate()->firstOrFail();
+            $this->assertHubsActive($locked);
             abort_unless($locked->status === 'loading' && $locked->origin_arrived_at !== null, 409, 'Arrive at the origin hub before scanning parcels.');
             $entry = HubTransferParcel::where('hub_transfer_id', $locked->id)->whereHas('delivery', fn ($q) => $q->where('tracking_number', $data['tracking_number']))->lockForUpdate()->firstOrFail();
             abort_if($entry->loading_status !== 'pending', 422, 'This parcel is already loaded or is not part of the active manifest.');
@@ -355,6 +358,7 @@ class HubCourierController extends Controller
         $item = $this->assignedTransfer($request, $transfer);
         DB::transaction(function () use ($request, $item): void {
             $locked = HubTransfer::whereKey($item->id)->lockForUpdate()->firstOrFail();
+            $this->assertHubsActive($locked);
             abort_unless(in_array($locked->status, ['loading', 'ready_for_dispatch'], true), 409, 'Loading cannot be completed in the current state.');
             abort_unless($locked->origin_arrived_at !== null, 409, 'Confirm arrival at the origin hub before completing loading.');
             $manifest = $locked->parcels()->where('loading_status', '!=', 'removed')->with('delivery')->get();
@@ -379,6 +383,7 @@ class HubCourierController extends Controller
         $item = $this->assignedTransfer($request, $transfer);
         DB::transaction(function () use ($request, $item): void {
             $locked = HubTransfer::whereKey($item->id)->lockForUpdate()->firstOrFail();
+            $this->assertHubsActive($locked);
             abort_unless($locked->origin_arrived_at !== null, 409, 'Confirm arrival at the origin hub before dispatch.');
             $driver = HubTransportDriver::whereKey($this->driver($request)->id)->lockForUpdate()->firstOrFail();
             $truck = LogisticsTruck::whereKey($locked->truck_id)->lockForUpdate()->firstOrFail();
@@ -394,7 +399,9 @@ class HubCourierController extends Controller
     {
         $item = $this->assignedTransfer($request, $transfer);
         DB::transaction(function () use ($request, $item): void {
-            \App\Services\HubTransferService::arrive($item, null, $this->driver($request));
+            $locked = HubTransfer::whereKey($item->id)->lockForUpdate()->firstOrFail();
+            $this->assertHubsActive($locked);
+            \App\Services\HubTransferService::arrive($locked, null, $this->driver($request));
         });
 
         return $this->show($request, $transfer);
@@ -524,6 +531,21 @@ class HubCourierController extends Controller
     public function markAllNotificationsRead(Request $request): JsonResponse
     {
         return response()->json(['message' => 'All notifications marked as read.']);
+    }
+
+    /**
+     * A leg may only be advanced while both of its hubs are active. The
+     * endpoints come from the persisted transfer, never from request input,
+     * so supplied hub or company ids cannot steer the check elsewhere.
+     */
+    private function assertHubsActive(HubTransfer $transfer): void
+    {
+        abort_unless(
+            LogisticsCenter::query()->whereKey($transfer->origin_center_id)->where('is_active', true)->exists()
+                && LogisticsCenter::query()->whereKey($transfer->destination_center_id)->where('is_active', true)->exists(),
+            422,
+            'One or both hubs are inactive. This transfer cannot be advanced.',
+        );
     }
 
     private function driver(Request $request): HubTransportDriver
