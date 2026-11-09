@@ -17,7 +17,7 @@
     @endphp
     <article><div class="return-heading"><h2>Return #{{ $returnRequest->id }}<small>{{ $returnRequest->item?->product_name }}</small></h2><b>{{ ucwords(str_replace('_',' ',$agreement->status)) }}</b></div>
         <dl class="return-money"><div><dt>Agreed delivery budget</dt><dd>{{ peso($agreement->transport_cents/100) }}</dd></div><div><dt>Verified, unspent delivery funds</dt><dd>{{ peso($available/100) }}</dd></div><div><dt>Delivery payments sent</dt><dd>{{ peso($paid/100) }}</dd></div></dl>
-        @if(!$agreement->buyerFaultDirect())<p>Earlier agreement: the original payer and refund terms remain in force. Any item-refund recovery deposit is excluded here.</p>@endif
+        @if(!$agreement->physicalDirectRefund())<p>Earlier agreement: the original payer and refund terms remain in force. Any item-refund recovery deposit is excluded here.</p>@endif
         <table class="return-fees"><thead><tr><th scope="col">Service</th><th scope="col">Amount</th><th scope="col">Work / payment</th></tr></thead><tbody>
             @foreach($lines as $line)<tr><td>{{ ucwords(str_replace('_',' ',$line->role)) }}</td><td>{{ peso($line->amount_cents/100) }}</td><td>{{ ucwords(str_replace('_',' ',$line->status)) }}</td></tr>@endforeach
         </tbody></table>

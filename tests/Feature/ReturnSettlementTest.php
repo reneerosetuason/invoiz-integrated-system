@@ -27,6 +27,7 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         (require database_path('migrations/2026_11_08_200000_add_return_receipt_preview_tracking.php'))->up();
         (require database_path('migrations/2026_11_08_220000_add_seller_direct_buyer_fault_returns.php'))->up();
         (require database_path('migrations/2026_11_08_230000_add_return_transport_assignment.php'))->up();
+        (require database_path('migrations/2026_11_09_100000_create_direct_refund_transfers.php'))->up();
         Schema::create('logistics_centers', function (Blueprint $t) {
             $t->id(); $t->string('name'); $t->boolean('is_active')->default(true); $t->unsignedBigInteger('logistics_company_id'); $t->timestamps();
         });
@@ -893,17 +894,114 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         $this->assertTrue($f['case']->fresh()->settlement->collectionReady());
     }
 
-    public function test_new_seller_fault_agreements_keep_existing_funding_and_customer_refund_process(): void
+    public function test_seller_fault_return_refunds_full_paid_amount_and_funds_only_configured_delivery(): void
+    {
+        $f=$this->buyerFaultFixture(true);
+        $this->directProposal($f,'seller',['merchandise_amount'=>4599,'shipping_amount'=>0,'seller_center_id'=>2]);
+        $s=$f['case']->fresh()->settlement;
+        $this->assertSame('seller_fault_direct',$s->workflow_policy);
+        $this->assertSame(459900,(int)$s->merchandise_cents);$this->assertSame(5000,(int)$s->shipping_cents);
+        $this->assertSame(464900,(int)$s->net_refund_cents);$this->assertSame(0,(int)$s->compensation_cents);
+        $this->assertSame(16000,$s->budgetCents());$this->assertSame('seller',$s->payer);
+        $this->assertNull($s->cost_snapshot);$this->assertTrue($s->sellerDirectRefund());
+        $this->assertEqualsCanonicalizing(ReturnAllocation::DELIVERY_ROLES,$s->allocations()->pluck('role')->all());
+        // Commission settings still control the route; client-supplied delivery fees have no effect.
+        \App\Support\EscrowEarnings::updateRates(['inter_hub_driver_fee'=>25]);
+        $this->directProposal($f,'seller',['merchandise_amount'=>4599,'seller_center_id'=>2,'transport_amount'=>1]);
+        $s=$f['case']->fresh()->settlement;
+        $this->assertSame(16500,$s->budgetCents());$this->assertSame(464900,(int)$s->net_refund_cents);
+    }
+
+    public function test_seller_fault_return_uses_mutual_agreement_and_seller_payment_without_admin_customer_approval(): void
     {
         $f=$this->buyerFaultFixture();$this->directProposal($f,'seller',['merchandise_amount'=>4599]);
+        $this->change($f,'buyer','comment',['note'=>'Please confirm that my refund includes original paid shipping.']);
+        $this->assertSame('revision_requested',$f['case']->fresh()->settlement->status);
+        $this->directProposal($f,'seller',['merchandise_amount'=>4599]);
+        $p=$this->authorizeBuyerFault($f);$s=$f['case']->fresh()->settlement;
+        $this->assertTrue($s->agreed());$this->assertTrue($s->collectionReady());$this->assertNull($s->admin_decided_at);
+        $this->assertNull($s->funded_at);$this->assertSame(0,Settlements::poolCents($s));$this->assertSame(0,$s->refund_reserved_cents);
+        $this->assertSame('submitted',$p->status);
+        $path='/return-center/'.$f['case']->id;
+        foreach(['ready','decide'] as $action)$this->actingAs($f['admin'])->postJson($path.'/agreement',[
+            'action'=>$action,'version'=>$s->version,'note'=>'No admin approval is needed for this customer agreement.','confirm'=>true])->assertUnprocessable();
+        $this->actingAs($f['buyer'])->postJson($path.'/agreement',$this->receiptUpload($f))->assertForbidden();
+        try{Settlements::submitPayment($f['case'],$f['seller'],['version'=>$s->version,'purpose'=>'refund_recovery','amount'=>4649,'reference'=>'WRONG-POOL','proof_path'=>'test-proof.png']);$this->fail('Customer refund was deposited into escrow.');}
+        catch(ValidationException $e){$this->assertArrayHasKey('return',$e->errors());}
+        $this->change($f,'buyer','dispute',['note'=>'Please arrange a collection time with me before pickup.']);
+        $this->assertFalse($f['case']->fresh()->settlement->collectionReady());
+        $this->change($f,'buyer','resolve_issue',['note'=>'The seller and I agreed to the collection time together.']);
+        $this->assertTrue($f['case']->fresh()->settlement->collectionReady());
+    }
+
+    public function test_seller_fault_direct_full_refund_requires_physical_receipt_and_buyer_confirmation_preserving_earned_cuts(): void
+    {
+        $f=$this->buyerFaultFixture();$this->directProposal($f,'seller',['merchandise_amount'=>4599]);
+        $p=$this->authorizeBuyerFault($f);
+        $original=\App\Models\EscrowRemittance::where('order_id',$f['order']->id)->get()->pluck('amount','recipient_role')->all();
+        try{ReturnWorkflowService::change($f['case'],$f['seller'],'refund',['reference'=>'TOO-EARLY','proof_path'=>'test-proof.png']);$this->fail('Refunded before physical receipt.');}
+        catch(ValidationException $e){$this->assertArrayHasKey('return',$e->errors());}
+        $this->physical($f);$path='/return-center/'.$f['case']->id;
+        foreach(['buyer','admin'] as $actor)$this->actingAs($f[$actor])->postJson($path,['action'=>'refund','reference'=>'NOT-SENDER','confirm_transfer'=>true])->assertForbidden();
+        ReturnWorkflowService::change($f['case'],$f['seller'],'refund',['reference'=>'FULL-SELLER-REFUND','proof_path'=>'test-proof.png']);
+        $this->assertEquals(0,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->assertSame('seller_direct',$f['case']->fresh()->workflow->refund_source);
+        $this->actingAs($f['buyer'])->get(route('returns.proof',$f['case']))->assertOk();
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund');
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund');
+        $this->assertEquals(4649,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->assertSame('completed',$f['case']->fresh()->settlement->status);
+        $this->assertEquals($original,\App\Models\EscrowRemittance::where('order_id',$f['order']->id)->get()->pluck('amount','recipient_role')->all());
+        $this->assertEquals(4649,ReturnWorkflowService::fundingSummary($f['order']->fresh(),0)['seller_direct_refunds']);
+        // Admin verifies only the incoming delivery funds, even after customer refund completion.
+        Settlements::viewPaymentReceipt($p,$f['admin']);Settlements::reviewPayment($p,$f['admin'],true,'Confirmed incoming return delivery money in the platform bank.');
+        $line=$f['case']->fresh()->settlement->allocations()->where('role','collection_rider')->firstOrFail();
+        Settlements::payout($line,$f['riderUser'],'destination',['provider'=>'Bank','holder'=>'Rider','account'=>'12345678']);
+        Settlements::payout($line,$f['admin'],'remit',['reference'=>'RETURN-DELIVERY-ONLY','proof_path'=>'test-proof.png']);
+        $this->assertSame('remitted',$line->fresh()->status);
+        Settlements::payout($line,$f['riderUser'],'accept',[]);$this->assertSame('accepted',$line->fresh()->status);
+    }
+
+    public function test_seller_fault_ui_shares_refund_account_only_with_agreed_seller_and_has_no_customer_admin_steps(): void
+    {
+        $f=$this->buyerFaultFixture();$this->directProposal($f,'seller',['merchandise_amount'=>4599]);
+        $this->change($f,'buyer','destination',['provider'=>'Bank','holder'=>'Buyer','account'=>'123456789']);
+        $path='/return-center/'.$f['case']->id.'/agreement';
+        $this->actingAs($f['seller'])->getJson($path)->assertJsonPath('refund_destination',null);
+        $this->change($f,'buyer','accept');
+        $this->actingAs($f['seller'])->getJson($path)->assertJsonPath('refund_destination.account','123456789');
+        $this->actingAs($f['admin'])->getJson($path)->assertJsonPath('refund_destination',null)
+            ->assertJsonPath('funding_plan.seller_direct_refund',true)->assertJsonPath('funding.shortfall',0);
+        $this->actingAs($f['buyer'])->get($path)->assertOk()->assertSee('no deductions')->assertDontSee('Less original seller-funded costs')->assertDontSee('Less new return delivery')->assertDontSee('Submit refund-funding receipt');
+        $this->actingAs($f['admin'])->get($path)->assertOk()->assertDontSee('Record direct refund sent')->assertSee('Manage Payments');
+        if(getenv('SELLER_FAULT_UI_PREVIEW'))foreach(['buyer','seller','admin'] as $role)file_put_contents(base_path('.tools/seller-fault-'.$role.'.html'),$this->actingAs($f[$role])->get($path)->getContent());
+    }
+
+    public function test_seller_fault_shipping_is_per_seller_and_returned_quantity_without_refunding_another_store_shipping(): void
+    {
+        $f=$this->buyerFaultFixture();
+        $item=$f['order']->items()->first();$item->update(['quantity'=>3,'unit_price'=>1000,'total_price'=>3000]);
+        $other=User::create(['name'=>'Other seller','email'=>'other-seller@test.local','password'=>'test','role'=>'seller']);
+        $copy=$item->replicate();$copy->seller_id=$other->id;$copy->quantity=1;$copy->save();
+        $f['order']->update(['shipping_fee'=>100]);$f['case']->settlement()->update(['maximum_refund_cents'=>100000]);
+        $this->directProposal($f,'seller',['merchandise_amount'=>1000,'shipping_amount'=>100]);
+        $this->change($f,'buyer','accept');$first=$f['case']->fresh()->settlement;
+        $this->assertSame(1667,(int)$first->shipping_cents);$this->assertSame(101667,(int)$first->net_refund_cents);
+        $second=$f['case']->replicate();$second->quantity=2;$second->refund_amount=2000;$second->save();
+        Settlements::ensure($second);$g=$f;$g['case']=$second;
+        $this->directProposal($g,'seller',['merchandise_amount'=>2000]);$this->change($g,'buyer','accept');
+        $this->assertSame(3333,(int)$second->fresh()->settlement->shipping_cents);
+        $this->assertSame(5000,(int)$first->shipping_cents+(int)$second->fresh()->settlement->shipping_cents);
+    }
+
+    public function test_seller_fault_never_reimburses_free_shipping_or_accepts_manual_cost_deductions(): void
+    {
+        $f=$this->buyerFaultFixture();$f['order']->update(['shipping_fee'=>0]);
+        $this->directProposal($f,'seller',['merchandise_amount'=>4599,'shipping_amount'=>50]);
         $s=$f['case']->fresh()->settlement;
-        $this->assertSame('direct',$s->workflow_policy);$this->assertSame(0,(int)$s->compensation_cents);
-        $this->assertSame(459900,(int)$s->net_refund_cents);$this->assertFalse($s->buyerFaultDirect());
-        $this->change($f,'buyer','accept');$this->change($f,'buyer','destination',['provider'=>'Bank','holder'=>'Buyer','account'=>'123456789']);
-        $this->directPayment($f);
-        $need=ReturnWorkflowService::fundingSummary($f['order']->fresh(),4599,$s->id)['shortfall'];
-        if($need>0)$this->deposit($f,'refund_recovery',$need);
-        $this->assertNotNull($f['case']->fresh()->settlement->funded_at);$this->assertNull($f['case']->fresh()->settlement->collection_authorized_at);
+        $this->assertSame(0,(int)$s->shipping_cents);$this->assertSame(459900,(int)$s->net_refund_cents);
+        $this->expectException(ValidationException::class);
+        $this->directProposal($f,'seller',['merchandise_amount'=>4599,'compensation_amount'=>100]);
     }
 
     public function test_partial_buyer_fault_costs_share_shipping_credit_and_cannot_recover_more_than_original_costs(): void
@@ -1168,6 +1266,151 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         $f=$this->multiItemFundingFixture();
         $f['case']->settlement()->update(['workflow_policy'=>'direct','funding_preference'=>'deposit']);
         return $f;
+    }
+
+    private function keepItemFixture(string $resolution='refund_only'): array
+    {
+        $f=$this->directFixture();
+        $f['case']->settlement()->update(['policy_version'=>2]);
+        $this->directProposal($f,'seller',['resolution'=>$resolution,'merchandise_amount'=>$resolution==='partial_refund'?60:100]);
+        $this->change($f,'buyer','accept');
+        $this->change($f,'buyer','destination',['provider'=>'Test bank','holder'=>'Buyer','account'=>'000123456']);
+        $f['case']=$f['case']->fresh();return $f;
+    }
+
+    private function keepItemSend(array $f,array $extra=[]): array
+    {
+        ReturnWorkflowService::change($f['case'],$f['seller'],'refund',$extra+[
+            'amount'=>$f['case']->fresh()->settlement->net_refund_cents/100,'reference'=>'KEEP-ITEM-TRANSFER','proof_path'=>'test-proof.png']);
+        $r=\App\Services\KeepItemRefundService::receipt($f['case']->fresh());
+        return ['receipt_id'=>$r['id'],'receipt_version'=>$r['version']];
+    }
+
+    public function test_keep_item_direct_seller_refund_requires_no_platform_money_and_closes_only_on_buyer_confirmation(): void
+    {
+        $f=$this->keepItemFixture();$s=$f['case']->settlement;
+        $this->assertTrue($s->keepItemDirect());$this->assertNull($s->funded_at);$this->assertNull($s->admin_decided_at);
+        $this->assertSame('refund_pending',$f['case']->workflow->stage);
+        $this->assertDatabaseCount('return_fund_payments',0);$this->assertDatabaseCount('return_allocations',0);
+        $rows=\App\Models\EscrowRemittance::orderBy('id')->get()->toArray();
+        $stock=$f['case']->product->stock;
+        $receipt=$this->keepItemSend($f);
+        $this->assertStringNotContainsString('000123456',DB::table('direct_refund_transfers')->value('receipt_versions'));
+        $this->assertArrayNotHasKey('receipt_versions',\App\Models\DirectRefundTransfer::firstOrFail()->toArray());
+        $this->assertEquals(0,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $path='/return-center/'.$f['case']->id.'/agreement';
+        $this->actingAs($f['buyer'])->getJson($path)->assertOk()->assertJsonPath('refund_receipt.status','pending');
+        $this->get($path)->assertOk()->assertSee('View seller refund receipt')->assertSee('Decline receipt / payment not received')->assertDontSee('Submit refund-funding receipt');
+        $this->actingAs($f['seller'])->getJson($path)->assertOk()->assertJsonPath('refund_destination.account','000123456');
+        $this->actingAs($f['admin'])->getJson($path)->assertOk()->assertJsonPath('refund_destination',null)->assertJsonPath('refund_receipt',null);
+        $this->actingAs($f['staff'])->getJson($path)->assertForbidden();
+        $this->actingAs($f['buyer'])->postJson('/return-center/'.$f['case']->id,['action'=>'confirm_refund'])->assertUnprocessable();
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund',$receipt);
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund',$receipt);
+        $this->assertSame('refunded_return_waived',$f['case']->fresh()->settlement->status);
+        $this->assertEquals(100,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->assertEquals($stock,$f['case']->product->fresh()->stock);
+        $this->assertFalse((bool)$f['case']->fresh()->workflow->stock_restored);
+        $this->assertSame($rows,\App\Models\EscrowRemittance::orderBy('id')->get()->toArray());
+        $this->assertEquals(100,\App\Services\BuyerFaultReturnService::externalRefundTotal($f['order']->fresh()));
+        if(getenv('KEEP_ITEM_UI_PREVIEW'))file_put_contents(base_path('.tools/keep-item-completed.html'),$this->actingAs($f['buyer'])->get($path)->getContent());
+    }
+
+    public function test_keep_item_direct_decline_and_messages_preserve_terms_and_allow_corrected_receipts_without_admin(): void
+    {
+        $f=$this->keepItemFixture();$receipt=$this->keepItemSend($f);
+        $this->change($f,'buyer','decline',$receipt+['note'=>'The transfer did not reach my bank. Please check the status.']);
+        $this->change($f,'seller','comment',['note'=>'I am checking the transfer with my bank and will send the correct proof.']);
+        $s=$f['case']->fresh()->settlement;
+        $this->assertNotNull($s->buyer_accepted_at);$this->assertNotNull($s->seller_accepted_at);
+        $this->assertSame('refund_disputed',$s->status);
+        $this->assertEquals(0,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        if(getenv('KEEP_ITEM_UI_PREVIEW'))foreach(['buyer','seller'] as $role)file_put_contents(base_path('.tools/keep-item-'.$role.'.html'),$this->actingAs($f[$role])->get('/return-center/'.$f['case']->id.'/agreement')->getContent());
+        Storage::disk('private')->put('corrected-proof.png','corrected proof');
+        $new=$this->keepItemSend($f,$receipt+['proof_path'=>'corrected-proof.png']);
+        $this->assertSame(2,$new['receipt_version']);$this->assertSame($receipt['receipt_id'],$new['receipt_id']);
+        $this->actingAs($f['buyer'])->postJson('/return-center/'.$f['case']->id,['action'=>'confirm_refund']+$receipt)->assertUnprocessable();
+        $old='/return-center/'.$f['case']->id.'/proof?receipt='.$receipt['receipt_id'].'&revision=1';
+        $this->get($old)->assertOk();
+        $this->actingAs($f['admin'])->get($old)->assertForbidden();
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund',$new);
+        $this->assertEquals(100,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->assertCount(2,\App\Models\DirectRefundTransfer::firstOrFail()->receipt_versions);
+        $this->assertStringNotContainsString('000123456',json_encode($f['case']->fresh()->settlement->events));
+    }
+
+    public function test_keep_item_direct_partial_refund_uses_agreed_amount_and_rejects_platform_deposits_and_admin_transfers(): void
+    {
+        $f=$this->keepItemFixture('partial_refund');
+        $s=$f['case']->settlement;
+        $this->assertTrue($s->keepItemDirect());$this->assertNull($s->admin_decided_at);$this->assertNull($s->funded_at);
+        $this->assertNotNull($s->seller_accepted_at);$this->assertNotNull($s->buyer_accepted_at);
+        $this->assertSame(0,(int)$s->transport_cents);$this->assertDatabaseCount('return_allocations',0);
+        $this->actingAs($f['buyer'])->get('/return-center/'.$f['case']->id.'/agreement')->assertOk()
+            ->assertSee('Partial refund — buyer keeps item')->assertSee('Agreed partial item refund')->assertDontSee('awaiting admin verification');
+        $this->actingAs($f['seller'])->postJson('/return-center/'.$f['case']->id,['action'=>'refund','amount'=>61,'confirm_transfer'=>1,'reference'=>'WRONG-AMOUNT'])->assertUnprocessable();
+        $this->actingAs($f['admin'])->postJson('/return-center/'.$f['case']->id,['action'=>'refund','amount'=>60,'confirm_transfer'=>1])->assertForbidden();
+        $this->actingAs($f['seller'])->postJson('/return-center/'.$f['case']->id.'/agreement',[
+            'action'=>'pay','version'=>$f['case']->settlement->version,'confirm'=>1,'purpose'=>'refund_recovery','amount'=>60,'reference'=>'NO-PLATFORM',
+            'proof'=>\Illuminate\Http\UploadedFile::fake()->createWithContent('receipt.png',base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5X8AAAAASUVORK5CYII=')),
+        ])->assertUnprocessable();
+        $receipt=$this->keepItemSend($f);
+        $this->actingAs($f['staff'])->postJson('/return-center/'.$f['case']->id,['action'=>'confirm_refund']+$receipt)->assertForbidden();
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund',$receipt);
+        $this->assertEquals(60,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->assertDatabaseCount('return_fund_payments',0);
+    }
+
+    public function test_partial_refund_requires_a_positive_item_amount_below_the_full_value(): void
+    {
+        $f=$this->directFixture();$f['case']->settlement()->update(['policy_version'=>2]);
+        $version=$f['case']->settlement->version;
+        foreach([0,-1,100,101] as $invalid){
+            try{$this->directProposal($f,'seller',['resolution'=>'partial_refund','merchandise_amount'=>$invalid]);$this->fail('Invalid partial amount accepted.');}
+            catch(ValidationException $error){$this->assertArrayHasKey('return',$error->errors());}
+            $this->assertSame($version,$f['case']->fresh()->settlement->version);
+        }
+        $this->directProposal($f,'seller',['resolution'=>'partial_refund','merchandise_amount'=>0.01]);
+        $this->assertSame(1,(int)$f['case']->fresh()->settlement->merchandise_cents);
+    }
+
+    public function test_partial_refund_negotiation_receipt_decline_and_correction_end_in_only_the_agreed_payment(): void
+    {
+        $f=$this->directFixture();$f['case']->settlement()->update(['policy_version'=>2]);
+        $this->directProposal($f,'seller',['resolution'=>'partial_refund','merchandise_amount'=>40]);
+        $this->change($f,'buyer','comment',['note'=>'Please refund sixty instead of forty for the damaged item.']);
+        $this->assertNull($f['case']->fresh()->settlement->buyer_accepted_at);
+        $this->directProposal($f,'seller',['resolution'=>'partial_refund','merchandise_amount'=>60]);
+        if(getenv('PARTIAL_UI_PREVIEW'))file_put_contents(base_path('.tools/partial-proposal.html'),$this->actingAs($f['seller'])->get('/return-center/'.$f['case']->id.'/agreement')->getContent());
+        $this->change($f,'buyer','accept');
+        $this->change($f,'buyer','destination',['provider'=>'Test bank','holder'=>'Buyer','account'=>'000PARTIAL']);
+        $f['case']=$f['case']->fresh();$stock=$f['case']->product->stock;
+        $rows=\App\Models\EscrowRemittance::orderBy('id')->get()->toArray();
+        $receipt=$this->keepItemSend($f,['reference'=>'PARTIAL-DIRECT-60']);
+        $this->assertEquals(0,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->change($f,'buyer','decline',$receipt+['note'=>'The partial refund has not arrived. Please check the transfer.']);
+        $this->change($f,'seller','comment',['note'=>'The transfer was delayed. Here is the corrected receipt.']);
+        $receipt=$this->keepItemSend($f,$receipt+['reference'=>'PARTIAL-DIRECT-60']);
+        if(getenv('PARTIAL_UI_PREVIEW'))foreach(['buyer','seller'] as $role)file_put_contents(base_path('.tools/partial-'.$role.'.html'),$this->actingAs($f[$role])->get('/return-center/'.$f['case']->id.'/agreement')->getContent());
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund',$receipt);
+        ReturnWorkflowService::change($f['case'],$f['buyer'],'confirm_refund',$receipt);
+        $this->assertEquals(60,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->assertSame('partially_refunded',Payments::transactionFor($f['order']->fresh())->status);
+        $this->assertSame('refunded_return_waived',$f['case']->fresh()->settlement->status);
+        $this->assertSame($rows,\App\Models\EscrowRemittance::orderBy('id')->get()->toArray());
+        $this->assertEquals($stock,$f['case']->product->fresh()->stock);
+        $this->assertDatabaseCount('return_allocations',0);$this->assertDatabaseCount('return_fund_payments',0);
+    }
+
+    public function test_keep_item_direct_cannot_reuse_another_cases_historical_transfer_reference(): void
+    {
+        $f=$this->keepItemFixture();
+        \App\Models\DirectRefundTransfer::create(['return_request_id'=>999,'reference'=>'HISTORICAL-OTHER-REFUND','amount_cents'=>10000,'revision'=>1,'status'=>'declined','receipt_versions'=>[]]);
+        try{$this->keepItemSend($f,['reference'=>'HISTORICAL-OTHER-REFUND']);$this->fail('Another refund reference was reused.');}
+        catch(ValidationException $error){$this->assertArrayHasKey('return',$error->errors());}
+        $this->assertNull($f['case']->fresh()->workflow->refund_sent_at);
+        $this->assertEquals(0,Payments::transactionFor($f['order']->fresh())->refunded_amount);
+        $this->assertDatabaseCount('direct_refund_transfers',1);
     }
 
     private function directProposal(array $f,string $fault='buyer',array $extra=[]): void

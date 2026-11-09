@@ -10,7 +10,7 @@
     @forelse($rows as $line)
     @php
         $canAccept = $line->canAccept($user);
-        $deliveryPaymentBlocked=$line->settlement->buyerFaultDirect() && (!$line->settlement->funded_at || !$line->receiving_destination
+        $deliveryPaymentBlocked=$line->settlement->physicalDirectRefund() && (!$line->settlement->funded_at || !$line->receiving_destination
             || \App\Services\ReturnSettlementService::poolCents($line->settlement) < $line->amount_cents + $line->settlement->allocations()->whereNull('fund_payment_id')->whereIn('status',['remitted','accepted'])->sum('amount_cents'));
     @endphp
     <article>

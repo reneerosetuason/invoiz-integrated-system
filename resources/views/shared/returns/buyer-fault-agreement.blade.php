@@ -1,30 +1,38 @@
 @extends($layout)
-@section('title', 'Buyer-fault return & refund')
+@section('title', 'Return & direct refund')
 @section('content')
 @php
     $editable=!$agreement->collection_authorized_at && !$agreement->funded_at && !$agreement->closed_at && !$agreement->payments->whereIn('status',['submitted','verified'])->count();
+    $sellerFault=$agreement->sellerFaultDirect();
     $flow=$returnRequest->workflow;
     $pendingFee=$agreement->payments->first(fn($p)=>$p->purpose==='return_budget' && $p->status==='submitted');
     $lastIssue=collect($agreement->events??[])->where('action','dispute')->last();
 @endphp
 <div class="return-center return-agreement">
     <header class="review-head"><div><p class="review-eyebrow">Return #{{ $returnRequest->id }} · Proposal version {{ $agreement->version }}</p>
-        <h1>Return &amp; direct refund</h1><p>Buyer and seller agree on the deductions. The seller refunds the buyer directly and funds only the new return delivery through escrow.</p></div></header>
+        <h1>Return &amp; direct refund</h1><p>@if($sellerFault)The seller pays all return-delivery costs separately and refunds your full eligible paid amount directly, with no deductions. No admin approval of the customer refund is needed.@else Buyer and seller agree on the deductions. The seller refunds the buyer directly and funds only the new return delivery through escrow.@endif</p></div></header>
     <nav class="return-nav"><a class="review-action" href="{{ route('returns.center') }}">Return center</a><a class="review-action" href="{{ route('returns.guide') }}">How this works</a>
         @if($admin)<a class="review-action" href="{{ url('/admin/payments#escrow-remittances') }}">Manage Payments</a>@endif</nav>
     @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
     @if($errors->any())<p class="review-warning" role="alert">{{ $errors->first() }}</p>@endif
     <article>
-        <div class="return-heading"><h2>{{ $returnRequest->item?->product_name }}<small>{{ $returnRequest->quantity }} item(s) · Buyer responsibility</small></h2><b>{{ ucwords(str_replace('_',' ',$agreement->status)) }}</b></div>
+        <div class="return-heading"><h2>{{ $returnRequest->item?->product_name }}<small>{{ $returnRequest->quantity }} item(s) · {{ $sellerFault?'Seller':'Buyer' }} responsibility</small></h2><b>{{ ucwords(str_replace('_',' ',$agreement->status)) }}</b></div>
         <p><b>Seller proposal:</b> {{ $agreement->reason_note }}</p>
         <p>Buyer: {{ $agreement->buyer_accepted_at?'Agreed':'Awaiting agreement' }} · Seller: {{ $agreement->seller_accepted_at?'Agreed':'Awaiting agreement' }}</p>
         <dl class="return-money">
             <div><dt>Eligible item refund</dt><dd>{{ peso($agreement->merchandise_cents/100) }}</dd></div>
+            @if($sellerFault)
+            <div><dt>Original paid shipping reimbursement</dt><dd>{{ peso($agreement->shipping_cents/100) }}</dd></div>
+            <div><dt>Return delivery paid separately by seller</dt><dd>{{ peso($agreement->transport_cents/100) }}</dd></div>
+            @else
             <div><dt>Less original seller-funded costs</dt><dd>− {{ peso($agreement->compensation_cents/100) }}</dd></div>
             <div><dt>Less new return delivery</dt><dd>− {{ peso($agreement->transport_cents/100) }}</dd></div>
+            @endif
             <div><dt>Buyer receives directly from seller</dt><dd>{{ peso($agreement->net_refund_cents/100) }}</dd></div>
         </dl>
         <p>{{ $agreement->deduction_note }}</p>
+        @if($sellerFault)<p>The buyer receives the full eligible item amount plus the original paid shipping for this returned quantity. No seller compensation or return-delivery fee is deducted.</p>
+        @else
         <p>You do not pay a separate return fee. The seller funds the return trip using the agreed deduction.</p>
         <details><summary>How original seller compensation is calculated</summary>
             <p>These are recorded original order costs for this returned quantity. Original buyer-paid shipping is credited so it is not charged twice. The seller retains this cost recovery; it is not another escrow payout.</p>
@@ -33,6 +41,7 @@
                 <tr><td>Less original buyer-paid shipping credit</td><td>− {{ peso(($agreement->cost_snapshot['buyer_shipping_credit_cents']??0)/100) }}</td></tr>
             </tbody><tfoot><tr><th scope="row">Seller-funded costs retained</th><td>{{ peso($agreement->compensation_cents/100) }}</td></tr></tfoot></table>
         </details>
+        @endif
         @if($agreement->dispute_note)<p class="review-warning">Reported issue: {{ $agreement->dispute_note }}. Discuss this with the other party; the reporter can mark it resolved.</p>@endif
     </article>
     <article><h2>New return delivery · {{ peso($agreement->transport_cents/100) }}</h2>
@@ -43,9 +52,9 @@
     </article>
     @include('shared.returns.partials.propose')
     @if($buyer && $editable && $agreement->status==='proposed' && !$agreement->buyer_accepted_at && !$agreement->dispute_note)
-    <article><h2>Review and agree</h2><p>You will receive {{ peso($agreement->net_refund_cents/100) }} after the agreed deductions. You do not pay a separate return fee. The seller deposits {{ peso($agreement->transport_cents/100) }} for the return trip.</p>
+    <article><h2>Review and agree</h2><p>You will receive {{ peso($agreement->net_refund_cents/100) }} {{ $sellerFault?'in full, with no deductions':'after the agreed deductions' }}. You do not pay a separate return fee. The seller deposits {{ peso($agreement->transport_cents/100) }} for the return trip.</p>
         <form method="post" action="{{ route('returns.agreement.update',$returnRequest) }}">@include('shared.returns.partials.form-identity',['action'=>'accept'])
-            @include('shared.returns.partials.confirm',['confirmation'=>'I agree to these deductions, the net refund and sharing my refund receiving details with this seller.'])<button type="submit">Accept agreement</button>
+            @include('shared.returns.partials.confirm',['confirmation'=>$sellerFault?'I agree to the full refund, physical return and sharing my receiving details with this seller.':'I agree to these deductions, the net refund and sharing my refund receiving details with this seller.'])<button type="submit">Accept agreement</button>
         </form>
     </article>@endif
     @if(($buyer||$seller) && $editable)
@@ -74,12 +83,12 @@
         </form>
     </article>@endif
     @if($seller && $destination && $agreement->buyer_accepted_at && $agreement->seller_accepted_at)
-    <article><h2>Send the net refund directly to the buyer</h2><p>{{ $destination['provider'] }} · {{ $destination['holder'] }}<br>{{ $destination['account'] }}</p>
+    <article><h2>{{ $sellerFault?'Send the full refund directly to the buyer':'Send the net refund directly to the buyer' }}</h2><p>{{ $destination['provider'] }} · {{ $destination['holder'] }}<br>{{ $destination['account'] }}</p>
         <p>Exact amount: <b>{{ peso($agreement->net_refund_cents/100) }}</b>. Confirm physical receipt of the returned item in the Return center first.</p>
         @if($returnRequest->status==='item_received' && !$flow?->refund_sent_at && $agreement->collectionReady())
         <form method="post" action="{{ route('returns.action',$returnRequest) }}" enctype="multipart/form-data">@csrf<input type="hidden" name="action" value="refund">
             <label>Actual outgoing transfer reference<input name="reference" minlength="4" maxlength="150" required></label><label>Refund transfer receipt<input type="file" name="proof" accept="image/jpeg,image/png,image/webp" required></label>
-            <label class="return-check"><input type="checkbox" name="confirm_transfer" value="1" required> I sent the exact net refund to this buyer account.</label><button type="submit">Record direct refund sent</button>
+            <label class="return-check"><input type="checkbox" name="confirm_transfer" value="1" required> I sent the exact agreed refund to this buyer account.</label><button type="submit">Record direct refund sent</button>
         </form>@endif
     </article>@endif
     @if($flow?->refund_sent_at && ($buyer||$seller))

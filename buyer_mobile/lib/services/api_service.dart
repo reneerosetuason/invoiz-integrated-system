@@ -49,11 +49,11 @@ class ApiService {
   Future<dynamic> delete(String path) =>
       _send((headers) => _client.delete(_uri(path), headers: headers));
 
-  Future<Uint8List> getImage(String path) async {
+  Future<Uint8List> getImage(String path, {Map<String, String>? query}) async {
     final requestToken = _token;
     final response = await _client
         .get(
-          _uri(path),
+          _uri(path, query),
           headers: {
             'Accept': 'image/*',
             if (requestToken != null) 'Authorization': 'Bearer $requestToken',

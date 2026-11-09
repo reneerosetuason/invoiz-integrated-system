@@ -24,6 +24,7 @@
             $managed = \Illuminate\Support\Facades\Schema::hasTable('return_settlements') && $case->quantity > 0
                 && ($agreement || ($case->isOpen() && (!$flow || $stage === 'awaiting_collection')));
             $ready = !$managed || $agreement?->collectionReady();
+            $keepItem=$agreement?->keepItemDirect();
             if ($case->status === 'approved' && $flow && !$flow->center_id && $user->isLogisticsAdmin()) $actions['route_hub'] = 'Route to collection hub';
             if ($case->status === 'approved' && $staff && $ready) {
                 if (in_array($stage, ['awaiting_collection', 'pickup_assigned'])) $actions['assign'] = $stage==='pickup_assigned'?'Reassign collection rider':'Assign collection rider';
@@ -38,31 +39,35 @@
             if ($flow && $stage === 'pickup_assigned' && $user->role === 'rider' && (int)$flow->rider_id === (int)$user->rider?->id) $actions['pickup'] = 'Confirm collected from buyer';
             if (in_array($stage, ['sent_to_seller', 'seller_arrival']) && (int)$case->seller_id === (int)$user->id && $ready) $actions['receive'] = 'Confirm physical receipt';
             if ($stage === 'sent_to_seller' && $user->role === 'rider' && (int)$flow->rider_id === (int)$user->rider?->id) $actions['deliver_seller'] = 'Record delivery to seller';
-            $refundActor=$agreement?->buyerFaultDirect() ? (int)$case->seller_id===(int)$user->id : $user->isAdmin();
+            $refundActor=$agreement?->physicalDirectRefund() ? (int)$case->seller_id===(int)$user->id : $user->isAdmin();
             if (($case->status === 'item_received' || ($managed && $agreement && !$agreement->physicalReturn() && $stage === 'refund_pending')) && !$flow?->refund_sent_at && $refundActor && $ready && $agreement?->resolution !== 'exchange' && (!$managed || $case->refund_amount > 0)) $actions['refund'] = 'Record actual refund transfer';
             if ($flow?->refund_sent_at && !$flow->buyer_confirmed_at && (int)$case->buyer_id === (int)$user->id) $actions['confirm_refund'] = 'I received the refund';
+            if($keepItem)$actions=[];
         @endphp
         <article>
             <div class="return-heading"><h2>Return #{{ $case->id }} <small>Order #{{ $case->order_id }}</small></h2><strong>{{ peso($case->refund_amount) }}</strong></div>
             <p>{{ $case->item?->product_name ?? 'Purchased item' }} · {{ $case->quantity > 0 ? $case->quantity.' item(s)' : 'Payment adjustment; no return shipment' }}</p>
-            @if($managed)<a class="review-action" href="{{ route('returns.agreement', $case) }}">View agreement, fees &amp; funding</a>@endif
-            @if($managed && !$ready && !$agreement?->closed_at)<p class="review-warning">Agree on the resolution and verify funding before scheduling or continuing return transport.</p>@endif
-            <details><summary>Parcel, collection address and return destination</summary>
+            @if($managed)<a class="review-action" href="{{ route('returns.agreement', $case) }}">{{ $keepItem?'View refund agreement & receipt':'View agreement, fees & funding' }}</a>@endif
+            @if($keepItem)<p>The buyer keeps this item. Seller pays the buyer directly; review the receipt and messages in the agreement.</p>
+            @elseif($managed && !$ready && !$agreement?->closed_at)<p class="review-warning">Agree on the resolution and verify funding before scheduling or continuing return transport.</p>@endif
+            <details><summary>{{ $keepItem?'Purchase & refund information':'Parcel, collection address and return destination' }}</summary>
                 @php($original = \App\Support\EscrowEarnings::deliveryForSeller($case->order, (int)$case->seller_id))
                 <p>Reason: {{ ucwords(str_replace('_', ' ', $case->reason)) }}. {{ $case->reason_details }}</p>
+                @if(!$keepItem)
                 <p>Collect from: {{ $original?->recipient_name ?? $case->buyer?->name }} · {{ $original?->recipient_phone }}<br>{{ $original?->recipient_address ?? $case->order->address?->address_line }}</p>
                 <p>Return to: {{ $original?->sender_name }} · {{ $original?->sender_phone }}<br>{{ $original?->sender_address }}</p>
+                @endif
                 @if($case->evidence_url)<a data-image-viewer="document" class="review-action" href="{{ $case->evidence_url }}"  >View buyer evidence</a>@endif
                 @if($case->decision_note)<p>Decision note: {{ $case->decision_note }}</p>@endif
             </details>
             <p class="review-status"><b>{{ ucwords(str_replace('_', ' ', $case->status)) }}</b> · {{ ucwords(str_replace('_', ' ', $stage ?? ($case->status === 'refunded' ? 'Legacy refund record; payment proof unverified' : 'Awaiting seller review'))) }}</p>
-            @if($flow?->center_id)<p>Handling hub: {{ $flow->center?->name??'#'.$flow->center_id }} @if($flow->destination_center_id) → Hub #{{ $flow->destination_center_id }} @endif @if($flow->rider_id) · Assigned rider: {{ $flow->rider?->name??'#'.$flow->rider_id }} @endif</p>@endif
+            @if(!$keepItem && $flow?->center_id)<p>Handling hub: {{ $flow->center?->name??'#'.$flow->center_id }} @if($flow->destination_center_id) → Hub #{{ $flow->destination_center_id }} @endif @if($flow->rider_id) · Assigned rider: {{ $flow->rider?->name??'#'.$flow->rider_id }} @endif</p>@endif
             @if($stage==='pickup_assigned')<p>Waiting for the assigned rider to confirm collection in the app's Return jobs. Reassign only if another rider must take over.</p>@endif
             @if($stage==='in_transfer')<p>Driver: {{ $flow->driver_accepted_at?'Accepted transfer':'Awaiting acceptance' }} · {{ $flow->driver_arrived_at?'Arrival recorded; destination hub must confirm receipt':'Transport to destination pending' }}</p>@endif
             @if($flow?->transport_reference)<p>Transport reference: {{ $flow->transport_reference }}</p>@endif
             @if($flow?->refund_reference)
                 <p>Refund transfer: {{ $flow->refund_reference }} · {{ $flow->refund_sent_at?->format('M j, Y g:i a') }}</p>
-                @if($user->isAdmin() || (int)$case->buyer_id === (int)$user->id)<a data-image-viewer="document" class="review-action" href="{{ route('returns.proof', $case) }}"  >View refund payment proof</a>@endif
+                @if(($user->isAdmin() && !$keepItem) || (int)$case->buyer_id === (int)$user->id || ($keepItem && (int)$case->seller_id === (int)$user->id))<a data-image-viewer="document" class="review-action" href="{{ route('returns.proof', $case) }}"  >View refund payment proof</a>@endif
             @endif
             @if($stage === 'completed_no_refund')<p>This item had no refundable cash value after discounts. The return is closed; no payment transfer is due.</p>@endif
             @if($case->status === 'requested' && (int)$case->seller_id === (int)$user->id)<a class="review-action" href="{{ route('seller.returns.index') }}">Review this request</a>@endif
@@ -93,7 +98,7 @@
                     @if(isset($actions['deliver_seller']) || ($managed && isset($actions['pickup'])))<label>Parcel handover photo<input name="proof" type="file" accept="image/jpeg,image/png,image/webp" required></label>@endif
                     @if(isset($actions['receive']))<label class="return-check"><input type="checkbox" name="restock" value="1"> Inspected and resellable: restore this quantity to stock</label>@endif
                     @if(isset($actions['refund']))
-                        @if($agreement?->buyerFaultDirect())
+                        @if($agreement?->physicalDirectRefund())
                         <p>Send exactly {{ peso($agreement->net_refund_cents/100) }} directly to the buyer's verified account shown on the agreement page. Only return delivery is funded through escrow. The buyer confirms actual receipt to complete the refund.</p>
                         <label>Buyer refund transfer proof<input type="file" name="proof" accept="image/jpeg,image/png,image/webp" required></label>
                         <label class="return-check"><input type="checkbox" name="confirm_transfer" value="1" required> I sent the exact net refund directly to the buyer.</label>

@@ -59,7 +59,7 @@ class BuyerFaultReturnService
     /** Receipt submission authorizes collection; it never claims verified cash. */
     public static function activateIfReady(Order $order,ReturnRequest $case,ReturnSettlement $s): void
     {
-        if(!$s->buyerFaultDirect() || !$s->agreed() || $s->collection_authorized_at || $s->closed_at
+        if(!$s->physicalDirectRefund() || !$s->agreed() || $s->collection_authorized_at || $s->closed_at
             || ($s->net_refund_cents>0 && !$s->destination_verified_at))return;
         $submitted=$s->payments()->where('purpose','return_budget')->where('payer_user_id',$case->seller_id)
             ->whereIn('status',['submitted','verified'])->sum('amount_cents');
@@ -77,7 +77,7 @@ class BuyerFaultReturnService
     public static function externalRefundTotal(Order $order,?int $sellerId=null): float
     {
         return (float)ReturnRequest::where('order_id',$order->id)->when($sellerId,fn($q)=>$q->where('seller_id',$sellerId))
-            ->whereHas('settlement',fn($q)=>$q->where('workflow_policy','buyer_fault_direct'))
+            ->whereHas('settlement',fn($q)=>$q->whereIn('workflow_policy',['buyer_fault_direct','seller_fault_direct','seller_direct_keep_item']))
             ->whereHas('workflow',fn($q)=>$q->where('refund_source','seller_direct')->whereNotNull('buyer_confirmed_at'))
             ->sum('refund_amount');
     }

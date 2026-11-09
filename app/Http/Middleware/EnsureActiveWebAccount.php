@@ -25,7 +25,6 @@ class EnsureActiveWebAccount
             }
 
             $loginPath = match (true) {
-                $request->is('admin/*') => '/admin/login',
                 $request->is('logistics/*') => '/logistics/login',
                 $request->is('seller/*') => '/seller/login',
                 default => '/login',

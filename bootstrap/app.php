@@ -32,15 +32,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         // Session-expired (guest) redirects must land on the login page that
         // matches the area the user was in: logistics pages -> the Logistics
-        // login, admin pages -> the Admin login, everything else -> the
-        // shared marketplace (buyer/seller) login.
+        // login, everything else (buyer/seller/admin) -> the shared unified
+        // login, which routes admins to the admin dashboard after sign-in.
+        // There is no separate admin login page anymore.
         $middleware->redirectGuestsTo(function (Illuminate\Http\Request $request) {
             if ($request->is('logistics') || $request->is('logistics/*')) {
                 return '/logistics/login';
-            }
-
-            if ($request->is('admin') || $request->is('admin/*')) {
-                return '/admin/login';
             }
 
             return '/login';

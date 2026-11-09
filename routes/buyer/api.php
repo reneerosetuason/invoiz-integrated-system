@@ -79,7 +79,8 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
         ->whereNumber('delivery');
     Route::post('/orders/{id}/returns', [App\Http\Controllers\Buyer\Api\OrderController::class, 'requestReturn'])->whereNumber('id');
     Route::post('/returns/{returnRequest}/confirm', function (\Illuminate\Http\Request $request, \App\Models\ReturnRequest $returnRequest) {
-        \App\Services\ReturnWorkflowService::change($returnRequest, $request->user(), 'confirm_refund');
+        $data=$request->validate(['receipt_id'=>'nullable|integer|min:1','receipt_version'=>'nullable|integer|min:1']);
+        \App\Services\ReturnWorkflowService::change($returnRequest, $request->user(), 'confirm_refund',$data);
         return response()->json(['message' => 'Refund receipt confirmed.', 'return' => $returnRequest->fresh()]);
     });
     Route::get('/returns/{returnRequest}/proof', [\App\Http\Controllers\ReturnWorkflowController::class, 'proof']);

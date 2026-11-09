@@ -26,7 +26,7 @@ class EnsureMarketplaceAdmin
                 return response()->json(['message' => 'Unauthenticated.'], 401);
             }
 
-            return redirect()->route('admin.login');
+            return redirect()->route('login');
         }
 
         if (! $user->is_admin) {
@@ -48,7 +48,7 @@ class EnsureMarketplaceAdmin
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('admin.login')->withErrors([
+            return redirect()->route('login')->withErrors([
                 'email' => 'Your account is not active.',
             ]);
         }

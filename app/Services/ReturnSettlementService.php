@@ -50,6 +50,7 @@ class ReturnSettlementService
         }
         if (! $actor instanceof User || ! $actor->isActive()) return false;
         if ($actor->isAdmin() || in_array((int) $actor->id, [(int) $case->seller_id, (int) $case->buyer_id], true)) return true;
+        if($case->settlement?->keepItemDirect())return false;
         if ($actor->isLogisticsAdmin()) return true;
         $flow = $case->workflow;
         $agreement = $case->settlement;
@@ -70,6 +71,7 @@ class ReturnSettlementService
             $seller = (int) $case->seller_id === (int) $actor->id;
             $buyer = (int) $case->buyer_id === (int) $actor->id;
             $admin = $actor->isAdmin();
+            if($agreement->keepItemDirect())abort_unless($seller||$buyer,403);
             abort_unless(self::canView($actor, $case), 403);
             if (! in_array($action, ['destination', 'dispute'], true)) {
                 self::require((int) ($data['version'] ?? 0) === (int) $agreement->version, 'This agreement changed. Refresh and review the current version before continuing.');
@@ -77,11 +79,13 @@ class ReturnSettlementService
             if ($action === 'propose') {
                 abort_unless($seller || ($admin && !$agreement->directAgreement()), 403);
                 self::require(! $agreement->funded_at && !$agreement->collection_authorized_at && ! $agreement->payments()->whereIn('status', ['submitted', 'verified'])->exists(), 'A submitted or funded payment must be resolved before changing the agreement.');
+                self::require(!$case->workflow?->refund_sent_at, 'A refund receipt already exists. Continue the payment conversation instead of changing agreed amounts.');
                 self::require(! $case->workflow || in_array($case->workflow->stage, ['awaiting_collection', 'refund_pending'], true), 'The parcel is already moving. Escalate changes to admin.');
                 $resolution = $data['resolution'];
                 $fault = $data['fault'];
                 $buyerDirect=$agreement->directAgreement() && (int)$agreement->policy_version>=2 && $fault==='buyer' && $resolution==='return_refund';
-                if((int)$agreement->policy_version>=2 && $agreement->directAgreement())$agreement->workflow_policy=$buyerDirect?'buyer_fault_direct':'direct';
+                $sellerDirect=$agreement->directAgreement() && (int)$agreement->policy_version>=2 && $fault==='seller' && $resolution==='return_refund';
+                if((int)$agreement->policy_version>=2 && $agreement->directAgreement())$agreement->workflow_policy=$buyerDirect?'buyer_fault_direct':($sellerDirect?'seller_fault_direct':(in_array($resolution,['refund_only','partial_refund'],true)?'seller_direct_keep_item':'direct'));
                 $payer = $buyerDirect ? 'seller' : ($agreement->directAgreement() ? ($fault === 'buyer' ? 'buyer' : 'seller') : ($data['payer']??'seller'));
                 $preference = $agreement->directAgreement() ? 'deposit' : ($data['funding_preference'] ?? $data['funding_method'] ?? 'auto');
                 self::require(in_array($resolution, ['return_refund', 'refund_only', 'partial_refund', 'exchange'], true), 'Choose a supported resolution.');
@@ -94,11 +98,15 @@ class ReturnSettlementService
                 self::require($preference !== 'deduct_refund' || $payer === 'buyer', 'Only agreed buyer-funded fees can be deducted from the buyer refund.');
                 $merch = $resolution === 'exchange' ? 0 : self::cents($data['merchandise_amount']);
                 self::require($merch >= 0 && $merch <= $agreement->maximum_refund_cents, 'The item refund exceeds the amount paid for this quantity.');
+                self::require($resolution !== 'partial_refund' || ($merch > 0 && $merch < (int)$agreement->maximum_refund_cents), 'Enter a partial item refund greater than zero and below the full eligible item value. Use Refund only for the full amount.');
                 self::require($resolution === 'partial_refund' || $resolution === 'exchange' || $merch === (int) $agreement->maximum_refund_cents, 'Use Partial refund to propose less than the eligible item value.');
                 $shipping = self::cents($data['shipping_amount'] ?? 0);
                 $shippingUsed = (int) ReturnSettlement::where('order_id', $order->id)->whereKeyNot($agreement->id)->whereNotNull('buyer_accepted_at')->sum('shipping_cents');
                 $shippingCap = self::cents(max(0, (float) $order->shipping_fee - $order->shippingWaivedForSeller((int) $case->seller_id)));
-                self::require($shipping >= 0 && $shipping + $shippingUsed <= $shippingCap && ($shipping === 0 || ($fault !== 'buyer' && $resolution !== 'exchange')), 'Original shipping reimbursement exceeds the available paid shipping or is not applicable to this resolution.');
+                if($sellerDirect){
+                    // Full buyer-paid item value plus its original paid shipping; never deduct return costs.
+                    $shipping=SellerFaultReturnService::shippingCents($order,$case,$agreement);
+                }else self::require($shipping >= 0 && $shipping + $shippingUsed <= $shippingCap && ($shipping === 0 || ($fault !== 'buyer' && $resolution !== 'exchange')), 'Original shipping reimbursement exceeds the available paid shipping or is not applicable to this resolution.');
                 $compensation = self::cents($data['compensation_amount'] ?? 0);
                 self::require(!$agreement->directAgreement() || $compensation===0,'The simplified return charges only the configured transport fees; seller compensation is not an extra charge.');
                 self::require($compensation >= 0, 'Compensation cannot be negative.');
@@ -136,6 +144,7 @@ class ReturnSettlementService
                     ReturnFeeService::apply($case,$agreement,$data);
                     if($buyerDirect)BuyerFaultReturnService::applyDeductions($case,$agreement);
                     $agreement->seller_accepted_at=now();
+                    if($agreement->keepItemDirect())$case->workflow()->update(['stage'=>'refund_pending']);
                 }
             } elseif ($action === 'quote') {
                 self::quote($case, $agreement, $actor, $data);
@@ -153,7 +162,9 @@ class ReturnSettlementService
                 $otherShipping = (int) ReturnSettlement::where('order_id', $order->id)->whereKeyNot($agreement->id)
                     ->where('status', '!=', 'cancelled')->whereNotNull('buyer_accepted_at')->sum('shipping_cents');
                 $shippingLimit = self::cents(max(0, (float) $order->shipping_fee - $order->shippingWaivedForSeller((int) $case->seller_id)));
-                self::require($agreement->shipping_cents + $otherShipping <= $shippingLimit, 'Another accepted return already reserves this shipping reimbursement.');
+                if($agreement->sellerFaultDirect()){
+                    self::require((int)$agreement->shipping_cents===SellerFaultReturnService::shippingCents($order,$case,$agreement),'Another accepted return changed the available original shipping. Ask the seller for a refreshed proposal.');
+                }else self::require($agreement->shipping_cents + $otherShipping <= $shippingLimit, 'Another accepted return already reserves this shipping reimbursement.');
                 $agreement->{$buyer ? 'buyer_accepted_at' : 'seller_accepted_at'} = now();
             } elseif ($action === 'decide') {
                 abort_unless($admin, 403);
@@ -168,12 +179,13 @@ class ReturnSettlementService
                 if ($agreement->fault === 'seller') $agreement->seller_accepted_at ??= now();
             } elseif ($action==='resolve_issue') {
                 $lastIssue=collect($agreement->events??[])->where('action','dispute')->last();
-                abort_unless($agreement->buyerFaultDirect() ? (($buyer||$seller) && (int)($lastIssue['actor_id']??0)===(int)$actor->id) : $admin,403);
+                abort_unless($agreement->physicalDirectRefund() ? (($buyer||$seller) && (int)($lastIssue['actor_id']??0)===(int)$actor->id) : $admin,403);
                 self::require($agreement->directAgreement() && $agreement->dispute_note && strlen(trim($data['note']??''))>=10,
                     'Explain the payment or custody issue resolution without changing the agreed terms.');
                 $agreement->dispute_note=null;
                 $agreement->status=$agreement->collection_authorized_at?'collection_ready':($agreement->funded_at?'funded':'proposed');
             } elseif (in_array($action,['comment','decline'],true)) {
+                if($agreement->keepItemDirect() && $case->workflow?->refund_sent_at){KeepItemRefundService::respond($case,$agreement,$actor,$action,$data);return;}
                 abort_unless($buyer || $seller,403);
                 self::require($agreement->directAgreement() && !$agreement->funded_at && !$agreement->collection_authorized_at
                     && !$agreement->payments()->whereIn('status',['submitted','verified'])->exists(),'Paid or submitted terms are locked. Request help before changing them.');
@@ -182,7 +194,8 @@ class ReturnSettlementService
                 $agreement->status=$action==='decline'?'declined':'revision_requested';
                 $agreement->response_due_at=now()->addHours(48);
             } elseif ($action === 'dispute') {
-                abort_unless($buyer || $seller || ($admin && !$agreement->buyerFaultDirect()), 403);
+                if($agreement->keepItemDirect() && $case->workflow?->refund_sent_at){KeepItemRefundService::respond($case,$agreement,$actor,$action,$data);return;}
+                abort_unless($buyer || $seller || ($admin && !$agreement->physicalDirectRefund()), 403);
                 self::require(strlen(trim($data['note'] ?? '')) >= 10, 'Explain the dispute or missing refund payment.');
                 $agreement->dispute_note = $data['note'];
                 $agreement->admin_decided_at = null;
@@ -190,14 +203,14 @@ class ReturnSettlementService
                 $agreement->response_due_at = now()->addHours(48);
             } elseif ($action === 'destination') {
                 abort_unless($buyer, 403);
-                self::require(! $case->workflow?->refund_sent_at, 'The refund was already sent.');
-                self::require($agreement->buyerFaultDirect() || ! $agreement->funded_at || ! $agreement->destination_verified_at, 'The funded refund account is locked. Ask admin to request an account correction before changing it.');
+                self::require(! $case->workflow?->refund_sent_at || ($agreement->keepItemDirect() && KeepItemRefundService::current($case)?->status==='declined'), 'The refund was already sent.');
+                self::require($agreement->physicalDirectRefund() || ! $agreement->funded_at || ! $agreement->destination_verified_at, 'The funded refund account is locked. Ask admin to request an account correction before changing it.');
                 $agreement->refund_destination = [
                     'provider' => $data['provider'], 'holder' => $data['holder'], 'account' => $data['account'],
                 ];
                 $agreement->destination_verified_at = now();
             } elseif ($action === 'unlock_destination') {
-                abort_unless($admin && !$agreement->buyerFaultDirect(), 403);
+                abort_unless($admin && !$agreement->physicalDirectRefund(), 403);
                 self::require(! $case->workflow?->refund_sent_at && strlen(trim($data['note'] ?? '')) >= 10, 'An account correction needs an explanation before the refund is sent.');
                 $agreement->destination_verified_at = null;
                 $agreement->admin_decided_at = null;
@@ -209,14 +222,14 @@ class ReturnSettlementService
                 ReturnFundingService::reserve($order, $case, $agreement);
                 self::require((int) $agreement->reserved_cents === $agreement->budgetCents(), 'Reconcile the original payment and recover the refund funding shortfall before reserving transport money.');
             } elseif ($action === 'schedule') {
-                abort_unless($seller || ($admin && !$agreement->buyerFaultDirect()), 403);
+                abort_unless($seller || ($admin && !$agreement->physicalDirectRefund()), 403);
                 self::assertFunded($case);
                 self::require($agreement->physicalReturn() && $case->workflow?->stage === 'awaiting_collection', 'Only an uncollected physical return can be scheduled.');
                 $agreement->collection_at = $data['collection_at'];
                 $agreement->status = 'collection_scheduled';
             } elseif ($action === 'ready') {
                 abort_unless($admin, 403);
-                self::require(!$agreement->buyerFaultDirect(),'Buyer and seller authorize this return; admin handles only delivery escrow payouts.');
+                self::require(!$agreement->physicalDirectRefund(),'Buyer and seller authorize this return; admin handles only delivery escrow payouts.');
                 self::require(! $agreement->funded_at, 'This agreement was already funded and activated.');
                 $committedQty = (int) ReturnRequest::where('order_item_id', $case->order_item_id)->whereKeyNot($case->id)
                     ->whereIn('status', ['approved', 'item_received', 'refunded'])->sum('quantity');
@@ -386,7 +399,8 @@ class ReturnSettlementService
     /** Called under the order lock; mutual agreement never substitutes for verified cash. */
     public static function tryActivateDirect(Order $order,ReturnRequest $case,ReturnSettlement $agreement): void
     {
-        if($agreement->buyerFaultDirect()){
+        if($agreement->keepItemDirect()){KeepItemRefundService::activate($case,$agreement);return;}
+        if($agreement->physicalDirectRefund()){
             if(self::budgetFunded($agreement) && !$agreement->funded_at){
                 $agreement->funded_at=now();$agreement->save();
             }
@@ -429,7 +443,7 @@ class ReturnSettlementService
     {
         $s = self::ensure($case);
         if (! $s) return;
-        self::require($s->buyerFaultDirect() ? $s->collectionReady() : ($s->funded_at !== null && $s->agreed() && self::budgetFunded($s)), 'Complete the agreement, refund account and required return-delivery deposit first.');
+        self::require($s->physicalDirectRefund() ? $s->collectionReady() : ($s->funded_at !== null && $s->agreed() && self::budgetFunded($s)), 'Complete the agreement, refund account and required return-delivery deposit first.');
     }
 
     public static function beforeCustody(ReturnRequest $case, string $action, array $data): void
@@ -525,11 +539,12 @@ class ReturnSettlementService
             $order = Order::lockForUpdate()->findOrFail($record->order_id);
             $case = ReturnRequest::lockForUpdate()->findOrFail($record->id);
             $s = ReturnSettlement::lockForUpdate()->where('return_request_id', $case->id)->firstOrFail();
+            self::require(!$s->keepItemDirect(),'This keep-item refund is sent directly from seller to buyer. Upload the seller refund receipt instead of depositing into escrow.');
             self::require($s->agreed() && ! $s->closed_at && ! $s->funded_at, 'Agree to the current quote before funding; this budget may already be locked.');
             self::require(Schema::hasTable('gcash_escrow_settings') && DB::table('gcash_escrow_settings')->exists(), 'Admin must configure the platform escrow receiving account before deposits are submitted.');
             self::require((int) $data['version'] === (int) $s->version, 'The quote changed. Refresh first.');
             $purpose = $data['purpose'];
-            self::require(!$s->buyerFaultDirect() || $purpose==='return_budget','The seller refunds the buyer directly. Only the new return-delivery fee belongs in escrow.');
+            self::require(!$s->physicalDirectRefund() || $purpose==='return_budget','The seller refunds the buyer directly. Only the new return-delivery fee belongs in escrow.');
             self::require(in_array($purpose, ['return_budget', 'refund_recovery'], true), 'Unknown funding purpose.');
             if ($purpose === 'return_budget') {
                 $owner = $s->payer === 'buyer' ? $case->buyer_id : ($s->payer === 'seller' ? $case->seller_id : null);
@@ -563,7 +578,7 @@ class ReturnSettlementService
             else $payment = $s->payments()->create($payload);
             self::event($s, $actor->id, 'payment_submitted', $purpose.'; screenshot awaiting actual-bank verification');
             $s->save();
-            if($s->buyerFaultDirect())self::tryActivateDirect($order,$case,$s);
+            if($s->physicalDirectRefund())self::tryActivateDirect($order,$case,$s);
             return $payment;
         }, 3);
     }
@@ -590,7 +605,7 @@ class ReturnSettlementService
             if ($approved) {
                 self::require((int)$p->receipt_viewed_by===(int)$admin->id && $p->receipt_viewed_at,
                     'Open the uploaded payment receipt first, then check the actual incoming transfer before confirming success.');
-                self::require($s->buyerFaultDirect() ? ($s->buyer_accepted_at && $s->seller_accepted_at && $s->status!=='cancelled') : ($s->agreed() && ! $s->closed_at && ! $s->funded_at), 'Resolve the disputed or locked agreement before confirming a deposit.');
+                self::require($s->physicalDirectRefund() ? ($s->buyer_accepted_at && $s->seller_accepted_at && $s->status!=='cancelled') : ($s->agreed() && ! $s->closed_at && ! $s->funded_at), 'Resolve the disputed or locked agreement before confirming a deposit.');
                 if ($p->purpose === 'return_budget') self::require(self::poolCents($s) + $p->amount_cents <= $s->budgetCents(), 'This payment would overfund the return budget.');
             }
             $p->update(['status' => $approved ? 'verified' : 'rejected', 'reviewed_by' => $admin->id,
@@ -619,7 +634,7 @@ class ReturnSettlementService
                 $orderStyle=$action==='release';
                 self::require(!$orderStyle || $line->isDeliveryService(),'Only return-service earnings use this release action.');
                 if($orderStyle && in_array($line->status,['remitted','accepted'],true))return;
-                self::require(!$s->buyerFaultDirect() || in_array($line->role,[...ReturnAllocation::DELIVERY_ROLES,'unused_budget_refund'],true),'Only completed return-delivery services can be paid from this escrow.');
+                self::require(!$s->physicalDirectRefund() || in_array($line->role,[...ReturnAllocation::DELIVERY_ROLES,'unused_budget_refund'],true),'Only completed return-delivery services can be paid from this escrow.');
                 $unusedRefund = $s->status === 'cancelled' && ($line->fund_payment_id || $line->role === 'unused_budget_refund');
                 self::require(($s->funded_at !== null || $unusedRefund) && $line->status === 'eligible', 'Only verified completed work or a verified unused-funds refund can be paid, once.');
                 if($orderStyle)self::require($line->hasAssignedRecipient(),'Assign the worker or hub before releasing this service payout.');

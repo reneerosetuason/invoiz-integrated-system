@@ -25,10 +25,14 @@ class ReturnSettlement extends Model
     public function physicalReturn(): bool { return in_array($this->resolution, ['return_refund', 'exchange'], true); }
     public function budgetCents(): int { return (int) $this->transport_cents + ($this->buyerFaultDirect()?0:(int) $this->compensation_cents); }
     public function buyerFaultDirect(): bool { return $this->workflow_policy === 'buyer_fault_direct'; }
-    public function directAgreement(): bool { return in_array($this->workflow_policy,['direct','buyer_fault_direct'],true); }
+    public function sellerFaultDirect(): bool { return $this->workflow_policy === 'seller_fault_direct'; }
+    public function physicalDirectRefund(): bool { return $this->buyerFaultDirect() || $this->sellerFaultDirect(); }
+    public function keepItemDirect(): bool { return $this->workflow_policy==='seller_direct_keep_item' && !$this->physicalReturn(); }
+    public function sellerDirectRefund(): bool { return $this->physicalDirectRefund() || $this->keepItemDirect(); }
+    public function directAgreement(): bool { return in_array($this->workflow_policy,['direct','buyer_fault_direct','seller_fault_direct','seller_direct_keep_item'],true); }
     public function collectionReady(): bool
     {
-        if(!$this->buyerFaultDirect())return (bool)$this->funded_at && $this->agreed();
+        if(!$this->physicalDirectRefund())return (bool)$this->funded_at && $this->agreed();
         return (bool)$this->collection_authorized_at && $this->agreed()
             && (int)$this->payments()->where('purpose','return_budget')->whereIn('status',['submitted','verified'])->sum('amount_cents') >= $this->budgetCents();
     }

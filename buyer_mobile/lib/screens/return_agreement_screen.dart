@@ -244,20 +244,47 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
   }
 
   Future<void> _respond(bool decline) async {
+    final receipt = Map<String, dynamic>.from(
+      _data?['refund_receipt'] as Map? ?? {},
+    );
+    final paymentConversation =
+        _agreement['workflow_policy'] == 'seller_direct_keep_item' &&
+        receipt.isNotEmpty;
     final fields = await _ask(
-      decline ? 'Decline proposal' : 'Suggest changes',
+      paymentConversation
+          ? (decline ? 'Payment not received' : 'Message to seller')
+          : (decline ? 'Decline proposal' : 'Suggest changes'),
       {'note': 'Your explanation or suggestion (at least 10 characters)'},
-      description:
-          'The seller can edit and resend. You must accept the revised proposal before any fee payment.',
+      description: paymentConversation
+          ? 'Explain what did not go through or suggest a correction. Your message stays in the refund conversation until the payment is resolved.'
+          : 'The seller can edit and resend. You must accept the revised proposal before any fee payment.',
     );
     if (fields != null && mounted) {
-      await _send(decline ? 'decline' : 'comment', fields: fields);
+      await _send(
+        decline ? 'decline' : 'comment',
+        fields: {
+          ...fields,
+          if (paymentConversation) ...{
+            'receipt_id': '${receipt['id']}',
+            'receipt_version': '${receipt['version']}',
+          },
+        },
+      );
     }
   }
 
   Future<void> _refundProof() async {
     try {
-      final bytes = await _api.getImage('returns/${widget.returnId}/proof');
+      final receipt = _data?['refund_receipt'] as Map?;
+      final bytes = await _api.getImage(
+        'returns/${widget.returnId}/proof',
+        query: receipt == null
+            ? null
+            : {
+                'receipt': '${receipt['id']}',
+                'revision': '${receipt['version']}',
+              },
+      );
       if (mounted) {
         await showBuyerImagePreview(
           context,
@@ -281,7 +308,13 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
     }
     setState(() => _busy = true);
     try {
-      await _api.post('returns/${widget.returnId}/confirm', {});
+      final receipt = _data?['refund_receipt'] as Map?;
+      await _api.post('returns/${widget.returnId}/confirm', {
+        if (receipt != null) ...{
+          'receipt_id': receipt['id'],
+          'receipt_version': receipt['version'],
+        },
+      });
       await _load();
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -296,8 +329,14 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
     final closed = a['closed_at'] != null;
     final funded = a['funded_at'] != null;
     final physical = ['return_refund', 'exchange'].contains(a['resolution']);
-    final sellerDirect = a['workflow_policy'] == 'buyer_fault_direct';
-    final direct = a['workflow_policy'] == 'direct' || sellerDirect;
+    final sellerFault = a['workflow_policy'] == 'seller_fault_direct';
+    final sellerDirect =
+        a['workflow_policy'] == 'buyer_fault_direct' || sellerFault;
+    final keepItem = a['workflow_policy'] == 'seller_direct_keep_item';
+    final direct = a['workflow_policy'] == 'direct' || sellerDirect || keepItem;
+    final refundReceipt = Map<String, dynamic>.from(
+      _data?['refund_receipt'] as Map? ?? {},
+    );
     final collectionAuthorized = a['collection_authorized_at'] != null;
     final progress = Map<String, dynamic>.from(
       _data?['progress'] as Map? ?? {},
@@ -311,6 +350,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
     );
     final editable =
         !closed &&
+        (!keepItem || progress['refund_sent_at'] == null) &&
         !funded &&
         !collectionAuthorized &&
         !(a['payments'] as List? ?? []).any(
@@ -326,10 +366,13 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const BuyerPageHeading(
-              title: 'Agreement, fees & funding',
-              description:
-                  'Review the resolution before paying or handing over your item.',
+            BuyerPageHeading(
+              title: keepItem
+                  ? 'Refund & conversation'
+                  : 'Agreement, fees & funding',
+              description: keepItem
+                  ? 'The seller refunds your verified account directly. Review the receipt and confirm when the money arrives.'
+                  : 'Review the resolution before paying or handing over your item.',
             ),
             if (_error != null)
               BuyerPanel(
@@ -358,12 +401,15 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                         'Agreed replacement: ${a['replacement_description']}',
                       ),
                     Text('Responsibility: ${_label(a['fault'])}'),
-                    Text(
-                      '${sellerDirect ? 'Delivery escrow depositor' : 'Transport payer'}: ${_label(a['payer'])}',
-                    ),
+                    if (!keepItem)
+                      Text(
+                        '${sellerDirect ? 'Delivery escrow depositor' : 'Transport payer'}: ${_label(a['payer'])}',
+                      ),
                     if (sellerDirect) ...[
-                      const Text(
-                        'You do not pay a separate return fee. The agreed delivery deduction funds the return trip.',
+                      Text(
+                        sellerFault
+                            ? 'The seller pays return delivery separately. Your full eligible paid refund has no deductions.'
+                            : 'You do not pay a separate return fee. The agreed delivery deduction funds the return trip.',
                       ),
                       Text('${a['deduction_note'] ?? ''}'),
                       Text(
@@ -375,6 +421,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                     if (buyerAccepted) ...[
                       const Text('Agreement accepted'),
                       if (direct &&
+                          !keepItem &&
                           !funded &&
                           a['payer'] == 'buyer' &&
                           outstanding > 0)
@@ -383,7 +430,10 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                               ? 'Return fee receipt submitted. Waiting for payment verification.'
                               : 'Return fee unpaid: ${_money(outstanding)}. Pay it separately below.',
                         ),
-                      if (direct && !funded && a['payer'] == 'seller')
+                      if (direct &&
+                          !keepItem &&
+                          !funded &&
+                          a['payer'] == 'seller')
                         const Text('The seller pays the return service fees.'),
                     ],
                     if (direct)
@@ -397,11 +447,12 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                     for (final entry in {
                       'Item refund': 'merchandise_cents',
                       'Original shipping reimbursement': 'shipping_cents',
-                      'Return transport': 'transport_cents',
-                      (sellerDirect
-                              ? 'Less original seller-funded costs'
-                              : 'Seller compensation'):
-                          'compensation_cents',
+                      if (!keepItem) 'Return transport': 'transport_cents',
+                      if (!keepItem && !sellerFault)
+                        (sellerDirect
+                                ? 'Less original seller-funded costs'
+                                : 'Seller compensation'):
+                            'compensation_cents',
                       'You receive': 'net_refund_cents',
                     }.entries)
                       Padding(
@@ -409,7 +460,11 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                         child: Text('${entry.key}: ${_money(a[entry.value])}'),
                       ),
                     Text(
-                      sellerDirect
+                      keepItem
+                          ? 'The seller sends the agreed refund directly to your receiving account. You keep the item. No return fee or Admin approval is required.'
+                          : sellerFault
+                          ? 'The seller sends your full eligible paid item amount and original paid shipping directly after receiving the returned item. The seller pays new delivery fees separately into escrow.'
+                          : sellerDirect
                           ? 'Original seller-funded costs and new return delivery are deducted. The seller sends your net refund directly after receiving the returned item. Only new delivery fees go to escrow.'
                           : a['funding_method'] == 'deduct_refund'
                           ? 'Agreed return fees are deducted from the refund. Do not pay them again.'
@@ -437,7 +492,9 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                             : () async {
                                 if (await _confirm(
                                       'Accept agreement?',
-                                      sellerDirect
+                                      sellerFault
+                                          ? 'I agree to the full refund without deductions, the physical return and sharing my receiving details with this seller.'
+                                          : sellerDirect
                                           ? 'I agree to the original seller-funded costs, new delivery deduction, net refund and sharing my receiving details with this seller.'
                                           : 'I agree to this version, the charges and whether the item must be returned.',
                                     ) &&
@@ -477,7 +534,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                               },
                         label: const Text('Resolve my reported issue'),
                       ),
-                    if (!closed && (!direct || !editable))
+                    if (!closed && !keepItem && (!direct || !editable))
                       BuyerButton.plain(
                         onPressed: _busy
                             ? null
@@ -520,8 +577,9 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                 ),
               if (!closed &&
                   a['resolution'] != 'exchange' &&
-                  (sellerDirect
-                      ? progress['refund_sent_at'] == null
+                  (sellerDirect || keepItem
+                      ? progress['refund_sent_at'] == null ||
+                            (keepItem && refundReceipt['status'] == 'declined')
                       : (!funded || a['destination_verified_at'] == null)))
                 BuyerButton.secondary(
                   onPressed: _busy
@@ -537,8 +595,8 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                               'holder': 'Account holder',
                               'account': 'Account / e-wallet number',
                             },
-                            description: sellerDirect
-                                ? 'After mutual agreement, this seller can see your receiving details to send the net refund. Never provide a PIN, password or OTP.'
+                            description: sellerDirect || keepItem
+                                ? 'After mutual agreement, this seller can see your receiving details to send the agreed refund. Never provide a PIN, password or OTP.'
                                 : 'Only you and payment staff can see the complete account. Never provide a PIN, password or OTP.',
                             defaults: current.map((k, v) => MapEntry(k, '$v')),
                           );
@@ -602,7 +660,8 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                     ],
                   ),
                 ),
-              if (sellerDirect && progress['refund_sent_at'] != null)
+              if ((sellerDirect || keepItem) &&
+                  progress['refund_sent_at'] != null)
                 BuyerPanel(
                   title: progress['buyer_confirmed_at'] == null
                       ? 'Seller recorded refund sent'
@@ -622,12 +681,30 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                           onPressed: _busy ? null : _confirmRefund,
                           label: const Text('Confirm refund received'),
                         ),
+                      if (keepItem && !closed) ...[
+                        if (refundReceipt['buyer_note'] != null)
+                          Text(
+                            'Your payment problem: ${refundReceipt['buyer_note']}',
+                          ),
+                        BuyerButton.secondary(
+                          onPressed: _busy ? null : () => _respond(true),
+                          label: const Text(
+                            'Decline receipt / payment not received',
+                          ),
+                        ),
+                        BuyerButton.plain(
+                          onPressed: _busy ? null : () => _respond(false),
+                          label: const Text('Suggest changes / send message'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               if (direct && (a['events'] as List? ?? []).isNotEmpty)
                 BuyerPanel(
-                  title: 'Proposal conversation',
+                  title: keepItem
+                      ? 'Refund conversation'
+                      : 'Proposal conversation',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

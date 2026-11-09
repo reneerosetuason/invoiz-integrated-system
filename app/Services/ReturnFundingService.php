@@ -22,14 +22,18 @@ class ReturnFundingService
 
     public static function preview(ReturnRequest $case, ReturnSettlement $agreement): array
     {
+        if($agreement->keepItemDirect())return ['seller_direct_refund'=>true,'funding'=>['shortfall'=>0,'funded'=>0,'available'=>0],
+            'budget_outstanding_cents'=>0,'buyer_reserved_cents'=>0,'seller_reserved_cents'=>0,'refund_reserved_cents'=>0,
+            'automatic'=>false,'prospective_reservation_cents'=>0,'payment_due_cents'=>0];
         $prospective = $agreement->payer === 'buyer' && $agreement->funding_method === 'deduct_refund'
             ? max(0, $agreement->budgetCents() - (int) $agreement->reserved_cents) : 0;
-        $funding = ReturnWorkflowService::fundingSummary($case->order,
-            ($agreement->net_refund_cents + $prospective) / 100, $agreement->id);
+        $funding = $agreement->sellerFaultDirect() ? ['shortfall'=>0,'funded'=>0,'available'=>0]
+            : ReturnWorkflowService::fundingSummary($case->order,
+                ($agreement->net_refund_cents + $prospective) / 100, $agreement->id);
         $outstanding = max(0, $agreement->budgetCents() - ReturnSettlementService::poolCents($agreement));
         $reservable = self::reservableCents($case->order, $case, $agreement);
         return [
-            'seller_direct_refund'=>$agreement->buyerFaultDirect(),
+            'seller_direct_refund'=>$agreement->physicalDirectRefund(),
             'funding' => $funding,
             'budget_outstanding_cents' => $outstanding,
             'buyer_reserved_cents' => (int) $agreement->reserved_cents,

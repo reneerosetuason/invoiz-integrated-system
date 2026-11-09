@@ -26,13 +26,14 @@ class ReturnSettlementController extends Controller
         $buyer = $user instanceof User && (int) $user->id === (int) $returnRequest->buyer_id;
         $seller = $user instanceof User && (int) $user->id === (int) $returnRequest->seller_id;
         $admin = $this->admin($user);
-        $destination = $buyer || ($admin && !$agreement->buyerFaultDirect()) || ($seller && $agreement->buyerFaultDirect() && $agreement->buyer_accepted_at && $agreement->seller_accepted_at) ? $agreement->refund_destination : null;
+        $destination = $buyer || ($admin && !$agreement->sellerDirectRefund()) || ($seller && $agreement->sellerDirectRefund() && $agreement->buyer_accepted_at && $agreement->seller_accepted_at) ? $agreement->refund_destination : null;
+        $refundReceipt=$agreement->keepItemDirect() && ($buyer||$seller)?\App\Services\KeepItemRefundService::receipt($returnRequest):null;
         $settings = Schema::hasTable('gcash_escrow_settings') ? DB::table('gcash_escrow_settings')->first() : null;
         $fundingPlan = ReturnFundingService::preview($returnRequest, $agreement);
         $funding = $fundingPlan['funding'];
         $budgetOutstanding = $fundingPlan['budget_outstanding_cents'];
         $lastIssue=collect($agreement->events??[])->where('action','dispute')->last();
-        $can_resolve_issue=$agreement->buyerFaultDirect() && $agreement->dispute_note && ($buyer||$seller) && (int)($lastIssue['actor_id']??0)===(int)$user->id;
+        $can_resolve_issue=$agreement->physicalDirectRefund() && $agreement->dispute_note && ($buyer||$seller) && (int)($lastIssue['actor_id']??0)===(int)$user->id;
         if ($request->expectsJson()) {
             $payload = $agreement->toArray();
             // Payment proofs, bank details and payer references are private.
@@ -41,7 +42,7 @@ class ReturnSettlementController extends Controller
                 'agreement' => $payload, 'progress' => $returnRequest->workflow, 'refund_destination' => $destination, 'funding' => $funding, 'budget_outstanding_cents' => $budgetOutstanding,
                 'receiving_account' => $settings ? ['account_name' => $settings->account_name, 'account_details' => $settings->account_details,
                     'qr_url' => $settings->qr_path ? asset('storage/'.$settings->qr_path) : null] : null,
-                'funding_plan' => $fundingPlan, 'permissions' => compact('buyer', 'seller', 'admin','can_resolve_issue')])->header('Cache-Control', 'private, no-store');
+                'funding_plan' => $fundingPlan, 'refund_receipt'=>$refundReceipt, 'permissions' => compact('buyer', 'seller', 'admin','can_resolve_issue')])->header('Cache-Control', 'private, no-store');
         }
         $layout = $this->layout($user);
         $centers = ($admin || ($user instanceof User && $user->isLogisticsStaff())) ? LogisticsCenter::where('is_active', true)->orderBy('name')->get() : collect();
@@ -51,7 +52,7 @@ class ReturnSettlementController extends Controller
             catch(\Illuminate\Validation\ValidationException $e){$feeError=$e->validator?->errors()->first() ?? 'Select active return hubs in the proposal.';}
         }
         if($agreement->directAgreement() && $seller)$centers=\App\Services\ReturnRouting::options();
-        return response()->view($agreement->buyerFaultDirect()?'shared.returns.buyer-fault-agreement':($agreement->directAgreement()?'shared.returns.direct-agreement':'shared.returns.agreement'), compact('returnRequest', 'agreement', 'user', 'buyer', 'seller', 'admin', 'destination', 'settings', 'funding', 'budgetOutstanding', 'fundingPlan', 'layout', 'centers','feePreview','feeError'))
+        return response()->view($agreement->keepItemDirect()?'shared.returns.keep-item-agreement':($agreement->physicalDirectRefund()?'shared.returns.buyer-fault-agreement':($agreement->directAgreement()?'shared.returns.direct-agreement':'shared.returns.agreement')), compact('returnRequest', 'agreement', 'user', 'buyer', 'seller', 'admin', 'destination', 'settings', 'funding', 'budgetOutstanding', 'fundingPlan', 'layout', 'centers','feePreview','feeError','refundReceipt'))
             ->header('Cache-Control', 'private, no-store');
     }
 
@@ -73,7 +74,7 @@ class ReturnSettlementController extends Controller
             'action' => 'required|in:propose,quote,accept,decide,resolve_issue,dispute,comment,decline,destination,unlock_destination,reserve,schedule,ready,pay,replacement_dispatch,replacement_received,close_unused,complete_no_cash',
             'version' => 'required|integer|min:1',
             'fault' => 'required_if:action,propose|in:seller,buyer,logistics',
-            'resolution' => 'required_if:action,propose|in:return_refund,refund_only,partial_refund,exchange',
+            'resolution' => 'required_if:action,propose|in:return_refund,refund_only,partial_refund',
             'payer' => 'nullable|in:seller,buyer,platform',
             'funding_method' => 'nullable|in:deposit,deduct_refund',
             'funding_preference' => 'nullable|in:auto,deposit,deduct_refund',
@@ -98,6 +99,7 @@ class ReturnSettlementController extends Controller
             'proof' => 'required_if:action,pay,replacement_dispatch|file|mimes:jpg,jpeg,png,webp|max:5120',
             'rider_id' => 'nullable|integer|min:1',
             'confirm' => 'required|accepted',
+            'receipt_id' => 'nullable|integer|min:1', 'receipt_version'=>'nullable|integer|min:1',
         ]);
         $path = null;
         try {

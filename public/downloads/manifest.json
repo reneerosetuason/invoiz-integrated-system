@@ -1,9 +1,9 @@
 {
     "buyer":  {
-                  "version":  "1.0.7",
-                  "build":  8,
-                  "bytes":  54513985,
-                  "sha256":  "c5c3df6b0531e941aeffe5a05e67c88dd3e62eb95a220395a80ca5486d50f12b",
+                  "version":  "1.0.9",
+                  "build":  10,
+                  "bytes":  54546753,
+                  "sha256":  "79c551f9fcb87a2bd52bd22983fffd4f917153c260ef7f725075b647db62dc6c",
                   "package":  "com.invoiz.invoiz"
               },
     "rider":  {

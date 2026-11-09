@@ -50,14 +50,14 @@ flowchart TD
     G --> N[Admin verifies actual delivery deposit]
     N --> O[Manage Payments releases completed return shares]
     O --> P[Recipients confirm in the same remittance list as orders]
-    E -->|No| Q[Existing seller-fault or other remedy funding and refund process]
+    E -->|No| Q[Seller fault: seller pays delivery separately and refunds full paid amount directly; legacy remedies keep their source]
 ```
 
 New buyer-fault example: PHP 4,599 item value - PHP 569.90 original seller-funded costs - PHP 160 new return = PHP 3,869.10 direct refund. Original buyer-paid shipping of PHP 50 is credited when calculating original cost recovery. Only PHP 160 is deposited into delivery escrow. Compensation is retained cost recovery, not another payout. No admin customer approval is needed; actual delivery cash must be verified before worker payouts.
 
 Destination selection recommends the original seller-side hub but excludes suspended hubs and companies. A different active receiving hub may be used. After funding, substitutions must preserve the agreed service budget and cannot reassign already earned/paid work. Driver arrival is separate from receiving-hub confirmation, and no cash is collected.
 
-Already accepted/paid contracts keep their recorded terms. The following older funding details apply to those cases and unchanged seller-fault/other remedies. See the current UI guide for the new buyer-fault buttons.
+Already accepted/paid contracts keep their recorded terms. The following older funding details apply to those cases and legacy or other remedies. See the current UI guide for the new buyer-fault buttons.
 
 
 Rules implemented:
@@ -115,3 +115,41 @@ The implementation and validation notes are in [the return/refund review](../aud
 Existing order #74 was queued for refund review because it was cancelled with a GCash receipt but had no refund case. No stock or money was changed by that repair. Existing order #73 is flagged because it reached confirmed status without a funded escrow deposit; further fulfillment and release are blocked pending seller/admin funding verification. One older closed return has no new payment-proof/confirmation history and is explicitly labelled a legacy record rather than treated as verified receipt.
 
 Orders and return-service payouts share **Manage Payments** and the recipient's regular **Remittances** list. Return rows are labelled by return number and service. Admin confirms the incoming escrow once and releases completed shares; each recipient confirms actual receipt. Return services no longer require their own receiving-account form or outgoing receipt upload. Accepted return pay is included in normal earnings totals/history. The underlying budget limits and source IDs prevent duplicate payouts or spending customer-refund funds on service fees.
+
+
+## Keep-item refunds (refund only / partial refund)
+
+```mermaid
+flowchart TD
+ A[Buyer requests refund] --> B[Seller proposes keep-item remedy]
+ B --> C[Both agree to refund amount]
+ C --> D[Buyer verifies receiving bank account]
+ D --> E[Seller transfers directly and uploads receipt]
+ E --> F[Buyer views receipt]
+ F --> G{Money received?}
+ G -->|Yes| H[Buyer confirms and refund closes once]
+ G -->|No| I[Buyer explains failed payment or suggests correction]
+ I --> J[Buyer and seller exchange messages]
+ J --> K[Seller checks bank and corrects receipt]
+ K --> F
+```
+
+No transport work or refund-funding deposit is created. Receipt submission is pending until the buyer confirms actual receipt. Current receipt identifiers prevent stale confirmation; prior receipt revisions and receiving snapshots remain private. See the [UI guide](return-refund-ui-guide.html#keep-item).
+
+
+Seller-fault physical returns use the same custody and delivery escrow as buyer-fault returns, with no customer-refund deductions:
+
+```mermaid
+flowchart LR
+    A[Seller proposes full eligible paid refund] --> B[Buyer agrees and saves receiving account]
+    B --> C[Seller deposits configured return delivery fee only]
+    C --> D[Existing reverse logistics delivers item back]
+    D --> E[Seller confirms physical receipt]
+    E --> F[Seller sends full refund directly to buyer with receipt]
+    F --> G[Buyer confirms actual money received]
+    C --> H[Admin verifies delivery deposit]
+    H --> I[Completed workers receive normal remittances]
+    I --> J[Each recipient confirms receipt]
+```
+
+Example: PHP 4,599 item + PHP 50 original paid shipping = PHP 4,649 direct buyer refund. Seller pays PHP 160 reverse delivery separately when the Commission route totals that amount. Shipping is allocated to this seller and returned quantity; free shipping is not reimbursed again. Original already-earned order shares remain recorded. No customer refund recovery is deposited into platform escrow. Existing funded legacy cases preserve their recorded source.

@@ -45,7 +45,7 @@ class ReturnRequest extends Model
             $agreement = $this->settlement;
             // Seller-paid refunds are an external settlement. Original paid
             // commission/logistics remain earned and are not reversed again.
-            if ($agreement?->buyerFaultDirect()) return 0.0;
+            if ($agreement?->sellerDirectRefund()) return 0.0;
             if ($agreement && $agreement->resolution !== 'exchange' && $agreement->funded_at) {
                 return $agreement->merchandise_cents / 100;
             }

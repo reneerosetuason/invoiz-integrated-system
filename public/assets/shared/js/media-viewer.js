@@ -46,9 +46,23 @@
       if (!response.ok) throw new Error('Unavailable');
       const blob = await response.blob();
       if (controller.signal.aborted || !dialog.open) return;
-      if (!blob.type.startsWith('image/') && blob.type !== 'application/pdf') throw new Error('Unsupported preview');
+      let type = blob.type || '';
+      if (!type || type === 'application/octet-stream') {
+        // Some static file servers send empty/generic types; infer from the URL.
+        const ext = (/\.([a-z0-9]+)$/i.exec(new URL(url, location.href).pathname)?.[1] || '').toLowerCase();
+        const byExt = {mp4:'video/mp4', m4v:'video/mp4', webm:'video/webm', mov:'video/quicktime', avi:'video/x-msvideo', mkv:'video/x-matroska', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', pdf:'application/pdf'};
+        if (byExt[ext]) type = byExt[ext];
+      }
+      if (!type.startsWith('image/') && type !== 'application/pdf' && !type.startsWith('video/')) throw new Error('Unsupported preview');
       blobUrl = URL.createObjectURL(blob);
-      if (blob.type.startsWith('image/')) showImage(blobUrl);
+      if (type.startsWith('image/')) showImage(blobUrl);
+      else if (type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.controls = true; video.playsInline = true; video.preload = 'metadata'; video.title = title.textContent;
+        video.style.cssText = 'display:block;max-width:100%;max-height:100%;width:auto;height:auto;background:#000;border-radius:6px';
+        video.onerror = () => { if (dialog.open && stage.contains(video)) status('This video format cannot be played here. Try downloading it instead.'); };
+        video.src = blobUrl; stage.replaceChildren(video);
+      }
       else { const frame = document.createElement('iframe'); frame.title = title.textContent; frame.src = blobUrl; stage.replaceChildren(frame); }
     } catch (e) { if (e.name !== 'AbortError' && dialog.open) status('This file cannot be previewed, or you no longer have access to it.'); }
   }

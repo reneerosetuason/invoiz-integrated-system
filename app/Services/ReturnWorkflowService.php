@@ -55,6 +55,10 @@ class ReturnWorkflowService
             $return = ReturnRequest::lockForUpdate()->findOrFail($record->id);
             $flow = ReturnWorkflow::where('return_request_id', $return->id)->lockForUpdate()->firstOrFail();
             abort_unless($actor->isActive(), 403);
+            $managed=\Illuminate\Support\Facades\Schema::hasTable('return_settlements')?$return->settlement:null;
+            if($managed?->keepItemDirect() && in_array($action,['refund','confirm_refund'],true)){
+                KeepItemRefundService::change($order,$return,$flow,$actor,$action,$data);return;
+            }
             $seller = (int) $return->seller_id === (int) $actor->id;
             $buyer = (int) $return->buyer_id === (int) $actor->id;
             $staff = LogisticsAccess::isCenterStaff($actor, (int) $flow->center_id);
@@ -143,7 +147,7 @@ class ReturnWorkflowService
                 }
             } elseif ($action === 'refund') {
                 $agreement=ReturnSettlementService::ensure($return);
-                $sellerDirect=$agreement?->buyerFaultDirect();
+                $sellerDirect=$agreement?->physicalDirectRefund();
                 abort_unless($sellerDirect ? $seller : $actor->isAdmin(), 403);
                 if ($agreement = ReturnSettlementService::ensure($return)) {
                     ReturnSettlementService::assertFunded($return);
@@ -154,6 +158,7 @@ class ReturnWorkflowService
                     $data['reference'] = strtoupper(preg_replace('/\s+/', '', trim($data['reference'] ?? '')));
                     self::require(strlen($data['reference']) >= 4 && ! \App\Models\ReturnAllocation::where('reference', $data['reference'])->exists()
                         && ! ReturnWorkflow::where('refund_reference',$data['reference'])->exists()
+                        && !(\Illuminate\Support\Facades\Schema::hasTable('direct_refund_transfers') && \App\Models\DirectRefundTransfer::where('reference',$data['reference'])->exists())
                         && ! \App\Models\EscrowRemittance::where('bank_reference', $data['reference'])->exists(), 'Use a unique actual outgoing refund reference.');
                 }
                 $waived = isset($agreement) && $agreement && ! $agreement->physicalReturn() && $return->status === 'approved' && $flow->stage === 'refund_pending';

@@ -32,7 +32,7 @@ class ReturnFeeService
         $defaults=self::defaultRoute($case);
         $fromId=$data['collection_center_id']??$agreement->collection_center_id??$defaults['collection_center_id'];
         $toId=$data['seller_center_id']??$agreement->seller_center_id??$defaults['seller_center_id'];
-        if($agreement->buyerFaultDirect()){
+        if($agreement->physicalDirectRefund()){
             if(!empty($data['collection_center_id']) && (int)$data['collection_center_id']!==(int)$defaults['collection_center_id'])
                 throw ValidationException::withMessages(['return'=>'Collection starts at the buyer-side hub. Choose a receiving hub for delivery back to the seller.']);
             $fromId=$defaults['collection_center_id'];
