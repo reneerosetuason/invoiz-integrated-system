@@ -1523,15 +1523,32 @@ class DeliveryController extends Controller
     public function receive(Request $request, Delivery $delivery): RedirectResponse
     {
         $this->assertParcelOperator();
-        $validated = $request->validate([
-            'center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('is_active', true)],
-        ]);
 
         $user = Auth::user();
-        $this->assertCompanyCenter((int) $validated['center_id']);
+
+        // A verified rider handover already stamps the origin hub on the
+        // delivery, so accepting that handover must not ask staff to pick a
+        // hub again. Every other receipt keeps the explicit center selection.
+        $handoffVerified = $delivery->order_id !== null
+            && FulfillmentWorkflow::hasPickupHandoff($delivery);
+
+        $validated = $request->validate([
+            'center_id' => [
+                $handoffVerified ? 'nullable' : 'required',
+                'integer',
+                Rule::exists('logistics_centers', 'id')->where('is_active', true),
+            ],
+        ]);
+
+        $centerId = (int) ($validated['center_id'] ?? $delivery->center_id ?? 0);
+        if ($centerId <= 0) {
+            return back()->withErrors(['center_id' => 'Select the receiving Logistics Hub.']);
+        }
+
+        $this->assertCompanyCenter($centerId);
         if ($this->isCenterScopedStaff()
             && (!$user->center_id
-                || (int) $user->center_id !== (int) $validated['center_id']
+                || (int) $user->center_id !== $centerId
                 || ($delivery->center_id !== null && (int) $delivery->center_id !== (int) $user->center_id && ! $delivery->isIncomingTransfer((int) $user->center_id)))) {
             abort(403, 'You can only receive parcels at your assigned logistics center.');
         }
@@ -1541,42 +1558,42 @@ class DeliveryController extends Controller
         // rider's pickup + hub handoff can satisfy receipt eligibility.
         if ($delivery->order_id
             && $delivery->parcel_status === 'pending_arrival'
-            && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
+            && ! $handoffVerified) {
             return back()->with('error', 'This parcel has not been collected from the seller yet. The pickup rider must complete the pickup and record the hub handoff before it can be received.');
         }
 
-        $received = DB::transaction(function () use ($delivery, $validated): bool {
+        $received = DB::transaction(function () use ($delivery, $centerId): bool {
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             abort_if(FulfillmentWorkflow::hasActiveHubTransfer($lockedDelivery), 409, 'Confirm receipt on the active fleet transfer manifest.');
             abort_if($lockedDelivery->status === 'delivered', 409, 'This parcel has already been delivered.');
 
-            if ($lockedDelivery->parcel_status !== 'pending_arrival' && ! $lockedDelivery->isIncomingTransfer((int) $validated['center_id'])) {
+            if ($lockedDelivery->parcel_status !== 'pending_arrival' && ! $lockedDelivery->isIncomingTransfer($centerId)) {
                 return false;
             }
 
-            if ($lockedDelivery->isIncomingTransfer((int) $validated['center_id'])) {
+            if ($lockedDelivery->isIncomingTransfer($centerId)) {
                 $lockedDelivery->update([
-                    'center_id' => $validated['center_id'],
+                    'center_id' => $centerId,
                     'scanned_at' => null,
                     'sorted_at' => null,
                     'dispatched_at' => null,
                 ]);
                 FulfillmentWorkflow::receive($lockedDelivery, (int) Auth::id());
             } else {
-                abort_if($lockedDelivery->center_id && (int) $lockedDelivery->center_id !== (int) $validated['center_id'], 409, 'Receive this parcel at its assigned handling center.');
-                $updates = ['center_id' => $validated['center_id']];
+                abort_if($lockedDelivery->center_id && (int) $lockedDelivery->center_id !== $centerId, 409, 'Receive this parcel at its assigned handling center.');
+                $updates = ['center_id' => $centerId];
                 if ($lockedDelivery->origin_center_id === null) {
                     // First receipt fixes the route origin before any later leg
                     // can move the parcel. The previous hub, or this receiving
                     // hub for an unrouted parcel, is the origin.
                     $updates['origin_center_id'] = $lockedDelivery->center_id !== null
                         ? (int) $lockedDelivery->center_id
-                        : (int) $validated['center_id'];
+                        : $centerId;
                 }
                 $lockedDelivery->update($updates);
                 FulfillmentWorkflow::receive($lockedDelivery, (int) Auth::id());
             }
-            PickupRequest::where('delivery_id', $lockedDelivery->id)->update(['center_id' => $validated['center_id']]);
+            PickupRequest::where('delivery_id', $lockedDelivery->id)->update(['center_id' => $centerId]);
 
             return true;
         });

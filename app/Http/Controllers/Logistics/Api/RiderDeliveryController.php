@@ -519,7 +519,7 @@ class RiderDeliveryController extends Controller
                 ], 403);
             }
 
-            DB::transaction(function () use ($delivery, $rider) {
+            DB::transaction(function () use ($delivery, $rider, $request) {
                 $delivery->update([
                     'sorting_center_handoff_at' => now(),
                     'sorting_center_handoff_rider_id' => $rider->id,
@@ -531,6 +531,7 @@ class RiderDeliveryController extends Controller
                     'delivery_id' => $delivery->id,
                     'status' => 'sorting_center_handoff',
                     'notes' => 'Parcel handed over to sorting center by ' . $rider->name . '.',
+                    'changed_by' => $request->user()->id,
                 ]);
             });
 
