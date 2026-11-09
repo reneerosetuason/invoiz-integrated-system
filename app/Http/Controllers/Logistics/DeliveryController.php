@@ -1680,6 +1680,85 @@ class DeliveryController extends Controller
         ]);
     }
 
+    /**
+     * Read-only scan lookup. The scanner calls this after a barcode scan or
+     * manual entry so the operator can review the parcel before confirming.
+     * It performs no writes: scanByTracking() remains the only verification
+     * endpoint and runs only when the operator clicks Confirm.
+     */
+    public function lookupScanByTracking(Request $request): JsonResponse
+    {
+        $this->assertParcelOperator();
+        $rawTracking = strtoupper(trim((string) $request->input('tracking_number', '')));
+        $request->merge(['tracking_number' => $rawTracking]);
+
+        $validated = $request->validate([
+            'tracking_number' => ['required', 'string', 'max:40', 'regex:/^TRK-\d{8}-[A-Z0-9]{4}$/i'],
+        ]);
+
+        $trackingNumber = strtoupper($validated['tracking_number']);
+
+        $delivery = Delivery::notArchived()->where('tracking_number', $trackingNumber)->first();
+
+        if (! $delivery) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'not_found',
+                'message' => 'No parcel found with tracking number ' . $trackingNumber . '.',
+            ], 404);
+        }
+
+        $user = Auth::user();
+        if (! LogisticsAccess::canAccessDelivery($user, $delivery)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'forbidden',
+                'message' => 'This parcel belongs to another logistics center.',
+            ], 403);
+        }
+
+        if ($this->hasActiveHubTransfer($delivery)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'transfer_in_progress',
+                'message' => 'This parcel remains in fleet-transfer custody until receiving is finalized.',
+            ], 409);
+        }
+
+        if ($delivery->parcel_status === 'scanned') {
+            return response()->json([
+                'ok' => true,
+                'already' => true,
+                'message' => 'Parcel was already scanned' . ($delivery->scanned_at ? ' on ' . $delivery->scanned_at->format('M d, Y h:i A') : '') . '.',
+                'delivery' => $this->scanResultPayload($delivery),
+            ]);
+        }
+
+        if ($delivery->order_id && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'receipt_unverified',
+                'message' => 'This parcel has no recorded pickup and hub handoff. Correct custody before scanning it.',
+            ], 409);
+        }
+
+        if ($delivery->parcel_status !== 'received') {
+            return response()->json([
+                'ok' => false,
+                'error' => 'invalid_state',
+                'message' => 'Parcel must be received before scanning (current status: ' . str_replace('_', ' ', $delivery->parcel_status ?? 'pending_arrival') . ').',
+                'delivery' => $this->scanResultPayload($delivery),
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'can_confirm' => true,
+            'message' => 'Parcel found. Review the details and confirm to verify it.',
+            'delivery' => $this->scanResultPayload($delivery),
+        ]);
+    }
+
     public function scanByTracking(Request $request): JsonResponse
     {
         $this->assertParcelOperator();

@@ -4,13 +4,14 @@ var invoizData_8870f012e1 = (function () {
             return JSON.parse(document.currentScript.dataset.config);
         }
     } catch (e) {}
-    return [null, '/logistics/deliveries/scan-verify'];
+    return [null, '/logistics/deliveries/scan-verify', '/logistics/deliveries/scan-lookup'];
 })();
 
 function scanParcel(options) {
     options = options || {};
     var rawExpect = options.expect;
     var rawSubmit = options.submitUrl;
+    var rawLookup = options.lookupUrl;
 
     if (!rawExpect && typeof invoizData_8870f012e1 !== 'undefined' && Array.isArray(invoizData_8870f012e1)) {
         rawExpect = invoizData_8870f012e1[0];
@@ -31,32 +32,50 @@ function scanParcel(options) {
         rawSubmit = '/logistics/deliveries/scan-verify';
     }
 
-    // Always normalize submitUrl to a root-relative path on the current origin.
+    if (!rawLookup && typeof invoizData_8870f012e1 !== 'undefined' && Array.isArray(invoizData_8870f012e1)) {
+        rawLookup = invoizData_8870f012e1[2];
+    }
+    if (!rawLookup) {
+        rawLookup = '/logistics/deliveries/scan-lookup';
+    }
+
+    // Always normalize URLs to root-relative paths on the current origin.
     // If an absolute URL was provided (e.g. "http://localhost:8000/..."),
     // extracting pathname + search prevents CORS rejection on 127.0.0.1 and
     // Mixed Content blocking on https://invoiz.store.
-    try {
-        if (typeof rawSubmit === 'string' && (rawSubmit.indexOf('http://') === 0 || rawSubmit.indexOf('https://') === 0)) {
-            var parsedUrl = new URL(rawSubmit, window.location.origin);
-            rawSubmit = parsedUrl.pathname + parsedUrl.search;
+    function rootRelative(url, fallback) {
+        try {
+            if (typeof url === 'string' && (url.indexOf('http://') === 0 || url.indexOf('https://') === 0)) {
+                var parsedUrl = new URL(url, window.location.origin);
+                return parsedUrl.pathname + parsedUrl.search;
+            }
+        } catch (e) {
+            return fallback;
         }
-    } catch (e) {
-        rawSubmit = '/logistics/deliveries/scan-verify';
+        return url || fallback;
     }
+
+    rawSubmit = rootRelative(rawSubmit, '/logistics/deliveries/scan-verify');
+    rawLookup = rootRelative(rawLookup, '/logistics/deliveries/scan-lookup');
 
     var initialExpect = rawExpect ? String(rawExpect).trim().toUpperCase() : '';
 
     return {
         state: 'idle',
         busy: false,
+        busyLabel: 'Looking up parcel…',
         message: '',
         alertText: '',
         result: null,
         alreadyScanned: false,
+        readyToConfirm: false,
+        confirmed: false,
         mismatch: false,
         formCode: initialExpect,
         expect: initialExpect,
+        lookupCode: '',
         submitUrl: rawSubmit,
+        lookupUrl: rawLookup,
         _stream: null,
         _raf: 0,
         _lastCode: '',
@@ -64,6 +83,8 @@ function scanParcel(options) {
         _canvas: null,
         _ctx: null,
         _cameraRequest: 0,
+        _detector: undefined,
+        _detecting: false,
 
         init() {
             if (this.$el) {
@@ -72,14 +93,10 @@ function scanParcel(options) {
                     if (!this.formCode) this.formCode = this.expect;
                 }
                 if (this.$el.dataset && this.$el.dataset.submitUrl) {
-                    var elUrl = this.$el.dataset.submitUrl;
-                    try {
-                        if (elUrl.indexOf('http://') === 0 || elUrl.indexOf('https://') === 0) {
-                            var parsed = new URL(elUrl, window.location.origin);
-                            elUrl = parsed.pathname + parsed.search;
-                        }
-                    } catch (e) {}
-                    this.submitUrl = elUrl;
+                    this.submitUrl = rootRelative(this.$el.dataset.submitUrl, this.submitUrl);
+                }
+                if (this.$el.dataset && this.$el.dataset.lookupUrl) {
+                    this.lookupUrl = rootRelative(this.$el.dataset.lookupUrl, this.lookupUrl);
                 }
             }
             if (!this.formCode && this.expect) {
@@ -101,7 +118,23 @@ function scanParcel(options) {
         },
 
         get canUseCamera() {
-            return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.jsQR);
+            return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && (window.BarcodeDetector || window.jsQR));
+        },
+
+        // Prefer the native detector for the Code128 waybill barcode. Older
+        // browsers keep the jsQR path so any QR label still in the field can
+        // be read; the backend validates the payload either way.
+        barcodeDetector() {
+            if (this._detector !== undefined) return this._detector;
+            this._detector = null;
+            try {
+                if (typeof window.BarcodeDetector === 'function') {
+                    this._detector = new window.BarcodeDetector({ formats: ['code128'] });
+                }
+            } catch (e) {
+                this._detector = null;
+            }
+            return this._detector;
         },
 
         canvas() {
@@ -134,8 +167,9 @@ function scanParcel(options) {
                 this._stream = stream;
                 const video = this.$refs.video;
                 video.srcObject = stream;
+                this.barcodeDetector();
                 this.state = 'running';
-                this.message = 'Point the camera at the parcel QR code and hold steady.';
+                this.message = 'Point the camera at the parcel barcode and hold steady.';
                 this._raf = requestAnimationFrame(() => this.tick());
             }).catch(err => {
                 if (cameraRequest !== this._cameraRequest) return;
@@ -183,29 +217,53 @@ function scanParcel(options) {
                 return;
             }
             if (video.readyState === video.HAVE_ENOUGH_DATA) {
-                const canvas = this.canvas();
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
-                if (canvas.width > 0 && canvas.height > 0) {
-                    this._ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    try {
-                        const img = this._ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        const code = window.scanParcelDecode(img);
-                        if (code) this.onDecode(code);
-                    } catch (e) { /* frame decode failed — keep scanning */ }
+                if (this.barcodeDetector()) {
+                    this.detectBarcode(video);
+                } else {
+                    const canvas = this.canvas();
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    if (canvas.width > 0 && canvas.height > 0) {
+                        this._ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        try {
+                            const img = this._ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            const code = window.scanParcelDecode(img);
+                            if (code) this.onDecode(code);
+                        } catch (e) { /* frame decode failed — keep scanning */ }
+                    }
                 }
             }
             this._raf = requestAnimationFrame(() => this.tick());
         },
 
+        detectBarcode(video) {
+            if (this._detecting) return;
+            this._detecting = true;
+            const canvas = this.canvas();
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            if (!canvas.width || !canvas.height) {
+                this._detecting = false;
+                return;
+            }
+            this._ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            this._detector.detect(canvas).then(codes => {
+                if (!this._stream) return;
+                const code = codes && codes.length ? codes[0].rawValue : null;
+                if (code) this.onDecode(code);
+            }).catch(() => {}).finally(() => {
+                this._detecting = false;
+            });
+        },
+
         onDecode(code) {
-            if (this.busy || this.state === 'done') return;
+            if (this.busy || this.readyToConfirm || this.state === 'done') return;
             code = String(code).trim();
             const now = Date.now();
             if (code === this._lastCode && now - this._lastHandledAt < 3000) return;
             this._lastCode = code;
             this._lastHandledAt = now;
-            this.verify(code);
+            this.lookup(code);
         },
 
         normalize(value) {
@@ -216,7 +274,31 @@ function scanParcel(options) {
             return /^TRK-\d{8}-[A-Z0-9]{4}$/.test(value);
         },
 
-        verify(code) {
+        csrfToken() {
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            return csrfMeta ? csrfMeta.getAttribute('content') : '';
+        },
+
+        postTracking(url, value) {
+            return fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': this.csrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: JSON.stringify({ tracking_number: value }),
+            }).then(async r => {
+                let data = null;
+                try { data = await r.json(); } catch (e) { data = null; }
+                return { ok: r.ok, status: r.status, data: data, parsed: !!data };
+            });
+        },
+
+        // Step 1: read-only lookup. A barcode scan or manual entry only shows
+        // the matched parcel; nothing is marked as scanned until confirm().
+        lookup(code) {
             if (this.busy) return;
 
             const value = this.normalize(code);
@@ -232,26 +314,16 @@ function scanParcel(options) {
             }
 
             this.busy = true;
-            this.message = 'Verifying parcel…';
+            this.busyLabel = 'Looking up parcel…';
+            this.message = '';
             this.alertText = '';
+            this.result = null;
+            this.alreadyScanned = false;
+            this.readyToConfirm = false;
+            this.confirmed = false;
+            this.lookupCode = '';
 
-            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-            const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
-
-            fetch(this.submitUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken,
-                    'X-Requested-With': 'XMLHttpRequest',
-                },
-                body: JSON.stringify({ tracking_number: value }),
-            }).then(async r => {
-                let data = null;
-                try { data = await r.json(); } catch (e) { data = null; }
-                return { ok: r.ok, status: r.status, data: data, parsed: !!data };
-            })
+            this.postTracking(this.lookupUrl, value)
               .then(({ ok, status, data, parsed }) => {
                   this.busy = false;
 
@@ -269,7 +341,7 @@ function scanParcel(options) {
                       return;
                   }
 
-                  this.handleResponse(data, status);
+                  this.handleLookupResponse(data, status, value);
               })
               .catch(() => {
                   this.busy = false;
@@ -279,54 +351,145 @@ function scanParcel(options) {
               });
         },
 
-        handleResponse(data, status) {
+        handleLookupResponse(data, status, value) {
             this.message = '';
             this.result = (data && data.delivery) ? data.delivery : null;
-            this.mismatch = false;
+            this.mismatch = this.result && this.expect
+                && this.normalize(this.result.tracking_number) !== this.normalize(this.expect);
 
-            if (this.result && this.expect && this.normalize(this.result.tracking_number) !== this.normalize(this.expect)) {
-                this.mismatch = true;
+            if (data && data.ok && data.already) {
+                this.state = 'done';
+                this.stopCamera();
+                this.alreadyScanned = true;
+                this.readyToConfirm = false;
+                this.confirmed = false;
+                this.message = data.message || 'Parcel was already scanned.';
+                this.alertText = '';
+                this.focusResult();
+                return;
+            }
+
+            if (data && data.ok && data.can_confirm) {
+                this.state = 'found';
+                this.stopCamera();
+                this.alreadyScanned = false;
+                this.readyToConfirm = true;
+                this.confirmed = false;
+                this.lookupCode = value;
+                this.message = data.message || 'Parcel found. Review the details and confirm to verify it.';
+                this.alertText = '';
+                this.focusResult();
+                return;
+            }
+
+            this.state = 'error';
+            this.readyToConfirm = false;
+            this.confirmed = false;
+            this.alertText = this.errorMessage(data, status);
+        },
+
+        // Step 2: the operator explicitly confirms the reviewed parcel. Only
+        // now does the existing scan-verify endpoint mark it as scanned.
+        confirm() {
+            if (this.busy || !this.readyToConfirm || !this.lookupCode) return;
+
+            this.busy = true;
+            this.busyLabel = 'Verifying parcel…';
+            this.message = 'Verifying parcel…';
+            this.alertText = '';
+
+            this.postTracking(this.submitUrl, this.lookupCode)
+              .then(({ status, data, parsed }) => {
+                  this.busy = false;
+
+                  if (status === 419) {
+                      this.message = '';
+                      this.state = 'found';
+                      this.alertText = 'Your session has expired. Please refresh the page and try again.';
+                      return;
+                  }
+
+                  if (!parsed) {
+                      this.message = '';
+                      this.state = 'found';
+                      this.alertText = 'Unexpected server response. Please refresh the page and try again.';
+                      return;
+                  }
+
+                  this.handleConfirmResponse(data, status);
+              })
+              .catch(() => {
+                  this.busy = false;
+                  this.message = '';
+                  this.state = 'found';
+                  this.alertText = 'Could not reach the server. Check your connection and try again.';
+              });
+        },
+
+        handleConfirmResponse(data, status) {
+            this.message = '';
+            if (data && data.delivery) {
+                this.result = data.delivery;
             }
 
             if (data && data.ok) {
                 this.state = 'done';
                 this.stopCamera();
                 this.alreadyScanned = !!data.already;
+                this.readyToConfirm = false;
+                this.confirmed = !data.already;
+                this.lookupCode = '';
+                this.message = data.message || (data.already ? 'Parcel was already scanned.' : 'Parcel scanned successfully.');
                 this.alertText = '';
-                this.$nextTick(() => {
-                    requestAnimationFrame(() => {
-                        const el = this.$refs.resultPanel;
-                        if (el && this.result) el.focus({ preventScroll: true });
-                    });
-                });
-            } else {
-                this.state = 'error';
-                let msg = data && data.message;
-                if (!msg && data && data.errors && data.errors.tracking_number) {
-                    msg = Array.isArray(data.errors.tracking_number)
-                        ? data.errors.tracking_number[0]
-                        : data.errors.tracking_number;
-                }
-                if (!msg) {
-                    if (status === 404) {
-                        msg = 'Parcel not found. Check the tracking number and try again.';
-                    } else if (status === 403) {
-                        msg = 'This parcel belongs to another logistics center or you do not have permission to verify it.';
-                    } else if (status === 422) {
-                        msg = 'The tracking number is invalid or cannot be verified in its current state.';
-                    } else if (status >= 500) {
-                        msg = 'A server error occurred. Please try again later.';
-                    } else {
-                        msg = 'The parcel could not be verified.';
-                    }
-                }
-                this.alertText = msg;
+                this.focusResult();
+                return;
             }
+
+            this.state = 'error';
+            this.readyToConfirm = false;
+            this.confirmed = false;
+            this.alertText = this.errorMessage(data, status);
+        },
+
+        errorMessage(data, status) {
+            let msg = data && data.message;
+            if (!msg && data && data.errors && data.errors.tracking_number) {
+                msg = Array.isArray(data.errors.tracking_number)
+                    ? data.errors.tracking_number[0]
+                    : data.errors.tracking_number;
+            }
+            if (msg) return msg;
+
+            if (status === 404) {
+                return 'Parcel not found. Check the tracking number and try again.';
+            }
+            if (status === 403) {
+                return 'This parcel belongs to another logistics center or you do not have permission to verify it.';
+            }
+            if (status === 422) {
+                return 'The tracking number is invalid or cannot be verified in its current state.';
+            }
+            if (status >= 500) {
+                return 'A server error occurred. Please try again later.';
+            }
+            return 'The parcel could not be verified.';
+        },
+
+        focusResult() {
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    const el = this.$refs.resultPanel;
+                    if (el && this.result) el.focus({ preventScroll: true });
+                });
+            });
         },
 
         scanAnother() {
             this.result = null;
             this.alreadyScanned = false;
+            this.readyToConfirm = false;
+            this.confirmed = false;
+            this.lookupCode = '';
             this.mismatch = false;
             this.message = '';
             this.alertText = '';
@@ -339,10 +502,10 @@ function scanParcel(options) {
             const value = this.normalize(this.formCode);
             if (!value) {
                 this.message = '';
-                this.alertText = 'Enter a tracking number to verify.';
+                this.alertText = 'Enter a tracking number to look up.';
                 return;
             }
-            this.verify(value);
+            this.lookup(value);
         },
     };
 }

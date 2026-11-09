@@ -10,7 +10,7 @@
         </a>
         <div>
             <h1 class="text-2xl font-bold text-gray-900">Parcel Scanner</h1>
-            <p class="text-sm text-gray-500 mt-0.5">Scan a parcel's QR code to verify and move it from Received to Scanned in the Sorting Center.</p>
+            <p class="text-sm text-gray-500 mt-0.5">Scan the barcode or enter the tracking number, review the matched parcel, then confirm to move it from Received to Scanned in the Sorting Center.</p>
         </div>
     </div>
 
@@ -30,6 +30,7 @@
          x-data="scanParcel()"
          data-expect="{{ $expect }}"
          data-submit-url="{{ route('deliveries.scan-verify', [], false) }}"
+         data-lookup-url="{{ route('deliveries.scan-lookup', [], false) }}"
          x-cloak>
 
         {{-- Camera / Scanner --}}
@@ -40,11 +41,11 @@
                     <h2 class="text-base font-semibold text-gray-900">Camera Scanner</h2>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                    <button type="button" x-show="['idle','stopped','denied','unsupported','error'].includes(state) || state === 'done'" x-cloak
+                    <button type="button" x-show="['idle','stopped','denied','unsupported','error','found','done'].includes(state)" x-cloak
                             @click="scanAnother(); start()"
                             class="inline-flex items-center gap-2 bg-teal hover:bg-teal-dark text-white font-semibold px-4 py-2.5 rounded-xl transition shadow-sm text-sm">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-                        <span x-text="state === 'done' ? 'Scan Another Parcel' : 'Start Camera'"></span>
+                        <span x-text="['found','done'].includes(state) ? 'Scan Another Parcel' : 'Start Camera'"></span>
                     </button>
                     <button type="button" x-show="state === 'running' || state === 'starting'" x-cloak
                             @click="stop()"
@@ -68,9 +69,12 @@
                 </div>
 
                 {{-- Placeholder when camera is not running --}}
-                <div x-show="['idle','stopped','denied','unsupported','error','done'].includes(state)" x-cloak
+                <div x-show="['idle','stopped','denied','unsupported','error','found','done'].includes(state)" x-cloak
                      class="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6">
                     <svg class="h-12 w-12 text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    <template x-if="state === 'found'">
+                        <p class="text-gray-300 font-semibold text-sm">Parcel found — review the details and confirm to verify it.</p>
+                    </template>
                     <template x-if="state === 'done'">
                         <p class="text-gray-300 font-semibold text-sm">Parcel verified — press "Scan Another Parcel" to continue.</p>
                     </template>
@@ -80,7 +84,7 @@
                     <template x-if="state === 'unsupported'">
                         <p class="text-gray-300 font-semibold text-sm">Camera scanning is not supported in this browser. Use manual entry below.</p>
                     </template>
-                    <template x-if="state !== 'done' && state !== 'denied' && state !== 'unsupported' && state !== 'error'">
+                    <template x-if="state !== 'found' && state !== 'done' && state !== 'denied' && state !== 'unsupported' && state !== 'error'">
                         <p class="text-gray-300 font-semibold text-sm">Press "Start Camera" to begin scanning.</p>
                     </template>
                 </div>
@@ -88,7 +92,7 @@
                 {{-- Busy overlay --}}
                 <div x-show="busy" x-cloak
                      class="absolute inset-0 z-20 bg-black/60 flex items-center justify-center">
-                    <p class="text-white font-semibold text-sm">Verifying parcel…</p>
+                    <p class="text-white font-semibold text-sm" x-text="busyLabel"></p>
                 </div>
             </div>
 
@@ -107,16 +111,16 @@
             {{-- Verification result --}}
             <div x-show="result" x-cloak tabindex="-1" x-ref="resultPanel" class="delivery-scan-result rounded-2xl outline-none">
                 <template x-if="result">
-                    <div :class="alreadyScanned ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-200'"
+                    <div :class="alreadyScanned ? 'bg-amber-50 border-amber-200' : (readyToConfirm ? 'bg-sky-50 border-sky-200' : 'bg-green-50 border-green-200')"
                          class="rounded-2xl border p-4">
                         <div class="flex items-start gap-3">
-                            <div :class="alreadyScanned ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'"
+                            <div :class="alreadyScanned ? 'bg-amber-100 text-amber-700' : (readyToConfirm ? 'bg-sky-100 text-sky-700' : 'bg-green-100 text-green-700')"
                                  class="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             </div>
                             <div class="min-w-0">
-                                <p x-text="alreadyScanned ? 'Parcel Already Scanned' : 'Parcel Verified'" 
-                                   :class="alreadyScanned ? 'text-amber-800' : 'text-green-800'"
+                                <p x-text="alreadyScanned ? 'Parcel Already Scanned' : (readyToConfirm ? 'Review Parcel' : 'Parcel Verified')"
+                                   :class="alreadyScanned ? 'text-amber-800' : (readyToConfirm ? 'text-sky-800' : 'text-green-800')"
                                    class="font-bold text-sm"></p>
                                 <p class="mt-0.5 font-mono font-semibold text-gray-900 break-all" x-text="result.tracking_number"></p>
                                 <dl class="mt-2 space-y-1 text-sm">
@@ -131,8 +135,26 @@
                            class="mt-3 text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2"
                            x-text="'Scanned parcel does not match the expected parcel ' + expect + ' in the previous step. Review the details above before continuing.'"></p>
 
+                        <p x-show="readyToConfirm" x-cloak
+                           class="mt-3 text-xs text-sky-800 bg-sky-100 rounded-lg px-3 py-2">
+                            Confirm only after checking the parcel matches the details above. Nothing is marked as scanned until you confirm.
+                        </p>
+
                         <div class="mt-4 flex flex-wrap items-center gap-3">
-                            <a href="{{ route('sorting-center.index', ['tab' => 'scanned']) }}"
+                            <button type="button" x-show="readyToConfirm" x-cloak
+                                    @click="confirm()"
+                                    :disabled="busy"
+                                    class="btn btn-primary btn-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                                Confirm &amp; Verify Parcel
+                            </button>
+                            <button type="button" x-show="readyToConfirm" x-cloak
+                                    @click="scanAnother()"
+                                    :disabled="busy"
+                                    class="btn btn-ghost btn-sm disabled:opacity-60 disabled:cursor-not-allowed">
+                                Cancel
+                            </button>
+                            <a x-show="confirmed || alreadyScanned" x-cloak
+                               href="{{ route('sorting-center.index', ['tab' => 'scanned']) }}"
                                class="btn btn-primary btn-sm">
                                 Proceed to Sort &rarr;
                             </a>
@@ -177,7 +199,7 @@
                     <div class="h-2 w-1 rounded-full bg-teal"></div>
                     <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Manual Entry</h3>
                 </div>
-                <p class="text-xs text-gray-500 mb-3">Camera not working? Type the parcel's tracking number.</p>
+                <p class="text-xs text-gray-500 mb-3">Camera not working? Type the parcel's tracking number to look it up. You will review the parcel and confirm before it is marked as scanned.</p>
                 <form @submit.prevent="submitManual()">
                     <label for="manual_code" class="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
                     <div class="flex flex-col sm:flex-row gap-2">
@@ -190,7 +212,7 @@
                         <button type="submit"
                                 :disabled="busy"
                                 class="bg-teal hover:bg-teal-dark disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                            Verify parcel
+                            Find parcel
                         </button>
                     </div>
                     <p class="mt-1 text-xs text-gray-400">Format: <span class="font-mono">TRK-</span> followed by the date and 4-character code.</p>
@@ -202,7 +224,7 @@
     @push('scripts')
         <script src="{{ asset('vendor/jsqr/jsQR.js') }}"></script>
         <link rel="stylesheet" href="{{ asset('assets/logistics/css/deliveries/scan.css') }}">
-        <script src="{{ asset('assets/logistics/js/deliveries/scan.js') }}" data-config="{{ json_encode([($expect), (route('deliveries.scan-verify', [], false))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+        <script src="{{ asset('assets/logistics/js/deliveries/scan.js') }}" data-config="{{ json_encode([($expect), (route('deliveries.scan-verify', [], false)), (route('deliveries.scan-lookup', [], false))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
     @endpush
     </div>
 </x-app-layout>

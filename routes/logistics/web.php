@@ -89,6 +89,9 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // registered before the resource below so "deliveries/scan" is not
     // captured by the "deliveries/{delivery}" show route.
     Route::get('deliveries/scan', [DeliveryController::class, 'scanPage'])->middleware('parcel.operator')->name('deliveries.scan-page');
+    // Read-only lookup used by the scanner to show parcel details before the
+    // operator confirms. It never changes parcel status or writes a scan log.
+    Route::post('deliveries/scan-lookup', [DeliveryController::class, 'lookupScanByTracking'])->middleware('parcel.operator')->name('deliveries.scan-lookup');
     Route::post('deliveries/scan-verify', [DeliveryController::class, 'scanByTracking'])->middleware('parcel.operator')->name('deliveries.scan-verify');
     Route::post('deliveries/bulk-assign-rider', [DeliveryController::class, 'bulkAssignRider'])->middleware('rider.manager')->name('deliveries.bulk-assign');
     Route::get('deliveries/export', [DeliveryController::class, 'export'])->name('deliveries.export');
