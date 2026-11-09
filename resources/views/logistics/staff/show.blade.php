@@ -112,7 +112,7 @@
                     <h4 class="text-sm font-semibold text-gray-900">2. Scanning & Verification</h4>
                 </div>
                 <p class="text-xs text-gray-600 leading-relaxed">
-                    Scans QR codes and barcodes for tracking verification, waybill inspection, and logging physical package custody timestamps.
+                    Scans waybill barcodes for tracking verification, waybill inspection, and logging physical package custody timestamps.
                 </p>
             </div>
 

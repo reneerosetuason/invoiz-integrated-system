@@ -161,7 +161,7 @@ class _PickupScreenState extends State<PickupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Type the number printed under the QR code on the waybill.',
+              'Type the number printed under the barcode on the waybill.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -392,7 +392,7 @@ class _PickupScreenState extends State<PickupScreen> {
           const SectionEyebrow(text: 'Scan & Verify Parcel'),
           const SizedBox(height: AppGaps.xs),
           const Text(
-            'Scan the waybill QR code or type the tracking number. '
+            'Scan the waybill barcode or type the tracking number. '
             'Pickup is blocked unless it matches this job.',
             style: AppText.secondary,
           ),
@@ -648,7 +648,7 @@ class _VerifiedChip extends StatelessWidget {
   }
 }
 
-/// Full-height camera sheet used only to capture a waybill QR/barcode.
+/// Full-height camera sheet used only to capture a waybill barcode.
 class _WaybillScannerSheet extends StatefulWidget {
   const _WaybillScannerSheet();
 
@@ -657,7 +657,9 @@ class _WaybillScannerSheet extends StatefulWidget {
 }
 
 class _WaybillScannerSheetState extends State<_WaybillScannerSheet> {
-  final _camera = MobileScannerController();
+  final _camera = MobileScannerController(
+    formats: const [BarcodeFormat.code128],
+  );
   bool _handled = false;
 
   @override

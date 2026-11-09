@@ -14,7 +14,7 @@ import '../../widgets/loading_widget.dart';
 import '../deliveries/delivery_detail_screen.dart';
 import 'parcel_scan_controller.dart';
 
-/// Scan Parcel: camera QR scanner for INVOIZ shipping labels.
+/// Scan Parcel: camera barcode scanner for INVOIZ shipping labels.
 ///
 /// Flow: permission → scan (single-shot) → validate tracking number →
 /// backend lookup → existing delivery detail screen. Scanning never creates
@@ -57,7 +57,9 @@ class _ScanParcelScreenState extends State<ScanParcelScreen>
         ParcelScanController(DeliveryService(context.read<AuthProvider>().api));
     _scan.addListener(_onScanChanged);
     if (widget.cameraEnabled) {
-      _camera = MobileScannerController();
+      _camera = MobileScannerController(
+        formats: const [BarcodeFormat.code128],
+      );
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _scan.init());
   }
@@ -112,7 +114,7 @@ class _ScanParcelScreenState extends State<ScanParcelScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Type the number printed under the QR code on the parcel label.',
+              'Type the number printed under the barcode on the parcel label.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -210,7 +212,7 @@ class _ScanParcelScreenState extends State<ScanParcelScreen>
   String? _scanErrorText(ParcelScanState state) {
     return switch (state) {
       ParcelScanState.invalid =>
-        'Invalid parcel QR code.\nPlease scan an INVOIZ parcel label.',
+        'Invalid parcel barcode.\nPlease scan an INVOIZ parcel label.',
       ParcelScanState.notFound => 'No parcel found for this tracking number.',
       ParcelScanState.forbidden =>
         'You are not authorized to access this parcel.',
@@ -290,7 +292,7 @@ class _ScannerView extends StatelessWidget {
                     SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'Scan the QR code on the parcel label',
+                        'Scan the barcode on the parcel label',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white, fontSize: 14),
                       ),

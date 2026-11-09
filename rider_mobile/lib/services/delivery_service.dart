@@ -48,7 +48,7 @@ class DeliveryService {
   }
 
   /// Find the rider's delivery by the tracking number scanned from an INVOIZ
-  /// shipping label (QR payload). The tracking number is the existing
+  /// shipping label (Code128 barcode). The tracking number is the existing
   /// delivery identifier — scanning never creates one.
   ///
   /// The Sanctum-authenticated backend returns the same delivery payload as

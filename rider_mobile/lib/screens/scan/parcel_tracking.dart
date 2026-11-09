@@ -1,7 +1,7 @@
 /// Validation for INVOIZ parcel tracking numbers scanned from shipping
-/// labels (QR payload, barcode value, or manual entry).
+/// labels (barcode value or manual entry).
 ///
-/// The QR code printed by the Logistics Web shipping label encodes the
+/// The Code128 barcode printed by the INVOIZ waybill encodes the
 /// delivery's existing `tracking_number`. This pattern mirrors the backend
 /// scan contract (`TRK-YYYYMMDD-XXXX`); the backend remains the source of
 /// truth — a well-formed but unknown number still resolves through the

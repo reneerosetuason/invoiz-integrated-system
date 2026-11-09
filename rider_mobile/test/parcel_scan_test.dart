@@ -243,7 +243,7 @@ void main() {
 
       expect(find.text('Scan Parcel'), findsOneWidget);
       expect(
-          find.text('Scan the QR code on the parcel label'), findsOneWidget);
+          find.text('Scan the barcode on the parcel label'), findsOneWidget);
     });
 
     testWidgets('permission denial shows guidance with retry', (tester) async {
@@ -271,7 +271,7 @@ void main() {
       await controller.handleDetection('not-a-qr');
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Invalid parcel QR code'), findsOneWidget);
+      expect(find.textContaining('Invalid parcel barcode'), findsOneWidget);
       expect(find.text('Scan Again'), findsOneWidget);
     });
   });

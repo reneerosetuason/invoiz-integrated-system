@@ -47,7 +47,7 @@ class _LogisticsScanScreenState extends State<LogisticsScanScreen> {
     _service = LogisticsScanService(_auth.api);
     _auth.addListener(_onAuthChanged);
     if (widget.cameraEnabled) {
-      _camera = MobileScannerController();
+      _camera = MobileScannerController(formats: const [BarcodeFormat.code128]);
     }
     _loadContext();
     _startCamera();
@@ -94,7 +94,7 @@ class _LogisticsScanScreenState extends State<LogisticsScanScreen> {
       if (!mounted) return;
       setState(() {
         _errorText =
-            'Invalid parcel QR code. Scan an INVOIZ label or enter the tracking number.';
+            'Invalid parcel barcode. Scan an INVOIZ waybill barcode or enter the tracking number.';
       });
       return;
     }
@@ -177,7 +177,7 @@ class _LogisticsScanScreenState extends State<LogisticsScanScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Type the number printed under the QR code on the parcel label.',
+              'Type the number printed under the barcode on the parcel label.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
@@ -299,7 +299,6 @@ class _LogisticsScanScreenState extends State<LogisticsScanScreen> {
           )
         else
           const ColoredBox(color: Colors.black54),
-
         Center(
           child: Container(
             width: 240,
@@ -318,7 +317,7 @@ class _LogisticsScanScreenState extends State<LogisticsScanScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Scan the parcel QR code to verify receipt at your hub',
+                'Scan the parcel barcode on the waybill to verify receipt at your hub',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.white, fontSize: 14),
               ),

@@ -149,7 +149,7 @@ void main() {
     await tester.tap(find.text('Look Up'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Invalid parcel QR code'), findsOneWidget);
+    expect(find.textContaining('Invalid parcel barcode'), findsOneWidget);
     expect(client.requestCount, 0);
   });
 }

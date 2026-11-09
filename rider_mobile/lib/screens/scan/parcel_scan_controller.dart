@@ -14,10 +14,10 @@ enum ParcelScanState {
   /// Camera permission denied — guidance + retry/settings actions.
   permissionDenied,
 
-  /// Camera active, waiting for a QR code.
+  /// Camera active, waiting for the waybill barcode.
   scanning,
 
-  /// Valid QR captured, delivery lookup in flight.
+  /// Valid barcode captured, delivery lookup in flight.
   lookingUp,
 
   /// Payload is not an INVOIZ tracking number — rider may scan again.
@@ -40,7 +40,7 @@ enum ParcelScanState {
 /// tracking validation, backend lookup, and error mapping.
 ///
 /// Detection is single-shot: [handleDetection] is a no-op unless the state
-/// is [ParcelScanState.scanning], so one QR can never fire duplicate
+/// is [ParcelScanState.scanning], so one barcode can never fire duplicate
 /// lookups even if the camera reports it on consecutive frames.
 class ParcelScanController extends ChangeNotifier {
   ParcelScanController(
