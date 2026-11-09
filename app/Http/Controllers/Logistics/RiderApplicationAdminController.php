@@ -376,8 +376,10 @@ class RiderApplicationAdminController extends Controller
         return response()
             ->file($document->absolutePath(), [
                 'Content-Type' => $document->contentMime(),
+                'Cache-Control' => 'private, no-store',
                 'X-Content-Type-Options' => 'nosniff',
             ])
+            ->setPrivate()
             ->setContentDisposition(
                 $preview
                     ? ResponseHeaderBag::DISPOSITION_INLINE

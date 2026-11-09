@@ -464,7 +464,11 @@
                                     </td>
                                     <td>
                                         @php
-                                            $driverBadgeClass = $driver->status === 'available' ? 'badge-delivered' : (in_array($driver->status, ['assigned', 'in_transit'], true) ? 'bg-blue-100 text-blue-800 border-blue-200' : 'badge-inactive');
+                                            $driverBadgeClass = $driver->status === 'available'
+                                                ? 'badge-delivered'
+                                                : ($driver->status === 'suspended'
+                                                    ? 'badge-cancelled'
+                                                    : (in_array($driver->status, ['assigned', 'in_transit'], true) ? 'bg-blue-100 text-blue-800 border-blue-200' : 'badge-inactive'));
                                         @endphp
                                         <span class="badge {{ $driverBadgeClass }}">{{ str($driver->status)->replace('_', ' ')->title() }}</span>
                                         @if($driver->remarks)
@@ -481,6 +485,7 @@
                                                 <select name="status" class="select !py-1 !px-2 !text-xs !w-24" aria-label="Driver Status">
                                                     <option value="available" @selected($driver->status === 'available')>Available</option>
                                                     <option value="inactive" @selected($driver->status === 'inactive')>Inactive</option>
+                                                    <option value="suspended" @selected($driver->status === 'suspended')>Suspended</option>
                                                 </select>
                                                 <select name="logistics_truck_id" class="select !py-1 !px-2 !text-xs !w-48" aria-label="Assign Truck">
                                                     <option value="">No truck (Unassigned)</option>

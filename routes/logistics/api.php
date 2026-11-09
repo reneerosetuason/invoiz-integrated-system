@@ -6,6 +6,7 @@ use App\Http\Controllers\Logistics\Api\CenterApplicationController;
 use App\Http\Controllers\Logistics\Api\RiderApplicationController;
 use App\Http\Controllers\Logistics\Api\RiderController;
 use App\Http\Controllers\Logistics\Api\RiderDeliveryController;
+use App\Http\Controllers\Logistics\Api\RiderDocumentChangeController;
 use App\Http\Controllers\Logistics\Api\RiderEarningsController;
 use App\Http\Controllers\Logistics\Api\RiderEmailVerificationController;
 use App\Http\Controllers\Logistics\Api\RiderHistoryController;
@@ -86,6 +87,19 @@ Route::get('/rider/documents/{document}', [RiderController::class, 'document'])
     ->middleware('signed')
     ->name('api.logistics.rider.documents.show');
 
+// Proposed and previous document-change files use the same short-lived signed
+// URL scheme; the signature is generated only for the authenticated owner.
+Route::get('/rider/document-change-requests/{changeRequest}/document/{kind}', [RiderDocumentChangeController::class, 'document'])
+    ->whereIn('kind', ['proposed', 'previous'])
+    ->middleware('signed')
+    ->name('api.logistics.rider.document-change-requests.document');
+
+// Private Hub Transport Driver documents use the same short-lived signed URL
+// scheme; the signature is generated only for the authenticated owner.
+Route::get('/courier/documents/{document}', [HubCourierController::class, 'document'])
+    ->middleware('signed')
+    ->name('api.logistics.courier.documents.show');
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
@@ -99,6 +113,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::patch('/password', [RiderPasswordController::class, 'update']);
         Route::patch('/status', [RiderController::class, 'updateStatus']);
         Route::get('/dashboard', [RiderController::class, 'dashboard']);
+
+        Route::get('/document-change-requests', [RiderDocumentChangeController::class, 'index']);
+        Route::post('/document-change-requests', [RiderDocumentChangeController::class, 'store'])
+            ->middleware('throttle:10,1');
 
         Route::get('/deliveries', [RiderDeliveryController::class, 'index']);
         // Registered before show() so "lookup" is not captured by {delivery}.

@@ -18,6 +18,7 @@ use App\Http\Controllers\Logistics\TransactionController;
 use App\Http\Controllers\Logistics\ReportController;
 use App\Http\Controllers\Logistics\RemittanceController;
 use App\Http\Controllers\Logistics\RiderApplicationAdminController;
+use App\Http\Controllers\Logistics\RiderDocumentChangeController;
 use App\Http\Controllers\Logistics\CenterApplicationAdminController;
 use App\Http\Controllers\Logistics\CenterApplicationPublicController;
 use App\Http\Controllers\Logistics\CenterEmailVerificationController;
@@ -163,6 +164,16 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
         Route::post('rider-applications/{application}/resend-credentials', [RiderApplicationAdminController::class, 'resendCredentials'])->name('rider-applications.resend-credentials');
         Route::post('rider-applications/{application}/resend-rejection', [RiderApplicationAdminController::class, 'resendRejection'])->name('rider-applications.resend-rejection');
         Route::post('rider-applications/{application}/reject', [RiderApplicationAdminController::class, 'reject'])->name('rider-applications.reject');
+    });
+
+    // Rider Document Change Requests (Logistics Admin Only)
+    Route::middleware(['admin', 'rider.manager'])->group(function () {
+        Route::get('document-change-requests', [RiderDocumentChangeController::class, 'index'])->name('document-change-requests.index');
+        Route::get('document-change-requests/{changeRequest}/documents/{kind}/view', [RiderDocumentChangeController::class, 'viewDocument'])->name('document-change-requests.documents.view');
+        Route::get('document-change-requests/{changeRequest}/documents/{kind}/download', [RiderDocumentChangeController::class, 'downloadDocument'])->name('document-change-requests.documents.download');
+        Route::get('document-change-requests/{changeRequest}', [RiderDocumentChangeController::class, 'show'])->name('document-change-requests.show');
+        Route::post('document-change-requests/{changeRequest}/approve', [RiderDocumentChangeController::class, 'approve'])->name('document-change-requests.approve');
+        Route::post('document-change-requests/{changeRequest}/reject', [RiderDocumentChangeController::class, 'reject'])->name('document-change-requests.reject');
     });
 
     // Logistics Center Applications (Admin Only: review & provision)

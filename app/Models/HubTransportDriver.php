@@ -144,8 +144,31 @@ class HubTransportDriver extends Authenticatable
         return $this->truck ?: $this->ownedTruck;
     }
 
+    public function isSuspended(): bool
+    {
+        return $this->status === self::STATUS_SUSPENDED;
+    }
+
     public function isBlocked(): bool
     {
         return in_array($this->status, self::BLOCKED_STATUSES, true);
+    }
+
+    public function hasActiveTransfer(): bool
+    {
+        return $this->transfers()
+            ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+            ->exists();
+    }
+
+    /**
+     * The driver's assigned base hub. The account's logistics center is set
+     * when the application is approved; fall back to the approved application
+     * for legacy records whose user account predates the center linkage.
+     */
+    public function homeHub(): ?LogisticsCenter
+    {
+        return $this->user?->logisticsCenter
+            ?? $this->effectiveApplication()?->logisticsCenter;
     }
 }

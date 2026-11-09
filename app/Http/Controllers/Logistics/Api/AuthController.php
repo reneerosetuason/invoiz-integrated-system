@@ -70,7 +70,13 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            if ($driver->status === 'inactive' || ($driver->company && $driver->company->status !== 'active')) {
+            if ($driver->isSuspended()) {
+                return response()->json([
+                    'message' => 'Your Hub Transport Driver account is suspended. Please contact support.',
+                ], 403);
+            }
+
+            if ($driver->status === HubTransportDriver::STATUS_INACTIVE || ($driver->company && $driver->company->status !== 'active')) {
                 return response()->json([
                     'message' => 'Hub transport driver account is not active. Please contact support.',
                 ], 403);
@@ -91,7 +97,7 @@ class AuthController extends Controller
             $driver->tokens()->delete();
             $token = $driver->createToken('hub-courier-mobile', ['hub-courier'])->plainTextToken;
 
-            $courierPayload = app(HubCourierController::class)->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck']));
+            $courierPayload = app(HubCourierController::class)->profilePayload($driver->fresh(HubCourierController::PROFILE_RELATIONS));
 
             return response()->json([
                 'message' => 'Login successful.',
@@ -169,7 +175,7 @@ class AuthController extends Controller
         $actor = $request->user();
 
         if ($actor instanceof HubTransportDriver) {
-            $courierPayload = app(HubCourierController::class)->profilePayload($actor->fresh(['company', 'truck', 'ownedTruck']));
+            $courierPayload = app(HubCourierController::class)->profilePayload($actor->fresh(HubCourierController::PROFILE_RELATIONS));
 
             return response()->json([
                 'account_type' => 'hub_transport_driver',
@@ -199,7 +205,7 @@ class AuthController extends Controller
 
     public function userPayloadForDriver(HubTransportDriver $driver, ?User $user = null): array
     {
-        $courierPayload = app(HubCourierController::class)->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck']));
+        $courierPayload = app(HubCourierController::class)->profilePayload($driver->fresh(HubCourierController::PROFILE_RELATIONS));
 
         return [
             'id' => $user?->id ?? $driver->id,

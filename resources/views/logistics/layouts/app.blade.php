@@ -36,8 +36,7 @@
         <div class="min-h-screen" x-data="{
             sidebarHover: @js($sidebarStartExpanded),
             sidebarKey: @js('invoiz:logistics:sidebar:' . auth()->id()),
-            deliveriesOpen: @js(request()->routeIs('deliveries.*') && !request()->routeIs('deliveries.archived')),
-            applicationsOpen: @js(request()->routeIs('rider-applications.*', 'center-applications.*')),
+            applicationsOpen: @js(request()->routeIs('rider-applications.*', 'document-change-requests.*', 'center-applications.*')),
             ridersOpen: @js(request()->routeIs('riders.*', 'hub-transport-drivers.*')),
             navPersistTimeout: null,
             notifOpen: false,

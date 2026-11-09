@@ -137,7 +137,9 @@ class HubTransferService
                 'destination_arrived_at' => now(),
             ]);
             LogisticsTruck::whereKey($locked->truck_id)->update(['status' => 'assigned']);
-            HubTransportDriver::whereKey($locked->driver_id)->update(['status' => 'assigned']);
+            HubTransportDriver::whereKey($locked->driver_id)
+                ->whereNotIn('status', HubTransportDriver::BLOCKED_STATUSES)
+                ->update(['status' => 'assigned']);
             self::event($locked, 'arrived', 'in_transit', 'arrived', 'Truck arrival confirmed.', $actor, null, $driver);
 
             return $locked;
@@ -296,7 +298,9 @@ class HubTransferService
                 'received_at' => now(),
             ]);
             LogisticsTruck::whereKey($locked->truck_id)->update(['status' => 'available']);
-            HubTransportDriver::whereKey($locked->driver_id)->update(['status' => 'available']);
+            HubTransportDriver::whereKey($locked->driver_id)
+                ->whereNotIn('status', HubTransportDriver::BLOCKED_STATUSES)
+                ->update(['status' => 'available']);
             self::event($locked, 'completed', $previous, 'received', 'Receiving was finalized.', $actor);
 
             // Credit the Hub Transport Driver once per completed transfer trip
@@ -332,7 +336,9 @@ class HubTransferService
             $previous = $locked->status;
             $locked->update(['status' => 'cancelled']);
             LogisticsTruck::whereKey($locked->truck_id)->update(['status' => 'available']);
-            HubTransportDriver::whereKey($locked->driver_id)->update(['status' => 'available']);
+            HubTransportDriver::whereKey($locked->driver_id)
+                ->whereNotIn('status', HubTransportDriver::BLOCKED_STATUSES)
+                ->update(['status' => 'available']);
             self::event($locked, 'cancelled', $previous, 'cancelled', 'Cancelled before dispatch: '.$reason, $actor);
 
             return $locked;
@@ -417,7 +423,9 @@ class HubTransferService
                 self::event($locked, 'truck_reassigned', null, null, 'Truck changed from '.($locked->truck?->plate_number ?? '—').' to '.$newTruck->plate_number, $actor);
             }
             if ((int) $oldDriverId !== (int) $newDriver->id) {
-                HubTransportDriver::whereKey($oldDriverId)->update(['status' => 'available']);
+                HubTransportDriver::whereKey($oldDriverId)
+                    ->whereNotIn('status', HubTransportDriver::BLOCKED_STATUSES)
+                    ->update(['status' => 'available']);
                 self::event($locked, 'driver_reassigned', null, null, 'Driver changed from '.($locked->driver?->name ?? '—').' to '.$newDriver->name, $actor);
             }
 

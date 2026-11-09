@@ -237,6 +237,10 @@ class RiderController extends Controller
                 'mime_type' => $doc->contentMime(),
                 'is_image' => $doc->isImage(),
                 'size' => $doc->humanSize(),
+                'status' => 'approved',
+                'expires_on' => $doc->document_type === 'drivers_license'
+                    ? $rider->license_expiry?->format('Y-m-d')
+                    : null,
                 'url' => URL::temporarySignedRoute(
                     'api.logistics.rider.documents.show',
                     now()->addMinutes(30),
@@ -274,8 +278,10 @@ class RiderController extends Controller
         return response()
             ->file($document->absolutePath(), [
                 'Content-Type' => $document->contentMime(),
+                'Cache-Control' => 'private, no-store',
                 'X-Content-Type-Options' => 'nosniff',
             ])
+            ->setPrivate()
             ->setContentDisposition(
                 $preview
                     ? \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_INLINE

@@ -347,9 +347,17 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
                           'Updating status…',
                           style: TextStyle(fontSize: 11),
                         )
-                      : null,
+                      : (courier.online && courier.hasActiveTransfer
+                            ? const Text(
+                                'Finish the active transfer before going offline.',
+                                style: TextStyle(fontSize: 11),
+                              )
+                            : null),
                   value: courier.online,
-                  onChanged: _statusSaving ? null : _setOnline,
+                  onChanged: (_statusSaving ||
+                          (courier.online && courier.hasActiveTransfer))
+                      ? null
+                      : _setOnline,
                 ),
               ],
             ),

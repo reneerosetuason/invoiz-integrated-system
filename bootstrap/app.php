@@ -61,6 +61,23 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $exceptions->render(function (\Illuminate\Routing\Exceptions\InvalidSignatureException $e, Request $request) {
+            $isDocumentLink = $request->is(
+                'api/logistics/courier/documents/*',
+                'api/logistics/rider/documents/*',
+                'api/logistics/rider/document-change-requests/*',
+                'logistics/rider-applications/documents/*',
+            );
+
+            if ($isDocumentLink) {
+                if ($request->expectsJson()) {
+                    return response()->json([
+                        'message' => 'This document link has expired or is invalid. Reopen the document from your authenticated account.',
+                    ], 403);
+                }
+
+                return response()->view('errors.document-link-expired', [], 403);
+            }
+
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'The verification link is invalid or has expired.'], 403);
             }

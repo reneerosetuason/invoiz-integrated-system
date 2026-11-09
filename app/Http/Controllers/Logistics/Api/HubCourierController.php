@@ -10,6 +10,8 @@ use App\Models\HubTransferParcel;
 use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsTruck;
+use App\Models\RiderApplication;
+use App\Models\RiderApplicationDocument;
 use App\Support\HubTransferProgress;
 use App\Support\LogisticsVehicleCategory;
 use Illuminate\Database\Eloquent\Builder;
@@ -17,24 +19,37 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\URL;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class HubCourierController extends Controller
 {
+    /** Relations needed to build the mobile profile, home hub and documents. */
+    public const PROFILE_RELATIONS = [
+        'company',
+        'truck',
+        'ownedTruck',
+        'user.logisticsCenter',
+        'application.logisticsCenter',
+        'application.supportingDocuments',
+    ];
+
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate(['email' => 'required|email', 'password' => 'required|string']);
         $driver = HubTransportDriver::whereRaw('LOWER(email) = ?', [strtolower($data['email'])])->first();
         abort_unless($driver && $driver->password && Hash::check($data['password'], $driver->password), 401, 'Invalid courier credentials.');
-        abort_unless($driver->status !== 'inactive' && $driver->company?->status === 'active', 403, 'Hub transport driver account is not active.');
+        abort_if($driver->isSuspended(), 403, 'Your Hub Transport Driver account is suspended. Please contact support.');
+        abort_unless($driver->status !== HubTransportDriver::STATUS_INACTIVE && $driver->company?->status === 'active', 403, 'Hub transport driver account is not active.');
         $driver->tokens()->delete();
         $token = $driver->createToken('hub-courier-mobile', ['hub-courier'])->plainTextToken;
 
-        return response()->json(['token' => $token, 'courier' => $this->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck']))]);
+        return response()->json(['token' => $token, 'courier' => $this->profilePayload($driver->fresh(self::PROFILE_RELATIONS))]);
     }
 
     public function profile(Request $request): JsonResponse
     {
-        $driver = $this->driver($request)->load(['company', 'truck', 'ownedTruck']);
+        $driver = $this->driver($request)->load(self::PROFILE_RELATIONS);
 
         return response()->json(['courier' => $this->profilePayload($driver)]);
     }
@@ -55,7 +70,7 @@ class HubCourierController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfully.',
-            'courier' => $this->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck'])),
+            'courier' => $this->profilePayload($driver->fresh(self::PROFILE_RELATIONS)),
         ]);
     }
 
@@ -80,7 +95,7 @@ class HubCourierController extends Controller
 
         return response()->json([
             'message' => 'Profile photo updated successfully.',
-            'courier' => $this->profilePayload($driver->fresh(['company', 'truck', 'ownedTruck'])),
+            'courier' => $this->profilePayload($driver->fresh(self::PROFILE_RELATIONS)),
         ]);
     }
 
@@ -294,10 +309,16 @@ class HubCourierController extends Controller
         $driver = $this->driver($request)->load('truck');
         if ($data['status'] === 'online') {
             abort_unless($this->validVehicle($driver), 422, 'Your assigned vehicle is unavailable or missing capacity.');
+        } else {
+            abort_if(
+                $driver->hasActiveTransfer(),
+                409,
+                'You cannot go offline while a transfer is active. Finish the assigned transfer first.',
+            );
         }
         $driver->update(['is_online' => $data['status'] === 'online']);
 
-        return response()->json(['status' => $driver->is_online ? 'online' : 'offline', 'courier' => $this->profilePayload($driver->fresh(['company', 'truck']))]);
+        return response()->json(['status' => $driver->is_online ? 'online' : 'offline', 'courier' => $this->profilePayload($driver->fresh(self::PROFILE_RELATIONS))]);
     }
 
     public function show(Request $request, int $transfer): JsonResponse
@@ -552,7 +573,8 @@ class HubCourierController extends Controller
     {
         $driver = $request->user();
         abort_unless($driver instanceof HubTransportDriver && $request->user()->currentAccessToken()?->can('hub-courier'), 403, 'Hub Transport Driver access is required.');
-        abort_unless($driver->status !== 'inactive' && $driver->company?->status === 'active', 403, 'Hub transport driver account is not active.');
+        abort_if($driver->isSuspended(), 403, 'Your Hub Transport Driver account is suspended. Please contact support.');
+        abort_unless($driver->status !== HubTransportDriver::STATUS_INACTIVE && $driver->company?->status === 'active', 403, 'Hub transport driver account is not active.');
 
         return $driver;
     }
@@ -570,14 +592,19 @@ class HubCourierController extends Controller
         $transfer = HubTransfer::with(['origin', 'destination', 'truck', 'parcels.delivery', 'events'])
             ->whereKey($id)->where('driver_id', $driver->id)->where('logistics_company_id', $driver->logistics_company_id)->firstOrFail();
         abort_unless($this->validVehicle($driver), 403, 'Your assigned four-wheel vehicle is unavailable or missing registered capacity.');
-        abort_unless((int) $transfer->truck_id === (int) $driver->logistics_truck_id, 403, 'This transfer is assigned to a different vehicle.');
+        $vehicleId = $driver->effectiveTruck()?->id;
+        abort_unless(
+            $vehicleId !== null && (int) $transfer->truck_id === (int) $vehicleId,
+            403,
+            'This transfer is assigned to a different vehicle.',
+        );
 
         return $transfer;
     }
 
     private function validVehicle(HubTransportDriver $driver): bool
     {
-        $truck = $driver->truck;
+        $truck = $driver->effectiveTruck();
 
         return $truck !== null
             && (int) $truck->logistics_company_id === (int) $driver->logistics_company_id
@@ -593,6 +620,8 @@ class HubCourierController extends Controller
         $assignedTruck = $driver->truck;
         $ownedTruck = $driver->ownedTruck;
         $activeTruck = $assignedTruck ?: $ownedTruck;
+        $application = $driver->effectiveApplication();
+        $homeHub = $driver->homeHub();
 
         $ownershipType = $ownedTruck ? 'driver_owned' : ($assignedTruck ? $assignedTruck->ownership_type : 'company');
         $verificationStatus = $ownedTruck ? $ownedTruck->verification_status : ($assignedTruck ? $assignedTruck->verification_status : 'approved');
@@ -606,10 +635,22 @@ class HubCourierController extends Controller
             'company' => $driver->company?->name,
             'status' => $driver->status,
             'is_online' => $driver->is_online,
+            'has_active_transfer' => $driver->hasActiveTransfer(),
             'vehicle_arrangement' => $ownershipType,
             'verification_status' => $verificationStatus,
             'verification_notes' => $ownedTruck?->verification_notes,
             'has_assigned_truck' => $assignedTruck !== null,
+            'license_number' => $driver->license_number,
+            'license_expiry' => $application?->license_expiry?->format('Y-m-d'),
+            'license_valid' => $driver->isLicenseValid(),
+            'home_hub' => $homeHub ? [
+                'id' => $homeHub->id,
+                'name' => $homeHub->name,
+                'address' => $homeHub->address,
+                'city' => $homeHub->city,
+                'province' => $homeHub->province,
+            ] : null,
+            'documents' => $this->documentsPayload($application),
             'vehicle' => $activeTruck ? [
                 'id' => $activeTruck->id,
                 'name' => $activeTruck->name,
@@ -624,6 +665,79 @@ class HubCourierController extends Controller
                 'is_assignable' => $activeTruck->isAssignable(),
             ] : null,
         ];
+    }
+
+    /**
+     * The driver's own application documents. Each entry carries a short-lived
+     * signed URL so the private file can be opened without a bearer token.
+     */
+    private function documentsPayload(?RiderApplication $application): array
+    {
+        if (! $application) {
+            return [];
+        }
+
+        return $application->supportingDocuments
+            ->map(fn (RiderApplicationDocument $doc) => [
+                'id' => $doc->id,
+                'type' => $doc->document_type,
+                'label' => $doc->typeLabel(),
+                'name' => $doc->original_filename,
+                'mime_type' => $doc->contentMime(),
+                'is_image' => $doc->isImage(),
+                'size' => $doc->humanSize(),
+                'url' => URL::temporarySignedRoute(
+                    'api.logistics.courier.documents.show',
+                    now()->addMinutes(30),
+                    ['document' => $doc->id],
+                ),
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Serve one of the authenticated driver's own application documents.
+     * Access requires a valid signed URL generated for that driver's profile.
+     */
+    public function document(RiderApplicationDocument $document): BinaryFileResponse
+    {
+        $application = $document->application;
+
+        abort_unless($application !== null, 403, 'This document is not available.');
+
+        $driver = $application->hubTransportDriver
+            ?: ($application->email
+                ? HubTransportDriver::whereRaw('LOWER(email) = ?', [strtolower((string) $application->email)])->first()
+                : null);
+
+        abort_unless(
+            $driver
+                && ($application->isHubTransportDriver() || (int) $application->hub_transport_driver_id === (int) $driver->id),
+            403,
+            'This document is not available.',
+        );
+
+        abort_unless($document->fileExists(), 404, 'Document is missing or was deleted.');
+        abort_if($document->fileSizeOnDisk() === 0, 422, 'Document file is empty and cannot be opened.');
+        abort_unless($document->isServable(), 422, 'Document file is corrupt or its contents do not match the expected file type.');
+
+        $preview = $document->isBrowserPreviewable();
+        $filename = $document->original_filename ?: basename($document->stored_path);
+
+        return response()
+            ->file($document->absolutePath(), [
+                'Content-Type' => $document->contentMime(),
+                'Cache-Control' => 'private, no-store',
+                'X-Content-Type-Options' => 'nosniff',
+            ])
+            ->setPrivate()
+            ->setContentDisposition(
+                $preview
+                    ? \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_INLINE
+                    : \Symfony\Component\HttpFoundation\ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+                $filename,
+            );
     }
 
     private function transferPayload(?HubTransfer $transfer): ?array

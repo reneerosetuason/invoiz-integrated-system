@@ -71,6 +71,7 @@
                         <option value="assigned" @selected(request('status') === 'assigned')>Assigned</option>
                         <option value="in_transit" @selected(request('status') === 'in_transit')>In transit</option>
                         <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
+                        <option value="suspended" @selected(request('status') === 'suspended')>Suspended</option>
                     </select>
                 </div>
 

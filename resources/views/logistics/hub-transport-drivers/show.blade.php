@@ -149,7 +149,7 @@
             </div>
 
             <form method="POST" action="{{ route('fleet.drivers.update', $driver) }}" class="grid grid-cols-1 md:grid-cols-3 gap-4"
-                  x-data="{ driverStatus: @js($driver->status === 'inactive' ? 'inactive' : 'available') }">
+                  x-data="{ driverStatus: @js(in_array($driver->status, ['inactive', 'suspended'], true) ? $driver->status : 'available') }">
                 @csrf
                 @method('PUT')
 
@@ -158,12 +158,13 @@
                     <select id="driver-status-select" name="status" class="select w-full" x-model="driverStatus">
                         <option value="available" @selected($driver->status === 'available')>Available</option>
                         <option value="inactive" @selected($driver->status === 'inactive')>Inactive</option>
+                        <option value="suspended" @selected($driver->status === 'suspended')>Suspended</option>
                     </select>
                 </div>
 
                 <div>
                     <label class="field-label" for="driver-truck-select">Assigned Truck</label>
-                    <select id="driver-truck-select" name="logistics_truck_id" class="select w-full" :disabled="driverStatus === 'inactive'">
+                    <select id="driver-truck-select" name="logistics_truck_id" class="select w-full" :disabled="driverStatus === 'inactive' || driverStatus === 'suspended'">
                         <option value="">No truck (Unassigned)</option>
                         @foreach($availableTrucks as $availableTruck)
                             <option value="{{ $availableTruck->id }}" @selected((int) $driver->logistics_truck_id === (int) $availableTruck->id)>
@@ -171,7 +172,7 @@
                             </option>
                         @endforeach
                     </select>
-                    <p class="mt-1 text-[11px] text-[#6E6E73]" x-show="driverStatus === 'inactive'" x-cloak>Inactive drivers cannot hold a truck assignment.</p>
+                    <p class="mt-1 text-[11px] text-[#6E6E73]" x-show="driverStatus === 'inactive' || driverStatus === 'suspended'" x-cloak>Inactive or suspended drivers cannot hold a truck assignment. Suspension is only allowed when the driver has no active transfer.</p>
                 </div>
 
                 <div>

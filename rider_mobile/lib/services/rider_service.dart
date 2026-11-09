@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import '../core/network/api_client.dart';
 import '../models/delivery.dart';
+import '../models/document_change.dart';
 import '../models/rider.dart';
 
 /// Rider dashboard summary.
@@ -84,6 +85,40 @@ class RiderService {
     final data = await _api.patch('/rider/status', body: {'status': status});
     return Rider.fromJson(
         Map<String, dynamic>.from(data['rider'] as Map? ?? {}));
+  }
+
+  /// Approved documents, change requests, license status and the document
+  /// types this rider can request to replace.
+  Future<DocumentChangeOverview> getDocumentChangeOverview() async {
+    final data = await _api.get('/rider/document-change-requests');
+    return DocumentChangeOverview.fromJson(
+      Map<String, dynamic>.from(data as Map? ?? {}),
+    );
+  }
+
+  /// Submit a proposed replacement. The official record is untouched until a
+  /// Logistics Admin approves the request.
+  Future<void> submitDocumentChange({
+    required String documentType,
+    required Uint8List fileBytes,
+    required String filename,
+    String? expiryDate,
+    String? reason,
+  }) async {
+    final fields = <String, String>{'document_type': documentType};
+    if (expiryDate != null && expiryDate.isNotEmpty) {
+      fields['expiry_date'] = expiryDate;
+    }
+    if (reason != null && reason.trim().isNotEmpty) {
+      fields['reason'] = reason.trim();
+    }
+    await _api.postMultipart(
+      '/rider/document-change-requests',
+      fileField: 'document',
+      fileBytes: fileBytes,
+      filename: filename,
+      fields: fields,
+    );
   }
 
   Future<DashboardSummary> getDashboard() async {

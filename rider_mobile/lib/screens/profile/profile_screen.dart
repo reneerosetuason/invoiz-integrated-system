@@ -23,6 +23,7 @@ import '../../widgets/section_header.dart';
 import '../../widgets/stagger_in.dart';
 import '../../widgets/status_badge.dart';
 import 'change_password_screen.dart';
+import 'my_documents_screen.dart';
 import '../earnings/earnings_screen.dart';
 import '../onboarding/rider_tutorial_screen.dart';
 
@@ -439,7 +440,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 16),
         StaggerIn(
           index: 2,
-          child: _DocumentsSection(documents: rider.documents),
+          child: _DocumentsSection(
+            documents: rider.documents,
+            onManage: () => _openMyDocuments(context, riderProvider),
+          ),
         ),
         const SizedBox(height: 16),
 
@@ -733,6 +737,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const Divider(height: 1, indent: 56),
                 _InfoRow(
+                  icon: Icons.warehouse_outlined,
+                  label: 'Home Hub',
+                  value: courier.homeHub?['name']?.toString() ?? 'Not assigned',
+                  isProtected: true,
+                ),
+                const Divider(height: 1, indent: 56),
+                _InfoRow(
                   icon: Icons.local_shipping_outlined,
                   label: 'Arrangement',
                   value: courier.isDriverOwned
@@ -787,6 +798,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   value: courier.licenseNumber ?? 'Not provided',
                   isProtected: true,
                 ),
+                const Divider(height: 1, indent: 56),
+                _InfoRow(
+                  icon: Icons.event_outlined,
+                  label: 'License Expiry',
+                  value: courier.licenseExpiry == null
+                      ? 'Not provided'
+                      : (courier.licenseValid
+                            ? courier.licenseExpiry!
+                            : '${courier.licenseExpiry} (expired)'),
+                  isProtected: true,
+                ),
                 if (vehicle != null) ...[
                   const Divider(height: 1, indent: 56),
                   _InfoRow(
@@ -812,6 +834,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
+
+        if (courier.documents.isNotEmpty)
+          _DocumentsSection(documents: courier.documents),
 
         // Admin-Controlled Protection Notice
         const SizedBox(height: 12),
@@ -919,6 +944,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openMyDocuments(
+    BuildContext context,
+    RiderProvider riderProvider,
+  ) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MyDocumentsScreen()),
+    );
+    if (mounted) await riderProvider.loadProfile();
   }
 
   void _openCourierEdit(BuildContext context, HubCourier courier) {
@@ -1185,27 +1220,51 @@ class _StatusRow extends StatelessWidget {
 }
 
 class _DocumentsSection extends StatelessWidget {
-  const _DocumentsSection({required this.documents});
+  const _DocumentsSection({required this.documents, this.onManage});
+
   final List<RiderDocument> documents;
+
+  /// Riders open the My Documents screen from here. Hub Transport Drivers
+  /// keep the read-only list they had before.
+  final VoidCallback? onManage;
 
   @override
   Widget build(BuildContext context) {
-    if (documents.isEmpty) return const SizedBox.shrink();
+    if (documents.isEmpty && onManage == null) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Documents'),
-        const SizedBox(height: 10),
-        Card(
-          child: Column(
-            children: [
-              for (int i = 0; i < documents.length; i++) ...[
-                if (i > 0) const Divider(height: 1, indent: 16),
-                _DocumentRow(doc: documents[i]),
-              ],
-            ],
-          ),
+        SectionHeader(
+          title: 'Documents',
+          action: onManage == null
+              ? null
+              : TextButton(
+                  onPressed: onManage,
+                  child: const Text('My Documents'),
+                ),
         ),
+        const SizedBox(height: 10),
+        if (documents.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No approved documents are on file.',
+                style: AppText.secondary,
+              ),
+            ),
+          )
+        else
+          Card(
+            child: Column(
+              children: [
+                for (int i = 0; i < documents.length; i++) ...[
+                  if (i > 0) const Divider(height: 1, indent: 16),
+                  _DocumentRow(doc: documents[i]),
+                ],
+              ],
+            ),
+          ),
         const SizedBox(height: 16),
       ],
     );

@@ -13,6 +13,8 @@ class RiderDocument {
     this.mimeType,
     this.isImage = false,
     this.size,
+    this.expiresOn,
+    this.status,
   });
 
   final int id;
@@ -23,6 +25,8 @@ class RiderDocument {
   final String? mimeType;
   final bool isImage;
   final String? size;
+  final String? expiresOn;
+  final String? status;
 
   factory RiderDocument.fromJson(Map<String, dynamic> json) {
     return RiderDocument(
@@ -34,6 +38,8 @@ class RiderDocument {
       mimeType: json['mime_type'] as String?,
       isImage: json['is_image'] as bool? ?? false,
       size: json['size'] as String?,
+      expiresOn: json['expires_on'] as String?,
+      status: json['status'] as String?,
     );
   }
 }
@@ -201,6 +207,8 @@ class Rider {
                   'mime_type': d.mimeType,
                   'is_image': d.isImage,
                   'size': d.size,
+                  'expires_on': d.expiresOn,
+                  'status': d.status,
                 })
             .toList(),
       };

@@ -311,8 +311,9 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activePickups   = request()->routeIs('pickup-requests.*');
     $activeStaff     = request()->routeIs('staff.*');
     $activeRiderApps = request()->routeIs('rider-applications.*');
+    $activeDocChanges = request()->routeIs('document-change-requests.*');
     $activeCenterApps = request()->routeIs('center-applications.*');
-    $activeAppsGroup = $activeRiderApps || $activeCenterApps;
+    $activeAppsGroup = $activeRiderApps || $activeDocChanges || $activeCenterApps;
     $activeCenters   = request()->routeIs('centers.*');
     $activeAreas     = request()->routeIs('service-areas.*');
     $activeTransactions = request()->routeIs('transactions.*');
@@ -587,6 +588,16 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
                @if($activeRiderApps) aria-current="page" @endif
                class="{{ $activeRiderApps ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
                 <span>Rider Applications</span>
+            </a>
+            @endif
+
+            {{-- Rider Document Change Requests --}}
+            @if(Auth::user()?->isLogisticsAdmin())
+            <a href="{{ route('document-change-requests.index') }}"
+               aria-label="Document Change Requests" data-tip="Document Change Requests"
+               @if($activeDocChanges) aria-current="page" @endif
+               class="{{ $activeDocChanges ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
+                <span>Document Change Requests</span>
             </a>
             @endif
 

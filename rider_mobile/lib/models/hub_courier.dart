@@ -1,3 +1,5 @@
+import 'rider.dart';
+
 Map<String, dynamic>? asJsonMap(dynamic value) =>
     value is Map ? Map<String, dynamic>.from(value) : null;
 
@@ -47,12 +49,17 @@ class HubCourier {
     this.email = '',
     this.phone = '',
     this.licenseNumber,
+    this.licenseExpiry,
+    this.licenseValid = true,
     this.avatar,
     this.status = '',
     this.vehicleArrangement = 'company',
     this.verificationStatus,
     this.verificationNotes,
     this.hasAssignedTruck = false,
+    this.hasActiveTransfer = false,
+    this.homeHub,
+    this.documents = const [],
     this.vehicle,
   });
 
@@ -62,6 +69,8 @@ class HubCourier {
   final String email;
   final String phone;
   final String? licenseNumber;
+  final String? licenseExpiry;
+  final bool licenseValid;
   final String? avatar;
   final bool online;
   final String status;
@@ -69,6 +78,9 @@ class HubCourier {
   final String? verificationStatus;
   final String? verificationNotes;
   final bool hasAssignedTruck;
+  final bool hasActiveTransfer;
+  final Map<String, dynamic>? homeHub;
+  final List<RiderDocument> documents;
   final Map<String, dynamic>? vehicle;
 
   bool get isDriverOwned => vehicleArrangement == 'driver_owned';
@@ -85,6 +97,12 @@ class HubCourier {
     licenseNumber: json['license_number'] == null
         ? null
         : asJsonString(json['license_number']),
+    licenseExpiry: json['license_expiry'] == null
+        ? null
+        : asJsonString(json['license_expiry']),
+    licenseValid: json['license_valid'] == null
+        ? true
+        : asJsonBool(json['license_valid']),
     avatar: json['avatar'] == null ? null : asJsonString(json['avatar']),
     online: asJsonBool(json['is_online']),
     status: asJsonString(json['status']),
@@ -96,6 +114,14 @@ class HubCourier {
         ? null
         : asJsonString(json['verification_notes']),
     hasAssignedTruck: asJsonBool(json['has_assigned_truck']),
+    hasActiveTransfer: asJsonBool(json['has_active_transfer']),
+    homeHub: asJsonMap(json['home_hub']),
+    documents: json['documents'] is List
+        ? (json['documents'] as List)
+              .whereType<Map>()
+              .map((e) => RiderDocument.fromJson(Map<String, dynamic>.from(e)))
+              .toList()
+        : const [],
     vehicle: asJsonMap(json['vehicle']),
   );
 
@@ -105,6 +131,8 @@ class HubCourier {
     String? email,
     String? phone,
     String? licenseNumber,
+    String? licenseExpiry,
+    bool? licenseValid,
     String? avatar,
     bool? online,
     String? status,
@@ -112,6 +140,9 @@ class HubCourier {
     String? verificationStatus,
     String? verificationNotes,
     bool? hasAssignedTruck,
+    bool? hasActiveTransfer,
+    Map<String, dynamic>? homeHub,
+    List<RiderDocument>? documents,
     Map<String, dynamic>? vehicle,
   }) => HubCourier(
     id: id,
@@ -120,6 +151,8 @@ class HubCourier {
     email: email ?? this.email,
     phone: phone ?? this.phone,
     licenseNumber: licenseNumber ?? this.licenseNumber,
+    licenseExpiry: licenseExpiry ?? this.licenseExpiry,
+    licenseValid: licenseValid ?? this.licenseValid,
     avatar: avatar ?? this.avatar,
     online: online ?? this.online,
     status: status ?? this.status,
@@ -127,6 +160,9 @@ class HubCourier {
     verificationStatus: verificationStatus ?? this.verificationStatus,
     verificationNotes: verificationNotes ?? this.verificationNotes,
     hasAssignedTruck: hasAssignedTruck ?? this.hasAssignedTruck,
+    hasActiveTransfer: hasActiveTransfer ?? this.hasActiveTransfer,
+    homeHub: homeHub ?? this.homeHub,
+    documents: documents ?? this.documents,
     vehicle: vehicle ?? this.vehicle,
   );
 
@@ -137,6 +173,8 @@ class HubCourier {
     'email': email,
     'phone': phone,
     'license_number': licenseNumber,
+    'license_expiry': licenseExpiry,
+    'license_valid': licenseValid,
     'avatar': avatar,
     'is_online': online,
     'status': status,
@@ -144,6 +182,22 @@ class HubCourier {
     'verification_status': verificationStatus,
     'verification_notes': verificationNotes,
     'has_assigned_truck': hasAssignedTruck,
+    'has_active_transfer': hasActiveTransfer,
+    'home_hub': homeHub,
+    'documents': documents
+        .map(
+          (d) => {
+            'id': d.id,
+            'type': d.type,
+            'label': d.label,
+            'name': d.name,
+            'url': d.url,
+            'mime_type': d.mimeType,
+            'is_image': d.isImage,
+            'size': d.size,
+          },
+        )
+        .toList(),
     'vehicle': vehicle,
   };
 }

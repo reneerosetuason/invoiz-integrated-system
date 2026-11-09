@@ -71,7 +71,7 @@ class HubTransportDriverController extends Controller
                         ->orWhereHas('ownedTruck', fn ($truck) => $truck->where('plate_number', 'like', $like));
                 });
             })
-            ->when($status !== '' && in_array($status, ['available', 'assigned', 'in_transit', 'inactive'], true), function ($query) use ($status): void {
+            ->when($status !== '' && in_array($status, ['available', 'assigned', 'in_transit', 'inactive', 'suspended'], true), function ($query) use ($status): void {
                 $query->where('status', $status);
             })
             ->when($approval !== '' && in_array($approval, ['approved', 'pending', 'rejected'], true), function ($query) use ($approval): void {

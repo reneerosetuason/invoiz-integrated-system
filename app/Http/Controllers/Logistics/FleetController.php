@@ -265,22 +265,26 @@ class FleetController extends Controller
             'phone' => 'nullable|string|max:30',
             'license_number' => ['nullable', 'string', 'max:100', Rule::unique('hub_transport_drivers')->where('logistics_company_id', $driver->logistics_company_id)->ignore($driver->id)],
             'logistics_truck_id' => ['nullable', 'integer', Rule::exists('logistics_trucks', 'id')->where('logistics_company_id', $driver->logistics_company_id)],
-            'status' => 'sometimes|required|in:available,inactive',
+            'status' => 'sometimes|required|in:available,inactive,suspended',
             'remarks' => 'nullable|string|max:2000',
         ]);
 
         $targetStatus = $data['status'] ?? $driver->status;
         $explicitTruckId = array_key_exists('logistics_truck_id', $data) ? $data['logistics_truck_id'] : null;
+        $targetBlocked = in_array($targetStatus, HubTransportDriver::BLOCKED_STATUSES, true);
 
         // The driver record is only created after application approval. When an
         // application exists, it must still be approved; legacy/manual driver
         // records without an application remain assignable by an administrator.
         $application = $driver->effectiveApplication();
         abort_if($application && $application->status !== 'approved', 422, 'Only approved Hub Transport Drivers can be assigned to a truck.');
-        abort_if($targetStatus === 'inactive' && ! empty($explicitTruckId), 422, 'Inactive Hub Transport Drivers cannot be assigned to a truck.');
+        abort_if($targetBlocked && ! empty($explicitTruckId), 422, 'Inactive or suspended Hub Transport Drivers cannot be assigned to a truck.');
 
+        // Suspension/inactivation must never interrupt a trip or change parcel
+        // custody. Blocked statuses are only allowed once no transfer is active.
         if (isset($data['status'])) {
-            abort_if(in_array($driver->status, ['assigned', 'in_transit'], true) && $data['status'] !== $driver->status, 409, 'A driver assigned to an active transfer cannot be made inactive.');
+            abort_if($targetBlocked && $driver->hasActiveTransfer(), 409, 'A driver with an active transfer cannot be made inactive or suspended.');
+            abort_if(in_array($driver->status, ['assigned', 'in_transit'], true) && $data['status'] !== $driver->status, 409, 'A driver assigned to an active transfer cannot change status.');
         }
         abort_if(in_array($driver->status, ['assigned', 'in_transit'], true) && array_key_exists('logistics_truck_id', $data) && (int) $data['logistics_truck_id'] !== (int) $driver->logistics_truck_id, 409, 'A driver assigned to an active transfer cannot change vehicles.');
 
@@ -294,9 +298,13 @@ class FleetController extends Controller
             abort_if($truck->hasActiveTransfer() && (int) $driver->logistics_truck_id !== (int) $truck->id, 409, 'This truck is already assigned to an active hub transfer.');
         }
 
-        // Keep the fleet consistent: an inactive driver must not reserve a truck.
-        if ($targetStatus === 'inactive') {
+        // Keep the fleet consistent: a blocked driver must not reserve a truck
+        // and must not remain online.
+        if ($targetBlocked) {
             $data['logistics_truck_id'] = null;
+            if (isset($data['status'])) {
+                $data['is_online'] = false;
+            }
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($driver, $data) {
@@ -322,6 +330,11 @@ class FleetController extends Controller
             }
 
             $driver->update($data);
+
+            // A blocked driver must not keep working sessions open.
+            if (isset($data['status']) && in_array($data['status'], HubTransportDriver::BLOCKED_STATUSES, true)) {
+                $driver->tokens()->delete();
+            }
         });
 
         return back(fallback: route('fleet.index'))->with('success', 'Hub Transport Driver updated.');
