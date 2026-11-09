@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\RiderAccountApprovedMail;
 use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
+use App\Models\LogisticsCompany;
 use App\Models\Notification;
 use App\Models\Rider;
 use App\Models\RiderApplication;
@@ -69,7 +70,7 @@ class HubTransportDriverProvisioner
             }
 
             $companyId = $center->logistics_company_id;
-            if (! $companyId) {
+            if (! $companyId || ! LogisticsCompany::whereKey($companyId)->where('status', 'active')->exists()) {
                 throw ValidationException::withMessages([
                     'center_id' => 'The selected logistics center must belong to an active logistics company.',
                 ]);
@@ -179,6 +180,12 @@ class HubTransportDriverProvisioner
                     ->where('document_type', 'vehicle_registration')
                     ->value('stored_path');
 
+                // Older applications stored labels such as "light truck"; the
+                // fleet catalog keys vehicle types with underscores.
+                $truckType = $application->vehicle_type
+                    ? strtolower(str_replace([' ', '-'], '_', (string) $application->vehicle_type))
+                    : 'truck';
+
                 $truck = \App\Models\LogisticsTruck::firstOrCreate(
                     [
                         'logistics_company_id' => $companyId,
@@ -187,7 +194,9 @@ class HubTransportDriverProvisioner
                     [
                         'ownership_type' => 'driver_owned',
                         'hub_transport_driver_id' => $driver->id,
+                        'vehicle_type' => $truckType,
                         'model' => $application->vehicle_model ?: $application->vehicle_name ?: 'Four-Wheel Truck',
+                        'parcel_capacity' => $application->parcel_capacity,
                         'capacity_kg' => $application->capacity_kg ?: 1000.00,
                         'status' => 'available',
                         'verification_status' => 'pending_review',
@@ -196,10 +205,12 @@ class HubTransportDriverProvisioner
                     ]
                 );
 
-                if ($truck->wasRecentlyCreated || ! $truck->hub_transport_driver_id) {
+                if ($truck->wasRecentlyCreated || ! $truck->hub_transport_driver_id || ! $truck->vehicle_type || (int) $truck->parcel_capacity <= 0) {
                     $truck->update([
                         'ownership_type' => 'driver_owned',
                         'hub_transport_driver_id' => $driver->id,
+                        'vehicle_type' => $truck->vehicle_type ?: $truckType,
+                        'parcel_capacity' => $truck->parcel_capacity ?: $application->parcel_capacity,
                         'vehicle_registration' => $truck->vehicle_registration ?: $application->vehicle_registration,
                         'document_path' => $truck->document_path ?: $docPath,
                     ]);

@@ -216,7 +216,7 @@ class _HubTransportDriverApplyScreenState
   String? get _firstNameError {
     if (!_showErrors) return null;
     if (_firstName.text.trim().isEmpty) return 'Please enter your first name.';
-    if (!NameValidation.isValidPerson(_firstName.text, maxLength: 50)) {
+    if (!NameValidation.isValidPerson(_firstName.text, maxLength: 50, minLength: 2)) {
       return 'Please enter a valid first name.';
     }
     return null;
@@ -225,7 +225,7 @@ class _HubTransportDriverApplyScreenState
   String? get _lastNameError {
     if (!_showErrors) return null;
     if (_lastName.text.trim().isEmpty) return 'Please enter your last name.';
-    if (!NameValidation.isValidPerson(_lastName.text, maxLength: 50)) {
+    if (!NameValidation.isValidPerson(_lastName.text, maxLength: 50, minLength: 2)) {
       return 'Please enter a valid last name.';
     }
     return null;
@@ -309,7 +309,7 @@ class _HubTransportDriverApplyScreenState
 
   String? _validatePersonal() {
     if (_firstName.text.trim().isEmpty) return 'Please enter your first name.';
-    if (!NameValidation.isValidPerson(_firstName.text, maxLength: 50)) {
+    if (!NameValidation.isValidPerson(_firstName.text, maxLength: 50, minLength: 2)) {
       return 'Please enter a valid first name.';
     }
     if (_middleInitial.text.trim().isNotEmpty &&
@@ -317,7 +317,7 @@ class _HubTransportDriverApplyScreenState
       return 'Please enter a valid middle initial.';
     }
     if (_lastName.text.trim().isEmpty) return 'Please enter your last name.';
-    if (!NameValidation.isValidPerson(_lastName.text, maxLength: 50)) {
+    if (!NameValidation.isValidPerson(_lastName.text, maxLength: 50, minLength: 2)) {
       return 'Please enter a valid last name.';
     }
     if (!_emailRegex.hasMatch(_email.text.trim())) {
@@ -355,6 +355,14 @@ class _HubTransportDriverApplyScreenState
       if (plateError != null) return plateError;
       final registrationError = VehicleRegistration.validate(_vehicleReg.text);
       if (registrationError != null) return registrationError;
+      final parcelCapacity = int.tryParse(_parcelCapacity.text.trim());
+      if (parcelCapacity == null || parcelCapacity < 1) {
+        return 'Please enter the truck parcel capacity (at least 1).';
+      }
+      final weightCapacity = double.tryParse(_weightCapacity.text.trim());
+      if (weightCapacity == null || weightCapacity <= 0) {
+        return 'Please enter the truck weight capacity in kilograms.';
+      }
     }
 
     return null;
@@ -1159,6 +1167,22 @@ class _HubTransportDriverApplyScreenState
             hint: 'e.g. Isuzu Elf / Mitsubishi L300',
           ),
           _field(
+            _parcelCapacity,
+            'Parcel Capacity *',
+            Icons.inventory_2_outlined,
+            keyboard: TextInputType.number,
+            maxLength: 6,
+            hint: 'e.g. 100',
+          ),
+          _field(
+            _weightCapacity,
+            'Weight Capacity (kg) *',
+            Icons.scale_outlined,
+            keyboard: const TextInputType.numberWithOptions(decimal: true),
+            maxLength: 10,
+            hint: 'e.g. 1500',
+          ),
+          _field(
             _vehicleReg,
             'Vehicle Registration (OR/CR Number) *',
             Icons.description_outlined,
@@ -1412,6 +1436,8 @@ class _HubTransportDriverApplyScreenState
               MapEntry('License Plate', _plate.text.trim()),
               if (_vehicleModel.text.trim().isNotEmpty)
                 MapEntry('Brand / Model', _vehicleModel.text.trim()),
+              MapEntry('Parcel Capacity', '${_parcelCapacity.text.trim()} parcels'),
+              MapEntry('Weight Capacity', '${_weightCapacity.text.trim()} kg'),
               MapEntry('OR/CR Number', _vehicleReg.text.trim()),
             ] else ...[
               const MapEntry('Fleet Specification', 'Company Four-Wheel Truck (Assigned upon approval)'),

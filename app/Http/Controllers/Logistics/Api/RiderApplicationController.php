@@ -48,7 +48,7 @@ class RiderApplicationController extends Controller
         }
         $request->merge([
             'application_type' => $appType,
-            'vehicle_type' => strtolower(trim((string) $request->input('vehicle_type'))),
+            'vehicle_type' => strtolower(trim(str_replace([' ', '-'], '_', (string) $request->input('vehicle_type')))),
         ]);
         $request->merge(NameNormalizer::cleanKeys(
             $request->only(['name', 'middle_initial']),
@@ -73,8 +73,18 @@ class RiderApplicationController extends Controller
         $isDriverOwnedHub = $isHubDriver && in_array($request->input('vehicle_ownership'), ['driver_owned', 'own'], true);
         $allowedVehicleCategory = $isHubDriver ? 'four_wheel' : 'two_wheel';
 
+        // An existing Hub Transport Driver reusing their own login email may
+        // also reuse the phone number already on their driver record. Only
+        // that driver is exempted: another driver's number, or a different
+        // email reusing it, still fails the unique rule below.
+        $existingDriverId = $isHubDriver && is_string($request->input('email'))
+            ? \App\Models\HubTransportDriver::query()
+                ->whereRaw('LOWER(email) = ?', [strtolower(trim((string) $request->input('email')))])
+                ->value('id')
+            : null;
+
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255', new PersonName()],
+            'name' => ['required', 'string', 'min:2', 'max:255', new PersonName()],
             'middle_initial' => ['nullable', 'string', 'max:5', new PersonName()],
             'sex' => 'required|in:male,female,other',
             'birthday' => 'required|date|before:today',
@@ -117,8 +127,22 @@ class RiderApplicationController extends Controller
             'phone' => [
                 'required',
                 new PhilippinePhone,
-                $isHubDriver ? 'nullable' : 'unique:riders,phone',
+                $isHubDriver
+                    ? Rule::unique('hub_transport_drivers', 'phone')->ignore($existingDriverId)
+                    : 'unique:riders,phone',
                 Rule::unique('rider_applications', 'phone')->where($activeApplication),
+                function ($attribute, $value, $fail) use ($isHubDriver) {
+                    $phone = PhilippinePhone::normalize((string) $value);
+                    $conflict = $isHubDriver
+                        ? \App\Models\Rider::where('phone', $phone)->exists()
+                        : \App\Models\HubTransportDriver::where('phone', $phone)->exists();
+
+                    if ($conflict) {
+                        $fail($isHubDriver
+                            ? 'This phone number is already registered to a Delivery Rider account and cannot be reused.'
+                            : 'This phone number is already registered to a Hub Transport Driver account and cannot be reused.');
+                    }
+                },
             ],
             'accepted_terms' => 'required|accepted',
             'address' => 'required|string|max:500',
@@ -133,12 +157,14 @@ class RiderApplicationController extends Controller
             'barangay' => 'nullable|string|max:255',
             'barangay_code' => 'nullable|string|max:20',
             'vehicle_type' => $isHubDriver
-                ? ($isDriverOwnedHub ? 'required|string|max:50' : 'nullable|string|max:50')
+                ? ($isDriverOwnedHub
+                    ? ['required', 'string', 'max:50', Rule::in(VehicleType::where('is_active', true)->get()->filter(fn ($t) => $t->operationalCategory() === 'four_wheel')->pluck('name')->all())]
+                    : 'nullable|string|max:50')
                 : ['required', Rule::in(VehicleType::where('is_active', true)->get()->filter(fn ($t) => $t->operationalCategory() === 'two_wheel')->pluck('name')->all())],
             'vehicle_name' => 'nullable|string|max:255',
             'vehicle_model' => 'nullable|string|max:255',
-            'parcel_capacity' => 'nullable|integer|min:1',
-            'capacity_kg' => 'nullable|numeric|min:0.01',
+            'parcel_capacity' => $isDriverOwnedHub ? 'required|integer|min:1' : 'nullable|integer|min:1',
+            'capacity_kg' => $isDriverOwnedHub ? 'required|numeric|min:0.01' : 'nullable|numeric|min:0.01',
             'license_plate' => [
                 ($isHubDriver && ! $isDriverOwnedHub) ? 'nullable' : 'required',
                 'string',
@@ -152,6 +178,17 @@ class RiderApplicationController extends Controller
                 'max:100',
                 $isHubDriver ? Rule::unique('hub_transport_drivers', 'license_number') : Rule::unique('riders', 'license_number'),
                 Rule::unique('rider_applications', 'license_number')->where($activeApplication),
+                function ($attribute, $value, $fail) use ($isHubDriver) {
+                    $conflict = $isHubDriver
+                        ? \App\Models\Rider::where('license_number', $value)->exists()
+                        : \App\Models\HubTransportDriver::where('license_number', $value)->exists();
+
+                    if ($conflict) {
+                        $fail($isHubDriver
+                            ? 'This license number is already registered to a Delivery Rider account and cannot be reused.'
+                            : 'This license number is already registered to a Hub Transport Driver account and cannot be reused.');
+                    }
+                },
             ],
             'license_expiry' => 'required|date|after_or_equal:today',
             'vehicle_registration' => [($isHubDriver && ! $isDriverOwnedHub) ? 'nullable' : 'required', 'string', 'max:100'],

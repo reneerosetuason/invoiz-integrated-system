@@ -18,9 +18,13 @@ class NameValidation {
   static String normalize(String value) =>
       value.trim().replaceAll(RegExp(r' {2,}'), ' ');
 
-  static bool isValidPerson(String value, {int maxLength = 100}) {
+  static bool isValidPerson(
+    String value, {
+    int maxLength = 100,
+    int minLength = 1,
+  }) {
     final name = normalize(value);
-    return name.isNotEmpty &&
+    return name.runes.length >= minLength &&
         name.runes.length <= maxLength &&
         !_control.hasMatch(name) &&
         _person.hasMatch(name);
