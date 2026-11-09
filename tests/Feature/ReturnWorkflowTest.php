@@ -17,12 +17,21 @@ class ReturnWorkflowTest extends GcashEscrowWorkflowTest
     protected function setUp(): void
     {
         parent::setUp();
+        Schema::table('riders',fn(Blueprint $t)=>$t->boolean('is_online')->default(false));
         Schema::table('return_requests', function (Blueprint $t) {
             $t->text('decision_note')->nullable(); $t->timestamp('resolved_at')->nullable();
             $t->string('evidence_path')->nullable(); $t->string('evidence_type')->nullable();
         });
         Schema::table('payment_disputes', fn (Blueprint $t) => $t->timestamp('resolved_at')->nullable());
         (require database_path('migrations/2026_11_05_180000_create_return_workflows.php'))->up();
+        // Match the deployed workflow columns even when this fixture omits
+        // settlement tables, so Eloquent's column cache is order independent.
+        Schema::table('return_workflows',function(Blueprint $t){
+            $t->string('refund_source')->default('platform_escrow');
+            $t->unsignedBigInteger('refund_sender_user_id')->nullable();
+            $t->unsignedBigInteger('driver_id')->nullable();
+            $t->timestamp('driver_accepted_at')->nullable();$t->timestamp('driver_arrived_at')->nullable();
+        });
         Schema::create('logistics_centers', function (Blueprint $t) {
             $t->id(); $t->string('name'); $t->unsignedBigInteger('logistics_company_id'); $t->timestamps();
         });
@@ -56,7 +65,7 @@ class ReturnWorkflowTest extends GcashEscrowWorkflowTest
             'seller_id' => $seller->id, 'product_id' => $product->id, 'quantity' => 1, 'reason' => 'damaged', 'status' => 'approved', 'refund_amount' => 100]);
         ReturnWorkflowService::start($case);
         $staff = $this->actor('staff'); $riderUser = $this->actor('rider');
-        $rider = Rider::create(['user_id' => $riderUser->id, 'name' => 'Return rider', 'center_id' => 1, 'status' => 'available', 'is_verified' => true, 'approved_at' => now()]);
+        $rider = Rider::create(['user_id' => $riderUser->id, 'name' => 'Return rider', 'center_id' => 1, 'status' => 'available', 'is_verified' => true, 'approved_at' => now(),'is_online'=>true]);
         return compact('order', 'seller', 'buyer', 'admin', 'product', 'case', 'staff', 'riderUser', 'rider');
     }
 
@@ -67,6 +76,39 @@ class ReturnWorkflowTest extends GcashEscrowWorkflowTest
         ReturnWorkflowService::change($f['case'], $f['staff'], 'intake');
         ReturnWorkflowService::change($f['case'], $f['staff'], 'dispatch_seller', ['reference' => 'RTS-TEST']);
         ReturnWorkflowService::change($f['case'], $f['seller'], 'receive', ['restock' => $restock]);
+    }
+
+    public function test_return_pickup_rechecks_online_status_after_the_rider_list_was_opened(): void
+    {
+        $f=$this->scenario();
+        $options=view('shared.returns.partials.rider-select',['riderCenter'=>1,'riderLabel'=>'Collection rider'])->render();
+        $this->assertStringContainsString('value="'.$f['rider']->id.'"',$options);
+        $f['rider']->update(['is_online'=>false]);
+        $this->actingAs($f['staff'])->postJson('/return-center/'.$f['case']->id,['action'=>'assign','rider_id'=>$f['rider']->id])
+            ->assertUnprocessable()->assertJsonValidationErrors('return');
+        $this->assertSame('awaiting_collection',$f['case']->fresh()->workflow->stage);
+        $this->assertNull($f['case']->fresh()->workflow->rider_id);
+        $f['rider']->update(['is_online'=>true]);
+        $this->actingAs($f['staff'])->postJson('/return-center/'.$f['case']->id,['action'=>'assign','rider_id'=>$f['rider']->id])->assertOk();
+        $this->assertSame('pickup_assigned',$f['case']->fresh()->workflow->stage);
+        // Online is required for new work, not to record existing custody.
+        $f['rider']->update(['is_online'=>false]);
+        ReturnWorkflowService::change($f['case'],$f['riderUser'],'pickup');
+        $this->assertSame('collected',$f['case']->fresh()->workflow->stage);
+    }
+
+    public function test_return_rider_options_omit_offline_riders_and_explain_when_none_are_online(): void
+    {
+        $f=$this->scenario();
+        $offline=$f['rider']->replicate();$offline->user_id=$this->actor('rider')->id;
+        $offline->name='Offline return candidate';$offline->is_online=false;$offline->save();
+        $options=view('shared.returns.partials.rider-select',['riderCenter'=>1,'riderLabel'=>'Collection rider'])->render();
+        $this->assertStringContainsString('value="'.$f['rider']->id.'"',$options);
+        $this->assertStringNotContainsString('Offline return candidate',$options);
+        $f['rider']->update(['is_online'=>false]);
+        $options=view('shared.returns.partials.rider-select',['riderCenter'=>1,'riderLabel'=>'Collection rider'])->render();
+        $this->assertStringContainsString('No online riders available',$options);
+        $this->assertStringContainsString('Ask a rider to go online',$options);
     }
 
     private function refundData(float $recovery = 60): array

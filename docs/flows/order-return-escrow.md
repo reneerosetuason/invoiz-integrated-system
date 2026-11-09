@@ -1,6 +1,6 @@
 # Orders, returns and earnings
 
-Updated November 5, 2026. Open `/return-center` while signed in to see the cases and actions allowed for your account. Seller approval remains in **Seller → Returns & Refunds**. Riders also have **Dashboard → Return collections** in the rider app.
+Updated November 9, 2026. Open `/return-center` while signed in to see the cases and actions allowed for your account. Sellers propose resolutions in **Seller → Returns & Refunds**. New cases use automatic Commission service rates and mutual buyer/seller agreement, with seller-deposited delivery escrow and a direct seller refund for new buyer-fault returns. Seller-fault remedies retain their existing separate-payment process. Riders also have **Home / Deliveries → Return jobs** (rider app 1.0.7 build 9), and inter-hub drivers have **Home → Return transfers** in the rider app. See the [current UI guide](return-refund-ui-guide.html).
 
 ## 1. Ordering
 
@@ -32,38 +32,44 @@ GCash cannot advance just because a receipt was uploaded. Admin must confirm the
 
 ```mermaid
 flowchart TD
-    A[Buyer requests item return with quantity, reason and evidence] --> B[Seller reviews]
-    B -->|Reject with explanation| C[Buyer may contact support for review]
-    B -->|Approve| D[Return queued at handling hub]
-    D --> E[Hub staff assigns return collection rider]
-    E --> F[Rider confirms collection from buyer; NO cash]
-    F --> G[Hub staff confirms physical receipt]
-    G --> H{Return transfer needed?}
-    H -->|Yes| I[Dispatch with manifest reference; receiving hub confirms arrival]
-    H -->|No| J[Hub dispatches back to seller with handover reference]
-    I --> J
-    J --> K[Seller confirms physical receipt and inspects]
-    K --> L[Restore stock ONLY if marked resellable]
-    L --> M[Refund awaiting admin payment]
-    M --> N{Enough reconciled funds after paid allocations and earned logistics fees?}
-    N -->|No| O[Recover shortfall into escrow; verify incoming transfer and proof]
-    O --> P[Admin transfers exact refund to buyer and records reference and private proof]
-    N -->|Yes| P
-    P --> Q[Refund SENT; case stays open]
-    Q --> R[Buyer checks own account and confirms receipt]
-    R --> S[Case closed; remaining eligible payouts can proceed]
+    A[Buyer requests return with evidence] --> B[Seller proposes responsibility and remedy]
+    B --> C[System calculates fees from Commission]
+    C --> D{Buyer accepts exact proposal?}
+    D -->|Suggest changes or decline| B
+    D -->|Yes| E{New buyer-fault return and refund?}
+    E -->|Yes| F[Deduct original seller-funded costs and new delivery]
+    F --> G[Seller deposits only new delivery fee; buyer saves receiving account]
+    G --> H[Receipt submission authorizes collection; seller schedules pickup]
+    H --> I[Buyer-side rider and hub]
+    I --> J[Online collection-company driver accepts return transfer]
+    J --> J2[Original seller hub recommended; active alternative allowed]
+    J2 --> J3[Driver records arrival; receiving hub confirms parcel intake]
+    J3 --> K[Online receiving-hub rider delivers; seller confirms physical receipt]
+    K --> L[Seller sends exact net refund directly to buyer with proof]
+    L --> M[Buyer checks actual receipt and confirms refund]
+    G --> N[Admin verifies actual delivery deposit]
+    N --> O[Manage Payments releases completed return shares]
+    O --> P[Recipients confirm in the same remittance list as orders]
+    E -->|No| Q[Existing seller-fault or other remedy funding and refund process]
 ```
+
+New buyer-fault example: PHP 4,599 item value - PHP 569.90 original seller-funded costs - PHP 160 new return = PHP 3,869.10 direct refund. Original buyer-paid shipping of PHP 50 is credited when calculating original cost recovery. Only PHP 160 is deposited into delivery escrow. Compensation is retained cost recovery, not another payout. No admin customer approval is needed; actual delivery cash must be verified before worker payouts.
+
+Destination selection recommends the original seller-side hub but excludes suspended hubs and companies. A different active receiving hub may be used. After funding, substitutions must preserve the agreed service budget and cannot reassign already earned/paid work. Driver arrival is separate from receiving-hub confirmation, and no cash is collected.
+
+Already accepted/paid contracts keep their recorded terms. The following older funding details apply to those cases and unchanged seller-fault/other remedies. See the current UI guide for the new buyer-fault buttons.
+
 
 Rules implemented:
 
 - Standard item returns use the configured return window, default 7 days, and the actual merchandise amount paid after voucher allocation. Original completed delivery is not automatically refunded through the standard item-return form.
-- An open return freezes unreleased order payouts. Admin dispute approval creates a pending payment review, rather than claiming a transfer happened.
+- An open return freezes unreleased order payouts. Buyer and seller agree to the exact resolution and automatic fee snapshot. Admin verifies transfers, rather than approving normal responsibility or choosing service fees.
 - Physical receipt, stock restoration, refund transfer and buyer confirmation are separate events. Damaged stock is not automatically put back on sale. A zero-cash-value return closes without inventing a transfer.
 - Repeated receipt/refund actions cannot restore stock or refund money again. Seller ownership is checked per parcel, including older shared orders.
 - Unpaid failed COD delivery creates no buyer cash refund. It follows the existing rider → hub → seller return path. Seller confirmation can cancel the order once all its parcels are returned or cancelled.
 - A cancelled prepaid order queues a refund review including unused shipping. It requires no second physical return or stock restoration. Payment-only adjustments do not consume purchased return quantities.
 - Completed logistics work remains payable. Merchandise refunds reduce the seller's remaining allocation and reverse the applicable merchandise commission. When those funds were already paid out, or are insufficient to cover earned logistics fees, admin must verify recovery funding first.
-- Reverse collection and manual return manifests do not automatically generate a second set of forward-delivery earnings. Any extra reverse-transport costs require a separately agreed operational arrangement.
+- Reverse transport uses its own verified return-fee payment and service allocations. Required riders and hubs earn only for independently confirmed work and must accept remittances before earnings are counted. No return fee is deducted from the held refund or seller proceeds.
 
 Support can review a rejected request through the existing Help/complaint process. A complaint decision alone does not transfer money. Receiving-account details and exceptional refund scope still need verification by the responsible staff.
 
@@ -107,3 +113,5 @@ For GCash, every role is paid from escrow with its own recorded transfer referen
 The implementation and validation notes are in [the return/refund review](../audits/2026-11-05/return-refund-workflow.md).
 
 Existing order #74 was queued for refund review because it was cancelled with a GCash receipt but had no refund case. No stock or money was changed by that repair. Existing order #73 is flagged because it reached confirmed status without a funded escrow deposit; further fulfillment and release are blocked pending seller/admin funding verification. One older closed return has no new payment-proof/confirmation history and is explicitly labelled a legacy record rather than treated as verified receipt.
+
+Orders and return-service payouts share **Manage Payments** and the recipient's regular **Remittances** list. Return rows are labelled by return number and service. Admin confirms the incoming escrow once and releases completed shares; each recipient confirms actual receipt. Return services no longer require their own receiving-account form or outgoing receipt upload. Accepted return pay is included in normal earnings totals/history. The underlying budget limits and source IDs prevent duplicate payouts or spending customer-refund funds on service fees.

@@ -19,6 +19,7 @@ class RiderEarningsController extends Controller
         $today = now()->startOfDay();
         $weekStart = now()->startOfWeek();
         $monthStart = now()->startOfMonth();
+        $returnEarnings=\App\Support\ReturnServiceEarnings::rider($rider);
 
         $daily = (float) RiderEarning::where('rider_id', $rider->id)
             ->whereDate('earned_on', $today->toDateString())
@@ -52,11 +53,20 @@ class RiderEarningsController extends Controller
             ->sortKeysDesc()
             ->values();
 
+        $days=$history->mapWithKeys(fn($day)=>[substr($day['date'],0,10)=>$day]);
+        foreach($returnEarnings as $earning){
+            if(!$earning->accepted_at || $earning->accepted_at->lt($today->copy()->subDays(30)))continue;
+            $date=$earning->accepted_at->toDateString();$day=$days->get($date,['date'=>$date,'amount'=>0,'deliveries'=>0,'breakdown'=>collect()]);
+            $day['amount']+=(float)$earning->amount_cents/100;$day['deliveries']++;
+            $day['breakdown']=collect($day['breakdown'])->push(['type'=>'return_service','amount'=>$earning->amount_cents/100,
+                'description'=>'Return #'.$earning->settlement->return_request_id.' · '.str_replace('_',' ',$earning->role),'delivery_id'=>null,'return_id'=>$earning->settlement->return_request_id]);
+            $days->put($date,$day);
+        }
         return response()->json([
-            'today' => $daily,
-            'this_week' => $weekly,
-            'this_month' => $monthly,
-            'history' => $history,
+            'today' => $daily+\App\Support\ReturnServiceEarnings::amount($returnEarnings,$today->toDateString()),
+            'this_week' => $weekly+\App\Support\ReturnServiceEarnings::amount($returnEarnings,$weekStart->toDateString()),
+            'this_month' => $monthly+\App\Support\ReturnServiceEarnings::amount($returnEarnings,$monthStart->toDateString()),
+            'history' => $days->sortKeysDesc()->values(),
         ]);
     }
 }

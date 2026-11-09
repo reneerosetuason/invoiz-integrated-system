@@ -2,13 +2,17 @@
 @section('title', 'Return payments & earnings')
 @section('content')
 <div class="return-center return-agreement">
-    <header class="review-head"><div><p class="review-eyebrow">Separate from original delivery payouts</p><h1>Return payments &amp; earnings</h1><p>Completed return work is paid from its verified budget. A sent remittance becomes confirmed earnings only after its recipient accepts receipt.</p></div></header>
+    <header class="review-head"><div><p class="review-eyebrow">Refund adjustments</p><h1>Escrow refunds &amp; adjustments</h1><p>Review unused-funds refunds and earlier contract adjustments here. Delivery-service pay is available in the regular remittance list.</p></div></header>
     <nav class="return-nav"><a class="review-action" href="{{ route('returns.center') }}">Return center</a><a class="review-action" href="{{ route('returns.guide') }}">Button-by-button guide</a></nav>
     @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
     @if($errors->any())<p class="review-warning" role="alert">{{ $errors->first() }}</p>@endif
     <article><h2>Your confirmed return service earnings</h2><strong class="return-total">{{ peso($ownTotal / 100) }}</strong><p>Only accepted service allocations count here. Pending transfers, seller cost recovery and refunds of unused budgets are excluded.</p></article>
     @forelse($rows as $line)
-    @php($canAccept = $line->canAccept($user))
+    @php
+        $canAccept = $line->canAccept($user);
+        $deliveryPaymentBlocked=$line->settlement->buyerFaultDirect() && (!$line->settlement->funded_at || !$line->receiving_destination
+            || \App\Services\ReturnSettlementService::poolCents($line->settlement) < $line->amount_cents + $line->settlement->allocations()->whereNull('fund_payment_id')->whereIn('status',['remitted','accepted'])->sum('amount_cents'));
+    @endphp
     <article>
         <div class="return-heading"><h2>{{ ucwords(str_replace('_', ' ', $line->role)) }}<small>Return #{{ $line->settlement->return_request_id }} · {{ $line->settlement->returnRequest->item?->product_name }}</small></h2><b>{{ peso($line->amount_cents / 100) }}</b></div>
         <p class="review-status">{{ ucwords(str_replace('_', ' ', $line->status)) }}@if($line->center_id) · Hub #{{ $line->center_id }}@endif</p>
@@ -30,7 +34,11 @@
                 @include('shared.returns.partials.confirm', ['confirmation'=>'I checked that these are the correct receiving details.'])<button type="submit">Verify remittance account</button>
             </form>
             @endif
-            @if($admin && $line->status === 'eligible')
+            @if($admin && $line->status === 'eligible' && $deliveryPaymentBlocked)
+                <p class="review-warning">Wait for the verified delivery deposit and the recipient's receiving details before sending this payment.</p>
+                <a class="review-action" href="{{ route('admin.return-delivery-escrow') }}">Check delivery escrow</a>
+            @endif
+            @if($admin && $line->status === 'eligible' && !$deliveryPaymentBlocked)
             <form method="post" action="{{ route('returns.payout', $line) }}" enctype="multipart/form-data">@csrf<input type="hidden" name="action" value="remit">
                 <p>Transfer exactly {{ peso($line->amount_cents / 100) }} to the verified recipient. Uploading proof records a sent payment, not recipient acceptance.</p>
                 <label>Outgoing bank / e-wallet transfer reference<input name="reference" minlength="4" maxlength="150" required></label>

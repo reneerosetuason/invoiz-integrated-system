@@ -15,6 +15,7 @@ import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/stagger_in.dart';
+import '../../widgets/return_jobs_summary.dart';
 import '../deliveries/deliveries_screen.dart';
 import '../deliveries/delivery_detail_screen.dart';
 import '../earnings/earnings_screen.dart';
@@ -134,6 +135,7 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 20),
+        ReturnJobsSummary(refreshKey: dashboard),
         const StaggerIn(
           index: 1,
           child: SectionHeader(title: "Today's Deliveries"),
@@ -313,10 +315,11 @@ class DashboardScreen extends StatelessWidget {
     ).push(MaterialPageRoute(builder: (_) => const DeliveriesScreen()));
   }
 
-  void _openEarnings(BuildContext context) {
-    Navigator.of(
+  Future<void> _openEarnings(BuildContext context) async {
+    await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const EarningsScreen()));
+    if (context.mounted) await context.read<RiderProvider>().loadDashboard();
   }
 
   void _goToFiltered(BuildContext context, String filter) {

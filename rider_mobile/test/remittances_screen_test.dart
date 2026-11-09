@@ -20,12 +20,12 @@ void main() {
       var accepted = false;
       final client = MockClient((request) async {
         Map<String, dynamic> body;
-        if (request.url.path.endsWith('/accept-payout')) {
+        if (request.url.path.endsWith('/remittances/incoming/order/7/accept')) {
           accepted = true;
           body = {'message': 'Accepted'};
-        } else if (request.url.path.endsWith('/earnings-payouts')) {
+        } else if (request.url.path.endsWith('/remittances/incoming')) {
           body = {
-            'payouts': [
+            'remittances': [
               {
                 'id': 7,
                 'amount': 50,
@@ -87,6 +87,12 @@ void main() {
     var sent = false;
 
     final client = MockClient((request) async {
+      if (request.url.path.endsWith('/remittances/incoming')) {
+        return http.Response(
+          '{"remittances":[],"pagination":{"last_page":1}}',
+          200,
+        );
+      }
       if (request.method == 'POST') {
         sent = true;
         return http.Response(
@@ -146,6 +152,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('To Remit'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Mark as Sent'), 250);
     expect(find.text('Mark as Sent'), findsOneWidget);
 
     await tester.tap(find.text('Mark as Sent'));

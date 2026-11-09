@@ -51,18 +51,24 @@ class PaymentController extends Controller
             ->when($status, fn ($q) => $status === 'refunded' ? $q->whereIn('status', ['refunded', 'partially_refunded']) : $q->where('status', $status))
             ->orderByDesc('created_at')->paginate(10, ['*'], 'tx_page');
 
-        $escrowRemittances = $hasEscrowTable
-            ? \App\Models\EscrowRemittance::with(['order', 'delivery', 'rider', 'logisticsCenter', 'recipientUser'])
-                ->where('recipient_role', '!=', \App\Models\EscrowRemittance::ROLE_ADMIN)
-                ->orderByDesc('created_at')
-                ->paginate(15, ['*'], 'remit_page')
-            : null;
+        $orderPayouts=$hasEscrowTable?\App\Models\EscrowRemittance::with(['order','delivery','logisticsCenter','hubTransfer'])
+            ->where('recipient_role','!=',\App\Models\EscrowRemittance::ROLE_ADMIN)->get():collect();
+        $returnPayouts=Schema::hasTable('return_allocations')?\App\Models\ReturnAllocation::whereIn('role',\App\Support\ReturnRemittanceInbox::ROLES)
+            ->with(['settlement.order','recipientUser','rider','driver','center'])->get():collect();
+        $combinedPayouts=\App\Support\RemittanceFeed::combine($orderPayouts,$returnPayouts);
+        $escrowRemittances=\App\Support\RemittanceFeed::paginate($combinedPayouts,15,'remit_page');
+        $returnFundingReceipts=Schema::hasTable('return_fund_payments')?\App\Models\ReturnFundPayment::with('settlement.returnRequest.item')
+            ->where('status','submitted')->latest('id')->paginate(10,['*'],'funding_page'):null;
+        $escrowAdjustments=Schema::hasTable('return_allocations')?\App\Models\ReturnAllocation::whereNotIn('role',\App\Support\ReturnRemittanceInbox::ROLES)
+            ->whereIn('status',['eligible','remitted'])->count():0;
 
         $escrowTotals = $hasEscrowTable ? [
             'held' => (float) \App\Models\EscrowRemittance::where('status', 'held_in_escrow')->sum('amount'),
             'pending' => (float) \App\Models\EscrowRemittance::where('status', 'pending_remittance')->sum('amount'),
             'remitted' => (float) \App\Models\EscrowRemittance::where('status', 'remitted')->sum('amount'),
         ] : ['held' => 0, 'pending' => 0, 'remitted' => 0];
+        foreach(['held'=>'held_in_escrow','pending'=>'pending_remittance','remitted'=>'remitted'] as $key=>$state)
+            $escrowTotals[$key]+=(float)$combinedPayouts->where('source','return')->where('status',$state)->sum('amount');
 
         $adminRemittanceQuery = \App\Models\EscrowRemittance::where('recipient_role', \App\Models\EscrowRemittance::ROLE_ADMIN)->where('amount', '>', 0);
         $adminRemittances = $hasEscrowTable ? (clone $adminRemittanceQuery)->with(['order.payment', 'delivery'])->latest('id')
@@ -76,6 +82,6 @@ class PaymentController extends Controller
         $pendingEscrowRemittances = $hasEscrowTable ? \App\Models\EscrowRemittance::where('status', 'pending_remittance')
             ->whereDoesntHave('order.payment', fn ($query) => $query->where('method', 'gcash'))->get() : collect();
 
-        return view('admin.payments', compact('stats', 'transactions', 'status', 'escrowRemittances', 'escrowTotals', 'adminRemittances', 'adminRemittanceTotals', 'pendingEscrowRemittances'));
+        return view('admin.payments', compact('stats', 'transactions', 'status', 'escrowRemittances', 'escrowTotals', 'adminRemittances', 'adminRemittanceTotals', 'pendingEscrowRemittances','returnFundingReceipts','escrowAdjustments'));
     }
 }

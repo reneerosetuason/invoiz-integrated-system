@@ -225,6 +225,10 @@ void main() {
     String? authorization;
     final api = ApiClient(
       client: MockClient((request) async {
+        if (request.url.path.endsWith('/courier/returns')) {
+          expect(request.headers['Authorization'], 'Bearer $_hubToken');
+          return jsonResponse({'returns': []});
+        }
         requested = request.url;
         authorization = request.headers['Authorization'];
         return jsonResponse(dashboardPayload());
@@ -248,7 +252,10 @@ void main() {
     expect(find.text('₱35.00'), findsOneWidget);
     expect(find.text('1 trips'), findsOneWidget);
     expect(find.text('Vehicle Allowance'), findsNothing);
-    expect(find.textContaining('Includes separate vehicle-use allowance'), findsNothing);
+    expect(
+      find.textContaining('Includes separate vehicle-use allowance'),
+      findsNothing,
+    );
     expect(find.text('View remittances'), findsOneWidget);
     expect(find.text('Assigned Transfers'), findsOneWidget);
     expect(find.text('Completed Transfers'), findsOneWidget);
@@ -317,32 +324,33 @@ void main() {
     await tearDownDashboard(tester);
   });
 
-  testWidgets('shows the error state instead of blanking on a drifted payload', (
-    tester,
-  ) async {
-    final api = ApiClient(
-      client: MockClient(
-        (_) async => jsonResponse({
-          'courier': ['unexpected', 'shape'],
-          'active_transfer': 'not-a-map',
-          'available_transfers': {'id': 1},
-          'completed_transfers': null,
-          'earnings_summary': [],
-          'recent_incidents': ['not-a-map'],
-        }),
-      ),
-    );
-    final auth = courierAuth(api);
+  testWidgets(
+    'shows the error state instead of blanking on a drifted payload',
+    (tester) async {
+      final api = ApiClient(
+        client: MockClient(
+          (_) async => jsonResponse({
+            'courier': ['unexpected', 'shape'],
+            'active_transfer': 'not-a-map',
+            'available_transfers': {'id': 1},
+            'completed_transfers': null,
+            'earnings_summary': [],
+            'recent_incidents': ['not-a-map'],
+          }),
+        ),
+      );
+      final auth = courierAuth(api);
 
-    await pumpDashboard(tester, api, auth);
+      await pumpDashboard(tester, api, auth);
 
-    expect(tester.takeException(), isNull);
-    expect(find.text('Could not load transfer jobs.'), findsOneWidget);
-    expect(find.textContaining('driver profile'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(find.text('Could not load transfer jobs.'), findsOneWidget);
+      expect(find.textContaining('driver profile'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
 
-    await tearDownDashboard(tester);
-  });
+      await tearDownDashboard(tester);
+    },
+  );
 
   testWidgets('renders tolerated types without throwing', (tester) async {
     final api = ApiClient(
@@ -433,6 +441,9 @@ void main() {
     final statusPatches = <String>[];
     final api = ApiClient(
       client: MockClient((request) async {
+        if (request.url.path.endsWith('/courier/returns')) {
+          return jsonResponse({'returns': []});
+        }
         if (request.url.path.endsWith('/courier/status')) {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           statusPatches.add(body['status'] as String);
@@ -500,9 +511,13 @@ void main() {
     var dashboardRequests = 0;
     final api = ApiClient(
       client: MockClient((request) async {
+        if (request.url.path.endsWith('/courier/returns')) {
+          return jsonResponse({'returns': []});
+        }
         if (request.url.path.endsWith('/courier/status')) {
           return jsonResponse({
-            'message': 'Your assigned vehicle is unavailable or missing capacity.',
+            'message':
+                'Your assigned vehicle is unavailable or missing capacity.',
           }, 422);
         }
         dashboardRequests++;
@@ -524,10 +539,7 @@ void main() {
     }
 
     expect(tester.takeException(), isNull);
-    expect(
-      find.textContaining('Could not change status:'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Could not change status:'), findsOneWidget);
     expect(
       find.textContaining('assigned vehicle is unavailable'),
       findsOneWidget,

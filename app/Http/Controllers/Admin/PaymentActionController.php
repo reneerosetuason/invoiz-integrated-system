@@ -90,11 +90,11 @@ class PaymentActionController extends Controller
                     || ($remittance->recipient_role === EscrowRemittance::ROLE_INTER_HUB_DRIVER && ! $remittance->hub_transport_driver_id && ! $remittance->rider_id)) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Assign the recipient before releasing this allocation.']);
                 }
-                $releasedTotal = (float) EscrowRemittance::where('order_id', $order->id)->whereIn('status', ['remitted', 'accepted'])->sum('amount');
-                $refunds = (float) (Payments::transactionFor($order)?->refunded_amount ?? 0);
-                $recovered = \Illuminate\Support\Facades\Schema::hasTable('return_workflows')
-                    ? (float) \App\Models\ReturnWorkflow::whereHas('returnRequest', fn ($q) => $q->where('order_id', $order->id))->sum('recovery_amount') : 0;
-                if (round($releasedTotal + $refunds + (float) $remittance->amount, 2) > round((float) $order->total_amount + $recovered, 2)) {
+                $funding = \App\Services\ReturnWorkflowService::fundingSummary($order, 0);
+                $logisticsAllocation = ! in_array($remittance->recipient_role, ['seller', 'admin'], true)
+                    ? (float) $remittance->amount : 0.0;
+                if ($funding['funded'] <= 0 || $funding['shortfall'] > 0
+                    || round((float) $remittance->amount, 2) > round($funding['available'] + $logisticsAllocation, 2)) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'This release exceeds the confirmed escrow balance. Review allocation funding.']);
                 }
             }

@@ -27,6 +27,8 @@ Route::post('/login', [AuthController::class, 'login'])
     ->middleware('throttle:10,1');
 Route::post('/courier/login', [HubCourierController::class, 'login'])->middleware('throttle:10,1');
 Route::middleware('auth:sanctum')->prefix('courier')->group(function () {
+    Route::get('/returns',[\App\Http\Controllers\ReturnTransportController::class,'index']);
+    Route::post('/returns/{returnRequest}',[\App\Http\Controllers\ReturnTransportController::class,'update']);
     Route::get('/profile', [HubCourierController::class, 'profile']);
     Route::patch('/profile', [HubCourierController::class, 'updateProfile']);
     Route::post('/profile/photo', [HubCourierController::class, 'updatePhoto']);

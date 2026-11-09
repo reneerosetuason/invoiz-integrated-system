@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/network/api_exception.dart';
+import '../../core/network/api_client.dart';
 import '../../models/hub_courier.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/hub_courier_service.dart';
 import '../../widgets/receipt_confirmation.dart';
-import 'return_remittances_screen.dart';
+import '../../widgets/payout_account_button.dart';
 
 class HubCourierRemittancesScreen extends StatefulWidget {
-  const HubCourierRemittancesScreen({super.key});
+  const HubCourierRemittancesScreen({
+    super.key,
+    this.title = 'Interhub remittances',
+    this.api,
+  });
+  final String title;
+  final ApiClient? api;
 
   @override
   State<HubCourierRemittancesScreen> createState() =>
@@ -17,24 +24,39 @@ class HubCourierRemittancesScreen extends StatefulWidget {
 }
 
 class _HubCourierRemittancesScreenState
-    extends State<HubCourierRemittancesScreen> {
+    extends State<HubCourierRemittancesScreen>
+    with WidgetsBindingObserver {
   late Future<Map<String, dynamic>> _result;
   int _page = 1;
-  int? _accepting;
+  String? _accepting;
 
   HubCourierService get _service =>
-      HubCourierService(context.read<AuthProvider>().api);
+      HubCourierService(widget.api ?? context.read<AuthProvider>().api);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _result = _service.remittances();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reload();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _reload({int? page}) async {
     if (page != null) _page = page;
     final future = _service.remittances(page: _page);
-    setState(() => _result = future);
+    setState(() {
+      _result = future;
+    });
     try {
       await future;
     } catch (_) {
@@ -55,9 +77,12 @@ class _HubCourierRemittancesScreenState
       confirmLabel: 'Confirm receipt',
     );
     if (confirmed != true || !mounted) return;
-    setState(() => _accepting = id);
+    setState(() => _accepting = '${payout['source'] ?? 'order'}-$id');
     try {
-      await _service.acceptRemittance(id);
+      await _service.acceptRemittance(
+        id,
+        source: payout['source'] as String? ?? 'order',
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Payment receipt confirmed.')),
@@ -82,16 +107,8 @@ class _HubCourierRemittancesScreenState
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Interhub remittances'),
-      actions: [
-        IconButton(
-          tooltip: 'Return payments & earnings',
-          icon: const Icon(Icons.assignment_return_outlined),
-          onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ReturnRemittancesScreen()),
-          ),
-        ),
-      ],
+      title: Text(widget.title),
+      actions: [PayoutAccountButton(api: _service.api)],
     ),
     body: FutureBuilder<Map<String, dynamic>>(
       future: _result,
@@ -129,7 +146,7 @@ class _HubCourierRemittancesScreenState
             children: [
               const Text(
                 'Admin releases your remittance first. Confirm receipt after the money reaches your account. '
-                'Trip earnings appear after all remittances for that trip are accepted.',
+                'Order and return-delivery payments use this same list.',
               ),
               const SizedBox(height: 16),
               if (payouts.isEmpty)
@@ -149,7 +166,7 @@ class _HubCourierRemittancesScreenState
                   'remitted' => 'Ready to confirm receipt',
                   'pending_remittance' => 'Awaiting admin transfer',
                   'voided' => 'Voided',
-                  _ => 'Held in escrow',
+                  _ => payout['hold_reason'] as String? ?? 'Held in escrow',
                 };
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -163,6 +180,10 @@ class _HubCourierRemittancesScreenState
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: 4),
+                        if (payout['source'] == 'return')
+                          Text(
+                            'Return #${payout['return_id']} · ${payout['role_label'] ?? 'Return service'}',
+                          ),
                         Text(
                           label,
                           style: const TextStyle(fontWeight: FontWeight.w600),
@@ -173,7 +194,7 @@ class _HubCourierRemittancesScreenState
                           Text('Parcel: ${payout['tracking_number']}'),
                         if (payout['bank_reference'] != null)
                           Text(
-                            'Transfer reference: ${payout['bank_reference']}',
+                            'Transfer / release reference: ${payout['bank_reference']}',
                           ),
                         if (status == 'remitted') ...[
                           const SizedBox(height: 12),
@@ -184,7 +205,8 @@ class _HubCourierRemittancesScreenState
                                   ? null
                                   : () => _accept(payout),
                               child: Text(
-                                _accepting == id
+                                _accepting ==
+                                        '${payout['source'] ?? 'order'}-$id'
                                     ? 'Confirming…'
                                     : 'Accept remittance',
                               ),

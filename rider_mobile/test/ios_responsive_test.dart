@@ -152,9 +152,9 @@ const _transfer = {
   'events': [],
 };
 Object _response(String path) {
-  if (path.endsWith('/rider/remittances/earnings-payouts')) {
+  if (path.endsWith('/remittances/incoming')) {
     return {
-      'payouts': [
+      'remittances': [
         {
           'id': 1,
           'amount': 123456.78,

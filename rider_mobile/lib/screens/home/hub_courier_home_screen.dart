@@ -8,6 +8,7 @@ import '../../core/theme/app_theme.dart';
 import '../../models/hub_courier.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/hub_courier_service.dart';
+import '../../widgets/return_jobs_summary.dart';
 import '../onboarding/rider_tutorial_screen.dart';
 import '../remittances/hub_courier_remittances_screen.dart';
 
@@ -186,6 +187,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
+        ReturnJobsSummary(courier: true, refreshKey: dashboard),
         // Driver & Status Card
         Card(
           child: Padding(
@@ -663,7 +665,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: typeCtrl.text,
+                initialValue: typeCtrl.text,
                 decoration: const InputDecoration(labelText: 'Incident Type'),
                 items: const [
                   DropdownMenuItem(
@@ -684,7 +686,7 @@ class _HubCourierHomeScreenState extends State<HubCourierHomeScreen> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: sevCtrl.text,
+                initialValue: sevCtrl.text,
                 decoration: const InputDecoration(labelText: 'Severity'),
                 items: const [
                   DropdownMenuItem(

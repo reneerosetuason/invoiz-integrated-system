@@ -1,16 +1,16 @@
 {
     "buyer":  {
-                  "version":  "1.0.2",
-                  "build":  3,
-                  "bytes":  54431981,
-                  "sha256":  "9aaf0fde632ca8fe782cf6fdceba372492d0f142d7a49d74d6027514b5a83f4a",
+                  "version":  "1.0.7",
+                  "build":  8,
+                  "bytes":  54513985,
+                  "sha256":  "c5c3df6b0531e941aeffe5a05e67c88dd3e62eb95a220395a80ca5486d50f12b",
                   "package":  "com.invoiz.invoiz"
               },
     "rider":  {
-                  "version":  "1.0.4",
-                  "build":  6,
-                  "bytes":  75368090,
-                  "sha256":  "9300011b47f0f3cee6ba825eed00041c36ba136fa3446d9baa51c9ef877a2bb6",
+                  "version":  "1.0.8",
+                  "build":  10,
+                  "bytes":  75384474,
+                  "sha256":  "d6158c60d3083abeab38ff7042f8a210ed4010cc387c07159dcacfdb0666b12a",
                   "package":  "com.invoize.invoize_rider"
               }
 }

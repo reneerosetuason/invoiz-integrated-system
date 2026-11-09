@@ -6,7 +6,7 @@ use App\Models\{ReturnRequest, Rider};
 use App\Services\ReturnWorkflowService;
 use App\Support\LogisticsAccess;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\{Storage,Schema};
 
 class ReturnWorkflowController extends Controller
 {
@@ -58,7 +58,7 @@ class ReturnWorkflowController extends Controller
     {
         $user = $request->user();
         abort_unless($user->isActive(), 403);
-        $query = ReturnRequest::with(['workflow', 'order', 'item', 'buyer']);
+        $query = ReturnRequest::with(['workflow.rider','workflow.center', 'order', 'item', 'buyer']);
         if (! $user->isAdmin()) {
             $query->where(function ($q) use ($user) {
                 $q->where('buyer_id', $user->id)->orWhere('seller_id', $user->id);
@@ -97,12 +97,14 @@ class ReturnWorkflowController extends Controller
             'confirm_transfer' => 'exclude_unless:action,refund|required|accepted',
         ]);
         // Only the marketplace admin handles money and private transfer files.
-        if ($data['action'] === 'refund') { abort_unless($request->user()->isAdmin(), 403); }
+        $agreement=Schema::hasTable('return_settlements')?$returnRequest->settlement:null;
+        $sellerDirect=$agreement?->buyerFaultDirect() && (int)$request->user()->id===(int)$returnRequest->seller_id;
+        if ($data['action'] === 'refund') { abort_unless($agreement?->buyerFaultDirect() ? $sellerDirect : $request->user()->isAdmin(), 403); }
         $paths = [];
         try {
             foreach (['proof' => 'proof_path', 'recovery_proof' => 'recovery_proof_path'] as $field => $key) {
                 if ($request->hasFile($field)) {
-                    abort_unless(($request->user()->isAdmin() && $data['action'] === 'refund')
+                    abort_unless((($request->user()->isAdmin() || ($sellerDirect && $field==='proof')) && $data['action'] === 'refund')
                         || ($field === 'proof' && in_array($data['action'], ['pickup', 'deliver_seller']) && $request->user()->role === 'rider'), 403);
                     $data[$key] = $request->file($field)->store('refund-proofs', 'private');
                     $paths[] = $data[$key];
@@ -119,7 +121,8 @@ class ReturnWorkflowController extends Controller
 
     public function proof(Request $request, ReturnRequest $returnRequest)
     {
-        abort_unless($request->user()->isActive() && ($request->user()->isAdmin() || (int) $returnRequest->buyer_id === (int) $request->user()->id), 403);
+        abort_unless($request->user()->isActive() && ($request->user()->isAdmin() || (int) $returnRequest->buyer_id === (int) $request->user()->id
+            || (Schema::hasTable('return_settlements') && $returnRequest->settlement?->buyerFaultDirect() && (int)$returnRequest->seller_id===(int)$request->user()->id)), 403);
         $path = $returnRequest->workflow?->refund_proof_path;
         abort_unless($path && Storage::disk('private')->exists($path), 404);
         return Storage::disk('private')->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);

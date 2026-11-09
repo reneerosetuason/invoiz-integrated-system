@@ -98,6 +98,9 @@ class EscrowPayout {
     required this.orderNumber,
     required this.roleLabel,
     this.reference,
+    this.source = 'order',
+    this.returnId,
+    this.holdReason,
   });
   final int id;
   final double amount;
@@ -105,6 +108,9 @@ class EscrowPayout {
   final String orderNumber;
   final String roleLabel;
   final String? reference;
+  final String source;
+  final int? returnId;
+  final String? holdReason;
   bool get canAccept => status == 'remitted';
 
   factory EscrowPayout.fromJson(Map<String, dynamic> json) => EscrowPayout(
@@ -114,5 +120,8 @@ class EscrowPayout {
     orderNumber: json['order_number'] as String? ?? '',
     roleLabel: json['role_label'] as String? ?? 'Rider payout',
     reference: json['bank_reference'] as String?,
+    source: json['source'] as String? ?? 'order',
+    returnId: (json['return_id'] as num?)?.toInt(),
+    holdReason: json['hold_reason'] as String?,
   );
 }

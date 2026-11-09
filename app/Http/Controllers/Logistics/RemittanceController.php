@@ -25,13 +25,11 @@ class RemittanceController extends Controller
     {
         $request->validate(['status' => ['nullable', 'in:held_in_escrow,pending_remittance,remitted,accepted,voided']]);
         $base = $this->hubPayoutQuery($request->user());
-        $totals = [
-            'accepted' => (float) (clone $base)->where('status', 'accepted')->sum('amount'),
-            'remitted' => (float) (clone $base)->where('status', 'remitted')->sum('amount'),
-            'awaiting_release' => (float) (clone $base)->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount'),
-        ];
-        $payouts = (clone $base)->when($request->filled('status'), fn ($q) => $q->where('status', $request->input('status')))
-            ->with(['order', 'delivery', 'logisticsCenter'])->latest('id')->paginate(15)->withQueryString();
+        $all=\App\Support\RemittanceFeed::combine($base->with(['order','delivery','logisticsCenter','hubTransfer'])->get(),
+            \App\Support\RemittanceFeed::returns($request->user(),LogisticsAccess::isGlobal($request->user())));
+        $totals=\App\Support\RemittanceFeed::totals($all);
+        $filtered=$request->filled('status')?$all->where('status',$request->input('status'))->values():$all;
+        $payouts=\App\Support\RemittanceFeed::paginate($filtered);
 
         return view('logistics.remittances.hub-payouts', compact('payouts', 'totals'));
     }

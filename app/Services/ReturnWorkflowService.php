@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\{Order, ReturnRequest, ReturnWorkflow, Rider, EscrowRemittance};
+use App\Models\{Order, ReturnRequest, ReturnWorkflow, EscrowRemittance};
 use App\Support\{LogisticsAccess, Payments, Stock, EscrowEarnings};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -77,9 +77,7 @@ class ReturnWorkflowService
             } elseif ($action === 'assign') {
                 abort_unless($staff, 403);
                 self::require(in_array($stage, ['awaiting_collection', 'pickup_assigned'], true), 'This return is already in transit.');
-                $rider = Rider::findOrFail($data['rider_id'] ?? 0);
-                self::require((int) $rider->center_id === (int) $flow->center_id && $rider->approved_at
-                    && $rider->is_verified && $rider->status !== 'inactive' && $rider->user?->isActive(), 'Choose an approved active rider from this hub.');
+                $rider = ReturnSettlementService::riderForAssignment((int)($data['rider_id']??0),(int)$flow->center_id);
                 $updates = ['rider_id' => $rider->id, 'stage' => 'pickup_assigned'];
             } elseif ($action === 'pickup') {
                 abort_unless($assigned, 403);
@@ -93,10 +91,22 @@ class ReturnWorkflowService
                 abort_unless($staff, 403);
                 self::require($stage === 'at_hub', 'Receive the parcel at this hub first.');
                 $target = (int) ($data['destination_center_id'] ?? 0);
+                $agreement=\Illuminate\Support\Facades\Schema::hasTable('return_settlements')?$return->settlement:null;
+                if($agreement && (int)$agreement->seller_center_id!==$target){
+                    ReturnRouting::retarget($return,$actor,$target);
+                    $agreement=$return->settlement;
+                }
+                $agreedDestination=$agreement && $agreement->collectionReady() && (int)$agreement->seller_center_id===$target
+                    && ReturnRouting::operational(\App\Models\LogisticsCenter::find($target));
+                $originalReverse=$agreement?->directAgreement() && $agreement->collectionReady() && $agreement->agreed()
+                    && (int)$agreement->collection_center_id===(int)$flow->center_id && (int)$agreement->seller_center_id===$target
+                    && ReturnFeeService::originalReverseRoute($return,(int)$flow->center_id,$target);
                 self::require($target > 0 && $target !== (int) $flow->center_id && LogisticsAccess::canAccessCenter($actor, $target)
-                    || ($target > 0 && $target !== (int) $flow->center_id && self::sameCompany((int) $flow->center_id, $target)), 'Choose another hub in the same logistics company.');
+                    || ($target > 0 && $target !== (int) $flow->center_id && self::sameCompany((int) $flow->center_id, $target))
+                    || $originalReverse || $agreedDestination, 'Choose an active receiving hub for this return.');
                 self::require(! empty($data['reference']), 'Enter the return transport or manifest reference.');
                 $updates = ['stage' => 'in_transfer', 'destination_center_id' => $target, 'transport_reference' => $data['reference']];
+                if($agreement && !empty($data['driver_id']))$updates+=['driver_id'=>(int)$data['driver_id'],'driver_accepted_at'=>null,'driver_arrived_at'=>null];
             } elseif ($action === 'receive_transfer') {
                 abort_unless(LogisticsAccess::isCenterStaff($actor, (int) $flow->destination_center_id), 403);
                 self::require($stage === 'in_transfer', 'This parcel is not on a return transfer.');
@@ -106,7 +116,10 @@ class ReturnWorkflowService
                 self::require($stage === 'at_hub', 'Receive the returned parcel at the hub first.');
                 self::require(! empty($data['reference']), 'Enter the seller handover or transport reference.');
                 $updates = ['stage' => 'sent_to_seller', 'transport_reference' => $data['reference']];
-                if (ReturnSettlementService::ensure($return)) $updates['rider_id'] = $data['rider_id'] ?? null;
+                if (ReturnSettlementService::ensure($return)) {
+                    $rider=ReturnSettlementService::riderForAssignment((int)($data['rider_id']??0),(int)$flow->center_id);
+                    $updates['rider_id']=$rider->id;
+                }
             } elseif ($action === 'deliver_seller') {
                 abort_unless($assigned, 403);
                 self::require($stage === 'sent_to_seller' && ! empty($data['proof_path']), 'Record the seller-delivery handover photo.');
@@ -129,7 +142,9 @@ class ReturnWorkflowService
                     $updates['stage'] = 'completed_no_refund';
                 }
             } elseif ($action === 'refund') {
-                abort_unless($actor->isAdmin(), 403);
+                $agreement=ReturnSettlementService::ensure($return);
+                $sellerDirect=$agreement?->buyerFaultDirect();
+                abort_unless($sellerDirect ? $seller : $actor->isAdmin(), 403);
                 if ($agreement = ReturnSettlementService::ensure($return)) {
                     ReturnSettlementService::assertFunded($return);
                     self::require($agreement->resolution !== 'exchange', 'An exchange closes after the buyer receives the replacement, not through a cash refund.');
@@ -138,14 +153,16 @@ class ReturnWorkflowService
                     self::require((float) ($data['recovery_amount'] ?? 0) === 0.0, 'Submit and verify refund recovery through the agreement ledger before funding is unlocked.');
                     $data['reference'] = strtoupper(preg_replace('/\s+/', '', trim($data['reference'] ?? '')));
                     self::require(strlen($data['reference']) >= 4 && ! \App\Models\ReturnAllocation::where('reference', $data['reference'])->exists()
+                        && ! ReturnWorkflow::where('refund_reference',$data['reference'])->exists()
                         && ! \App\Models\EscrowRemittance::where('bank_reference', $data['reference'])->exists(), 'Use a unique actual outgoing refund reference.');
                 }
                 $waived = isset($agreement) && $agreement && ! $agreement->physicalReturn() && $return->status === 'approved' && $flow->stage === 'refund_pending';
                 self::require(($return->status === 'item_received' || $waived) && ! $flow->refund_sent_at, 'This refund is not awaiting payment.');
                 self::require(! empty($data['reference']) && ! empty($data['proof_path']), 'Record the actual transfer reference and proof before sending the refund.');
+                if($sellerDirect)self::require(\Illuminate\Support\Facades\Storage::disk('private')->exists($data['proof_path']),'Upload the actual direct-refund receipt before recording payment.');
                 $amount = (float) $return->refund_amount;
                 $tx = Payments::transactionFor($order);
-                $funding = self::fundingSummary($order, $amount);
+                $funding = $sellerDirect ? ['funded'=>$amount,'shortfall'=>0] : self::fundingSummary($order, $amount, isset($agreement) ? $agreement?->id : null);
                 $funded = $funding['funded'];
                 $shortfall = $funding['shortfall'];
                 self::require($funded > 0 || (GcashEscrowService::isGcash($order) && $order->payment?->proof_path
@@ -157,13 +174,20 @@ class ReturnWorkflowService
                 }
                 if ($amount > 0) {
                     self::require(round($amount + (float) ($tx?->refunded_amount ?? 0), 2) <= round((float) $order->total_amount, 2), 'This refund would exceed the buyer payment.');
-                    Payments::refund($order, $amount, 'Return #'.$return->id.' transfer '.$data['reference']);
+                    if(!$sellerDirect)Payments::refund($order, $amount, 'Return #'.$return->id.' transfer '.$data['reference']);
                 }
+                if (isset($agreement) && $agreement) $agreement->update(['refund_reserved_cents' => 0]);
                 $updates += ['stage' => 'refund_sent', 'refund_reference' => $data['reference'], 'refund_proof_path' => $data['proof_path'], 'refund_sent_at' => now()];
+                if($sellerDirect)$updates+=['refund_source'=>'seller_direct','refund_sender_user_id'=>$actor->id];
             } elseif ($action === 'confirm_refund') {
                 abort_unless($buyer, 403);
                 if ($flow->buyer_confirmed_at) { return; }
-                self::require($flow->refund_sent_at !== null, 'The admin has not recorded a refund payment yet.');
+                self::require($flow->refund_sent_at !== null, 'The refund sender has not recorded a payment yet.');
+                if($flow->refund_source==='seller_direct'){
+                    $tx=Payments::transactionFor($order);
+                    self::require(round((float)$return->refund_amount+(float)($tx?->refunded_amount??0),2)<=round((float)$order->total_amount,2),'This refund would exceed the buyer payment.');
+                    Payments::refund($order,(float)$return->refund_amount,'Buyer confirmed seller-direct refund; return #'.$return->id);
+                }
                 $updates = ['stage' => 'completed', 'buyer_confirmed_at' => now()];
                 $return->update(['status' => 'refunded', 'resolved_at' => now()]);
                 if (! $order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()) {
@@ -190,35 +214,74 @@ class ReturnWorkflowService
     }
 
     /** Read-only preview; the same calculation is repeated under the order lock at submission. */
-    public static function fundingSummary(Order $order, float $amount): array
+    public static function fundingSummary(Order $order, float $amount, ?int $excludeRefundSettlementId = null): array
     {
         $tx = Payments::transactionFor($order);
+        $externalRefunds=\Illuminate\Support\Facades\Schema::hasTable('return_settlements') && \Illuminate\Support\Facades\Schema::hasColumn('return_workflows','refund_source')?BuyerFaultReturnService::externalRefundTotal($order):0;
         // COD must first be reconciled; a delivered parcel alone is not proof of cash in escrow.
         $funded = GcashEscrowService::isGcash($order)
             ? (float) (\App\Models\GcashEscrowDeposit::where('order_id', $order->id)->where('status', 'funded')->whereNotNull('confirmed_at')->value('amount') ?? 0)
-            : (in_array($tx?->status, ['successful', 'partially_refunded'], true) ? (float) $tx->amount : 0);
+            : ((in_array($tx?->status, ['successful', 'partially_refunded'], true) || ($tx?->status==='refunded' && $externalRefunds>0)) ? (float) $tx->amount : 0);
         $released = (float) EscrowRemittance::where('order_id', $order->id)->whereIn('status', ['remitted', 'accepted'])
             ->where('settlement_mode', '!=', 'cod_retained')->sum('amount');
         // COD delivery fees were retained in cash and are unavailable for refunds too.
         if (! GcashEscrowService::isGcash($order)) {
             $released += (float) EscrowRemittance::where('order_id', $order->id)->where('settlement_mode', 'cod_retained')->whereIn('status', ['remitted', 'accepted'])->sum('amount');
         }
-        $previousRecovery = (float) ReturnWorkflow::whereHas('returnRequest', fn ($q) => $q->where('order_id', $order->id))->sum('recovery_amount');
+        $previousRecovery = \Illuminate\Support\Facades\Schema::hasTable('return_workflows') ? (float) ReturnWorkflow::whereHas('returnRequest', fn ($q) => $q->where('order_id', $order->id))->sum('recovery_amount') : 0;
         $returnReserves = 0;
         if (\Illuminate\Support\Facades\Schema::hasTable('return_settlements')) {
             $recoveryQuery = \App\Models\ReturnFundPayment::whereHas('settlement', fn ($q) => $q->where('order_id', $order->id))
                 ->where('purpose', 'refund_recovery')->where('status', 'verified');
             $previousRecovery += ((clone $recoveryQuery)->sum('amount_cents') - (clone $recoveryQuery)->sum('returned_cents')) / 100;
             $returnReserves = \App\Models\ReturnSettlement::where('order_id', $order->id)->sum('reserved_cents') / 100;
+            if (\Illuminate\Support\Facades\Schema::hasColumn('return_settlements', 'seller_reserved_cents')) {
+                $returnReserves += \App\Models\ReturnSettlement::where('order_id', $order->id)->sum('seller_reserved_cents') / 100;
+                $returnReserves += \App\Models\ReturnSettlement::where('order_id', $order->id)
+                    ->when($excludeRefundSettlementId, fn ($q) => $q->whereKeyNot($excludeRefundSettlementId))
+                    ->sum('refund_reserved_cents') / 100;
+            }
             $returnReserves += \App\Models\ReturnAllocation::whereHas('settlement', fn ($q) => $q->where('order_id', $order->id))
                 ->whereNotNull('fund_payment_id')->where('status', 'eligible')->sum('amount_cents') / 100;
         }
         $reservedLogistics = (float) EscrowRemittance::where('order_id', $order->id)
             ->whereNotIn('recipient_role', [EscrowRemittance::ROLE_SELLER, EscrowRemittance::ROLE_ADMIN])
             ->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount');
-        $shortfall = round(max(0, $amount + $released + $reservedLogistics + $returnReserves + (float) ($tx?->refunded_amount ?? 0) - $funded - $previousRecovery), 2);
-        $available = round(max(0, $funded + $previousRecovery - $released - $reservedLogistics - $returnReserves - (float) ($tx?->refunded_amount ?? 0)), 2);
-        return ['funded' => $funded, 'shortfall' => $shortfall, 'released' => $released, 'reserved_logistics' => $reservedLogistics, 'return_reserves' => $returnReserves, 'available' => $available];
+        $platformRefunds=max(0,(float)($tx?->refunded_amount??0)-$externalRefunds);
+        $shortfall = round(max(0, $amount + $released + $reservedLogistics + $returnReserves + $platformRefunds - $funded - $previousRecovery), 2);
+        $available = round(max(0, $funded + $previousRecovery - $released - $reservedLogistics - $returnReserves - $platformRefunds), 2);
+        // A multi-seller order is not a shared wallet: another store's held
+        // proceeds cannot fund this seller's refund or return service costs.
+        if ($excludeRefundSettlementId && ($case = ReturnRequest::whereHas('settlement', fn ($q) => $q->whereKey($excludeRefundSettlementId))->first())) {
+            $sellerId = (int) $case->seller_id;
+            $calc = EscrowEarnings::calculateForSeller($order, $sellerId);
+            $originalShare = $calc['gross_merch'] - $calc['merch_discount'] + $calc['buyer_shipping_paid'];
+            $sellerRows = EscrowRemittance::where('order_id', $order->id)->where('seller_id', $sellerId);
+            $ownLogistics = (clone $sellerRows)->whereNotIn('recipient_role', ['seller','admin'])->where('status','!=','voided')->sum('amount');
+            $ownReleased = (clone $sellerRows)->whereIn('recipient_role', ['seller','admin'])->whereIn('status',['remitted','accepted'])->sum('amount');
+            $ownRefunds = ReturnRequest::where('order_id',$order->id)->where('seller_id',$sellerId)
+                ->when(\Illuminate\Support\Facades\Schema::hasColumn('return_workflows','refund_source'),fn($q)=>$q->whereDoesntHave('workflow',fn($w)=>$w->where('refund_source','seller_direct')))
+                ->where(fn ($q) => $q->where('status','refunded')->orWhereHas('workflow',fn ($w) => $w->whereNotNull('refund_sent_at')))->sum('refund_amount');
+            $ownSettlements = \App\Models\ReturnSettlement::where('order_id',$order->id)->whereHas('returnRequest',fn ($q) => $q->where('seller_id',$sellerId));
+            $ownReserved = (clone $ownSettlements)->sum('reserved_cents') / 100;
+            if (\Illuminate\Support\Facades\Schema::hasColumn('return_settlements','seller_reserved_cents')) {
+                $ownReserved += (clone $ownSettlements)->sum('seller_reserved_cents') / 100;
+                $ownReserved += (clone $ownSettlements)->whereKeyNot($excludeRefundSettlementId)->sum('refund_reserved_cents') / 100;
+            }
+            $ownRecoveryQuery = \App\Models\ReturnFundPayment::whereHas('settlement.returnRequest',fn ($q) => $q->where('order_id',$order->id)->where('seller_id',$sellerId))
+                ->where('purpose','refund_recovery')->where('status','verified');
+            $ownRecovery = ((clone $ownRecoveryQuery)->sum('amount_cents') - (clone $ownRecoveryQuery)->sum('returned_cents')) / 100;
+            $ownRecovery += (float) ReturnWorkflow::whereHas('returnRequest',fn ($q) => $q->where('order_id',$order->id)->where('seller_id',$sellerId))->sum('recovery_amount');
+            $ownReserved += \App\Models\ReturnAllocation::whereHas('settlement.returnRequest',fn ($q) => $q->where('order_id',$order->id)->where('seller_id',$sellerId))
+                ->whereNotNull('fund_payment_id')->where('status','eligible')->sum('amount_cents') / 100;
+            $unusedRefunds = \App\Models\ReturnAllocation::whereHas('settlement',fn ($q) => $q->where('order_id',$order->id)->where('funding_method','deduct_refund')
+                ->whereHas('returnRequest',fn ($r) => $r->where('seller_id',$sellerId)))
+                ->where('role','unused_budget_refund')->whereIn('status',['remitted','accepted'])->sum('amount_cents') / 100;
+            $ownAvailable = round(max(0, $originalShare + $ownRecovery - $ownLogistics - $ownReleased - $ownRefunds - $ownReserved - $unusedRefunds), 2);
+            $available = min($available, $ownAvailable);
+            $shortfall = max($shortfall, round(max(0, $amount - $ownAvailable), 2));
+        }
+        return ['funded' => $funded, 'shortfall' => $shortfall, 'released' => $released, 'reserved_logistics' => $reservedLogistics, 'return_reserves' => $returnReserves, 'available' => $available,'seller_direct_refunds'=>$externalRefunds];
     }
 
     private static function sameCompany(int $origin, int $destination): bool

@@ -69,7 +69,11 @@ void main() {
       final api = ApiClient(
         client: MockClient((request) async {
           if (request.method == 'POST') {
-            expect(request.url.path, endsWith('/courier/remittances/9/accept'));
+            expect(
+              request.url.path,
+              endsWith('/remittances/incoming/order/9/accept'),
+            );
+            expect(jsonDecode(request.body)['confirm_received'], 1);
             posts++;
             accepted = true;
             return response({'message': 'Accepted'});
@@ -78,7 +82,10 @@ void main() {
         }),
       );
       await pumpScreen(tester, api);
-      expect(find.text('Transfer reference: BANK-123'), findsOneWidget);
+      expect(
+        find.text('Transfer / release reference: BANK-123'),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Accept remittance'));
       await tester.pumpAndSettle();
       expect(posts, 0);

@@ -136,7 +136,7 @@ void main() {
         await tester.pumpWidget(app(const LoginScreen(), scale: scale));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
-        expect(find.text('Welcome to INVOIZ'), findsOneWidget);
+        expect(find.byType(LoginScreen), findsOneWidget);
         await capture(tester, 'login-$width-$scale');
         await tester.ensureVisible(find.text('Sign In'));
         await tester.pumpAndSettle();

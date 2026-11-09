@@ -10,7 +10,7 @@ import '../../widgets/dashboard_card.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/receipt_confirmation.dart';
-import 'return_remittances_screen.dart';
+import '../../widgets/payout_account_button.dart';
 
 /// Cash-on-Delivery collections the rider must hand over to logistics.
 class RemittancesScreen extends StatefulWidget {
@@ -20,13 +20,28 @@ class RemittancesScreen extends StatefulWidget {
   State<RemittancesScreen> createState() => _RemittancesScreenState();
 }
 
-class _RemittancesScreenState extends State<RemittancesScreen> {
+class _RemittancesScreenState extends State<RemittancesScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<RemittanceProvider>().load();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      context.read<RemittanceProvider>().load();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -37,17 +52,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Remittances'),
-        actions: [
-          IconButton(
-            tooltip: 'Return payments & earnings',
-            icon: const Icon(Icons.assignment_return_outlined),
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const ReturnRemittancesScreen(),
-              ),
-            ),
-          ),
-        ],
+        actions: [PayoutAccountButton(api: provider.api)],
       ),
       body: RefreshIndicator(
         onRefresh: provider.load,
@@ -77,7 +82,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
         ),
         const SizedBox(height: 8),
         const Text(
-          'For GCash orders, collect no cash and deduct no fee from the buyer. Your cut is credited to earnings only after admin sends it and you confirm receipt.',
+          'Order and return-delivery payments appear here. Confirm receipt after admin releases your share. Only confirmed payments count as earnings.',
         ),
         if (provider.payoutError != null)
           Padding(
@@ -97,7 +102,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${payout.orderNumber} · ${payout.roleLabel}',
+                    '${payout.source == 'return' ? 'Return #${payout.returnId}' : payout.orderNumber} · ${payout.roleLabel}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   Text(FormatUtils.peso(payout.amount)),
@@ -106,7 +111,7 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
                     'accepted' => 'Receipt accepted · credited to earnings',
                     'pending_remittance' => 'Awaiting admin transfer',
                     'voided' => 'Voided',
-                    _ => 'Held in escrow',
+                    _ => payout.holdReason ?? 'Held in escrow',
                   }),
                   if (payout.reference != null)
                     Text('Reference: ${payout.reference}'),
@@ -194,7 +199,10 @@ class _RemittancesScreenState extends State<RemittancesScreen> {
       confirmLabel: 'Yes, received',
     );
     if (confirmed != true || !context.mounted) return;
-    final accepted = await provider.acceptPayout(payout.id);
+    final accepted = await provider.acceptPayout(
+      payout.id,
+      source: payout.source,
+    );
     if (!context.mounted) return;
     if (accepted) {
       await Provider.of<EarningsProvider?>(
