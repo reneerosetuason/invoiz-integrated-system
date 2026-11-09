@@ -42,7 +42,7 @@ class LogisticsScanController extends Controller
     {
         $user = $request->user();
 
-        if ($user->isAdmin()) {
+        if (! LogisticsAccess::canProcessParcels($user)) {
             return $this->readOnlyOversight();
         }
 
@@ -84,7 +84,7 @@ class LogisticsScanController extends Controller
     {
         $user = $request->user();
 
-        if ($user->isAdmin()) {
+        if (! LogisticsAccess::canProcessParcels($user)) {
             return $this->readOnlyOversight();
         }
 
@@ -267,13 +267,9 @@ class LogisticsScanController extends Controller
 
     private function canScan(User $user): bool
     {
-        if ($user->isAdmin()) {
-            return false; // Same read-only oversight as the web counter.
-        }
-
-        $centerId = (int) (LogisticsAccess::centerId($user) ?? 0);
-
-        return LogisticsAccess::companyId($user) !== 0 || $centerId > 0;
+        // Counter scanning is a staff operation; management accounts have
+        // read-only oversight through the Logistics Web.
+        return LogisticsAccess::canProcessParcels($user);
     }
 
     /** @return array{0: int, 1: array} */
@@ -416,7 +412,7 @@ class LogisticsScanController extends Controller
         return response()->json([
             'ok' => false,
             'error' => 'read_only',
-            'message' => 'Platform administrators have read-only oversight and cannot perform counter scanning.',
+            'message' => 'Parcel scanning is reserved for logistics staff assigned to a hub. Management accounts have read-only access.',
         ], 403);
     }
 }
