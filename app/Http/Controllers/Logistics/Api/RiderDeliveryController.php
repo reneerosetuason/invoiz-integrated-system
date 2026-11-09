@@ -12,9 +12,11 @@ use App\Models\DeliveryStatusLog;
 use App\Models\Order;
 use App\Models\Rider;
 use App\Models\RiderEarning;
+use App\Models\User;
 use App\Services\FulfillmentWorkflow;
 use App\Services\ShipmentExceptionService;
 use App\Support\Cod;
+use App\Support\DeliveryPrivacy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -868,10 +870,18 @@ class RiderDeliveryController extends Controller
         return ucwords(str_replace('_', ' ', $status));
     }
 
-    public function detailPayload(Delivery $delivery): array
+    public function detailPayload(Delivery $delivery, ?User $viewer = null): array
     {
         $controller = app(RiderController::class);
         $base = $controller->deliveryPayload($delivery);
+
+        // Rider tokens authenticate outside the logistics staff model, so the
+        // viewer's company is derived from the rider's persisted hub, never
+        // from client-supplied ids.
+        $viewer ??= request()->user();
+        if (! $viewer instanceof User) {
+            $viewer = null;
+        }
 
         // Chronological (oldest first) by actual record timestamps, so every
         // rider endpoint presents history in event order regardless of how
@@ -880,7 +890,7 @@ class RiderDeliveryController extends Controller
             ->sortBy([['created_at', 'asc'], ['id', 'asc']])
             ->map(fn ($log) => [
                 'status' => $log->status,
-                'notes' => $log->notes,
+                'notes' => DeliveryPrivacy::noteVisible($viewer, $delivery, $log) ? $log->notes : null,
                 'created_at' => $log->created_at?->toIso8601String(),
             ])->values();
 

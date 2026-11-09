@@ -10,6 +10,7 @@ use App\Models\Rider;
 use App\Models\ServiceArea;
 use App\Models\Transaction;
 use App\Models\User;
+use App\Support\DeliveryPrivacy;
 use App\Support\LogisticsAlerts;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -236,7 +237,12 @@ class DashboardController extends Controller
             ->select('delivery_status_logs.*')
             ->join('deliveries', 'deliveries.id', '=', 'delivery_status_logs.delivery_id')
             ->whereNull('deliveries.archived_at')
-            ->with(['delivery:id,tracking_number,recipient_name', 'changer:id,name']);
+            ->with([
+                // The origin columns let the activity feed resolve the route
+                // origin without loading the full delivery record.
+                'delivery:id,tracking_number,recipient_name,center_id,origin_center_id,received_at',
+                'changer:'.DeliveryPrivacy::ACTOR_COLUMNS,
+            ]);
 
         if ($staffCenterId !== null) {
             if ($staffCenterId === 0) {
@@ -250,14 +256,17 @@ class DashboardController extends Controller
             ->orderByDesc('delivery_status_logs.created_at')
             ->limit(8)
             ->get()
-            ->map(function ($log) {
+            ->map(function ($log) use ($user) {
+                $actorVisible = $log->delivery !== null
+                    && DeliveryPrivacy::actorVisible($user, $log->delivery, $log);
+
                 return [
                     'tracking' => $log->delivery?->tracking_number ?? '',
                     'recipient' => $log->delivery?->recipient_name ?? '',
                     'message' => $this->activityMessage($log->status),
                     'status' => $log->status,
                     'created_at' => $log->created_at,
-                    'by' => $log->changer?->name,
+                    'by' => $actorVisible ? $log->changer?->name : null,
                 ];
             });
 

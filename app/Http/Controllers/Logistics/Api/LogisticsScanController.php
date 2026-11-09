@@ -9,6 +9,7 @@ use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
 use App\Models\User;
 use App\Services\FulfillmentWorkflow;
+use App\Support\DeliveryPrivacy;
 use App\Support\LogisticsAccess;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -135,7 +136,7 @@ class LogisticsScanController extends Controller
                     'error' => 'transfer_in_progress',
                     'message' => 'This parcel remains in fleet-transfer custody until receiving is finalized.',
                     'delivery' => $this->deliveryPayload($fresh),
-                    'history' => $this->history($fresh),
+                    'history' => $this->history($fresh, $user),
                 ], 409);
             }
 
@@ -147,7 +148,7 @@ class LogisticsScanController extends Controller
                     'message' => 'Parcel was already scanned'
                         .($fresh->scanned_at ? ' on '.$fresh->scanned_at->format('M d, Y h:i A') : '').'.',
                     'delivery' => $this->deliveryPayload($fresh),
-                    'history' => $this->history($fresh),
+                    'history' => $this->history($fresh, $user),
                 ]);
             }
 
@@ -157,7 +158,7 @@ class LogisticsScanController extends Controller
                     'error' => 'receipt_unverified',
                     'message' => 'This parcel has no recorded pickup and hub handoff. Correct custody before scanning it.',
                     'delivery' => $this->deliveryPayload($fresh),
-                    'history' => $this->history($fresh),
+                    'history' => $this->history($fresh, $user),
                 ], 409);
             }
 
@@ -168,7 +169,7 @@ class LogisticsScanController extends Controller
                     'message' => 'Parcel must be received before scanning (current status: '
                         .str_replace('_', ' ', $fresh->parcel_status ?? 'pending_arrival').').',
                     'delivery' => $this->deliveryPayload($fresh),
-                    'history' => $this->history($fresh),
+                    'history' => $this->history($fresh, $user),
                 ], 422);
             }
 
@@ -196,7 +197,7 @@ class LogisticsScanController extends Controller
                 'message' => 'Parcel scanned successfully.',
                 'facility' => $facility,
                 'delivery' => $this->deliveryPayload($fresh),
-                'history' => $this->history($fresh),
+                'history' => $this->history($fresh, $user),
             ]);
         });
     }
@@ -280,7 +281,7 @@ class LogisticsScanController extends Controller
     {
         $facility = $this->scanFacility($user, $delivery);
         $deliveryPayload = $this->deliveryPayload($delivery);
-        $history = $this->history($delivery);
+        $history = $this->history($delivery, $user);
 
         if (FulfillmentWorkflow::hasActiveHubTransfer($delivery)) {
             return [409, [
@@ -392,19 +393,19 @@ class LogisticsScanController extends Controller
         ];
     }
 
-    private function history(Delivery $delivery): array
+    private function history(Delivery $delivery, User $viewer): array
     {
         return DeliveryStatusLog::query()
             ->where('delivery_id', $delivery->id)
-            ->with('changer:id,name')
+            ->with('changer:'.DeliveryPrivacy::ACTOR_COLUMNS)
             ->latest('id')
             ->limit(10)
             ->get()
             ->map(fn (DeliveryStatusLog $log) => [
                 'status' => $log->status,
-                'notes' => $log->notes,
+                'notes' => DeliveryPrivacy::noteVisible($viewer, $delivery, $log) ? $log->notes : null,
                 'location' => $log->location,
-                'actor' => $log->changer?->name,
+                'actor' => DeliveryPrivacy::actorVisible($viewer, $delivery, $log) ? $log->changer?->name : null,
                 'created_at' => $log->created_at?->toIso8601String(),
             ])
             ->all();

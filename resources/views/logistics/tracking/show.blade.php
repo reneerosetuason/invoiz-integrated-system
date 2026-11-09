@@ -308,7 +308,7 @@
                     </div>
                     <div>
                         <dt class="text-xs text-gray-400">Created By</dt>
-                        <dd class="text-sm font-medium text-gray-800 mt-0.5">{{ $delivery->creator?->name ?? 'System' }}</dd>
+                        <dd class="text-sm font-medium text-gray-800 mt-0.5">{{ $creatorNameVisible ? ($delivery->creator?->name ?? 'System') : '—' }}</dd>
                     </div>
                 </dl>
             </div>
@@ -368,10 +368,12 @@
                                     @if(in_array($log->status, $recordEventStatuses, true))<span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
                                     <span class="text-xs text-gray-400">{{ $log->created_at->format('M d, Y \a\t g:i A') }}</span>
                                 </div>
-                                @if ($log->notes)
+                                @if ($log->notes
+                                    && ! in_array((int) $log->id, $hiddenRiderAssignmentNoteIds, true)
+                                    && ($canViewOriginPersonnel || ! in_array($log->status, ['sorting_center_handoff', 'sorting_center_pickup'], true)))
                                     <p class="text-sm text-gray-600 mt-2">{{ $log->notes }}</p>
                                 @endif
-                                @if($log->changer)
+                                @if($log->changer && ! in_array((int) $log->changer->id, $hiddenStatusChangerIds, true))
                                     <p class="text-xs text-gray-400 mt-1">Changed by: {{ $log->changer->name }}</p>
                                 @endif
                                 </div>

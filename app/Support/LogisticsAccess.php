@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Delivery;
+use App\Models\HubTransfer;
 use App\Models\LogisticsCenter;
 use App\Models\Rider;
 use App\Models\User;
@@ -240,6 +241,64 @@ final class LogisticsAccess
             ->value('logistics_company_id') ?? 0);
 
         return $deliveryCompanyId > 0 && $deliveryCompanyId === $companyId;
+    }
+
+    /**
+     * Origin-private transfer detail (assigned fleet, transport driver,
+     * origin-authored event notes and actor names) belongs to the company
+     * that owns the origin hub. Global oversight sees every company.
+     */
+    public static function canViewOriginPrivate(?User $user, ?HubTransfer $transfer): bool
+    {
+        if (! $transfer) {
+            return false;
+        }
+
+        return self::canViewOriginPrivateAt($user, (int) ($transfer->origin_center_id ?? 0));
+    }
+
+    public static function canViewOriginPrivateAt(?User $user, ?int $originCenterId): bool
+    {
+        if (self::isGlobal($user)) {
+            return true;
+        }
+
+        $companyId = self::companyId($user);
+        $centerId = (int) ($originCenterId ?? 0);
+        if ($companyId === null || $companyId <= 0 || $centerId <= 0) {
+            return false;
+        }
+
+        $originCompanyId = (int) (LogisticsCenter::query()
+            ->whereKey($centerId)
+            ->value('logistics_company_id') ?? 0);
+
+        return $originCompanyId > 0 && $originCompanyId === $companyId;
+    }
+
+    /**
+     * A logistics employee's identity is company-internal. Accounts outside
+     * logistics (riders, buyers, sellers) and global oversight stay visible,
+     * as does a staff name from the viewer's own company.
+     */
+    public static function canViewLogisticsActor(?User $viewer, ?User $actor): bool
+    {
+        if (! $actor || self::isGlobal($actor) || ! $actor->isLogisticsStaff()) {
+            return true;
+        }
+
+        if (self::isGlobal($viewer)) {
+            return true;
+        }
+
+        $viewerCompanyId = self::companyId($viewer);
+        $actorCompanyId = self::companyId($actor);
+
+        return $viewerCompanyId !== null
+            && $viewerCompanyId > 0
+            && $actorCompanyId !== null
+            && $actorCompanyId > 0
+            && $actorCompanyId === $viewerCompanyId;
     }
 
     /**

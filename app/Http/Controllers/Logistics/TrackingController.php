@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Models\Delivery;
+use App\Support\DeliveryPrivacy;
 use App\Support\LogisticsAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -54,9 +55,18 @@ class TrackingController extends Controller
 
         $delivery = $query->first();
 
+        $timelinePrivacy = $delivery
+            ? DeliveryPrivacy::forTimeline($user, $delivery)
+            : ['canViewOriginPrivate' => false, 'hiddenAssignmentNoteIds' => [], 'hiddenChangerIds' => []];
+
         return view('logistics.tracking.show', [
             'delivery' => $delivery,
             'transitions' => config('logistics.transitions'),
+            'canViewOriginPersonnel' => $timelinePrivacy['canViewOriginPrivate'],
+            'hiddenStatusChangerIds' => $timelinePrivacy['hiddenChangerIds'],
+            'hiddenRiderAssignmentNoteIds' => $timelinePrivacy['hiddenAssignmentNoteIds'],
+            'creatorNameVisible' => $delivery !== null
+                && LogisticsAccess::canViewLogisticsActor($user, $delivery->creator),
         ]);
     }
 }

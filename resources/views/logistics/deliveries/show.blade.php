@@ -138,7 +138,7 @@
                 <p class="delivery-tracking">{{ $delivery->tracking_number }}</p>
                 <p class="text-sm text-gray-500 mt-2">
                     Created {{ $delivery->created_at->format('M d, Y h:i A') }}
-                    @if($delivery->creator) · by {{ $delivery->creator->name }}@endif
+                    @if($delivery->creator && $creatorNameVisible) · by {{ $delivery->creator->name }}@endif
                 </p>
             </div>
         </div>
@@ -269,7 +269,7 @@
                     <div><dt class="text-xs text-gray-500">Status</dt><dd class="text-sm font-medium text-gray-900">{{ ucwords(str_replace('_', ' ', $delivery->pickupRequest->status)) }}</dd></div>
                     <div><dt class="text-xs text-gray-500">Requested At</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->pickupRequest->requested_at?->format('M d, Y h:i A') ?? '—' }}</dd></div>
                     @if($delivery->pickupRequest->reviewed_at)
-                        <div><dt class="text-xs text-gray-500">Reviewed At</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->pickupRequest->reviewed_at->format('M d, Y h:i A') }}{{ $delivery->pickupRequest->reviewer ? ' by ' . $delivery->pickupRequest->reviewer->name : '' }}</dd></div>
+                        <div><dt class="text-xs text-gray-500">Reviewed At</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->pickupRequest->reviewed_at->format('M d, Y h:i A') }}@if($pickupReviewerNameVisible && $delivery->pickupRequest->reviewer) by {{ $delivery->pickupRequest->reviewer->name }}@endif</dd></div>
                     @endif
                     @if($delivery->pickupRequest->status === 'rejected' && $delivery->pickupRequest->rejection_reason)
                         <div><dt class="text-xs text-gray-500">Rejection Reason</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->pickupRequest->rejection_reason }}</dd></div>
@@ -312,7 +312,7 @@
                 <div><dt class="text-xs text-gray-500">Estimated Delivery</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->estimated_delivery_at ? $delivery->estimated_delivery_at->format('M d, Y h:i A') : '—' }}</dd></div>
                 <div><dt class="text-xs text-gray-500">Actual Pickup</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->picked_up_at ? $delivery->picked_up_at->format('M d, Y h:i A') : '—' }}</dd></div>
                 <div><dt class="text-xs text-gray-500">Actual Delivery</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->delivered_at ? $delivery->delivered_at->format('M d, Y h:i A') : '—' }}</dd></div>
-                <div><dt class="text-xs text-gray-500">Created By</dt><dd class="text-sm font-medium text-gray-900">{{ $delivery->creator?->name ?? '—' }}</dd></div>
+                <div><dt class="text-xs text-gray-500">Created By</dt><dd class="text-sm font-medium text-gray-900">{{ $creatorNameVisible ? ($delivery->creator?->name ?? '—') : '—' }}</dd></div>
             </dl>
         </div>
     </div>
@@ -397,7 +397,7 @@
                     $destHub = $delivery->destinationCenter;
                     $isInterHub = $delivery->isInterHubRoute();
                     $currentCenter = $delivery->logisticsCenter;
-                    $driver = $delivery->interHubRider;
+                    $driver = $canViewOriginPersonnel ? $delivery->interHubRider : null;
 
                     // Stage calculations
                     $stage1Done = $delivery->scanned_at || in_array($delivery->parcel_status, ['sorted', 'dispatched']) || ($delivery->center_id && $delivery->destination_center_id && (int)$delivery->center_id === (int)$delivery->destination_center_id);
@@ -453,7 +453,7 @@
                                 <span class="text-xs font-bold text-gray-900">2. Hub Transfer</span>
                             </div>
                             <p class="text-[11px] text-gray-600 mt-1 font-medium">
-                                Driver: {{ $driver?->name ?? 'Shared Hub Van' }}
+                                Driver: {{ $canViewOriginPersonnel ? ($driver?->name ?? 'Shared Hub Van') : 'Hub transport' }}
                             </p>
                             <p class="text-[10px] text-gray-500 mt-0.5">
                                 {{ $stage2Done ? 'Linehaul complete' : ($stage2Active ? 'In transit to Dest Hub' : 'Awaiting dispatch') }}
@@ -560,13 +560,13 @@
                 @if($delivery->sorting_center_handoff_at || $delivery->sorting_center_pickup_at || (in_array($delivery->parcel_status, ['received', 'scanned', 'sorted', 'dispatched']) && $delivery->logisticsCenter))
                     <div class="pt-3 border-t border-[#E8E6E0] flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-[#6E6E73]">
                         @if($delivery->logisticsCenter)<span><strong class="text-[#1B1B1E]">Handling Hub:</strong> {{ $delivery->logisticsCenter->name }}</span>@endif
-                        @if($delivery->sorting_center_handoff_at)<span><strong class="text-[#1B1B1E]">Handed to Hub:</strong> {{ $delivery->sorting_center_handoff_at->format('M d, Y h:i A') }}@if($delivery->sortingCenterHandoffRider) by {{ $delivery->sortingCenterHandoffRider->name }}@endif</span>@endif
+                        @if($delivery->sorting_center_handoff_at)<span><strong class="text-[#1B1B1E]">Handed to Hub:</strong> {{ $delivery->sorting_center_handoff_at->format('M d, Y h:i A') }}@if($canViewOriginPersonnel && $delivery->sortingCenterHandoffRider) by {{ $delivery->sortingCenterHandoffRider->name }}@endif</span>@endif
                         @if($delivery->received_at)<span><strong class="text-[#1B1B1E]">Received:</strong> {{ $delivery->received_at->format('M d, Y h:i A') }}</span>@endif
                         @if($delivery->scanned_at)<span><strong class="text-[#1B1B1E]">Scanned:</strong> {{ $delivery->scanned_at->format('M d, Y h:i A') }}</span>@endif
                         @if($delivery->destinationCenter)<span><strong class="text-[#1B1B1E]">Destination:</strong> {{ $delivery->destinationCenter->name }}</span>@endif
                         @if($delivery->serviceArea)<span><strong class="text-[#1B1B1E]">Service Area:</strong> {{ $delivery->serviceArea->name }}</span>@endif
                         @if($delivery->sorted_at)<span><strong class="text-[#1B1B1E]">Sorted:</strong> {{ $delivery->sorted_at->format('M d, Y h:i A') }}</span>@endif
-                        @if($delivery->sorting_center_pickup_at)<span><strong class="text-[#1B1B1E]">Picked from Hub:</strong> {{ $delivery->sorting_center_pickup_at->format('M d, Y h:i A') }}@if($delivery->sortingCenterPickupRider) by {{ $delivery->sortingCenterPickupRider->name }}@endif</span>@endif
+                        @if($delivery->sorting_center_pickup_at)<span><strong class="text-[#1B1B1E]">Picked from Hub:</strong> {{ $delivery->sorting_center_pickup_at->format('M d, Y h:i A') }}@if($canViewOriginPersonnel && $delivery->sortingCenterPickupRider) by {{ $delivery->sortingCenterPickupRider->name }}@endif</span>@endif
                         @if($delivery->dispatched_at)<span><strong class="text-[#1B1B1E]">Dispatched:</strong> {{ $delivery->dispatched_at->format('M d, Y h:i A') }}</span>@endif
                     </div>
                 @endif
@@ -680,10 +680,12 @@
                                         </span>
                                         <span class="text-xs text-gray-500">{{ $log->created_at->format('M d, Y · h:i A') }}</span>
                                     </div>
-                                    @if($log->notes)
+                                    @if($log->notes
+                                        && ! in_array((int) $log->id, $hiddenRiderAssignmentNoteIds, true)
+                                        && ($canViewOriginPersonnel || ! in_array($log->status, ['sorting_center_handoff', 'sorting_center_pickup'], true)))
                                         <p class="text-sm text-gray-600">{{ $log->notes }}</p>
                                     @endif
-                                    @if($log->changer)
+                                    @if($log->changer && ! in_array((int) $log->changer->id, $hiddenStatusChangerIds, true))
                                         <p class="text-xs text-gray-400 mt-1">Changed by: {{ $log->changer->name }}</p>
                                     @endif
                                     @if($log->location)
@@ -695,8 +697,13 @@
                             @php
                                 $event = $row['event'];
                                 $transfer = $row['entry']->transfer;
+                                $originPrivate = in_array((int) $transfer->id, $originPrivateTransferIds, true);
+                                $custodyEvent = in_array($event->event_type, ['parcel_received', 'parcel_missing'], true);
+                                $fleetEvent = in_array($event->event_type, ['truck_assigned', 'driver_assigned', 'truck_reassigned', 'driver_reassigned'], true);
+                                $showTransferActor = $originPrivate || $custodyEvent;
                                 $eventTitle = $transferEventTitles[$event->event_type] ?? \Illuminate\Support\Str::title(str_replace('_', ' ', $event->event_type));
                             @endphp
+                            @if($originPrivate || ! $fleetEvent)
                             <div class="relative pl-10">
                                 <div class="absolute left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white {{ $event->event_type === 'parcel_missing' ? 'bg-red-600' : ($event->event_type === 'parcel_received' ? 'bg-emerald-500' : 'bg-indigo-500') }} shadow"></div>
                                 <div class="bg-indigo-50/60 rounded-xl p-4 ring-1 ring-inset ring-indigo-100">
@@ -710,17 +717,20 @@
                                     <p class="text-xs text-gray-600">
                                         {{ $transfer->reference }} · {{ $transfer->origin?->name ?? 'Origin hub' }} &rarr; {{ $transfer->destination?->name ?? 'Destination hub' }}
                                     </p>
-                                    @if($event->notes)
+                                    @if($event->notes && $showTransferActor)
                                         <p class="text-sm text-gray-600 mt-1">{{ $event->notes }}</p>
                                     @endif
-                                    <p class="text-xs text-gray-400 mt-1">
-                                        {{ $event->actor_name ?: 'System (automatic)' }}
-                                        @if($event->previous_status || $event->new_status)
-                                            · {{ \App\Support\HubTransferProgress::transferLabel($event->previous_status ?? '') }} &rarr; {{ \App\Support\HubTransferProgress::transferLabel($event->new_status ?? '') }}
-                                        @endif
-                                    </p>
+                                    @if($showTransferActor || $event->previous_status || $event->new_status)
+                                        <p class="text-xs text-gray-400 mt-1">
+                                            @if($showTransferActor){{ $event->actor_name ?: 'System (automatic)' }}@endif
+                                            @if($event->previous_status || $event->new_status)
+                                                {{ $showTransferActor ? '· ' : '' }}{{ \App\Support\HubTransferProgress::transferLabel($event->previous_status ?? '') }} &rarr; {{ \App\Support\HubTransferProgress::transferLabel($event->new_status ?? '') }}
+                                            @endif
+                                        </p>
+                                    @endif
                                 </div>
                             </div>
+                            @endif
                         @endif
                     @endforeach
                 </div>
@@ -939,7 +949,7 @@
             <div class="flex flex-wrap items-center gap-4">
                 <p class="text-sm text-gray-500">
                     Archived {{ $delivery->archived_at?->format('M d, Y h:i A') }}
-                    @if($delivery->archiver) by {{ $delivery->archiver->name }}@endif
+                    @if($delivery->archiver && $archiverNameVisible) by {{ $delivery->archiver->name }}@endif
                     @if($delivery->archive_note) · “{{ $delivery->archive_note }}”@endif
                 </p>
                 <form action="{{ route('deliveries.restore', $delivery) }}" method="POST" x-data

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Logistics;
 
 use App\Models\Delivery;
+use App\Models\HubTransfer;
 use App\Services\FulfillmentWorkflow;
 use App\Models\DeliveryFailure;
 use App\Models\DeliveryStatusLog;
@@ -21,6 +22,7 @@ use App\Services\ReturnToSellerService;
 use App\Services\ShipmentExceptionService;
 use App\Support\Cod;
 use App\Support\CsvExport;
+use App\Support\DeliveryPrivacy;
 use App\Support\LogisticsAccess;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -443,6 +445,7 @@ class DeliveryController extends Controller
             'proofs.rider',
             'rider',
             'creator',
+            'archiver',
             'items',
             'logisticsCenter',
             'destinationCenter',
@@ -458,6 +461,28 @@ class DeliveryController extends Controller
             'hubTransferParcels.transfer.origin',
             'hubTransferParcels.transfer.destination',
         ]);
+
+        // Fleet assignment, transport drivers, sorting riders and
+        // origin-authored notes belong to the company that owns the route
+        // origin. A destination company receives the manifest, route, status
+        // and custody facts only; global oversight sees every company.
+        $viewer = Auth::user();
+        $timelinePrivacy = DeliveryPrivacy::forTimeline($viewer, $delivery);
+        $canViewOriginPersonnel = $timelinePrivacy['canViewOriginPrivate'];
+        $creatorNameVisible = LogisticsAccess::canViewLogisticsActor($viewer, $delivery->creator);
+        $pickupReviewerNameVisible = LogisticsAccess::canViewLogisticsActor($viewer, $delivery->pickupRequest?->reviewer);
+        $archiverNameVisible = LogisticsAccess::canViewLogisticsActor($viewer, $delivery->archiver);
+
+        $hiddenStatusChangerIds = $timelinePrivacy['hiddenChangerIds'];
+        $hiddenRiderAssignmentNoteIds = $timelinePrivacy['hiddenAssignmentNoteIds'];
+        $originPrivateTransferIds = $delivery->hubTransferParcels
+            ->pluck('transfer')
+            ->filter()
+            ->unique('id')
+            ->filter(fn (HubTransfer $transfer) => LogisticsAccess::canViewOriginPrivate($viewer, $transfer))
+            ->map(fn (HubTransfer $transfer) => (int) $transfer->id)
+            ->values()
+            ->all();
 
         // Read-only order-side context for the unified shipping waybill via Waybill helper.
         $wbContext = \App\Support\Waybill::context($delivery);
@@ -497,6 +522,13 @@ class DeliveryController extends Controller
             'transitions' => config('logistics.transitions'),
             'centers' => $centerOptions->get(),
             'serviceAreas' => $serviceAreaOptions->get(),
+            'canViewOriginPersonnel' => $canViewOriginPersonnel,
+            'originPrivateTransferIds' => $originPrivateTransferIds,
+            'creatorNameVisible' => $creatorNameVisible,
+            'pickupReviewerNameVisible' => $pickupReviewerNameVisible,
+            'archiverNameVisible' => $archiverNameVisible,
+            'hiddenStatusChangerIds' => $hiddenStatusChangerIds,
+            'hiddenRiderAssignmentNoteIds' => $hiddenRiderAssignmentNoteIds,
         ]);
     }
 
@@ -672,6 +704,10 @@ class DeliveryController extends Controller
         $validated['created_by'] = Auth::id();
         if ($this->isCenterScopedStaff()) {
             $validated['center_id'] = Auth::user()->center_id;
+            // The creating hub is this route's origin. Persist it now so a
+            // later transfer receipt (which moves center_id) cannot reassign
+            // origin-private visibility to the destination company.
+            $validated['origin_center_id'] = Auth::user()->center_id;
         }
 
         $delivery = DB::transaction(function () use ($validated) {
@@ -1528,7 +1564,16 @@ class DeliveryController extends Controller
                 FulfillmentWorkflow::receive($lockedDelivery, (int) Auth::id());
             } else {
                 abort_if($lockedDelivery->center_id && (int) $lockedDelivery->center_id !== (int) $validated['center_id'], 409, 'Receive this parcel at its assigned handling center.');
-                $lockedDelivery->update(['center_id' => $validated['center_id']]);
+                $updates = ['center_id' => $validated['center_id']];
+                if ($lockedDelivery->origin_center_id === null) {
+                    // First receipt fixes the route origin before any later leg
+                    // can move the parcel. The previous hub, or this receiving
+                    // hub for an unrouted parcel, is the origin.
+                    $updates['origin_center_id'] = $lockedDelivery->center_id !== null
+                        ? (int) $lockedDelivery->center_id
+                        : (int) $validated['center_id'];
+                }
+                $lockedDelivery->update($updates);
                 FulfillmentWorkflow::receive($lockedDelivery, (int) Auth::id());
             }
             PickupRequest::where('delivery_id', $lockedDelivery->id)->update(['center_id' => $validated['center_id']]);

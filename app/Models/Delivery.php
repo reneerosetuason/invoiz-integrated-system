@@ -408,10 +408,41 @@ class Delivery extends Model
         return $origin !== null && $this->destination_center_id && (int) $this->destination_center_id !== $origin;
     }
 
+    /**
+     * Hub the parcel started from, independent of where it currently sits.
+     *
+     * Receiving a transfer moves center_id to the destination hub, so the
+     * current hub only describes a route origin while the parcel has never
+     * moved. The persisted origin wins; legacy rows fall back to the oldest
+     * fleet-transfer leg, which records the hub the parcel actually left.
+     * When neither evidence exists the origin is unknown and stays null so
+     * origin-private data fails closed instead of leaking to the destination.
+     */
     public function routeOriginId(): ?int
     {
-        $id = $this->origin_center_id ?: $this->center_id;
-        return $id ? (int) $id : null;
+        if ($this->origin_center_id !== null && (int) $this->origin_center_id > 0) {
+            return (int) $this->origin_center_id;
+        }
+
+        if (! $this->exists) {
+            return $this->center_id !== null && (int) $this->center_id > 0 ? (int) $this->center_id : null;
+        }
+
+        $transferOrigins = HubTransferParcel::query()
+            ->join('hub_transfers', 'hub_transfers.id', '=', 'hub_transfer_parcels.hub_transfer_id')
+            ->where('hub_transfer_parcels.delivery_id', $this->getKey())
+            ->orderBy('hub_transfer_parcels.id');
+
+        $transferOrigin = (clone $transferOrigins)->value('hub_transfers.origin_center_id');
+        if ($transferOrigin !== null && (int) $transferOrigin > 0) {
+            return (int) $transferOrigin;
+        }
+
+        if ($transferOrigins->exists() || $this->received_at !== null) {
+            return null;
+        }
+
+        return $this->center_id !== null && (int) $this->center_id > 0 ? (int) $this->center_id : null;
     }
 
     public function scopeAtOrIncomingTo($query, int $centerId)
