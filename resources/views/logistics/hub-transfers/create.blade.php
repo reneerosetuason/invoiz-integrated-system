@@ -77,14 +77,14 @@
                             <label class="field-label">Next-Hop Destination Hub (this leg) <span class="text-red-500">*</span></label>
                             <select name="destination_center_id" id="destination-center-select" required class="select">
                                 <option value="">Select next-hop hub</option>
-                                @foreach($centers as $center)
+                                @foreach(($destinationCenters ?? $destinationHubs ?? $centers) as $center)
                                     @if(!$originCenterId || $originCenterId != $center->id)
                                         <option value="{{ $center->id }}" @selected(old('destination_center_id', $selectedDestinationId ?? null) == $center->id)>{{ $center->name }}</option>
                                     @endif
                                 @endforeach
                             </select>
                             <p class="text-[11px] text-[#6E6E73] mt-1">
-                                Where this leg unloads next. Any active hub in this company can be used, including an intermediate hub. This does not change the final destination of the parcels.
+                                Where this leg unloads next. Any active logistics hub in the network can be selected as destination or intermediate hub. This does not change the final destination of the parcels.
                             </p>
                         </div>
                         <div>

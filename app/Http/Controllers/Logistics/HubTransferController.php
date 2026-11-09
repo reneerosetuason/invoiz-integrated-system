@@ -91,6 +91,7 @@ class HubTransferController extends Controller
             'company' => $company,
             'transfers' => $transfers,
             'counts' => $counts,
+            'centers' => LogisticsCenter::where('is_active', true)->whereHas('company', fn ($q) => $q->where('status', 'active'))->orderBy('name')->get(),
             'global' => $global,
             'fleetVisibleTransferIds' => $fleetVisibleTransferIds,
         ]);
@@ -224,11 +225,18 @@ class HubTransferController extends Controller
             }
         }
 
+        $destinationCenters = LogisticsCenter::query()
+            ->where('is_active', true)
+            ->whereHas('company', fn ($q) => $q->where('status', 'active'))
+            ->orderBy('name')
+            ->get();
+
         return view('logistics.hub-transfers.create', [
             'company' => $company,
             'companies' => $companies,
             'global' => $global,
             'centers' => $company ? $this->centersFor($company) : collect(),
+            'destinationCenters' => $destinationCenters,
             'originCenterId' => $selectedOriginId,
             // Hub-scoped staff are locked to their own hub; network admins and
             // company-wide managers may originate a transfer from any hub.

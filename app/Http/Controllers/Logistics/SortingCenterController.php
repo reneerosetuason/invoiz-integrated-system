@@ -103,6 +103,15 @@ class SortingCenterController extends Controller
             $filterServiceAreas->where('logistics_center_id', $destinationId);
         }
 
+        $allCenters = LogisticsCenter::where('is_active', true)
+            ->whereHas('company', fn ($q) => $q->where('status', 'active'))
+            ->orderBy('name')
+            ->get();
+        $allServiceAreas = ServiceArea::where('is_active', true)
+            ->whereHas('logisticsCenter', fn ($q) => $q->where('is_active', true)->whereHas('company', fn ($c) => $c->where('status', 'active')))
+            ->orderBy('name')
+            ->get();
+
         return view('logistics.sorting-center.index', [
             'counts' => $counts,
             'deliveries' => $query->latest()->paginate(10)->withQueryString(),
@@ -116,6 +125,8 @@ class SortingCenterController extends Controller
             'serviceAreaId' => $context['serviceAreaId'],
             'centers' => $centers->get(),
             'serviceAreas' => $serviceAreas->get(),
+            'allCenters' => $allCenters,
+            'allServiceAreas' => $allServiceAreas,
             'filterServiceAreas' => $filterServiceAreas->get(),
             'staffCenterId' => $context['staffCenterId'],
         ]);
