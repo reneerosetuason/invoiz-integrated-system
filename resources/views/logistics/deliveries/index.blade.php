@@ -71,7 +71,7 @@
                 @csrf
                 <div>
                     <p class="text-sm font-bold text-[#1B1B1E]">Bulk Assign Selected Deliveries</p>
-                    <p class="text-xs text-[#6E6E73]">Select up to 25 deliveries below, then choose a rider.</p>
+                    <p class="text-xs text-[#6E6E73]">Select up to 25 deliveries below, then choose a rider — or auto-assign the recommended eligible rider to each one.</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     <select name="rider_id" aria-label="Rider for selected deliveries" required class="select !w-52">
@@ -81,6 +81,7 @@
                         @endforeach
                     </select>
                     <button type="submit" class="btn btn-primary">Assign Selected</button>
+                    <button type="submit" name="mode" value="auto" formnovalidate class="btn btn-outline" aria-label="Auto-assign the recommended rider to selected deliveries">Auto-assign Selected</button>
                     <span id="bulk-selected-count" aria-live="polite" class="text-xs font-semibold text-[#6E6E73]">0 selected</span>
                 </div>
             </form>

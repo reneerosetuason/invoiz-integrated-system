@@ -13,8 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
             boxes.forEach(box => { box.disabled = selected >= 25 && !box.checked; });
             selectAll.checked = boxes.length > 0 && selected === Math.min(boxes.length, 25);
             selectAll.indeterminate = selected > 0 && !selectAll.checked;
-            const submit = document.querySelector('#bulk-assign-form button[type=submit]');
-            if (submit) submit.disabled = selected === 0;
+            document.querySelectorAll('#bulk-assign-form button[type=submit]').forEach((submit) => {
+                submit.disabled = selected === 0;
+            });
         };
 
         selectAll.addEventListener('change', () => {

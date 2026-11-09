@@ -783,14 +783,19 @@ class DeliveryController extends Controller
 
     public function bulkAssignRider(Request $request): RedirectResponse|JsonResponse
     {
+        // "auto" picks the recommended eligible rider per delivery and reuses
+        // the same locked assignment core as the single auto-assign action.
+        $autoMode = $request->input('mode') === 'auto';
+
         $validated = $request->validate([
-            'rider_id' => 'required|integer|exists:riders,id',
+            'mode' => 'nullable|in:auto,manual',
+            'rider_id' => $autoMode ? 'nullable|integer|exists:riders,id' : 'required|integer|exists:riders,id',
             'delivery_ids' => 'required|array|min:1|max:25',
             'delivery_ids.*' => 'integer',
         ]);
 
         $ids = array_values(array_unique(array_map('intval', $validated['delivery_ids'])));
-        $riderId = (int) $validated['rider_id'];
+        $riderId = (int) ($validated['rider_id'] ?? 0);
 
         $deliveries = Delivery::query()->whereIn('id', $ids);
         $this->applyCompanyScope($deliveries);
@@ -814,7 +819,39 @@ class DeliveryController extends Controller
                 continue;
             }
 
-            $result = $this->assignRiderToDelivery($delivery, $riderId);
+            $targetRiderId = $riderId;
+
+            if ($autoMode) {
+                // Auto-assign fills unassigned parcels; it never silently moves
+                // a delivery that already has an active rider.
+                if ($delivery->rider_id && in_array($delivery->status, ['assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop'], true)) {
+                    $assigned++;
+                    $results[] = [
+                        'delivery_id' => $id,
+                        'tracking_number' => $delivery->tracking_number,
+                        'status' => 'already_assigned',
+                        'message' => 'Already assigned to '.($delivery->rider?->name ?? 'a rider').'.',
+                    ];
+                    continue;
+                }
+
+                $recommended = $this->riderEligibilityFor($delivery)->firstWhere('recommended', true);
+
+                if (!$recommended) {
+                    $failed++;
+                    $results[] = [
+                        'delivery_id' => $id,
+                        'tracking_number' => $delivery->tracking_number,
+                        'status' => 'failed',
+                        'message' => 'No eligible rider is available right now.',
+                    ];
+                    continue;
+                }
+
+                $targetRiderId = (int) $recommended['rider']->id;
+            }
+
+            $result = $this->assignRiderToDelivery($delivery, $targetRiderId);
 
             if (isset($result['error'])) {
                 $failed++;
@@ -856,15 +893,20 @@ class DeliveryController extends Controller
             ], $failed > 0 ? 207 : 200);
         }
 
-        $response = redirect()->back()
-            ->with('success', "{$assigned} ".($assigned === 1 ? 'delivery' : 'deliveries').' assigned.')
-            ->with('bulk_assignment_results', $results);
+        $response = redirect()->back()->with('bulk_assignment_results', $results);
 
-        if ($failed > 0) {
-            $response->with('error', "{$failed} ".($failed === 1 ? 'delivery' : 'deliveries').' could not be assigned.');
+        $assignedLabel = $assigned.' '.($assigned === 1 ? 'delivery' : 'deliveries');
+        $failedLabel = $failed.' '.($failed === 1 ? 'delivery' : 'deliveries');
+
+        if ($failed === 0) {
+            return $response->with('success', "{$assignedLabel} assigned.");
         }
 
-        return $response;
+        if ($assigned === 0) {
+            return $response->with('error', "{$failedLabel} could not be assigned.");
+        }
+
+        return $response->with('warning', "{$assignedLabel} assigned, {$failedLabel} could not be assigned.");
     }
 
     public function assignRider(Request $request, Delivery $delivery): RedirectResponse

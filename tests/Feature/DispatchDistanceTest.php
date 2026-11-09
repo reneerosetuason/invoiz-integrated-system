@@ -27,6 +27,15 @@ class DispatchDistanceTest extends TestCase
         ]);
     }
 
+    private function designatedLogisticsAdmin(): User
+    {
+        $admin = User::query()->find(User::GLOBAL_LOGISTICS_ADMIN_ID);
+
+        $this->assertNotNull($admin, 'The sandbox must contain the designated global Logistics Admin account.');
+
+        return $admin;
+    }
+
     private function rider(string $name): Rider
     {
         $email = strtolower(str_replace(' ', '.', $name)).'-'.bin2hex(random_bytes(4)).'@test.local';
@@ -267,6 +276,150 @@ class DispatchDistanceTest extends TestCase
             Rider::MAX_ACTIVE_DELIVERIES,
             $deliveries->filter(fn (Delivery $delivery) => $delivery->fresh()->rider_id === $rider->id)->count(),
         );
+    }
+
+    public function test_bulk_assignment_flashes_only_success_when_one_delivery_is_assigned(): void
+    {
+        $admin = $this->designatedLogisticsAdmin();
+        $rider = $this->rider('Single Success Rider');
+        $delivery = $this->delivery();
+
+        $this->actingAs($admin)
+            ->post(route('deliveries.bulk-assign'), [
+                'rider_id' => $rider->id,
+                'delivery_ids' => [$delivery->id],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', '1 delivery assigned.')
+            ->assertSessionMissing('error')
+            ->assertSessionMissing('warning');
+    }
+
+    public function test_bulk_assignment_flashes_only_failure_when_one_delivery_fails(): void
+    {
+        $admin = $this->designatedLogisticsAdmin();
+        $rider = $this->rider('Single Failure Rider');
+        $inTransit = $this->delivery(['status' => 'picked_up']);
+
+        $this->actingAs($admin)
+            ->post(route('deliveries.bulk-assign'), [
+                'rider_id' => $rider->id,
+                'delivery_ids' => [$inTransit->id],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error', '1 delivery could not be assigned.')
+            ->assertSessionMissing('success')
+            ->assertSessionMissing('warning');
+
+        $this->assertNull($inTransit->fresh()->rider_id);
+    }
+
+    public function test_bulk_assignment_flashes_one_success_for_multiple_deliveries(): void
+    {
+        $admin = $this->designatedLogisticsAdmin();
+        $rider = $this->rider('Multiple Success Rider');
+        $first = $this->delivery();
+        $second = $this->delivery();
+
+        $this->actingAs($admin)
+            ->post(route('deliveries.bulk-assign'), [
+                'rider_id' => $rider->id,
+                'delivery_ids' => [$first->id, $second->id],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success', '2 deliveries assigned.')
+            ->assertSessionMissing('error')
+            ->assertSessionMissing('warning');
+    }
+
+    public function test_bulk_assignment_flashes_one_summary_for_mixed_results(): void
+    {
+        $admin = $this->designatedLogisticsAdmin();
+        $rider = $this->rider('Mixed Flash Rider');
+        $assignable = $this->delivery();
+        $inTransit = $this->delivery(['status' => 'picked_up']);
+
+        $this->actingAs($admin)
+            ->post(route('deliveries.bulk-assign'), [
+                'rider_id' => $rider->id,
+                'delivery_ids' => [$assignable->id, $inTransit->id],
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('warning', '1 delivery assigned, 1 delivery could not be assigned.')
+            ->assertSessionMissing('success')
+            ->assertSessionMissing('error')
+            ->assertSessionHas('bulk_assignment_results', fn ($results) => count($results) === 2);
+
+        $this->assertSame($rider->id, $assignable->fresh()->rider_id);
+        $this->assertNull($inTransit->fresh()->rider_id);
+    }
+
+    public function test_bulk_auto_assignment_fills_unassigned_rows_and_skips_active_assignments(): void
+    {
+        $admin = $this->admin();
+        $near = $this->rider('Bulk Auto Near');
+        $far = $this->rider('Bulk Auto Far');
+
+        RiderLocation::create([
+            'rider_id' => $near->id,
+            'latitude' => 14.6005000,
+            'longitude' => 120.9842000,
+            'recorded_at' => now()->subMinute(),
+        ]);
+        RiderLocation::create([
+            'rider_id' => $far->id,
+            'latitude' => 14.9000000,
+            'longitude' => 121.3000000,
+            'recorded_at' => now()->subMinute(),
+        ]);
+
+        $first = $this->delivery();
+        $second = $this->delivery();
+        $already = $this->delivery(['rider_id' => $far->id, 'status' => 'assigned']);
+
+        $response = $this->actingAs($admin)->postJson(route('deliveries.bulk-assign'), [
+            'mode' => 'auto',
+            'delivery_ids' => [$first->id, $second->id, $already->id],
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('assigned', 3)
+            ->assertJsonPath('failed', 0)
+            ->assertJsonPath('results.2.status', 'already_assigned');
+
+        $this->assertSame($near->id, $first->fresh()->rider_id);
+        $this->assertSame($near->id, $second->fresh()->rider_id);
+        $this->assertSame($far->id, $already->fresh()->rider_id);
+        $this->assertSame('assigned', $already->fresh()->status);
+    }
+
+    public function test_bulk_auto_assignment_reports_rows_with_no_eligible_rider(): void
+    {
+        $admin = $this->admin();
+        $delivery = $this->delivery();
+
+        $response = $this->actingAs($admin)->postJson(route('deliveries.bulk-assign'), [
+            'mode' => 'auto',
+            'delivery_ids' => [$delivery->id],
+        ]);
+
+        $response->assertStatus(207)
+            ->assertJsonPath('assigned', 0)
+            ->assertJsonPath('failed', 1)
+            ->assertJsonPath('results.0.status', 'failed')
+            ->assertJsonPath('results.0.message', 'No eligible rider is available right now.');
+
+        $this->assertNull($delivery->fresh()->rider_id);
+    }
+
+    public function test_bulk_manual_assignment_still_requires_a_rider(): void
+    {
+        $admin = $this->admin();
+        $delivery = $this->delivery();
+
+        $this->actingAs($admin)->postJson(route('deliveries.bulk-assign'), [
+            'delivery_ids' => [$delivery->id],
+        ])->assertStatus(422)->assertJsonValidationErrors('rider_id');
     }
 
     public function test_a_delivery_can_be_reassigned_before_pickup_while_en_route(): void
