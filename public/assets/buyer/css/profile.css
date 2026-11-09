@@ -21,7 +21,7 @@
   }
   .profile-header h1 { margin-bottom: 16px; font-size: 28px; line-height: 1.1; letter-spacing: -.02em; }
   .profile-identity { display: flex; align-items: center; gap: 16px; min-width: 0; }
-  .profile-avatar {
+  .profile-identity .profile-avatar {
     display: grid;
     place-items: center;
     width: 72px;
@@ -34,7 +34,7 @@
     font-size: 18px;
     font-weight: 700;
   }
-  .profile-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+  .profile-identity .profile-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
   .profile-identity-copy { min-width: 0; }
   .profile-identity-name { margin: 0; color: var(--primary-dark, #0E4A57); font-family: 'Fraunces', Georgia, serif; font-size: 23px; font-weight: 560; line-height: 1.2; overflow-wrap: anywhere; }
   .profile-identity-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 7px; }
@@ -249,7 +249,7 @@
     .buyer-profile { padding: 22px 16px calc(112px + env(safe-area-inset-bottom)); }
     .profile-header h1 { margin-bottom: 14px; font-size: 24px; }
     .profile-identity { align-items: flex-start; gap: 12px; }
-    .profile-avatar { font-size: 16px; }
+    .profile-identity .profile-avatar { font-size: 16px; }
     .profile-identity-name { font-size: 21px; }
     .profile-index { gap: 20px; margin-top: 14px; }
     .profile-section { padding: 32px 0; }

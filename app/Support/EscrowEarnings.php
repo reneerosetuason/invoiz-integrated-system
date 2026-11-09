@@ -272,7 +272,7 @@ class EscrowEarnings
         }
     }
 
-    public static function calculateForSeller(Order $order, int $sellerId, ?Delivery $delivery = null, ?float $commissionRate = null): array
+    public static function calculateForSeller(Order $order, int $sellerId, ?Delivery $delivery = null, ?float $commissionRate = null, float $additionalMerchandiseRefund = 0.0): array
     {
         $order->loadMissing(['items', 'orderVouchers.voucher']);
         $rates = self::rates();
@@ -331,6 +331,10 @@ class EscrowEarnings
             $netMerch = round(max(0.0, $netMerch - (float) $refunds), 2);
         }
 
+        // Funding previews account for agreed refunds before a transfer is
+        // actually sent. This never changes the recorded sale/refund ledger.
+        $netMerch = round(max(0.0, $netMerch - $additionalMerchandiseRefund), 2);
+
         // Buyer shipping uses the same flat fee the checkout charges; the
         // last-mile rider rate happens to match it, but they stay separate so
         // either can be re-configured without breaking the other.
@@ -370,6 +374,13 @@ class EscrowEarnings
             - $adminCommission,
             2
         );
+        $returnFunding = 0.0;
+        if (Schema::hasColumn('return_settlements', 'seller_reserved_cents')) {
+            $returnFunding = \App\Models\ReturnSettlement::where('order_id', $order->id)
+                ->whereHas('returnRequest', fn ($q) => $q->where('seller_id', $sellerId))
+                ->sum('seller_reserved_cents') / 100;
+        }
+        $rawSellerRemaining = round($rawSellerRemaining - $returnFunding, 2);
         $sellerEarning = round(max(0.0, $rawSellerRemaining), 2);
         $sellerDeficit = $rawSellerRemaining < 0 ? round(abs($rawSellerRemaining), 2) : 0.0;
 
@@ -383,6 +394,7 @@ class EscrowEarnings
             'gross_merch' => $grossMerch,
             'merch_discount' => $merchDiscount,
             'net_merch' => $netMerch,
+            'merchandise_refunded' => round(max(0.0, $grossMerch - $merchDiscount - $netMerch), 2),
             'buyer_shipping_base' => $buyerShippingBase,
             'shipping_waived' => $shippingWaived,
             'buyer_shipping_paid' => $buyerShippingPaid,
@@ -399,6 +411,7 @@ class EscrowEarnings
             'commission_rate' => $commission['rate'],
             'admin_commission' => $adminCommission,
             'seller_earning' => $sellerEarning,
+            'return_funding' => round($returnFunding, 2),
             'seller_deficit' => $sellerDeficit,
             'cod_rider_retains' => $codRiderRetains,
             'cod_escrow_remittance' => $codEscrowRemittance,
@@ -430,9 +443,11 @@ class EscrowEarnings
         $shippingBase = round((float) ($calc['buyer_shipping_base'] ?? 0), 2);
         $absorbed = round((float) ($calc['merch_discount'] ?? 0) + (float) ($calc['shipping_waived'] ?? 0), 2);
 
-        $allocations = round($seller + $lastMile + $origin + $pickup + $interHub + $destination + $admin, 2);
+        $allocations = round($seller + $lastMile + $origin + $pickup + $interHub + $destination + $admin
+            + (float) ($calc['return_funding'] ?? 0), 2);
         $allocationDifference = round($buyerPaid + $deficit - $allocations, 2);
-        $voucherDifference = round($grossMerch + $shippingBase - ($buyerPaid + $absorbed), 2);
+        $voucherDifference = round($grossMerch + $shippingBase
+            - ($buyerPaid + $absorbed + (float) ($calc['merchandise_refunded'] ?? 0)), 2);
 
         return [
             'allocations_total' => $allocations,

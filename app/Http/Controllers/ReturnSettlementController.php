@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\{ReturnRequest, ReturnFundPayment, ReturnAllocation, User, HubTransportDriver, LogisticsCenter, Rider};
-use App\Services\{ReturnSettlementService, ReturnWorkflowService};
+use App\Services\{ReturnSettlementService, ReturnWorkflowService, ReturnFundingService};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB, Storage, Schema};
 
@@ -27,11 +27,14 @@ class ReturnSettlementController extends Controller
         $buyer = $user instanceof User && (int) $user->id === (int) $returnRequest->buyer_id;
         $seller = $user instanceof User && (int) $user->id === (int) $returnRequest->seller_id;
         $admin = $this->admin($user);
-        $destination = $buyer || $admin ? $agreement->refund_destination : null;
+        $destination = $buyer || ($admin && !$agreement->sellerDirectRefund()) || ($seller && $agreement->sellerDirectRefund() && $agreement->buyer_accepted_at && $agreement->seller_accepted_at) ? $agreement->refund_destination : null;
+        $refundReceipt=$agreement->keepItemDirect() && ($buyer||$seller)?\App\Services\KeepItemRefundService::receipt($returnRequest):null;
         $settings = Schema::hasTable('gcash_escrow_settings') ? DB::table('gcash_escrow_settings')->first() : null;
-        $prospective = $agreement->funding_method === 'deduct_refund' && ! $agreement->reserved_cents ? $agreement->budgetCents() : 0;
-        $funding = ReturnWorkflowService::fundingSummary($returnRequest->order, ($agreement->net_refund_cents + $prospective) / 100);
-        $budgetOutstanding = max(0, $agreement->budgetCents() - ReturnSettlementService::poolCents($agreement));
+        $fundingPlan = ReturnFundingService::preview($returnRequest, $agreement);
+        $funding = $fundingPlan['funding'];
+        $budgetOutstanding = $fundingPlan['budget_outstanding_cents'];
+        $lastIssue=collect($agreement->events??[])->where('action','dispute')->last();
+        $can_resolve_issue=$agreement->physicalDirectRefund() && $agreement->dispute_note && ($buyer||$seller) && (int)($lastIssue['actor_id']??0)===(int)$user->id;
         if ($request->expectsJson()) {
             $payload = $agreement->toArray();
             // Payment proofs, bank details and payer references are private.
@@ -40,11 +43,17 @@ class ReturnSettlementController extends Controller
                 'agreement' => $payload, 'progress' => $returnRequest->workflow, 'refund_destination' => $destination, 'funding' => $funding, 'budget_outstanding_cents' => $budgetOutstanding,
                 'receiving_account' => $settings ? ['account_name' => $settings->account_name, 'account_details' => $settings->account_details,
                     'qr_url' => $settings->qr_path ? asset('storage/'.$settings->qr_path) : null] : null,
-                'permissions' => compact('buyer', 'seller', 'admin')])->header('Cache-Control', 'private, no-store');
+                'funding_plan' => $fundingPlan, 'refund_receipt'=>$refundReceipt, 'permissions' => compact('buyer', 'seller', 'admin','can_resolve_issue')])->header('Cache-Control', 'private, no-store');
         }
         $layout = $this->layout($user);
         $centers = ($admin || ($user instanceof User && $user->isLogisticsStaff())) ? LogisticsCenter::where('is_active', true)->orderBy('name')->get() : collect();
-        return response()->view('shared.returns.agreement', compact('returnRequest', 'agreement', 'user', 'buyer', 'seller', 'admin', 'destination', 'settings', 'funding', 'budgetOutstanding', 'layout', 'centers'))
+        $feePreview=$agreement->fee_snapshot;$feeError=null;
+        if($agreement->directAgreement() && !$agreement->quoted_at){
+            try{$feePreview=\App\Services\ReturnFeeService::calculate($returnRequest,$agreement);}
+            catch(\Illuminate\Validation\ValidationException $e){$feeError=$e->validator?->errors()->first() ?? 'Select active return hubs in the proposal.';}
+        }
+        if($agreement->directAgreement() && $seller)$centers=\App\Services\ReturnRouting::options();
+        return response()->view($agreement->keepItemDirect()?'shared.returns.keep-item-agreement':($agreement->physicalDirectRefund()?'shared.returns.buyer-fault-agreement':($agreement->directAgreement()?'shared.returns.direct-agreement':'shared.returns.agreement')), compact('returnRequest', 'agreement', 'user', 'buyer', 'seller', 'admin', 'destination', 'settings', 'funding', 'budgetOutstanding', 'fundingPlan', 'layout', 'centers','feePreview','feeError','refundReceipt'))
             ->header('Cache-Control', 'private, no-store');
     }
 
@@ -63,20 +72,21 @@ class ReturnSettlementController extends Controller
             }
         }
         $data = $request->validate([
-            'action' => 'required|in:propose,quote,accept,decide,dispute,destination,unlock_destination,reserve,schedule,ready,pay,replacement_dispatch,replacement_received,close_unused,complete_no_cash',
+            'action' => 'required|in:propose,quote,accept,decide,resolve_issue,dispute,comment,decline,destination,unlock_destination,reserve,schedule,ready,pay,replacement_dispatch,replacement_received,close_unused,complete_no_cash',
             'version' => 'required|integer|min:1',
             'fault' => 'required_if:action,propose|in:seller,buyer,logistics',
-            'resolution' => 'required_if:action,propose|in:return_refund,refund_only,partial_refund,exchange',
-            'payer' => 'required_if:action,propose|in:seller,buyer,platform',
+            'resolution' => 'required_if:action,propose|in:return_refund,refund_only,partial_refund',
+            'payer' => 'nullable|in:seller,buyer,platform',
             'funding_method' => 'nullable|in:deposit,deduct_refund',
+            'funding_preference' => 'nullable|in:auto,deposit,deduct_refund',
             'merchandise_amount' => 'required_if:action,propose|numeric|min:0|max:99999999|decimal:0,2',
             'shipping_amount' => 'nullable|numeric|min:0|max:99999999|decimal:0,2',
             'compensation_amount' => 'nullable|numeric|min:0|max:99999999|decimal:0,2',
             'replacement_variant_id' => 'nullable|integer|min:1',
             'replacement_description' => 'nullable|string|min:5|max:500',
             'note' => 'nullable|string|max:1500',
-            'collection_center_id' => 'required_if:action,quote|integer|min:1',
-            'seller_center_id' => 'required_if:action,quote|integer|min:1',
+            'collection_center_id' => 'nullable|required_if:action,quote|integer|min:1',
+            'seller_center_id' => 'nullable|required_if:action,quote|integer|min:1',
             'allocations' => 'required_if:action,quote|array|max:7',
             'allocations.*.role' => 'required_with:allocations|string',
             'allocations.*.amount' => 'required_with:allocations|numeric|min:0|max:1000000|decimal:0,2',
@@ -90,6 +100,7 @@ class ReturnSettlementController extends Controller
             'proof' => 'required_if:action,pay,replacement_dispatch|file|mimes:jpg,jpeg,png,webp|max:5120',
             'rider_id' => 'nullable|integer|min:1',
             'confirm' => 'required|accepted',
+            'receipt_id' => 'nullable|integer|min:1', 'receipt_version'=>'nullable|integer|min:1',
         ]);
         $path = null;
         try {
@@ -103,7 +114,8 @@ class ReturnSettlementController extends Controller
             if ($path) Storage::disk('private')->delete($path);
             throw $error;
         }
-        return $request->expectsJson() ? response()->json(['message' => 'Return agreement updated.']) : back()->with('success', 'Return agreement updated. Review the current status below.');
+        $message=$data['action']==='pay'?'Receipt submitted. The payment is awaiting admin verification.':'Return agreement updated. Review the current status below.';
+        return $request->expectsJson() ? response()->json(['message' => $message]) : back()->with('success', $message);
     }
 
     public function review(Request $request, ReturnFundPayment $payment)
@@ -116,17 +128,30 @@ class ReturnSettlementController extends Controller
 
     public function remittances(Request $request)
     {
+        if(!$request->expectsJson() && !$request->boolean('refunds_only')){
+            $actor=$request->user();
+            if($actor instanceof User && !$actor->isAdmin() && !$actor->isLogisticsStaff() && $actor->role!=='rider'
+                && ReturnAllocation::whereNotIn('role',\App\Support\ReturnRemittanceInbox::ROLES)->get()->contains(fn($line)=>$line->canAccept($actor)))
+                return redirect()->route('returns.remittances',['refunds_only'=>1]);
+            return redirect()->route('remittances.incoming');
+        }
         $user = $request->user();
         abort_unless(($user instanceof User && $user->isActive()) || ($user instanceof HubTransportDriver && ! $user->isBlocked()), 403);
         $admin = $this->admin($user);
         $query = ReturnAllocation::with(['settlement.returnRequest.item']);
+        if($request->boolean('refunds_only'))$query->whereNotIn('role',\App\Support\ReturnRemittanceInbox::ROLES);
+        $filters=$request->validate(['return_id'=>'nullable|integer|min:1','delivery_only'=>'nullable|boolean','distributed_only'=>'nullable|boolean']);
+        if($request->boolean('distributed_only'))$query->whereIn('status',['remitted','accepted'])->whereIn('role',\App\Support\ReturnRemittanceInbox::ROLES);
+        if($filters['return_id']??null)$query->whereHas('settlement',fn($q)=>$q->where('return_request_id',$filters['return_id']));
+        if($request->boolean('delivery_only'))$query->whereIn('role',ReturnAllocation::DELIVERY_ROLES);
         if (! $admin) {
             $ids = ReturnAllocation::get()->filter(fn ($line) => $line->canAccept($user))->pluck('id');
             $query->whereIn('id', $ids);
         }
         $ownTotal = (clone $query)->where('status', 'accepted')->whereIn('role', ReturnAllocation::ROLES)->get()->filter(fn ($line) => $line->canAccept($user))->sum('amount_cents');
-        $rows = $query->latest('id')->paginate(12);
-        if ($request->expectsJson()) return response()->json(['accepted_earnings_cents' => $ownTotal, 'allocations' => $rows->through(function ($line) use ($user, $admin) {
+        $awaiting=(clone $query)->where('status','remitted')->get()->filter(fn($line)=>$line->canAccept($user))->sum('amount_cents');
+        $rows = $query->latest('id')->paginate(12)->withQueryString();
+        if ($request->expectsJson()) return response()->json(['accepted_earnings_cents' => $ownTotal, 'awaiting_confirmation_cents'=>$awaiting, 'allocations' => $rows->through(function ($line) use ($user, $admin) {
             return $line->toArray() + ['can_accept' => $line->canAccept($user),
                 'receiving_destination' => ($admin || $line->canAccept($user)) ? $line->receiving_destination : null];
         })])->header('Cache-Control', 'private, no-store');
@@ -134,20 +159,29 @@ class ReturnSettlementController extends Controller
         return response()->view('shared.returns.remittances', compact('rows', 'ownTotal', 'user', 'admin', 'layout'))->header('Cache-Control', 'private, no-store');
     }
 
+    public function deliveryEscrow(Request $request)
+    {
+        abort_unless($this->admin($request->user()),403);
+        return redirect('/admin/payments#escrow-remittances');
+    }
+
     public function payout(Request $request, ReturnAllocation $allocation)
     {
         abort_if($this->blockedDriver($request->user()), 403);
         $data = $request->validate([
-            'action' => 'required|in:destination,remit,accept', 'confirm' => 'required|accepted',
+            'action' => 'required|in:destination,remit,release,accept', 'confirm' => 'required|accepted',
             'provider' => 'required_if:action,destination|string|max:100', 'holder' => 'required_if:action,destination|string|max:150',
             'account' => 'required_if:action,destination|string|min:4|max:100',
             'reference' => 'required_if:action,remit|string|min:4|max:150',
             'proof' => 'required_if:action,remit|file|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
-        abort_unless($data['action'] === 'remit' ? $this->admin($request->user()) : $allocation->canAccept($request->user()), 403);
+        abort_unless(in_array($data['action'],['remit','release'],true) ? $this->admin($request->user()) : $allocation->canAccept($request->user()), 403);
         $path = null;
         try {
-            if ($request->hasFile('proof')) $data['proof_path'] = $path = $request->file('proof')->store('return-remittance-proofs', 'private');
+            if ($request->hasFile('proof')) {
+                abort_unless($this->admin($request->user()),403);
+                $data['proof_path'] = $path = $request->file('proof')->store('return-remittance-proofs', 'private');
+            }
             ReturnSettlementService::payout($allocation, $request->user(), $data['action'], $data);
         } catch (\Throwable $error) {
             if ($path) Storage::disk('private')->delete($path);
@@ -177,10 +211,11 @@ class ReturnSettlementController extends Controller
             abort_unless(ReturnSettlementService::canView($user, $record), 403);
             $index = $request->validate(['event'=>'required|integer|min:0'])['event'];
             $event = ($record->workflow?->events ?? [])[$index] ?? [];
-            abort_unless(in_array($event['action'] ?? '', ['pickup', 'deliver_seller'], true), 404);
+            abort_unless(in_array($event['action'] ?? '', ['pickup', 'deliver_seller','driver_arrived'], true), 404);
             $path = $event['proof_path'] ?? null;
         } else abort(404);
         abort_unless($path && Storage::disk('private')->exists($path), 404);
+        if($kind==='deposit' && $this->admin($user))ReturnSettlementService::viewPaymentReceipt($record,$user);
         return Storage::disk('private')->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }
 }

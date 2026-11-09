@@ -6,47 +6,15 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
+// Admin sign-in lives on the unified login (/login). Only the logout
+// endpoint remains here; it is used by the shared sidebar layout.
 class AdminAuthController extends Controller
 {
-    public function showLogin()
-    {
-        return view('admin.login');
-    }
-
-    public function login(Request $request)
-    {
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required|string',
-        ]);
-
-        if (Auth::attempt($credentials)) {
-            $user = Auth::user();
-            // Logistics accounts have their own dedicated login page.
-            if (in_array($user->role, ['logistics_admin', 'logistics_staff'], true)) {
-                Auth::logout();
-                return back()->withErrors(['email' => 'Logistics accounts must use the Logistics login page.']);
-            }
-            if (! $user->isActive()) {
-                Auth::logout();
-                return back()->withErrors(['email' => 'Your account is not active.']);
-            }
-            if (! $user->is_admin) {
-                Auth::logout();
-                return back()->withErrors(['email' => 'Not authorized as admin']);
-            }
-            $request->session()->regenerate();
-            return redirect()->intended('/admin/dashboard');
-        }
-
-        return back()->withErrors(['email' => 'Invalid credentials']);
-    }
-
     public function logout(Request $request)
     {
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        return redirect('/');
+        return redirect('/login');
     }
 }

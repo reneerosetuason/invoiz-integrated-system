@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../core/network/api_exception.dart';
+import '../core/network/api_client.dart';
 import '../models/remittance.dart';
 import '../services/remittance_service.dart';
 
@@ -8,6 +9,7 @@ class RemittanceProvider extends ChangeNotifier {
   RemittanceProvider(this._service);
 
   final RemittanceService _service;
+  ApiClient get api => _service.api;
 
   RemittancePage? _page;
   bool _loading = false;
@@ -51,13 +53,13 @@ class RemittanceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> acceptPayout(int id) async {
+  Future<bool> acceptPayout(int id, {String source = 'order'}) async {
     if (_actionBusy) return false;
     _actionBusy = true;
     payoutError = null;
     notifyListeners();
     try {
-      await _service.acceptPayout(id);
+      await _service.acceptPayout(id, source: source);
       await loadPayouts();
       return true;
     } on ApiException catch (e) {

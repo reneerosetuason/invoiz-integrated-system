@@ -134,8 +134,8 @@ class HubCourierController extends Controller
             'available_transfers' => $transfers->filter(fn ($t) => ! in_array($t->status, ['received', 'cancelled'], true))->map(fn ($t) => $this->transferPayload($t))->values(),
             'completed_transfers' => $completedTransfers->map(fn ($t) => $this->transferPayload($t))->values(),
             'earnings_summary' => [
-                'total_earnings' => (float) $earnings->sum('amount'),
-                'base_earnings' => (float) $earnings->sum('base_amount'),
+                'total_earnings' => (float) $earnings->sum('amount')+\App\Support\ReturnServiceEarnings::amount(\App\Support\ReturnServiceEarnings::driver($driver->id)),
+                'base_earnings' => (float) $earnings->sum('base_amount')+\App\Support\ReturnServiceEarnings::amount(\App\Support\ReturnServiceEarnings::driver($driver->id)),
                 'vehicle_allowance' => (float) $earnings->sum('vehicle_allowance'),
                 'completed_trips_count' => (clone $completedTrips)->count(),
             ],
@@ -159,7 +159,15 @@ class HubCourierController extends Controller
             ->where('hub_transport_driver_id', $driver->id)
             ->whereIn('recipient_role', $roles)
             ->latest()
-            ->paginate(20);
+            ->get();
+        $returnEarnings=\App\Support\ReturnServiceEarnings::driver($driver->id);
+        $returnTotal=\App\Support\ReturnServiceEarnings::amount($returnEarnings);
+        $entries=$earnings->map(fn($row)=>$row->toArray()+['source'=>'order'])->concat($returnEarnings->map(fn($row)=>[
+            'id'=>$row->id,'source'=>'return','return_id'=>$row->settlement->return_request_id,'amount'=>$row->amount_cents/100,
+            'base_amount'=>$row->amount_cents/100,'vehicle_allowance'=>0,'created_at'=>$row->accepted_at?->toIso8601String(),
+            'transfer'=>['reference'=>'Return #'.$row->settlement->return_request_id],
+        ]))->sortByDesc('created_at')->values();
+        $earningPage=\App\Support\RemittanceFeed::paginate($entries,20);
 
         $total = (float) \App\Models\HubTransferEarning::acceptedRemittances()->where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('amount');
         $base = (float) \App\Models\HubTransferEarning::acceptedRemittances()->where('hub_transport_driver_id', $driver->id)->whereIn('recipient_role', $roles)->sum('base_amount');
@@ -167,16 +175,16 @@ class HubCourierController extends Controller
 
         return response()->json([
             'summary' => [
-                'total_earnings' => $total,
-                'base_earnings' => $base,
+                'total_earnings' => $total+$returnTotal,
+                'base_earnings' => $base+$returnTotal,
                 'vehicle_allowance' => $allowance,
             ],
-            'earnings' => $earnings->items(),
+            'earnings' => $earningPage->items(),
             'pagination' => [
-                'current_page' => $earnings->currentPage(),
-                'last_page' => $earnings->lastPage(),
-                'per_page' => $earnings->perPage(),
-                'total' => $earnings->total(),
+                'current_page' => $earningPage->currentPage(),
+                'last_page' => $earningPage->lastPage(),
+                'per_page' => $earningPage->perPage(),
+                'total' => $earningPage->total(),
             ],
         ]);
     }

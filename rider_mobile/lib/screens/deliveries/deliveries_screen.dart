@@ -7,6 +7,7 @@ import '../../widgets/delivery_card.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/stagger_in.dart';
+import '../../widgets/return_jobs_summary.dart';
 import '../scan/scan_parcel_screen.dart';
 import 'delivery_detail_screen.dart';
 
@@ -32,15 +33,16 @@ class _DeliveriesScreenState extends State<DeliveriesScreen> {
         actions: [
           IconButton(
             tooltip: 'Scan Parcel',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ScanParcelScreen()),
-            ),
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ScanParcelScreen())),
             icon: const Icon(Icons.qr_code_scanner_outlined),
           ),
         ],
       ),
       body: Column(
         children: [
+          ReturnJobsSummary(refreshKey: provider.deliveries),
           _FilterBar(
             current: provider.filter,
             onChanged: (f) => context.read<DeliveryProvider>().setFilter(f),

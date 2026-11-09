@@ -1,117 +1,113 @@
 (() => {
   'use strict';
-  const mobile = matchMedia('(max-width: 1023.98px)');
-  let recordDialog;
-  function showRecord(row, labels) {
-    if (!recordDialog) {
-      recordDialog = document.createElement('dialog');
-      recordDialog.className = 'mobile-record-dialog';
-      recordDialog.setAttribute('aria-labelledby', 'mobile-record-title');
-      recordDialog.innerHTML = '<header><h2 id="mobile-record-title">Record details</h2><button type="button" aria-label="Close details">&times;</button></header><dl></dl><footer><button type="button">Close</button></footer>';
-      document.body.append(recordDialog);
-      recordDialog.querySelectorAll('button').forEach(button => button.addEventListener('click', () => recordDialog.close()));
-      recordDialog.addEventListener('click', event => {
-        const rect = recordDialog.getBoundingClientRect();
-        if (event.target === recordDialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) recordDialog.close();
-      });
-    }
-    const list = recordDialog.querySelector('dl');
-    list.replaceChildren();
-    [...row.cells].forEach((cell, index) => {
-      if (cell.classList.contains('mobile-record-action')) return;
-      const text = cell.innerText.trim();
-      if (!text && !cell.querySelector('img')) return;
-      const item = document.createElement('div'), label = document.createElement('dt'), value = document.createElement('dd');
-      label.textContent = labels[index] || 'Details';
-      value.textContent = text || cell.querySelector('img')?.alt || 'Image';
-      // Preserve useful original links. Stateful controls stay in their original row.
-      if (!cell.querySelector('button,input,select,textarea,form')) {
-        const links = cell.querySelectorAll('a[href]');
-        if (links.length) {
-          const nav = document.createElement('div');
-          nav.className = 'mobile-record-links';
-          links.forEach(link => {
-            const anchor = document.createElement('a');
-            anchor.href = link.href; anchor.textContent = link.textContent.trim() || 'Open';
-            if (link.hasAttribute('data-image-viewer')) anchor.dataset.imageViewer = link.dataset.imageViewer;
-            if (link.target === '_blank') { anchor.target = '_blank'; anchor.rel = 'noopener'; }
-            nav.append(anchor);
-          });
-          value.append(nav);
-        }
-      }
-      item.append(label, value); list.append(item);
+  const tables = new Map();
+  const originalSpans = new WeakMap();
+  let fitFrame;
+  let printing = false;
+  const queueFit = () => {
+    cancelAnimationFrame(fitFrame);
+    fitFrame = requestAnimationFrame(() => {
+      if (printing) return;
+      document.querySelectorAll('main table').forEach(enhanceTable);
+      tables.forEach((state, table) => table.isConnected ? fitTable(table, state) : tables.delete(table));
     });
-    recordDialog.showModal();
-  }
+  };
+  const tableSizeObserver = new ResizeObserver(queueFit);
+
+  // Keep the original cells, event handlers and actions. This helper only
+  // removes lower-priority information from the visible layout when it overflows.
   function enhanceTable(table) {
-    if (table.closest('.payment-overview,.po-dialog') || table.dataset.mobileReady || !table.tHead || !table.tBodies.length) return;
+    if (tables.has(table) || table.closest('.payment-overview,.po-dialog') || !table.tHead || !table.tBodies.length) return;
     const header = table.tHead.rows[table.tHead.rows.length - 1];
     if (!header || [...header.cells].some(cell => cell.colSpan > 1 || cell.rowSpan > 1)) return;
-    if (header.cells.length < 4) { table.classList.add('mobile-basic-table'); return; }
-    const originalCount = header.cells.length;
-    const rows = [...table.tBodies].flatMap(body => [...body.rows]);
-    const normalRows = rows.filter(row => row.cells.length === originalCount && [...row.cells].every(cell => cell.colSpan === 1));
     const labels = [...header.cells].map(cell => cell.textContent.replace(/[\u25b2\u25bc]/g, '').trim());
-    const controls = new Set(labels.map((label,index) => /^(actions?|manage|options?)$/i.test(label) ? index : -1).filter(index => index >= 0));
-    normalRows.forEach(row => [...row.cells].forEach((cell, index) => {
-      if (cell.querySelector('button,input,select,textarea,form,[role=button]') || /^(actions?|manage|options?)$/i.test(labels[index])) controls.add(index);
+    tables.set(table, {header, labels});
+    table.classList.add('fit-data-table');
+    let parent = table.parentElement;
+    while (parent && parent.tagName !== 'MAIN' && parent !== document.body) {
+      if (/auto|scroll|hidden/.test(getComputedStyle(parent).overflowX)) parent.classList.add('fit-table-container');
+      parent = parent.parentElement;
+    }
+    tableSizeObserver.observe(table.parentElement);
+  }
+
+  function fitTable(table, {header, labels}) {
+    if (!table.getClientRects().length) return;
+    const available = table.parentElement.clientWidth;
+    if (!available) return;
+    table.classList.remove('fit-table-tight');
+    table.querySelectorAll('[data-fit-hidden]').forEach(cell => cell.removeAttribute('data-fit-hidden'));
+    const count = labels.length;
+    const rows = [...table.tBodies].flatMap(body => [...body.rows]);
+    const normalRows = rows.filter(row => row.cells.length === count && [...row.cells].every(cell => cell.colSpan === 1));
+    const spanningRows = [...rows.filter(row => !normalRows.includes(row)), ...(table.tFoot ? [...table.tFoot.rows] : [])];
+    spanningRows.forEach(row => [...row.cells].forEach(cell => {
+      if (!originalSpans.has(cell)) originalSpans.set(cell, cell.colSpan);
+      cell.colSpan = originalSpans.get(cell);
     }));
-    if (controls.size > 2) return;
+    const controls = new Set(labels.map((label, index) => /^(actions?|manage|options?|select)$/i.test(label) ? index : -1).filter(index => index >= 0));
+    normalRows.forEach(row => [...row.cells].forEach((cell, index) => {
+      if (cell.querySelector('button,input,select,textarea,form,[role=button],a.btn,[data-view-record],a[data-image-viewer]')
+        || [...cell.querySelectorAll('a')].some(link => /^(view(?:\s+.*)?|details|edit|download(?:\s+.*)?|manage(?:\s+.*)?|receipt|proof|track(?:\s+.*)?|print(?:\s+.*)?)$/i.test((link.title || link.textContent).trim()))) controls.add(index);
+    }));
     const plain = labels.map((_, index) => index).filter(index => !controls.has(index));
-    const first = plain[0];
-    const second = plain.find(index => index !== first && /amount|total|status|balance/i.test(labels[index])) ?? plain[1];
-    const visible = new Set([first, second, ...controls]);
-    // Keep a concise desktop overview too; full values remain in View.
-    const desktop = new Set([first, second, ...controls]);
-    const price = plain.find(index => /price|amount|total/i.test(labels[index]));
-    if (price !== undefined) desktop.add(price);
-    plain.filter(index => /stock|status|balance/i.test(labels[index]))
-      .slice(0, 2).forEach(index => desktop.add(index));
-    if (desktop.size < 3 && plain.length > 2) desktop.add(plain[2]);
-    table.dataset.mobileReady = '1';table.dataset.mobileHasControls = String(controls.size > 0);table.classList.add('mobile-summary-table');
-    [...header.cells].forEach((cell,index) => {
-      cell.dataset.mobileField = visible.has(index) ? 'summary' : 'detail';
-      cell.dataset.desktopField = desktop.has(index) ? 'summary' : 'detail';
-      if (controls.has(index)) cell.dataset.mobileControls = 'true';
-      if (index === second) {
-        cell.dataset.mobileMetric = 'true';
-        if (/status/i.test(labels[index])) cell.classList.add('mobile-status-cell');
-      }
-    });
-    const actionHeader = document.createElement('th');
-    actionHeader.className = 'mobile-record-action';actionHeader.scope = 'col';actionHeader.textContent = 'View';header.append(actionHeader);
-    rows.forEach(row => {
-      if (!normalRows.includes(row)) { if(row.cells.length===1&&row.cells[0].colSpan===originalCount)row.cells[0].colSpan++;return; }
-      [...row.cells].forEach((cell,index) => {
-        cell.dataset.mobileField = visible.has(index) ? 'summary' : 'detail';
-        cell.dataset.desktopField = desktop.has(index) ? 'summary' : 'detail';
-        if (controls.has(index)) cell.dataset.mobileControls = 'true';
-        if (index === second) {
-          cell.dataset.mobileMetric = 'true';
-          if (/status/i.test(labels[index])) cell.classList.add('mobile-status-cell');
-        }
-        if (index === first) cell.dataset.mobilePrimary = 'true';
-      });
-      const cell = document.createElement('td'), button = document.createElement('button');
-      cell.className = 'mobile-record-action';button.type = 'button';button.className = 'mobile-record-view';button.textContent = 'View';button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-label','View details for '+(row.cells[first]?.innerText.trim() || 'this record')); 
-      button.addEventListener('click', () => showRecord(row, labels));cell.append(button);row.append(cell);
-    });
-    if (table.tFoot) [...table.tFoot.rows].forEach(row => {
+    const first = labels.findIndex((label, index) => !/^(actions?|manage|options?|select)$/i.test(label) && !header.cells[index].querySelector('input[type=checkbox]'));
+    const metric = plain.find(index => index !== first && /price|amount|total|balance/i.test(labels[index]))
+      ?? plain.find(index => index !== first && /status|stock/i.test(labels[index]));
+    const hidden = new Set();
+    const updateSpans = () => spanningRows.forEach(row => {
       let column = 0;
       [...row.cells].forEach(cell => {
-        if (cell.colSpan === 1) cell.dataset.mobileFooterLabel = labels[column] || '';
-        column += cell.colSpan;
+        const span = originalSpans.get(cell);
+        const visible = Array.from({length: span}, (_, offset) => column + offset).filter(index => !hidden.has(index)).length;
+        cell.toggleAttribute('data-fit-hidden', visible === 0);
+        cell.colSpan = Math.max(1, visible);
+        column += span;
       });
     });
-    // Remove the horizontal-only wrapper on phones while keeping desktop CSS intact.
-    let parent=table.parentElement;
-    while(parent && parent.tagName!=='MAIN' && parent!==document.body){
-      if (/auto|scroll|hidden/.test(getComputedStyle(parent).overflowX))parent.classList.add('mobile-table-container');
-      parent=parent.parentElement;
+    const priority = index => {
+      const label = labels[index];
+      if (/cost|margin|variants?|rating|sku|category/i.test(label)) return 0;
+      if (/date|joined|created|updated|phone|email|address|method|mode|reference|ref\s*#/i.test(label)) return 1;
+      if (/status|stock|balance/i.test(label)) return 3;
+      if (/amount|price|total/i.test(label)) return 4;
+      return 2;
+    };
+    const candidates = plain.filter(index => index !== first && index !== metric).sort((a, b) => priority(a) - priority(b) || b - a);
+    const overflows = () => Math.max(table.getBoundingClientRect().width, table.scrollWidth) > available + 1;
+    for (const index of candidates) {
+      if (!overflows()) break;
+      hidden.add(index);
+      header.cells[index].setAttribute('data-fit-hidden', '');
+      normalRows.forEach(row => row.cells[index].setAttribute('data-fit-hidden', ''));
+      updateSpans();
     }
+    if (overflows()) table.classList.add('fit-table-tight');
+    table.dataset.fitReady = 'true';
   }
-  function scan() { document.querySelectorAll('main table').forEach(enhanceTable); }
+
+  function watchTables() {
+    queueFit();
+    window.addEventListener('resize', queueFit);
+    document.fonts?.ready.then(queueFit);
+    window.addEventListener('beforeprint', () => {
+      printing = true;
+      cancelAnimationFrame(fitFrame);
+      tables.forEach((state, table) => {
+        table.classList.remove('fit-table-tight');
+        table.querySelectorAll('[data-fit-hidden]').forEach(cell => cell.removeAttribute('data-fit-hidden'));
+        table.querySelectorAll('td,th').forEach(cell => {
+          if (originalSpans.has(cell)) cell.colSpan = originalSpans.get(cell);
+        });
+      });
+    });
+    window.addEventListener('afterprint', () => { printing = false; queueFit(); });
+    document.querySelectorAll('main').forEach(main => {
+      new MutationObserver(changes => {
+        if (changes.some(change => [...change.addedNodes, ...change.removedNodes].some(node => node.nodeType === 1 && (node.matches('table,thead,tbody,tfoot,tr,th,td') || node.querySelector('table'))))) queueFit();
+      }).observe(main, {childList: true, subtree: true});
+    });
+  }
   function initAdminDrawer() {
     const aside=document.querySelector('aside.sb2--admin'), toggle=document.querySelector('.hamburger');
     if (!aside || !toggle) return;
@@ -134,6 +130,6 @@
     toggle.addEventListener('click',()=>{sync();if(media.matches&&!aside.classList.contains('collapsed'))aside.querySelector('.sidebar-nav a')?.focus();});
     new MutationObserver(sync).observe(aside,{attributes:true,attributeFilter:['class']});media.addEventListener('change',sync);sync();
   }
-  function init(){scan();initAdminDrawer();mobile.addEventListener('change',scan);}
+  function init(){watchTables();initAdminDrawer();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
 })();

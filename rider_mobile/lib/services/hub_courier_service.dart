@@ -72,12 +72,17 @@ class HubCourierService {
   }
 
   Future<Map<String, dynamic>> remittances({int page = 1}) async {
-    final data = await api.get('/courier/remittances', query: {'page': page});
+    final data = await api.getSharedAuthenticated(
+      'remittances/incoming?page=$page',
+    );
     return Map<String, dynamic>.from(data as Map);
   }
 
-  Future<void> acceptRemittance(int id) async {
-    await api.post('/courier/remittances/$id/accept', body: {});
+  Future<void> acceptRemittance(int id, {String source = 'order'}) async {
+    await api.postSharedAuthenticated(
+      'remittances/incoming/$source/$id/accept',
+      {'confirm_received': 1},
+    );
   }
 
   Future<Map<String, dynamic>> reportIncident({

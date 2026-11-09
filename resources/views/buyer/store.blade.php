@@ -6,7 +6,7 @@
   $pal = ['#0F766E','#1D4ED8','#7C3AED','#DB2777','#EA580C'];
   $color = $pal[$h % count($pal)];
 @endphp
-<link rel="stylesheet" href="{{ asset('assets/buyer/css/store.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/buyer/css/store.css') }}?v={{ filemtime(public_path('assets/buyer/css/store.css')) }}">
 
 <a href="{{ url('/') }}" style="color:var(--text2);text-decoration:none;font-weight:600;font-size:12px">← Back to store</a>
 
@@ -39,6 +39,7 @@
 </div>
 
 @if(session('success'))<div style="background:#ecfdf5;color:#065f46;padding:10px;border-radius:8px;border:1px solid #a7f3d0;margin-top:12px;font-size:13px;font-weight:600">{{ session('success') }}</div>@endif
+@if(session('error'))<div class="bfp-flash bfp-flash-error" role="alert">{{ session('error') }}</div>@endif
 
 @if(!empty($vacation))
 <div style="background:#FFFBEB;color:#92400e;padding:11px 14px;border-radius:10px;border:1px solid #FDE68A;margin-top:12px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;">
@@ -50,9 +51,25 @@
 <div class="st-tabs">
   <a class="st-tab {{ $tab==='products' ? 'active' : '' }}" href="{{ url('/store/'.$sellerId) }}">Products ({{ $products->count() }})</a>
   <a class="st-tab {{ $tab==='reviews' ? 'active' : '' }}" href="{{ url('/store/'.$sellerId.'?tab=reviews') }}">Reviews ({{ $reviews->count() }})</a>
+  <a class="st-tab {{ $tab==='vouchers' ? 'active' : '' }}" href="{{ url('/store/'.$sellerId.'?tab=vouchers') }}">Vouchers ({{ $storeVouchers->total() }})</a>
 </div>
 
-@if($tab === 'reviews')
+@if($tab === 'vouchers')
+  <section class="voucherx buyerfeature-page st-vouchers" data-ui aria-labelledby="storeVouchersTitle">
+    <h1 id="storeVouchersTitle">Store vouchers</h1>
+    <p class="bfp-description">Claim an offer now, then apply it at checkout for this store.</p>
+    @if($storeVouchers->isEmpty())
+      <div class="bfp-empty"><p>This store has no available vouchers right now.</p></div>
+    @else
+      <div class="voucher-grid">
+        @foreach($storeVouchers as $voucher)
+          @include('buyer.partials.voucher-card', ['canClaim' => !empty($buyer['id'])])
+        @endforeach
+      </div>
+      <div class="bfp-pager">{{ $storeVouchers->links() }}</div>
+    @endif
+  </section>
+@elseif($tab === 'reviews')
   @forelse($reviews as $r)    <div class="st-rev">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <b style="font-size:13px">{{ trim(($r->buyer->first_name ?? '').' '.($r->buyer->last_name ?? '')) ?: 'Buyer' }}</b>

@@ -173,7 +173,7 @@ class RiderController extends Controller
 
         return response()->json([
             'stats' => $stats,
-            'today_earnings' => (float) $todayEarnings,
+            'today_earnings' => (float) $todayEarnings + \App\Support\ReturnServiceEarnings::amount(\App\Support\ReturnServiceEarnings::rider($rider),now()->toDateString()),
             'current_delivery' => $current ? $this->deliveryPayload($current) : null,
             'upcoming_pickup' => $upcomingPickup ? $this->deliveryPayload($upcomingPickup) : null,
             'recent_completed' => $recentCompleted->map(fn ($d) => $this->deliveryPayload($d))->values(),

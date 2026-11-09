@@ -10,7 +10,7 @@
   $initials = strtoupper(substr($firstName, 0, 1).substr($lastName, 0, 1)) ?: 'B';
   $isActive = strtolower((string) $accountStatus) === 'active';
 @endphp
-<link rel="stylesheet" href="{{ asset('assets/buyer/css/profile.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/buyer/css/profile.css') }}?v={{ filemtime(public_path('assets/buyer/css/profile.css')) }}">
 
 <div class="buyer-profile">
   <header class="profile-header">

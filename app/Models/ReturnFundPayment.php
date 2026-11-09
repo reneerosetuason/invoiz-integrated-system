@@ -8,6 +8,6 @@ class ReturnFundPayment extends Model
 {
     protected $guarded = ['id'];
     protected $hidden = ['proof_path'];
-    protected function casts(): array { return ['verified_at' => 'datetime']; }
+    protected function casts(): array { return ['verified_at' => 'datetime','receipt_viewed_at'=>'datetime']; }
     public function settlement() { return $this->belongsTo(ReturnSettlement::class, 'return_settlement_id'); }
 }

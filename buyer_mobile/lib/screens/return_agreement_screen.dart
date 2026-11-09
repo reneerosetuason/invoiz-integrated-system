@@ -6,11 +6,18 @@ import '../services/api_service.dart';
 import '../widgets/buyer_controls.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/image_preview.dart';
+import '../widgets/return_fee_receipt_dialog.dart';
 
 class ReturnAgreementScreen extends StatefulWidget {
-  const ReturnAgreementScreen({super.key, required this.returnId, this.api});
+  const ReturnAgreementScreen({
+    super.key,
+    required this.returnId,
+    this.api,
+    this.receiptPicker,
+  });
   final int returnId;
   final ApiService? api;
+  final Future<XFile?> Function()? receiptPicker;
   @override
   State<ReturnAgreementScreen> createState() => _ReturnAgreementScreenState();
 }
@@ -79,7 +86,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
     );
     final form = GlobalKey<FormState>();
     bool confirmed = false;
-    final result = await showDialog<Map<String, String>>(
+    final route = DialogRoute<Map<String, String>>(
       context: context,
       builder: (dialog) => StatefulBuilder(
         builder: (dialog, update) => AlertDialog(
@@ -138,6 +145,8 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
         ),
       ),
     );
+    final result = await Navigator.of(context).push(route);
+    await route.completed;
     for (final controller in controllers.values) {
       controller.dispose();
     }
@@ -173,6 +182,17 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
       } else {
         await _api.post(_path, body);
       }
+      // The server has confirmed acceptance. Keep that visible even if the
+      // following refresh fails, so a slow connection cannot invite a replay.
+      if (action == 'accept' && mounted && _data != null) {
+        setState(() {
+          final accepted = _agreement;
+          accepted['buyer_accepted_at'] ??= DateTime.now()
+              .toUtc()
+              .toIso8601String();
+          _data = {..._data!, 'agreement': accepted};
+        });
+      }
       await _load();
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
@@ -186,30 +206,25 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
       _data?['receiving_account'] as Map? ?? {},
     );
     final amount = _money(_data?['budget_outstanding_cents']);
-    final fields = await _ask(
-      'Pay return fee',
-      {
-        'amount': 'Exact amount transferred',
-        'reference': 'Bank / e-wallet transfer reference',
-      },
-      description:
-          'Transfer $amount to ${account['account_name'] ?? ''}: ${account['account_details'] ?? ''}. Admin must verify actual receipt before pickup.',
-      defaults: {
-        'amount': ((_data?['budget_outstanding_cents'] as num? ?? 0) / 100)
-            .toStringAsFixed(2),
-      },
+    final submission = await showDialog<ReturnFeeReceiptSubmission>(
+      context: context,
+      builder: (_) => ReturnFeeReceiptDialog(
+        amount: amount,
+        accountName: '${account['account_name'] ?? ''}',
+        accountDetails: '${account['account_details'] ?? ''}',
+        pickReceipt: widget.receiptPicker,
+      ),
     );
-    if (fields == null || !mounted) return;
-    final file = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1800,
-      imageQuality: 85,
-    );
-    if (file == null || !mounted) return;
+    if (submission == null || !mounted) return;
     await _send(
       'pay',
-      fields: {'purpose': 'return_budget', ...fields},
-      file: file,
+      fields: {
+        'purpose': 'return_budget',
+        'amount': ((_data?['budget_outstanding_cents'] as num? ?? 0) / 100)
+            .toStringAsFixed(2),
+        'reference': submission.reference,
+      },
+      file: submission.receipt,
     );
   }
 
@@ -228,12 +243,119 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
     }
   }
 
+  Future<void> _respond(bool decline) async {
+    final receipt = Map<String, dynamic>.from(
+      _data?['refund_receipt'] as Map? ?? {},
+    );
+    final paymentConversation =
+        _agreement['workflow_policy'] == 'seller_direct_keep_item' &&
+        receipt.isNotEmpty;
+    final fields = await _ask(
+      paymentConversation
+          ? (decline ? 'Payment not received' : 'Message to seller')
+          : (decline ? 'Decline proposal' : 'Suggest changes'),
+      {'note': 'Your explanation or suggestion (at least 10 characters)'},
+      description: paymentConversation
+          ? 'Explain what did not go through or suggest a correction. Your message stays in the refund conversation until the payment is resolved.'
+          : 'The seller can edit and resend. You must accept the revised proposal before any fee payment.',
+    );
+    if (fields != null && mounted) {
+      await _send(
+        decline ? 'decline' : 'comment',
+        fields: {
+          ...fields,
+          if (paymentConversation) ...{
+            'receipt_id': '${receipt['id']}',
+            'receipt_version': '${receipt['version']}',
+          },
+        },
+      );
+    }
+  }
+
+  Future<void> _refundProof() async {
+    try {
+      final receipt = _data?['refund_receipt'] as Map?;
+      final bytes = await _api.getImage(
+        'returns/${widget.returnId}/proof',
+        query: receipt == null
+            ? null
+            : {
+                'receipt': '${receipt['id']}',
+                'revision': '${receipt['version']}',
+              },
+      );
+      if (mounted) {
+        await showBuyerImagePreview(
+          context,
+          title: 'Seller refund receipt',
+          bytes: bytes,
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    }
+  }
+
+  Future<void> _confirmRefund() async {
+    if (_busy ||
+        !await _confirm(
+          'Refund received?',
+          'Confirm only after checking that the exact net refund reached your receiving account. A screenshot alone is not payment confirmation.',
+        ) ||
+        !mounted) {
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final receipt = _data?['refund_receipt'] as Map?;
+      await _api.post('returns/${widget.returnId}/confirm', {
+        if (receipt != null) ...{
+          'receipt_id': receipt['id'],
+          'receipt_version': receipt['version'],
+        },
+      });
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final a = _agreement;
     final closed = a['closed_at'] != null;
     final funded = a['funded_at'] != null;
     final physical = ['return_refund', 'exchange'].contains(a['resolution']);
+    final sellerFault = a['workflow_policy'] == 'seller_fault_direct';
+    final sellerDirect =
+        a['workflow_policy'] == 'buyer_fault_direct' || sellerFault;
+    final keepItem = a['workflow_policy'] == 'seller_direct_keep_item';
+    final direct = a['workflow_policy'] == 'direct' || sellerDirect || keepItem;
+    final refundReceipt = Map<String, dynamic>.from(
+      _data?['refund_receipt'] as Map? ?? {},
+    );
+    final collectionAuthorized = a['collection_authorized_at'] != null;
+    final progress = Map<String, dynamic>.from(
+      _data?['progress'] as Map? ?? {},
+    );
+    final buyerAccepted = a['buyer_accepted_at'] != null;
+    final outstanding = _data?['budget_outstanding_cents'] as num? ?? 0;
+    final feeSubmitted = (a['payments'] as List? ?? []).any(
+      (payment) =>
+          payment['purpose'] == 'return_budget' &&
+          payment['status'] == 'submitted',
+    );
+    final editable =
+        !closed &&
+        (!keepItem || progress['refund_sent_at'] == null) &&
+        !funded &&
+        !collectionAuthorized &&
+        !(a['payments'] as List? ?? []).any(
+          (payment) => ['submitted', 'verified'].contains(payment['status']),
+        );
     final account = Map<String, dynamic>.from(
       _data?['receiving_account'] as Map? ?? {},
     );
@@ -244,10 +366,13 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            const BuyerPageHeading(
-              title: 'Agreement, fees & funding',
-              description:
-                  'Review the resolution before paying or handing over your item.',
+            BuyerPageHeading(
+              title: keepItem
+                  ? 'Refund & conversation'
+                  : 'Agreement, fees & funding',
+              description: keepItem
+                  ? 'The seller refunds your verified account directly. Review the receipt and confirm when the money arrives.'
+                  : 'Review the resolution before paying or handing over your item.',
             ),
             if (_error != null)
               BuyerPanel(
@@ -276,7 +401,45 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                         'Agreed replacement: ${a['replacement_description']}',
                       ),
                     Text('Responsibility: ${_label(a['fault'])}'),
-                    Text('Transport payer: ${_label(a['payer'])}'),
+                    if (!keepItem)
+                      Text(
+                        '${sellerDirect ? 'Delivery escrow depositor' : 'Transport payer'}: ${_label(a['payer'])}',
+                      ),
+                    if (sellerDirect) ...[
+                      Text(
+                        sellerFault
+                            ? 'The seller pays return delivery separately. Your full eligible paid refund has no deductions.'
+                            : 'You do not pay a separate return fee. The agreed delivery deduction funds the return trip.',
+                      ),
+                      Text('${a['deduction_note'] ?? ''}'),
+                      Text(
+                        collectionAuthorized
+                            ? 'Collection authorized. Delivery payouts still require verified funds and completed work.'
+                            : 'Waiting for agreement, your receiving account and the seller’s delivery deposit receipt.',
+                      ),
+                    ],
+                    if (buyerAccepted) ...[
+                      const Text('Agreement accepted'),
+                      if (direct &&
+                          !keepItem &&
+                          !funded &&
+                          a['payer'] == 'buyer' &&
+                          outstanding > 0)
+                        Text(
+                          feeSubmitted
+                              ? 'Return fee receipt submitted. Waiting for payment verification.'
+                              : 'Return fee unpaid: ${_money(outstanding)}. Pay it separately below.',
+                        ),
+                      if (direct &&
+                          !keepItem &&
+                          !funded &&
+                          a['payer'] == 'seller')
+                        const Text('The seller pays the return service fees.'),
+                    ],
+                    if (direct)
+                      const Text(
+                        'Buyer and seller agree directly. No admin approval of this proposal is required.',
+                      ),
                     if (!physical)
                       const Text(
                         'You keep the item. No physical return or stock restoration.',
@@ -284,8 +447,12 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                     for (final entry in {
                       'Item refund': 'merchandise_cents',
                       'Original shipping reimbursement': 'shipping_cents',
-                      'Return transport': 'transport_cents',
-                      'Seller compensation': 'compensation_cents',
+                      if (!keepItem) 'Return transport': 'transport_cents',
+                      if (!keepItem && !sellerFault)
+                        (sellerDirect
+                                ? 'Less original seller-funded costs'
+                                : 'Seller compensation'):
+                            'compensation_cents',
                       'You receive': 'net_refund_cents',
                     }.entries)
                       Padding(
@@ -293,7 +460,13 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                         child: Text('${entry.key}: ${_money(a[entry.value])}'),
                       ),
                     Text(
-                      a['funding_method'] == 'deduct_refund'
+                      keepItem
+                          ? 'The seller sends the agreed refund directly to your receiving account. You keep the item. No return fee or Admin approval is required.'
+                          : sellerFault
+                          ? 'The seller sends your full eligible paid item amount and original paid shipping directly after receiving the returned item. The seller pays new delivery fees separately into escrow.'
+                          : sellerDirect
+                          ? 'Original seller-funded costs and new return delivery are deducted. The seller sends your net refund directly after receiving the returned item. Only new delivery fees go to escrow.'
+                          : a['funding_method'] == 'deduct_refund'
                           ? 'Agreed return fees are deducted from the refund. Do not pay them again.'
                           : 'The transport payer funds the return separately.',
                     ),
@@ -307,7 +480,11 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                       Text('Collection: ${a['collection_at']}'),
                     if (!closed &&
                         !funded &&
+                        !buyerAccepted &&
                         a['quoted_at'] != null &&
+                        (!direct ||
+                            (a['status'] == 'proposed' &&
+                                a['buyer_accepted_at'] == null)) &&
                         a['dispute_note'] == null)
                       BuyerButton.primary(
                         onPressed: _busy
@@ -315,7 +492,11 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                             : () async {
                                 if (await _confirm(
                                       'Accept agreement?',
-                                      'I agree to this version, the charges and whether the item must be returned.',
+                                      sellerFault
+                                          ? 'I agree to the full refund without deductions, the physical return and sharing my receiving details with this seller.'
+                                          : sellerDirect
+                                          ? 'I agree to the original seller-funded costs, new delivery deduction, net refund and sharing my receiving details with this seller.'
+                                          : 'I agree to this version, the charges and whether the item must be returned.',
                                     ) &&
                                     mounted) {
                                   await _send('accept');
@@ -323,13 +504,45 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                               },
                         label: const Text('Accept agreement'),
                       ),
-                    if (!closed)
+                    if (direct && editable) ...[
+                      BuyerButton.secondary(
+                        onPressed: _busy ? null : () => _respond(false),
+                        label: const Text('Suggest changes'),
+                      ),
+                      BuyerButton.plain(
+                        onPressed: _busy ? null : () => _respond(true),
+                        label: const Text('Decline proposal'),
+                      ),
+                    ],
+                    if (sellerDirect &&
+                        (_data?['permissions'] as Map?)?['can_resolve_issue'] ==
+                            true)
+                      BuyerButton.secondary(
+                        onPressed: _busy
+                            ? null
+                            : () async {
+                                final fields = await _ask(
+                                  'Resolve your reported issue',
+                                  {
+                                    'note':
+                                        'Agreed resolution (at least 10 characters)',
+                                  },
+                                );
+                                if (fields != null && mounted) {
+                                  await _send('resolve_issue', fields: fields);
+                                }
+                              },
+                        label: const Text('Resolve my reported issue'),
+                      ),
+                    if (!closed && !keepItem && (!direct || !editable))
                       BuyerButton.plain(
                         onPressed: _busy
                             ? null
                             : () async {
                                 final fields = await _ask(
-                                  'Request admin review',
+                                  direct
+                                      ? 'Report payment or parcel issue'
+                                      : 'Request admin review',
                                   {
                                     'note':
                                         'Explain the dispute (at least 10 characters)',
@@ -339,7 +552,11 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                                   await _send('dispute', fields: fields);
                                 }
                               },
-                        label: const Text('Request admin review'),
+                        label: Text(
+                          direct
+                              ? 'Report payment or parcel issue'
+                              : 'Request admin review',
+                        ),
                       ),
                   ],
                 ),
@@ -347,7 +564,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
               const SizedBox(height: 12),
               if ((a['allocations'] as List? ?? []).isNotEmpty)
                 BuyerPanel(
-                  title: 'Quoted services',
+                  title: direct ? 'Automatic return fees' : 'Quoted services',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -358,7 +575,12 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                     ],
                   ),
                 ),
-              if (!closed && a['resolution'] != 'exchange' && (!funded || a['destination_verified_at'] == null))
+              if (!closed &&
+                  a['resolution'] != 'exchange' &&
+                  (sellerDirect || keepItem
+                      ? progress['refund_sent_at'] == null ||
+                            (keepItem && refundReceipt['status'] == 'declined')
+                      : (!funded || a['destination_verified_at'] == null)))
                 BuyerButton.secondary(
                   onPressed: _busy
                       ? null
@@ -373,8 +595,9 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                               'holder': 'Account holder',
                               'account': 'Account / e-wallet number',
                             },
-                            description:
-                                'Only you and admin can see the complete account. Never provide a PIN, password or OTP.',
+                            description: sellerDirect || keepItem
+                                ? 'After mutual agreement, this seller can see your receiving details to send the agreed refund. Never provide a PIN, password or OTP.'
+                                : 'Only you and payment staff can see the complete account. Never provide a PIN, password or OTP.',
                             defaults: current.map((k, v) => MapEntry(k, '$v')),
                           );
                           if (fields != null && mounted) {
@@ -389,7 +612,8 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                   a['funding_method'] == 'deposit' &&
                   a['buyer_accepted_at'] != null &&
                   a['seller_accepted_at'] != null &&
-                  a['admin_decided_at'] != null &&
+                  !feeSubmitted &&
+                  (direct || a['admin_decided_at'] != null) &&
                   a['dispute_note'] == null &&
                   (_data?['budget_outstanding_cents'] as num? ?? 0) > 0) ...[
                 BuyerPanel(
@@ -410,7 +634,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                         ),
                       BuyerButton.primary(
                         onPressed: _busy || account.isEmpty ? null : _payment,
-                        label: const Text('Pay return fee'),
+                        label: const Text('Upload return-fee receipt'),
                       ),
                     ],
                   ),
@@ -433,6 +657,64 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                             _proof('deposit', payment['id'] as int),
                         label: const Text('View deposit receipt'),
                       ),
+                    ],
+                  ),
+                ),
+              if ((sellerDirect || keepItem) &&
+                  progress['refund_sent_at'] != null)
+                BuyerPanel(
+                  title: progress['buyer_confirmed_at'] == null
+                      ? 'Seller recorded refund sent'
+                      : 'Refund received',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_money(a['net_refund_cents'])} · ${progress['refund_reference'] ?? ''}',
+                      ),
+                      BuyerButton.plain(
+                        onPressed: _refundProof,
+                        label: const Text('View seller refund receipt'),
+                      ),
+                      if (progress['buyer_confirmed_at'] == null)
+                        BuyerButton.primary(
+                          onPressed: _busy ? null : _confirmRefund,
+                          label: const Text('Confirm refund received'),
+                        ),
+                      if (keepItem && !closed) ...[
+                        if (refundReceipt['buyer_note'] != null)
+                          Text(
+                            'Your payment problem: ${refundReceipt['buyer_note']}',
+                          ),
+                        BuyerButton.secondary(
+                          onPressed: _busy ? null : () => _respond(true),
+                          label: const Text(
+                            'Decline receipt / payment not received',
+                          ),
+                        ),
+                        BuyerButton.plain(
+                          onPressed: _busy ? null : () => _respond(false),
+                          label: const Text('Suggest changes / send message'),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              if (direct && (a['events'] as List? ?? []).isNotEmpty)
+                BuyerPanel(
+                  title: keepItem
+                      ? 'Refund conversation'
+                      : 'Proposal conversation',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final event in a['events'] as List)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            '${event['actor_label'] ?? 'System'} · ${_label(event['action'])}\n${event['note'] ?? ''}',
+                          ),
+                        ),
                     ],
                   ),
                 ),

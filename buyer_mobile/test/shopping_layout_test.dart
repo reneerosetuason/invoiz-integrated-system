@@ -479,6 +479,15 @@ void main() {
         expect(find.byTooltip('Messages').hitTestable(), findsOneWidget);
         expect(find.byTooltip('Notifications').hitTestable(), findsOneWidget);
         expect(find.byTooltip('Wishlist').hitTestable(), findsOneWidget);
+        final searchRect = tester.getRect(search);
+        for (final label in ['Messages', 'Notifications', 'Wishlist']) {
+          final action = find.byTooltip(label);
+          expect(tester.getCenter(action).dy, closeTo(searchRect.center.dy, 1));
+          expect(
+            tester.getRect(action).left,
+            greaterThanOrEqualTo(searchRect.right),
+          );
+        }
         expect(find.byType(ProductCard), findsWidgets);
         final first = find.byType(ProductCard).at(0);
         final second = find.byType(ProductCard).at(1);

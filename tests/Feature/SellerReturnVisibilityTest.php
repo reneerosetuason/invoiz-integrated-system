@@ -80,6 +80,10 @@ class SellerReturnVisibilityTest extends TestCase
     public function test_browser_return_accepts_size_and_color_reasons_and_starts_the_agreement_with_evidence(): void
     {
         (require database_path('migrations/2026_11_06_180000_create_return_settlement_ledgers.php'))->up();
+        (require database_path('migrations/2026_11_08_160000_add_automatic_return_funding.php'))->up();
+        (require database_path('migrations/2026_11_08_180000_add_direct_return_agreements.php'))->up();
+        (require database_path('migrations/2026_11_08_200000_add_return_receipt_preview_tracking.php'))->up();
+        (require database_path('migrations/2026_11_08_220000_add_seller_direct_buyer_fault_returns.php'))->up();
         $buyer=$this->account('web-return-buyer');$seller=$this->seller('web-return-owner');
         foreach (['ordered_wrong_size','ordered_wrong_color','received_wrong_size','received_wrong_color'] as $reason) {
             [$order,$item]=$this->purchase($buyer,$seller,'Browser '.$reason);

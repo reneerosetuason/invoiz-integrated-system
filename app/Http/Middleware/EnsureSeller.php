@@ -38,6 +38,9 @@ class EnsureSeller
             return redirect('/shop')->with('error', 'No approved seller store is linked to this account.');
         }
 
+        if ($user->isSeller() && ! $request->session()->has('active_role')) {
+            $request->session()->put('active_role', 'seller');
+        }
         if ($request->session()->get('active_role') !== 'seller') {
             return redirect()->route('choose');
         }

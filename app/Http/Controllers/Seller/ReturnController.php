@@ -76,9 +76,9 @@ class ReturnController extends Controller
                 if ($returnRequest->status !== 'requested') {
                     return back()->with('error', 'This return can no longer be rejected.');
                 }
-                if (\App\Services\ReturnSettlementService::ensure($returnRequest)) {
-                    \App\Services\ReturnSettlementService::change($returnRequest, auth()->user(), 'dispute', ['note' => $data['note'] ?? '']);
-                    return redirect()->route('returns.agreement', $returnRequest)->with('success', 'Seller disagreement recorded for admin review. Verified funds remain protected.');
+                if ($agreement=\App\Services\ReturnSettlementService::ensure($returnRequest)) {
+                    \App\Services\ReturnSettlementService::change($returnRequest, auth()->user(), $agreement->directAgreement()?'decline':'dispute', ['version'=>$agreement->version,'note' => $data['note'] ?? '']);
+                    return redirect()->route('returns.agreement', $returnRequest)->with('success', $agreement->directAgreement()?'Your response was sent to the buyer. You can edit and resend a proposal.':'Seller disagreement recorded for admin review. Verified funds remain protected.');
                 }
                 $returnRequest->update([
                     'status'        => 'rejected',

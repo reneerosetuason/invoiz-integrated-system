@@ -16,6 +16,7 @@ use App\Models\Product;
 use Illuminate\Http\Request;
 
 Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(function () {
+    Route::get('return-delivery-escrow', [\App\Http\Controllers\ReturnSettlementController::class, 'deliveryEscrow'])->name('admin.return-delivery-escrow');
     Route::get('account-deletions', [\App\Http\Controllers\Admin\AccountDeletionController::class, 'index'])->name('admin.account-deletions.index');
     Route::get('account-deletions/{deletion}', [\App\Http\Controllers\Admin\AccountDeletionController::class, 'show'])->whereNumber('deletion')->name('admin.account-deletions.show');
     Route::post('account-deletions/{deletion}/restore', [\App\Http\Controllers\Admin\AccountDeletionController::class, 'restore'])->whereNumber('deletion')->middleware('throttle:5,1')->name('admin.account-deletions.restore');
@@ -100,6 +101,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::get('orders/{order}', [OrderController::class, 'show'])->name('admin.order.show');
     Route::post('orders/{order}/update', [OrderController::class, 'update'])->name('admin.order.update');
         Route::get('payments', [PaymentController::class, 'index'])->name('admin.payments');
+        Route::get('payments/payout-account/{source}/{id}', [\App\Http\Controllers\PayoutAccountController::class, 'showForRemittance'])->whereIn('source', ['order', 'return'])->whereNumber('id')->name('admin.payments.payout-account');
         Route::post('payments/admin-remittances/{id}/accept', [\App\Http\Controllers\Admin\PaymentActionController::class, 'acceptAdminRemittance'])
             ->whereNumber('id')->name('admin.remittances.accept');
         Route::get('payments/gcash-escrow', [\App\Http\Controllers\GcashEscrowController::class, 'index'])->name('admin.gcash.index');

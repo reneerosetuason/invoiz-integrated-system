@@ -2,8 +2,10 @@
     <div class="mx-auto max-w-5xl space-y-5" data-hub-remittances>
         <header>
             <h1 class="text-2xl font-bold text-gray-900">Hub remittances</h1>
-            <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-600">Review your origin and destination hub cuts. Admin releases each payment first; confirm receipt after the money reaches your hub's receiving account. Only accepted payments count toward hub earnings.</p>
+            <p class="mt-2 max-w-3xl text-sm leading-relaxed text-gray-600">Review your hub cuts from orders and returns in one list. Admin releases each payment first; confirm actual receipt to record it in hub earnings.</p>
+            <p class="mt-2 text-sm text-gray-600">Held / awaiting release &rarr; Remitted by Admin &rarr; Received by your hub. Allocating an escrow share does not send a bank transfer.</p>
         </header>
+        @include('shared.remittances.payout-account')
 
         @if(session('info'))
             <p role="status" class="rounded-xl border border-gray-200 bg-white p-4 text-sm">{{ session('info') }}</p>
@@ -38,15 +40,15 @@
 
         <div class="space-y-3">
             @forelse($payouts as $payout)
-                <article class="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5" data-payout-id="{{ $payout->id }}">
+                <article class="min-w-0 rounded-2xl border border-gray-200 bg-white p-4 sm:p-5" data-payout-id="{{ $payout->id }}" data-payout-source="{{ $payout->source }}">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div class="min-w-0 flex-1">
-                            <h2 class="break-all text-sm font-bold text-gray-900">{{ $payout->order?->order_number ?: 'Payout #'.$payout->id }}</h2>
+                            <h2 class="break-all text-sm font-bold text-gray-900">{{ $payout->source==='return'?'Return #'.$payout->return_id:($payout->order?->order_number ?: 'Payout #'.$payout->id) }}</h2>
                             <p class="mt-1 break-words text-sm text-gray-600">{{ $payout->logisticsCenter?->name ?? 'Logistics hub' }} · {{ $payout->roleLabel() }}</p>
                             <p class="mt-2 text-xs font-semibold {{ $payout->status === 'accepted' ? 'text-emerald-700' : 'text-gray-600' }}">
                                 {{ match($payout->status) {
-                                    'accepted' => 'Accepted · recorded in hub earnings',
-                                    'remitted' => 'Released · awaiting your confirmation',
+                                    'accepted' => '✓ Received · recorded in hub earnings',
+                                    'remitted' => '✓ Remitted by Admin · awaiting your receipt confirmation',
                                     'pending_remittance' => 'Awaiting admin transfer',
                                     'voided' => 'Voided',
                                     default => 'Held in escrow',
@@ -68,13 +70,13 @@
                     </details>
 
                     @if($payout->status === 'remitted' && $payout->canAcceptHubPayout(auth()->user()))
-                        <form method="POST" action="{{ route('remittances.hub-payouts.accept', $payout->id) }}" class="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <form method="POST" action="{{ route('remittances.incoming.accept',['source'=>$payout->source,'id'=>$payout->id]) }}" class="mt-4 flex flex-col gap-3 border-t border-gray-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
                             @csrf
                             <label class="flex min-w-0 items-start gap-2 text-sm text-gray-700">
                                 <input type="checkbox" name="confirm_received" value="1" required class="mt-1 rounded border-gray-300">
                                 <span>I confirm this payment has reached our hub's receiving account.</span>
                             </label>
-                            <button type="submit" class="min-h-[44px] shrink-0 rounded-xl border border-teal bg-white px-4 text-sm font-bold text-teal hover:bg-teal-light">Accept remittance</button>
+                            <button type="submit" class="min-h-[44px] shrink-0 rounded-xl border border-teal bg-white px-4 text-sm font-bold text-teal hover:bg-teal-light">Confirm received</button>
                         </form>
                     @elseif($payout->status === 'remitted')
                         <p class="mt-3 text-xs text-gray-500">Only the receiving hub or its company manager can confirm receipt.</p>

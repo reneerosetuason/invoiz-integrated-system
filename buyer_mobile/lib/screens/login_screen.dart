@@ -85,25 +85,16 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return BuyerAuthPage(
-      title: 'Welcome to INVOIZ',
-      description: 'Sign in to explore curated finds and track every delivery.',
+      title: 'Buyer Login',
+      description: 'Sign in to your Invoiz buyer account.',
       child: AutofillGroup(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Sign in with your email',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Pick up where you left off.',
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 22),
             // Email Field with clean styling
             BuyerField(
               controller: _emailCtrl,
+              enabled: !_busy,
               keyboardType: TextInputType.emailAddress,
               textInputAction: TextInputAction.next,
               autofillHints: const [
@@ -120,6 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
             // Password Field
             BuyerField(
               controller: _passCtrl,
+              enabled: !_busy,
               obscureText: _obscure,
               autofillHints: const [AutofillHints.password],
               onSubmitted: (_) => _login(),

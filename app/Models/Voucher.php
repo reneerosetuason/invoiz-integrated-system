@@ -104,6 +104,11 @@ class Voucher extends Model
         return $this->belongsTo(Seller::class);
     }
 
+    public function scopeForStore($query, Seller $seller)
+    {
+        return $query->whereIn('seller_id', $seller->recordIds());
+    }
+
     public function claims()
     {
         return $this->hasMany(VoucherClaim::class);

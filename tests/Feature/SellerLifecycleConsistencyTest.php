@@ -228,7 +228,7 @@ class SellerLifecycleConsistencyTest extends TestCase
         $this->post('/logout')->assertRedirect('/');
         $this->assertGuest();
 
-        $this->login($buyer)->assertRedirect('/choose');
+        $this->login($buyer)->assertRedirect('/seller/dashboard');
         $this->assertAuthenticatedAs($buyer);
 
         $this->post('/switch-role', ['role' => 'buyer'])->assertRedirect('/shop');
@@ -670,7 +670,7 @@ class SellerLifecycleConsistencyTest extends TestCase
         $this->post('/logout')->assertRedirect('/');
         $this->assertGuest();
 
-        $this->login($sellerUser)->assertRedirect('/choose');
+        $this->login($sellerUser)->assertRedirect('/seller/dashboard');
         $this->assertAuthenticatedAs($sellerUser);
     }
 

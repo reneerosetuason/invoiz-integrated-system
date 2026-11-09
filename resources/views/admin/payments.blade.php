@@ -8,7 +8,6 @@
 @endpush
 
 @section('content')
-    @if(\Illuminate\Support\Facades\Schema::hasTable('return_settlements'))<p><a class="btn btn-outline" href="{{ route('returns.remittances') }}">Return payments &amp; remittances</a> <a class="btn btn-outline" href="{{ route('returns.center') }}">Return funding &amp; refunds</a></p>@endif
 @php
     $escrowRemittancesList = $escrowRemittancesList ?? $escrowRemittances ?? null;
     $pendingEscrowRemittances = $pendingEscrowRemittances ?? (isset($escrowRemittancesList) ? collect($escrowRemittancesList->items())->where('status', 'pending_remittance')->filter(fn ($row) => $row->order?->payment?->method !== 'gcash') : collect());
@@ -57,7 +56,7 @@
                         <td><a class="po-truncate po-order" href="{{ url('/admin/orders/'.$remit->order_id) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">#{{ $remit->order?->order_number ?? $remit->order_id }}</a></td>
                         <td class="po-money">&#8369;{{ number_format((float) $remit->amount, 2) }}</td>
                         <td>@include('admin.partials.payment-status', ['paymentStatus' => $remit->status])</td>
-                        <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-{{ $remit->id }}" aria-haspopup="dialog" aria-label="View admin remittance {{ $remit->id }}">View</button></td>
+                        <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-order-{{ $remit->id }}" aria-haspopup="dialog" aria-label="View admin remittance {{ $remit->id }}">View</button></td>
                     </tr>
                 @empty
                     <tr><td colspan="4" class="po-empty">No admin remittances available yet.</td></tr>
@@ -69,9 +68,11 @@
         @endif
     </section>
 
+    @include('admin.partials.return-escrow-funding')
+    @if($escrowAdjustments??0)<p><a class="po-button" href="{{ route('returns.remittances',['refunds_only'=>1]) }}">Escrow refund adjustments</a></p>@endif
     <section class="po-panel" id="escrow-remittances" aria-labelledby="escrow-title">
         <div class="po-section-heading">
-            <div><h2 id="escrow-title">Escrow remittances</h2><p>View a payout for recipient details and release controls. GCash requires an individual transfer reference.</p></div>
+            <div><h2 id="escrow-title">Escrow remittances</h2><p>Order and return-delivery payouts in one list. Release completed, funded shares; each recipient confirms receipt in their regular remittances.</p></div>
             @if($pendingEscrowRemittances->count() > 0)
                 <form method="POST" action="{{ route('admin.escrow.remit-all') }}" data-payout-confirm="Release all {{ $pendingEscrowRemittances->count() }} pending COD payouts totaling &#8369;{{ number_format($pendingEscrowTotal, 2) }}?">
                     @csrf
@@ -82,15 +83,15 @@
         <table class="po-table po-remittances">
             <caption class="po-sr-only">Escrow payout summary. Use View to see full details and release a payout.</caption>
             <colgroup><col class="po-col-order"><col class="po-col-recipient"><col class="po-col-amount"><col class="po-col-status"><col class="po-col-action"></colgroup>
-            <thead><tr><th scope="col">Order</th><th scope="col" class="po-recipient">Recipient</th><th scope="col" class="po-money">Amount</th><th scope="col">Status</th><th scope="col" class="po-action">Action</th></tr></thead>
+            <thead><tr><th scope="col">Order / return</th><th scope="col" class="po-recipient">Recipient</th><th scope="col" class="po-money">Amount</th><th scope="col">Status</th><th scope="col" class="po-action">Action</th></tr></thead>
             <tbody>
                 @forelse($escrowRemittancesList ?? [] as $remit)
                     <tr>
-                        <td><a class="po-truncate po-order" href="{{ url('/admin/orders/'.$remit->order_id) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">#{{ $remit->order?->order_number ?? $remit->order_id }}</a></td>
+                        <td><a class="po-truncate po-order" href="{{ $remit->source==='return'?route('returns.agreement',$remit->return_id):url('/admin/orders/'.$remit->order_id) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->source==='return'?'Return #'.$remit->return_id:'#'.($remit->order?->order_number ?? $remit->order_id) }}</a></td>
                         <td class="po-recipient"><span class="po-truncate po-recipient-name">{{ $remit->recipient_name }}</span><small class="po-truncate">{{ $remit->roleLabel() }}</small></td>
                         <td class="po-money">&#8369;{{ number_format((float) $remit->amount, 2) }}</td>
                         <td>@include('admin.partials.payment-status', ['paymentStatus' => $remit->status])</td>
-                        <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-{{ $remit->id }}" aria-haspopup="dialog" aria-label="View payout {{ $remit->id }}">View</button></td>
+                        <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-{{ $remit->key??'order-'.$remit->id }}" aria-haspopup="dialog" aria-label="View payout {{ $remit->id }}">View</button></td>
                     </tr>
                 @empty
                     <tr><td colspan="5" class="po-empty">No escrow remittances available yet.</td></tr>
@@ -135,8 +136,9 @@
 </div>
 
 @foreach(collect($escrowRemittancesList?->items() ?? [])->merge($adminRemittances?->items() ?? []) as $remit)
-<dialog class="po-dialog" id="payout-detail-{{ $remit->id }}" aria-labelledby="payout-title-{{ $remit->id }}">
-    <header><div><p class="po-eyebrow">Allocation #{{ $remit->id }}</p><h2 id="payout-title-{{ $remit->id }}">Payout details</h2></div><button type="button" class="po-close" data-payment-close aria-label="Close payout details">&times;</button></header>
+@php($payoutKey=$remit->key??'order-'.$remit->id)
+<dialog class="po-dialog" id="payout-detail-{{ $payoutKey }}" aria-labelledby="payout-title-{{ $payoutKey }}">
+    <header><div><p class="po-eyebrow">{{ $remit->source==='return'?'Return #'.$remit->return_id.' · ':'' }}Allocation #{{ $remit->id }}</p><h2 id="payout-title-{{ $payoutKey }}">Payout details</h2></div><button type="button" class="po-close" data-payment-close aria-label="Close payout details">&times;</button></header>
     <dl class="po-detail-list">
         <div><dt>Order</dt><dd><a href="{{ url('/admin/orders/'.$remit->order_id) }}">#{{ $remit->order?->order_number ?? $remit->order_id }}</a></dd></div>
         <div><dt>Recipient</dt><dd>{{ $remit->recipient_name }}</dd></div>
@@ -146,14 +148,24 @@
         <div><dt>Payment method</dt><dd>{{ strtoupper(str_replace('_', ' ', $remit->order?->payment?->method ?? 'Unavailable')) }}</dd></div>
         <div><dt>Settlement mode</dt><dd>{{ $remit->settlementModeLabel() }}</dd></div>
         <div><dt>Allocation rule</dt><dd>{{ $remit->rule_applied ?: 'Not recorded' }}</dd></div>
-        <div><dt>Transfer reference</dt><dd>{{ $remit->bank_reference ?: 'Not recorded' }}</dd></div>
+        <div><dt>Transfer / release reference</dt><dd>{{ $remit->bank_reference ?: 'Not recorded' }}</dd></div>
         <div><dt>Released</dt><dd>{{ $remit->remitted_at?->format('M d, Y g:i A') ?? 'Not released' }}</dd></div>
         @if($remit->notes)<div><dt>Notes</dt><dd>{{ $remit->notes }}</dd></div>@endif
     </dl>
+    @if($remit->recipient_role !== 'admin')
+    <section class="po-bank-account" data-payout-account-url="{{ route('admin.payments.payout-account', ['source'=>$remit->source??'order', 'id'=>$remit->id]) }}">
+        <h3>Current saved payout account</h3>
+        <div data-payout-account-content role="status" aria-live="polite">Loading the recipient's saved details…</div>
+        <button type="button" class="po-button" data-refresh-payout-account>Refresh bank details</button>
+    </section>
+    @endif
     @if($remit->status === 'pending_remittance')
-        <form class="po-release-form" method="POST" action="{{ route('admin.escrow.remit', $remit->id) }}" data-payout-confirm="Release payout of &#8369;{{ number_format((float) $remit->amount, 2) }} to {{ $remit->recipient_name }}?">
+        <form class="po-release-form" method="POST" action="{{ $remit->source==='return'?route('returns.payout',$remit->id):route('admin.escrow.remit',$remit->id) }}" @if($remit->source!=='return') data-payout-confirm="Release payout of &#8369;{{ number_format((float) $remit->amount, 2) }} to {{ $remit->recipient_name }}?" @endif>
             @csrf
-            @if($remit->order?->payment?->method === 'gcash')
+            @if($remit->source==='return')
+                <input type="hidden" name="action" value="release">
+                <label><input type="checkbox" name="confirm" value="1" required> I confirm release of this funded service share to the recipient's remittances.</label>
+            @elseif($remit->order?->payment?->method === 'gcash')
                 <label for="payout-reference-{{ $remit->id }}">Transfer / retention reference</label>
                 <input id="payout-reference-{{ $remit->id }}" name="bank_reference" maxlength="150" required autocomplete="off" aria-describedby="payout-help-{{ $remit->id }}">
                 <p id="payout-help-{{ $remit->id }}">Record the actual transfer or retention reference for this GCash payout.</p>

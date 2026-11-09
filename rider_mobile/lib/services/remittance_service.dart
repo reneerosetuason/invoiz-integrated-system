@@ -6,18 +6,34 @@ class RemittanceService {
   RemittanceService(this._api);
 
   final ApiClient _api;
+  ApiClient get api => _api;
 
   Future<List<EscrowPayout>> payouts() async {
-    final data = await _api.get('/rider/remittances/earnings-payouts');
-    final rows = (data as Map)['payouts'] as List? ?? [];
-    return rows
-        .whereType<Map>()
-        .map((row) => EscrowPayout.fromJson(Map<String, dynamic>.from(row)))
-        .toList();
+    final rows = <String, EscrowPayout>{};
+    var page = 1;
+    while (true) {
+      final data =
+          await _api.getSharedAuthenticated(
+                'remittances/incoming?per_page=100&page=$page',
+              )
+              as Map;
+      for (final row in (data['remittances'] as List? ?? []).whereType<Map>()) {
+        final payout = EscrowPayout.fromJson(Map<String, dynamic>.from(row));
+        rows['${payout.source}-${payout.id}'] = payout;
+      }
+      final last =
+          ((data['pagination'] as Map?)?['last_page'] as num?)?.toInt() ?? 1;
+      if (page >= last) break;
+      page++;
+    }
+    return rows.values.toList();
   }
 
-  Future<void> acceptPayout(int id) async {
-    await _api.post('/rider/remittances/$id/accept-payout', body: {});
+  Future<void> acceptPayout(int id, {String source = 'order'}) async {
+    await _api.postSharedAuthenticated(
+      'remittances/incoming/$source/$id/accept',
+      {'confirm_received': 1},
+    );
   }
 
   Future<RemittancePage> list() async {

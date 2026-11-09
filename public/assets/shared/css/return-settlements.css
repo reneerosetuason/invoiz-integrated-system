@@ -11,6 +11,8 @@
 .return-agreement .return-check{display:flex;align-items:flex-start;gap:9px;font-size:12px;line-height:1.5}
 .return-agreement input[type=checkbox]{appearance:auto;width:16px;height:16px;min-width:16px;margin-top:2px;flex-shrink:0;padding:0}
 .return-agreement button{justify-self:start;padding:10px 14px;border:1px solid #9cb4b7;border-radius:8px;background:#f1f6f5;color:#17515c;font:600 13px/1.4 inherit;cursor:pointer;max-width:100%;white-space:normal}
+.return-agreement button[type=submit]:disabled{background:#e6ebea;border-color:#d5dfdd;color:#697b7d;cursor:not-allowed;box-shadow:none}
+.return-agreement .return-fees{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px;margin-top:12px}.return-fees :is(th,td){padding:10px 8px;text-align:left;border-bottom:1px solid #e4eae8}.return-fees :is(th,td):last-child{text-align:right;width:32%}.return-fees tfoot{font-weight:700;background:#f5f6f2}
 .return-agreement :is(button,a,input,textarea,select,summary):focus-visible{outline:2px solid #16697a;outline-offset:3px}
 .return-agreement details{margin:14px 0;font-size:13px}.return-agreement summary{cursor:pointer;font-weight:650;padding:8px 0;color:#17515c}
 .return-agreement details[open]{padding-bottom:10px}.return-agreement ol{padding-left:20px;font-size:12px;line-height:1.7}

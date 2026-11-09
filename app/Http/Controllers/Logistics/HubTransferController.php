@@ -506,6 +506,7 @@ class HubTransferController extends Controller
                 ->values();
             $rerouteHubs = LogisticsCenter::query()
                 ->where('is_active', true)
+                ->whereHas('company', fn ($q) => $q->where('status', 'active'))
                 ->whereKeyNot($hubTransfer->origin_center_id)
                 ->orderBy('name')
                 ->get();
@@ -892,7 +893,7 @@ class HubTransferController extends Controller
         if (! $this->isNetworkAdmin($request)) {
             $centerId = LogisticsAccess::centerId($request->user());
             if ($centerId !== null) {
-                abort_unless($centerId > 0 && $centerId === (int) $transfer->origin_center_id, 403);
+                abort_unless($centerId > 0 && $centerId === (int) $transfer->origin_center_id, 403, 'Only origin hub staff can perform this action.');
             }
         }
     }
@@ -910,7 +911,7 @@ class HubTransferController extends Controller
         if (! $this->isNetworkAdmin($request)) {
             $centerId = LogisticsAccess::centerId($request->user());
             if ($centerId !== null) {
-                abort_unless($centerId > 0 && $centerId === (int) $transfer->destination_center_id, 403);
+                abort_unless($centerId > 0 && $centerId === (int) $transfer->destination_center_id, 403, 'Only destination hub staff can perform this action.');
             }
         }
     }

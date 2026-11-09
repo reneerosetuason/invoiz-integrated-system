@@ -7,6 +7,7 @@
     $gcashPayouts = \App\Models\EscrowRemittance::where('recipient_role', 'seller')->where('recipient_user_id', auth()->id())
         ->whereHas('order.payment', fn ($q) => $q->where('method', 'gcash'))->latest()->paginate(10, ['*'], 'gcash_page');
 @endphp
+@include('shared.remittances.payout-account')
 <div class="card p-6 mb-4">
     <h2 class="text-lg font-bold">Incoming GCash escrow payouts</h2>
     <p class="text-sm">Admin releases your net share after delivery. Confirm only after the funds arrive in your account.</p>

@@ -1,0 +1,16 @@
+{
+    "buyer":  {
+                  "version":  "1.0.9",
+                  "build":  10,
+                  "bytes":  54546753,
+                  "sha256":  "79c551f9fcb87a2bd52bd22983fffd4f917153c260ef7f725075b647db62dc6c",
+                  "package":  "com.invoiz.invoiz"
+              },
+    "rider":  {
+                  "version":  "1.0.8",
+                  "build":  10,
+                  "bytes":  75384474,
+                  "sha256":  "d6158c60d3083abeab38ff7042f8a210ed4010cc387c07159dcacfdb0666b12a",
+                  "package":  "com.invoize.invoize_rider"
+              }
+}

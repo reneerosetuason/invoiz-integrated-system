@@ -302,7 +302,13 @@ class StageAwareRiderAssignmentAndMultiHubRoutingTest extends TestCase
 
         // Origin hub custody: nobody may take the parcel for last mile yet.
         $rows = app(DeliveryController::class)->riderEligibilityFor($delivery->fresh());
-        $this->assertSame('Parcel is still being processed at a logistics hub', $rows->firstWhere('rider.id', $pilaRider->id)['reason']);
+        $this->assertSame('Parcel is at an intermediate hub and still needs transfer to its final destination hub before last-mile assignment.', $rows->firstWhere('rider.id', $pilaRider->id)['reason']);
+        $this->get(route('deliveries.show', $delivery))
+            ->assertOk()
+            ->assertSee('Next step before last-mile assignment')
+            ->assertSee('Continue in Hub Transfers')
+            ->assertSee($calamba->name)
+            ->assertSee($pila->name);
 
         $this->actingAs($manager);
         $this->patch(route('deliveries.scan', $delivery))->assertSessionHasNoErrors();
@@ -313,7 +319,7 @@ class StageAwareRiderAssignmentAndMultiHubRoutingTest extends TestCase
 
         // Still at Calamba: routed to another hub, so hub custody continues.
         $rows = app(DeliveryController::class)->riderEligibilityFor($delivery->fresh());
-        $this->assertSame('Parcel is still being processed at a logistics hub', $rows->firstWhere('rider.id', $pilaRider->id)['reason']);
+        $this->assertSame('Parcel is at an intermediate hub and still needs transfer to its final destination hub before last-mile assignment.', $rows->firstWhere('rider.id', $pilaRider->id)['reason']);
 
         $transfer = $this->moveLeg($company, $calamba, $pila, $delivery->fresh(), $truck, $driver);
         $delivery->refresh();
@@ -323,7 +329,7 @@ class StageAwareRiderAssignmentAndMultiHubRoutingTest extends TestCase
         // Received at the final hub but not scanned/sorted yet.
         $this->actingAs($manager);
         $rows = app(DeliveryController::class)->riderEligibilityFor($delivery);
-        $this->assertSame('Parcel is still being processed at a logistics hub', $rows->firstWhere('rider.id', $pilaRider->id)['reason']);
+        $this->assertSame('Parcel must be scanned and sorted at its destination hub before last-mile assignment.', $rows->firstWhere('rider.id', $pilaRider->id)['reason']);
 
         $this->patch(route('deliveries.scan', $delivery))->assertSessionHasNoErrors();
         $this->post(route('deliveries.sort', $delivery), [

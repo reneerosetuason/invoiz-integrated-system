@@ -6,7 +6,7 @@ use App\Models\{ReturnRequest, Rider};
 use App\Services\ReturnWorkflowService;
 use App\Support\LogisticsAccess;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\{Storage,Schema};
 
 class ReturnWorkflowController extends Controller
 {
@@ -58,7 +58,7 @@ class ReturnWorkflowController extends Controller
     {
         $user = $request->user();
         abort_unless($user->isActive(), 403);
-        $query = ReturnRequest::with(['workflow', 'order', 'item', 'buyer']);
+        $query = ReturnRequest::with(['workflow.rider','workflow.center', 'order', 'item', 'buyer']);
         if (! $user->isAdmin()) {
             $query->where(function ($q) use ($user) {
                 $q->where('buyer_id', $user->id)->orWhere('seller_id', $user->id);
@@ -73,6 +73,8 @@ class ReturnWorkflowController extends Controller
                 }
             });
         }
+        if(!$user->isAdmin() && Schema::hasTable('return_settlements'))$query->where(fn($q)=>$q->where('buyer_id',$user->id)->orWhere('seller_id',$user->id)
+            ->orWhereDoesntHave('settlement',fn($s)=>$s->where('workflow_policy','seller_direct_keep_item')));
         $returns = $query->latest()->paginate(12);
         $escrowIssues = $user->isAdmin() ? \App\Models\Order::whereHas('payment', fn ($q) => $q->where('method', 'gcash'))
             ->whereIn('status', ['confirmed', 'processing', 'ready_for_delivery', 'shipped', 'out_for_delivery', 'delivered'])
@@ -95,14 +97,18 @@ class ReturnWorkflowController extends Controller
             'recovery_amount' => 'nullable|numeric|min:0|max:9999999999', 'recovery_reference' => 'nullable|string|max:150',
             'recovery_proof' => 'nullable|file|mimes:jpg,jpeg,png,webp|max:5120',
             'confirm_transfer' => 'exclude_unless:action,refund|required|accepted',
+            'amount'=>'nullable|numeric|min:0.01|max:99999999|decimal:0,2',
+            'receipt_id'=>'nullable|integer|min:1', 'receipt_version'=>'nullable|integer|min:1',
         ]);
         // Only the marketplace admin handles money and private transfer files.
-        if ($data['action'] === 'refund') { abort_unless($request->user()->isAdmin(), 403); }
+        $agreement=Schema::hasTable('return_settlements')?$returnRequest->settlement:null;
+        $sellerDirect=$agreement?->sellerDirectRefund() && (int)$request->user()->id===(int)$returnRequest->seller_id;
+        if ($data['action'] === 'refund') { abort_unless($agreement?->sellerDirectRefund() ? $sellerDirect : $request->user()->isAdmin(), 403); }
         $paths = [];
         try {
             foreach (['proof' => 'proof_path', 'recovery_proof' => 'recovery_proof_path'] as $field => $key) {
                 if ($request->hasFile($field)) {
-                    abort_unless(($request->user()->isAdmin() && $data['action'] === 'refund')
+                    abort_unless((($request->user()->isAdmin() || ($sellerDirect && $field==='proof')) && $data['action'] === 'refund')
                         || ($field === 'proof' && in_array($data['action'], ['pickup', 'deliver_seller']) && $request->user()->role === 'rider'), 403);
                     $data[$key] = $request->file($field)->store('refund-proofs', 'private');
                     $paths[] = $data[$key];
@@ -119,8 +125,16 @@ class ReturnWorkflowController extends Controller
 
     public function proof(Request $request, ReturnRequest $returnRequest)
     {
-        abort_unless($request->user()->isActive() && ($request->user()->isAdmin() || (int) $returnRequest->buyer_id === (int) $request->user()->id), 403);
+        $managed=Schema::hasTable('return_settlements')?$returnRequest->settlement:null;
+        abort_unless($request->user()->isActive() && ($request->user()->isAdmin() || (int) $returnRequest->buyer_id === (int) $request->user()->id
+            || (Schema::hasTable('return_settlements') && $returnRequest->settlement?->sellerDirectRefund() && (int)$returnRequest->seller_id===(int)$request->user()->id)), 403);
+        if($managed?->keepItemDirect())abort_unless(in_array((int)$request->user()->id,[(int)$returnRequest->buyer_id,(int)$returnRequest->seller_id],true),403);
         $path = $returnRequest->workflow?->refund_proof_path;
+        if($managed?->keepItemDirect() && $request->filled('receipt')){
+            $data=$request->validate(['receipt'=>'required|integer|min:1','revision'=>'required|integer|min:1']);
+            $receipt=\App\Models\DirectRefundTransfer::where('return_request_id',$returnRequest->id)->findOrFail($data['receipt']);
+            $path=($receipt->receipt_versions[$data['revision']-1]??[])['proof_path']??null;
+        }
         abort_unless($path && Storage::disk('private')->exists($path), 404);
         return Storage::disk('private')->response($path, null, ['Cache-Control' => 'private, no-store', 'X-Content-Type-Options' => 'nosniff']);
     }

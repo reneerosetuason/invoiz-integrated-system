@@ -102,6 +102,9 @@ class VerifyEmailController extends Controller
             return redirect('/logistics/dashboard');
         }
         if ($user->canSell()) {
+            if ($user->isSeller()) {
+                return app(\App\Http\Controllers\Shared\UnifiedAuthController::class)->redirectForRole($user);
+            }
             return redirect('/choose');
         }
 

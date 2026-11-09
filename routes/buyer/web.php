@@ -409,7 +409,8 @@ Route::get('/store/{id}', function($id, Request $request){
     $s = \App\Models\Seller::find($sellerId);
     if($s) { $sellerId = (int) $s->user_id; $sellerUser = \App\Models\User::find($sellerId); }
   }
-  if(!$sellerUser || ! \App\Models\Seller::where('user_id', $sellerId)->exists()) return redirect('/shop')->with('error','Store not found');
+  $store = \App\Models\Seller::where('user_id', $sellerId)->first();
+  if(!$sellerUser || !$store) return redirect('/shop')->with('error','Store not found');
   $name = \App\Models\Seller::nameFor($sellerId);
   $catalogIds = [$sellerId];
   $pq = Product::with('category')->whereIn('seller_id', $catalogIds)->where('status','active');
@@ -448,7 +449,13 @@ Route::get('/store/{id}', function($id, Request $request){
       $buyer = $b;
     } else { $buyer = session('buyer'); }
   } catch (\Throwable $e) { $buyer = session('buyer'); }
-  $tab = $request->input('tab')==='reviews' ? 'reviews' : 'products';
+  $tab = in_array($request->input('tab'), ['reviews','vouchers'], true) ? $request->input('tab') : 'products';
+  $storeVouchers = \App\Models\Voucher::active()->forStore($store)
+    ->when(!$store->isApproved() || !$sellerUser->isActive(), fn ($query) => $query->whereRaw('1 = 0'))
+    ->latest()->paginate(12, ['*'], 'voucher_page')->withQueryString();
+  $voucherClaims = !empty($buyer['id']) ? \App\Models\VoucherClaim::where('buyer_id', $buyer['id'])
+    ->whereIn('voucher_id', $storeVouchers->pluck('id'))->get()->keyBy('voucher_id') : collect();
+  $claimedIds = $voucherClaims->keys()->map(fn ($id) => (int) $id)->all();
   $storeLogo = null;
   try {
     $srow = \App\Models\Seller::where('user_id', $sellerId)->first();
@@ -462,7 +469,7 @@ Route::get('/store/{id}', function($id, Request $request){
     $vs = \App\Models\Seller::where('user_id',$sellerId)->first();
     if ($vs && $vs->vacation_mode) $vacation = $vs->vacation_message ?: 'This store is currently on vacation — orders are paused.';
   } catch (\Throwable $e) {}
-  return view('buyer.store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer','storeLogo','favoriteIds','vacation') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
+  return view('buyer.store', compact('sellerId','sellerUser','name','products','reviews','rating','followers','following','tab','buyer','storeLogo','favoriteIds','vacation','storeVouchers','voucherClaims','claimedIds') + ['storeSearch'=>$request->input('search',''),'storeSort'=>$sort]);
 });
 
 Route::post('/store/{id}/follow', function($id, Request $request){
