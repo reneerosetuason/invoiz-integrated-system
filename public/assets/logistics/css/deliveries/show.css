@@ -61,12 +61,6 @@
     border-left: 1px solid #b7c8cb;
 }
 
-.waybill-payment-details {
-    border-right-width: 1px !important;
-    border-right-style: solid !important;
-    border-color: #b7c8cb !important;
-}
-
 .waybill-payment {
     border-bottom: 1px solid #b7c8cb !important;
 }
@@ -98,11 +92,6 @@
 
 .waybill-payment-parcel {
     background: #ffffff;
-}
-
-.waybill-qr-panel {
-    min-width: 0;
-    border-left: 1px solid #b7c8cb;
 }
 
 .waybill-items table {
@@ -210,9 +199,7 @@
         border-bottom-color: #b7c8cb !important;
     }
 
-    #shipping-label .waybill-party,
-    #shipping-label .waybill-payment-details,
-    #shipping-label .waybill-payment {
+    #shipping-label .waybill-party {
         border-right-width: 0.2mm !important;
         border-right-style: solid !important;
         border-right-color: #b7c8cb !important;
@@ -278,21 +265,6 @@
         width: 100% !important;
         height: 11mm !important;
         max-height: 11mm !important;
-    }
-
-    #shipping-label #parcel-qr {
-        width: 19mm !important;
-        height: 19mm !important;
-        margin-top: 0.5mm !important;
-        padding: 0.25mm !important;
-    }
-
-    #shipping-label #parcel-qr canvas,
-    #shipping-label #parcel-qr img {
-        width: 100% !important;
-        height: 100% !important;
-        max-width: 19mm !important;
-        max-height: 19mm !important;
     }
 
     #shipping-label table {

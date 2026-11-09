@@ -1,7 +1,7 @@
 var invoizData_68dbadcd18 = JSON.parse(document.currentScript.dataset.config);
 
         (function () {
-            var qrTarget = invoizData_68dbadcd18[0];
+            var trackingNumber = invoizData_68dbadcd18[0];
             var label = document.getElementById('shipping-label');
             var labelParent = null;
             var labelNextSibling = null;
@@ -32,20 +32,10 @@ var invoizData_68dbadcd18 = JSON.parse(document.currentScript.dataset.config);
             window.addEventListener('beforeprint', isolateWaybillForPrint);
             window.addEventListener('afterprint', restoreWaybillAfterPrint);
 
-            var qrEl = document.getElementById('parcel-qr');
-            if (qrEl && typeof QRCode !== 'undefined') {
-                new QRCode(qrEl, {
-                    text: qrTarget,
-                    width: 128,
-                    height: 128,
-                    correctLevel: QRCode.CorrectLevel.H,
-                });
-            }
-
             var barEl = document.getElementById('parcel-barcode');
             if (barEl && typeof JsBarcode !== 'undefined') {
                 try {
-                    JsBarcode(barEl, qrTarget, {
+                    JsBarcode(barEl, trackingNumber, {
                         format: 'CODE128',
                         displayValue: false,
                         height: 64,
@@ -55,7 +45,7 @@ var invoizData_68dbadcd18 = JSON.parse(document.currentScript.dataset.config);
                         lineColor: '#111111',
                     });
                 } catch (e) {
-                    barEl.outerHTML = '<p class="font-mono text-sm font-bold">' + qrTarget + '</p>';
+                    barEl.outerHTML = '<p class="font-mono text-sm font-bold">' + trackingNumber + '</p>';
                 }
             }
 

@@ -70,6 +70,7 @@ class SellerWaybillLayoutTest extends TestCase
             $table->string('status')->default('active');
             $table->string('account_status')->default('active');
             $table->string('phone')->nullable();
+            $table->timestamp('email_verified_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
@@ -128,6 +129,38 @@ class SellerWaybillLayoutTest extends TestCase
             $table->timestamps();
         });
 
+        $schema->create('payments', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id');
+            $table->string('method')->nullable();
+            $table->string('reference_number')->nullable();
+            $table->timestamps();
+        });
+
+        $schema->create('order_vouchers', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id');
+            $table->decimal('discount_amount', 10, 2)->default(0);
+            $table->timestamps();
+        });
+
+        $schema->create('addresses', function (Blueprint $table) {
+            $table->id();
+            $table->string('recipient_name')->nullable();
+            $table->timestamps();
+        });
+
+        $schema->create('delivery_items', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('delivery_id');
+            $table->string('name')->nullable();
+            $table->string('variant_label')->nullable();
+            $table->integer('quantity')->default(1);
+            $table->decimal('price', 10, 2)->default(0);
+            $table->decimal('subtotal', 10, 2)->default(0);
+            $table->timestamps();
+        });
+
         $schema->create('deliveries', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('order_id')->nullable();
@@ -170,6 +203,8 @@ class SellerWaybillLayoutTest extends TestCase
             'business_name' => $storeName,
             'status' => 'approved',
         ]);
+
+        $user->forceFill(['email_verified_at' => now()])->save();
 
         \Illuminate\Support\Facades\DB::table('seller_profiles')->insert([
             'seller_id' => $seller->id,
@@ -264,10 +299,11 @@ class SellerWaybillLayoutTest extends TestCase
         $response->assertSee('Makati City', false);
         $response->assertSee('+63 920 987 6543', false);
 
-        // Tracking and barcode element
+        // Tracking and the single Code128 barcode element
         $response->assertSee('TRK-20261017-ZHB0', false);
-        $response->assertSee('id="seller-barcode"', false);
-        $response->assertSee('id="seller-qr"', false);
+        $response->assertSee('id="parcel-barcode"', false);
+        $response->assertDontSee('id="parcel-qr"', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'id="parcel-barcode"'));
 
         // Order item
         $response->assertSee('Premium Wireless Headset', false);
@@ -276,14 +312,14 @@ class SellerWaybillLayoutTest extends TestCase
         // COD total
         $response->assertSee('1,250.00', false);
 
-        // Check compact container class
-        $response->assertSee('class="waybill"', false);
-        $response->assertSee('id="print-area" class="waybill"', false);
-        $response->assertSee('waybill.css', false);
-        $this->assertSame(1, substr_count($response->getContent(), 'id="print-area"'));
+        // Same shared label and stylesheet as logistics
+        $response->assertSee('id="shipping-label"', false);
+        $response->assertSee('deliveries/show.css', false);
+        $response->assertDontSee('qrcodejs', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'id="shipping-label"'));
     }
 
-    public function test_waybill_caps_item_rows_to_prevent_vertical_overflow(): void
+    public function test_waybill_lists_order_items_within_the_single_label(): void
     {
         $this->setUpDatabaseSchema();
         [$user, $seller] = $this->createSeller('Wholesale Central');
@@ -305,7 +341,7 @@ class SellerWaybillLayoutTest extends TestCase
             'status' => 'pending',
         ]);
 
-        // Create 8 items to test overflow prevention
+        // Create 8 items to exercise the shared label's item table
         for ($i = 1; $i <= 8; $i++) {
             OrderItem::create([
                 'order_id' => $order->id,
@@ -322,12 +358,11 @@ class SellerWaybillLayoutTest extends TestCase
             ->get("/seller/orders/{$order->id}/waybill");
 
         $response->assertOk();
-        // First 3 items shown
+        // The shared label lists the order items in one A6 label.
         $response->assertSee('Bulk Item #1', false);
-        $response->assertSee('Bulk Item #2', false);
-        $response->assertSee('Bulk Item #3', false);
-        // Overflow summary message present
-        $response->assertSee('more item(s) on order invoice', false);
+        $response->assertSee('Bulk Item #8', false);
+        $this->assertSame(1, substr_count($response->getContent(), 'id="shipping-label"'));
+        $this->assertSame(1, substr_count($response->getContent(), 'id="parcel-barcode"'));
     }
 
     public function test_seller_cannot_view_waybill_of_another_seller(): void

@@ -12,19 +12,6 @@ var invoizData_d58e567d5c = (function () {
     var code = (invoizData_d58e567d5c && invoizData_d58e567d5c[0]) || (barEl && barEl.dataset.tracking) || '';
     if (!code) return;
 
-    var qrEl = document.getElementById('seller-qr');
-    if (qrEl && typeof QRCode !== 'undefined') {
-        try {
-            qrEl.innerHTML = '';
-            new QRCode(qrEl, {
-                text: code,
-                width: 48,
-                height: 48,
-                correctLevel: QRCode.CorrectLevel.M
-            });
-        } catch (e) {}
-    }
-
     if (barEl && typeof JsBarcode !== 'undefined') {
         try {
             JsBarcode(barEl, code, {

@@ -37,7 +37,6 @@
     </div>
 
     @if($delivery)
-        <script src="{{ asset('vendor/qrcodejs/qrcode.min.js') }}"></script>
         <script src="{{ asset('vendor/jsbarcode/JsBarcode.all.min.js') }}"></script>
         <script src="{{ asset('assets/logistics/js/deliveries/show.js') }}" data-config="{{ json_encode([$delivery->tracking_number], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
     @endif

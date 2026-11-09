@@ -55,35 +55,42 @@ class LogisticsWaybillPrintLayoutTest extends TestCase
     public function test_logistics_waybill_print_styles_isolate_it_from_dashboard(): void
     {
         $view = file_get_contents(resource_path('views/logistics/deliveries/show.blade.php'));
+        $label = file_get_contents(resource_path('views/shared/waybill/label.blade.php'));
         $script = file_get_contents(public_path('assets/logistics/js/deliveries/show.js'));
         $css = file_get_contents(public_path('assets/logistics/css/deliveries/show.css'));
 
         $this->assertStringContainsString('body.printing-delivery-waybill > :not(#shipping-label)', $css);
         $this->assertStringContainsString('display: none !important;', $this->cssRule($css, 'body.printing-delivery-waybill > :not(#shipping-label)'));
-        $this->assertStringContainsString('id="shipping-label"', $view);
-        $this->assertStringContainsString('id="parcel-barcode"', $view);
-        $this->assertStringContainsString('id="parcel-qr"', $view);
-        $this->assertStringContainsString('SHIPPING WAYBILL', $view);
-        $this->assertStringContainsString('WAYBILL / TRACKING', $view);
-        $this->assertStringContainsString('SHIPPED BY / SELLER', $view);
-        $this->assertStringContainsString('DELIVER TO / BUYER', $view);
-        $this->assertStringContainsString('DELIVERY / LOGISTICS', $view);
-        $this->assertStringContainsString('PAYMENT', $view);
-        $this->assertStringContainsString('PARCEL INFORMATION', $view);
-        $this->assertStringContainsString('ORDER ITEMS', $view);
-        $this->assertStringContainsString('Subtotal:', $view);
-        $this->assertStringContainsString('Delivery Fee:', $view);
-        $this->assertStringContainsString('TOTAL:', $view);
-        $this->assertStringContainsString('waybill-footer', $view);
-        $this->assertStringContainsString('border-b-2 border-[#111111]', $view);
+        $this->assertStringContainsString("@include('shared.waybill.label')", $view);
+        $this->assertStringContainsString('id="shipping-label"', $label);
+        $this->assertStringContainsString('id="parcel-barcode"', $label);
+        $this->assertSame(1, substr_count($label, 'id="parcel-barcode"'));
+        $this->assertStringNotContainsString('parcel-qr', $label);
+        $this->assertStringNotContainsString('QR VERIFICATION', $label);
+        $this->assertStringContainsString('SHIPPING WAYBILL', $label);
+        $this->assertStringContainsString('WAYBILL / TRACKING', $label);
+        $this->assertStringContainsString('SHIPPED BY / SELLER', $label);
+        $this->assertStringContainsString('DELIVER TO / BUYER', $label);
+        $this->assertStringContainsString('DELIVERY / LOGISTICS', $label);
+        $this->assertStringContainsString('PAYMENT', $label);
+        $this->assertStringContainsString('PARCEL INFORMATION', $label);
+        $this->assertStringContainsString('ORDER ITEMS', $label);
+        $this->assertStringContainsString('Subtotal:', $label);
+        $this->assertStringContainsString('Delivery Fee:', $label);
+        $this->assertStringContainsString('TOTAL:', $label);
+        $this->assertStringContainsString('waybill-footer', $label);
+        $this->assertStringContainsString('border-b-2 border-[#111111]', $label);
         $this->assertStringContainsString("@push('styles')", $view);
+        $this->assertStringNotContainsString('qrcodejs', $view);
         $this->assertStringContainsString("window.addEventListener('beforeprint', isolateWaybillForPrint)", $script);
         $this->assertStringContainsString("window.addEventListener('afterprint', restoreWaybillAfterPrint)", $script);
         $this->assertStringContainsString("document.body.classList.add('printing-delivery-waybill')", $script);
         $this->assertStringContainsString("document.body.classList.remove('printing-delivery-waybill')", $script);
+        $this->assertStringContainsString("format: 'CODE128'", $script);
+        $this->assertStringNotContainsString('QRCode', $script);
     }
 
-    public function test_logistics_waybill_keeps_brand_accents_and_scannable_codes_in_print(): void
+    public function test_logistics_waybill_keeps_brand_accents_and_one_scannable_barcode_in_print(): void
     {
         $css = file_get_contents(public_path('assets/logistics/css/deliveries/show.css'));
 
@@ -91,9 +98,7 @@ class LogisticsWaybillPrintLayoutTest extends TestCase
         $this->assertStringContainsString('#0E4A57', $css);
         $this->assertStringContainsString('#F0A202', $css);
 
-        $qr = $this->cssRule($css, '#shipping-label #parcel-qr');
-        $this->assertStringContainsString('width: 19mm !important;', $qr);
-        $this->assertStringContainsString('height: 19mm !important;', $qr);
+        $this->assertStringNotContainsString('#parcel-qr', $css);
 
         $barcode = $this->cssRule($css, '#shipping-label #parcel-barcode');
         $this->assertStringContainsString('height: 11mm !important;', $barcode);

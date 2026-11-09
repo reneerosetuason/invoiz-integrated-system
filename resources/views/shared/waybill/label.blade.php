@@ -103,8 +103,8 @@
     ]));
 @endphp
 {{-- Unified INVOIZ shipping waybill: seller/order/customer data merged with
-    logistics operations. Tracking number stays the single identifier
-    for the waybill, barcode and QR. Uses only real data ("—" fallback). --}}
+    logistics operations. The tracking number stays the single identifier
+    for the waybill and its Code128 barcode. Uses only real data ("—" fallback). --}}
 <div class="delivery-waybill-preview mb-6 flex justify-center">
     <div id="shipping-label" role="img" aria-label="Shipping label for parcel {{ $delivery->tracking_number }}"
          class="w-full bg-[#ffffff] text-[#111111]" style="max-width: 105mm;">
@@ -162,9 +162,9 @@
                 </dl>
             </div>
 
-            {{-- Payment + parcel (left) beside QR verification (right) --}}
-            <div class="waybill-payment-parcel grid grid-cols-2 border-b-2 border-[#111111]">
-                <div class="waybill-payment-details border-r-2 border-[#111111]">
+            {{-- Payment + parcel --}}
+            <div class="waybill-payment-parcel border-b-2 border-[#111111]">
+                <div class="waybill-payment-details">
                     <div class="waybill-payment px-3 py-2 border-b-2 border-[#111111]">
                         <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">PAYMENT</p>
                         @if($labelCod > 0)
@@ -193,12 +193,6 @@
                             <p class="mt-1 text-[11px]"><span class="font-bold">Details:</span> —</p>
                         @endif
                     </div>
-                </div>
-                <div class="waybill-qr-panel px-3 py-2 flex flex-col items-center justify-center text-center">
-                    <p class="waybill-section-title text-[10px] font-extrabold tracking-widest text-[#16697A]">QR VERIFICATION</p>
-                    <div id="parcel-qr" class="bg-white p-1.5 mt-1"
-                         role="img" aria-label="QR code for parcel {{ $delivery->tracking_number }}"></div>
-                    <p class="text-[10px] font-extrabold tracking-widest mt-1">SCAN TO VERIFY PARCEL</p>
                 </div>
             </div>
 
