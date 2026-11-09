@@ -38,9 +38,20 @@ class HubTransferManualControlsTest extends TestCase
         ]);
     }
 
-    private function admin(): User
+    private function staff(LogisticsCompany $company, LogisticsCenter $center): User
     {
-        return User::where('email', 'logistics_admin@test.com')->firstOrFail();
+        return User::create([
+            'name' => 'Hub Staff',
+            'email' => 'manual-controls-'.uniqid().'@test.local',
+            'password' => Hash::make('secret123'),
+            'role' => 'staff',
+            'is_admin' => false,
+            'logistics_company_id' => $company->id,
+            'center_id' => $center->id,
+            'status' => 'active',
+            'account_status' => 'active',
+            'email_verified_at' => now(),
+        ]);
     }
 
     private function delivery(LogisticsCenter $origin, LogisticsCenter $destination): Delivery
@@ -76,24 +87,34 @@ class HubTransferManualControlsTest extends TestCase
         $company = $this->company('Manual Controls');
         $origin = $this->center($company, 'Origin');
         $destination = $this->center($company, 'Destination');
-        $admin = $this->admin();
+        $originStaff = $this->staff($company, $origin);
+        $destinationStaff = $this->staff($company, $destination);
         [$truck, $driver] = $this->fleet($company);
         $parcel = $this->delivery($origin, $destination);
 
-        $this->actingAs($admin)->post(route('hub-transfers.store'), [
-            'logistics_company_id' => $company->id,
+        $this->actingAs($originStaff)->post(route('hub-transfers.store'), [
             'origin_center_id' => $origin->id, 'destination_center_id' => $destination->id,
             'truck_id' => $truck->id, 'driver_id' => $driver->id, 'parcels' => [$parcel->id],
         ])->assertSessionHasNoErrors()->assertRedirect();
 
-        return [HubTransfer::latest('id')->firstOrFail(), $company, $origin, $destination, $admin, $truck, $driver, $parcel];
+        return [
+            HubTransfer::latest('id')->firstOrFail(),
+            $company,
+            $origin,
+            $destination,
+            $originStaff,
+            $truck,
+            $driver,
+            $parcel,
+            $destinationStaff,
+        ];
     }
 
     public function test_loading_marks_transfer_ready_automatically_with_a_system_event(): void
     {
-        [$transfer, , , , $admin, , , $parcel] = $this->preparedTransfer();
+        [$transfer, , , , $originStaff, , , $parcel] = $this->preparedTransfer();
 
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number])
             ->assertSessionHasNoErrors();
 
@@ -105,9 +126,9 @@ class HubTransferManualControlsTest extends TestCase
 
     public function test_pre_dispatch_cancellation_releases_fleet_and_manifest(): void
     {
-        [$transfer, , $origin, , $admin, $truck, $driver, $parcel] = $this->preparedTransfer();
+        [$transfer, , $origin, , $originStaff, $truck, $driver, $parcel] = $this->preparedTransfer();
 
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.cancel', $transfer), ['reason' => 'Wrong manifest selected'])
             ->assertSessionHasNoErrors();
 
@@ -122,35 +143,35 @@ class HubTransferManualControlsTest extends TestCase
             'new_status' => 'cancelled',
         ]);
 
-        $this->actingAs($admin)->post(route('hub-transfers.dispatch', $transfer))->assertStatus(409);
+        $this->actingAs($originStaff)->post(route('hub-transfers.dispatch', $transfer))->assertStatus(409);
     }
 
     public function test_hold_blocks_movement_until_resumed(): void
     {
-        [$transfer, , , , $admin, , , $parcel] = $this->preparedTransfer();
-        $this->actingAs($admin)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
+        [$transfer, , , , $originStaff, , , $parcel] = $this->preparedTransfer();
+        $this->actingAs($originStaff)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
 
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.hold', $transfer), ['reason' => 'Awaiting clearance'])
             ->assertSessionHasNoErrors();
         $this->assertSame('on_hold', $transfer->fresh()->status);
 
-        $this->actingAs($admin)->post(route('hub-transfers.dispatch', $transfer))->assertStatus(409);
+        $this->actingAs($originStaff)->post(route('hub-transfers.dispatch', $transfer))->assertStatus(409);
 
-        $this->actingAs($admin)->post(route('hub-transfers.resume', $transfer))->assertSessionHasNoErrors();
+        $this->actingAs($originStaff)->post(route('hub-transfers.resume', $transfer))->assertSessionHasNoErrors();
         $this->assertSame('ready_for_dispatch', $transfer->fresh()->status);
 
-        $this->actingAs($admin)->post(route('hub-transfers.dispatch', $transfer))->assertSessionHasNoErrors();
+        $this->actingAs($originStaff)->post(route('hub-transfers.dispatch', $transfer))->assertSessionHasNoErrors();
         $this->assertSame('in_transit', $transfer->fresh()->status);
     }
 
     public function test_fleet_can_be_reassigned_only_before_dispatch(): void
     {
-        [$transfer, $company, , , $admin, , , $parcel] = $this->preparedTransfer();
+        [$transfer, $company, , , $originStaff, , , $parcel] = $this->preparedTransfer();
         [$replacementTruck, $replacementDriver] = $this->fleet($company);
         $oldTruckId = $transfer->truck_id;
 
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.reassign', $transfer), ['truck_id' => $replacementTruck->id])
             ->assertSessionHasNoErrors()
             ->assertRedirect();
@@ -159,20 +180,20 @@ class HubTransferManualControlsTest extends TestCase
         $this->assertSame($replacementDriver->id, $transfer->fresh()->driver_id);
         $this->assertSame('available', LogisticsTruck::find($oldTruckId)->status);
 
-        $this->actingAs($admin)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
-        $this->actingAs($admin)->post(route('hub-transfers.dispatch', $transfer))->assertSessionHasNoErrors();
+        $this->actingAs($originStaff)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
+        $this->actingAs($originStaff)->post(route('hub-transfers.dispatch', $transfer))->assertSessionHasNoErrors();
         $this->assertSame('in_transit', $transfer->fresh()->status);
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.reassign', $transfer), ['truck_id' => $oldTruckId])
             ->assertStatus(409);
     }
 
     public function test_destination_can_be_corrected_before_dispatch_with_audit(): void
     {
-        [$transfer, $company, $origin, , $admin, , , $parcel] = $this->preparedTransfer();
+        [$transfer, $company, $origin, , $originStaff, , , $parcel] = $this->preparedTransfer();
         $corrected = $this->center($company, 'Corrected Destination');
 
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.reroute', $transfer), [
                 'destination_center_id' => $corrected->id,
                 'reason' => 'Buyer address is served by a different hub',
@@ -189,7 +210,7 @@ class HubTransferManualControlsTest extends TestCase
         // The shared network permits any eligible active hub as the next hop,
         // including a hub owned by another logistics company.
         $foreignHub = $this->center($this->company('Other Company'), 'Foreign Hub');
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.reroute', $transfer), ['destination_center_id' => $foreignHub->id, 'reason' => 'Shared network next hop'])
             ->assertSessionHasNoErrors();
 
@@ -197,28 +218,28 @@ class HubTransferManualControlsTest extends TestCase
         $this->assertSame($foreignHub->id, $parcel->fresh()->destination_center_id);
 
         $audit = $transfer->fresh()->events()->where('event_type', 'rerouted')->latest('id')->firstOrFail();
-        $this->assertSame($admin->id, $audit->actor_id);
+        $this->assertSame($originStaff->id, $audit->actor_id);
         $this->assertStringContainsString('Hub #'.$corrected->id, $audit->notes);
         $this->assertStringContainsString('Hub #'.$foreignHub->id, $audit->notes);
         $this->assertStringContainsString('Shared network next hop', $audit->notes);
 
-        $this->actingAs($admin)
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.reroute', $transfer), ['destination_center_id' => $origin->id, 'reason' => 'Route back to origin'])
             ->assertStatus(422);
     }
 
     public function test_missing_parcel_requires_a_reason_and_stays_at_the_origin(): void
     {
-        [$transfer, , $origin, , $admin, , , $parcel] = $this->preparedTransfer();
-        $this->actingAs($admin)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
-        $this->actingAs($admin)->post(route('hub-transfers.dispatch', $transfer));
-        $this->actingAs($admin)->post(route('hub-transfers.arrive', $transfer));
+        [$transfer, , $origin, , $originStaff, , , $parcel, $destinationStaff] = $this->preparedTransfer();
+        $this->actingAs($originStaff)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
+        $this->actingAs($originStaff)->post(route('hub-transfers.dispatch', $transfer));
+        $this->actingAs($destinationStaff)->post(route('hub-transfers.arrive', $transfer));
 
-        $this->actingAs($admin)
+        $this->actingAs($destinationStaff)
             ->post(route('hub-transfers.receive', $transfer), ['tracking_number' => $parcel->tracking_number, 'condition' => 'missing'])
             ->assertStatus(422);
 
-        $this->actingAs($admin)
+        $this->actingAs($destinationStaff)
             ->post(route('hub-transfers.receive', $transfer), [
                 'tracking_number' => $parcel->tracking_number,
                 'condition' => 'missing',
@@ -234,15 +255,15 @@ class HubTransferManualControlsTest extends TestCase
 
     public function test_duplicate_receiving_scan_is_rejected(): void
     {
-        [$transfer, , , , $admin, , , $parcel] = $this->preparedTransfer();
-        $this->actingAs($admin)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
-        $this->actingAs($admin)->post(route('hub-transfers.dispatch', $transfer));
-        $this->actingAs($admin)->post(route('hub-transfers.arrive', $transfer));
+        [$transfer, , , , $originStaff, , , $parcel, $destinationStaff] = $this->preparedTransfer();
+        $this->actingAs($originStaff)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
+        $this->actingAs($originStaff)->post(route('hub-transfers.dispatch', $transfer));
+        $this->actingAs($destinationStaff)->post(route('hub-transfers.arrive', $transfer));
 
-        $this->actingAs($admin)
+        $this->actingAs($destinationStaff)
             ->post(route('hub-transfers.receive', $transfer), ['tracking_number' => $parcel->tracking_number, 'condition' => 'good'])
             ->assertSessionHasNoErrors();
-        $this->actingAs($admin)
+        $this->actingAs($destinationStaff)
             ->post(route('hub-transfers.receive', $transfer), ['tracking_number' => $parcel->tracking_number, 'condition' => 'good'])
             ->assertSessionHas('error');
 
@@ -251,26 +272,26 @@ class HubTransferManualControlsTest extends TestCase
 
     public function test_received_transfer_parcel_cannot_be_processed_until_transfer_is_finalized(): void
     {
-        [$transfer, , , , $admin, , , $parcel] = $this->preparedTransfer();
+        [$transfer, , , , $originStaff, , , $parcel, $destinationStaff] = $this->preparedTransfer();
         $parcel->update(['tracking_number' => 'TRK-'.now()->format('Ymd').'-ABCD']);
 
-        $this->actingAs($admin)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
-        $this->actingAs($admin)->post(route('hub-transfers.dispatch', $transfer));
-        $this->actingAs($admin)->post(route('hub-transfers.arrive', $transfer));
-        $this->actingAs($admin)->post(route('hub-transfers.receive', $transfer), [
+        $this->actingAs($originStaff)->post(route('hub-transfers.load', $transfer), ['tracking_number' => $parcel->tracking_number]);
+        $this->actingAs($originStaff)->post(route('hub-transfers.dispatch', $transfer));
+        $this->actingAs($destinationStaff)->post(route('hub-transfers.arrive', $transfer));
+        $this->actingAs($destinationStaff)->post(route('hub-transfers.receive', $transfer), [
             'tracking_number' => $parcel->tracking_number,
             'condition' => 'good',
         ])->assertSessionHasNoErrors();
 
-        $this->actingAs($admin)->get(route('deliveries.show', $parcel))->assertDontSee('Scan & Verify Parcel');
-        $this->actingAs($admin)->patch(route('deliveries.scan', $parcel))->assertStatus(409);
-        $this->actingAs($admin)->postJson(route('deliveries.scan-verify'), [
+        $this->actingAs($destinationStaff)->get(route('deliveries.show', $parcel))->assertDontSee('Scan & Verify Parcel');
+        $this->actingAs($destinationStaff)->patch(route('deliveries.scan', $parcel))->assertStatus(409);
+        $this->actingAs($destinationStaff)->postJson(route('deliveries.scan-verify'), [
             'tracking_number' => $parcel->tracking_number,
         ])->assertStatus(409);
         $this->assertSame('received', $parcel->fresh()->parcel_status);
 
-        $this->actingAs($admin)->post(route('hub-transfers.complete', $transfer))->assertSessionHasNoErrors();
-        $this->actingAs($admin)->patch(route('deliveries.scan', $parcel))->assertRedirect();
+        $this->actingAs($destinationStaff)->post(route('hub-transfers.complete', $transfer))->assertSessionHasNoErrors();
+        $this->actingAs($destinationStaff)->patch(route('deliveries.scan', $parcel))->assertRedirect();
         $this->assertSame('scanned', $parcel->fresh()->parcel_status);
     }
 }

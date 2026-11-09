@@ -573,8 +573,7 @@ class HubTransferController extends Controller
 
     public function hold(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
-        $this->authorizeTransfer($request, $hubTransfer);
-        $this->assertCenterAccess($request, $hubTransfer->origin_center_id, $hubTransfer->destination_center_id);
+        $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate(['reason' => ['required', 'string', 'min:3', 'max:1000']]);
         HubTransferService::hold($hubTransfer, $request->user(), $data['reason']);
 
@@ -583,8 +582,7 @@ class HubTransferController extends Controller
 
     public function resume(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
-        $this->authorizeTransfer($request, $hubTransfer);
-        $this->assertCenterAccess($request, $hubTransfer->origin_center_id, $hubTransfer->destination_center_id);
+        $this->assertOriginAccess($request, $hubTransfer);
         HubTransferService::resume($hubTransfer, $request->user());
 
         return back()->with('success', 'Transfer resumed at its previous stage.');
@@ -764,6 +762,11 @@ class HubTransferController extends Controller
     {
         $this->authorizeTransfer($request, $transfer);
         $this->assertCenterAccess($request, $transfer->origin_center_id, $transfer->destination_center_id);
+        abort_unless(
+            LogisticsAccess::canProcessParcels($request->user()),
+            403,
+            'Transfer lifecycle actions are reserved for logistics staff assigned to the origin hub. Management accounts have read-only transfer monitoring.'
+        );
 
         if (! $this->isNetworkAdmin($request)) {
             $centerId = LogisticsAccess::centerId($request->user());
@@ -777,6 +780,11 @@ class HubTransferController extends Controller
     {
         $this->authorizeTransfer($request, $transfer);
         $this->assertCenterAccess($request, $transfer->origin_center_id, $transfer->destination_center_id);
+        abort_unless(
+            LogisticsAccess::canProcessParcels($request->user()),
+            403,
+            'Incoming transfer processing is reserved for logistics staff assigned to the destination hub. Management accounts have read-only transfer monitoring.'
+        );
 
         if (! $this->isNetworkAdmin($request)) {
             $centerId = LogisticsAccess::centerId($request->user());

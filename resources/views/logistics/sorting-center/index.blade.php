@@ -1,4 +1,7 @@
 <x-app-layout>
+    @php
+        $canProcessParcels = \App\Support\LogisticsAccess::canProcessParcels(auth()->user());
+    @endphp
     <x-slot name="header">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -10,10 +13,12 @@
                    class="btn btn-outline">
                     Export CSV
                 </a>
+                @if($canProcessParcels)
                 <a href="{{ route('deliveries.scan-page') }}"
                    class="btn btn-primary">
                     Scan Parcel
                 </a>
+                @endif
             </div>
         </div>
     </x-slot>
@@ -43,7 +48,7 @@
                             <span class="w-4 h-4 rounded-full bg-[#16697A] text-white inline-flex items-center justify-center text-[10px]">1</span>
                             Origin Hub Intake
                         </div>
-                        <p class="text-gray-600">Pickup rider brings seller's parcel to their local hub. Staff clicks <strong>Receive</strong>, then <strong>Scan</strong>.</p>
+                        <p class="text-gray-600">Pickup rider brings seller's parcel to their local hub. Staff accepts the rider handover, then <strong>Scans</strong>.</p>
                     </div>
                     <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
                         <div class="font-bold text-indigo-700 mb-1 flex items-center gap-1">
@@ -236,7 +241,7 @@
                                             @if($tab !== 'incoming')
                                                 <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-soft btn-xs whitespace-nowrap" title="Open the active fleet transfer manifest.">Open transfer</a>
                                             @elseif($inboundEntry->receiving_status === 'pending')
-                                                @if(in_array($inboundTransfer?->status, ['arrived', 'receiving', 'exception'], true))
+                                                @if($canProcessParcels && in_array($inboundTransfer?->status, ['arrived', 'receiving', 'exception'], true))
                                                     <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-primary btn-xs whitespace-nowrap" title="Confirm physical receipt of this parcel on its transfer manifest before processing it here.">Verify receipt</a>
                                                 @else
                                                     <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-outline btn-xs whitespace-nowrap">View transfer</a>
@@ -244,7 +249,11 @@
                                             @elseif($inboundEntry->receiving_status === 'missing')
                                                 <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-danger btn-xs whitespace-nowrap" title="This parcel was reported missing on arrival. Review the transfer manifest.">Reported missing</a>
                                             @else
+                                                @if($canProcessParcels)
                                                 <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-ghost btn-xs whitespace-nowrap" title="Custody is accepted. Continue scanning and sorting here; finalize the manifest once every parcel is accounted for.">Manifest</a>
+                                                @else
+                                                <a href="{{ route('hub-transfers.show', $inboundTransfer) }}" class="btn btn-ghost btn-xs whitespace-nowrap">View transfer</a>
+                                                @endif
                                             @endif
                                         @endif
                                         @php
@@ -257,17 +266,31 @@
                                             @elseif($returnDispatched)
                                                 <span class="badge badge-processing">With seller</span>
                                             @else
+                                                @if($canProcessParcels)
                                                 <form method="POST" action="{{ route('deliveries.return-to-seller', $delivery) }}" class="inline-flex items-center gap-1">
                                                     @csrf
                                                     <input type="text" name="reference" maxlength="150" placeholder="Handoff ref" class="input !py-1 !px-2 !text-xs !w-24">
                                                     <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap">Send to seller</button>
                                                 </form>
+                                                @else
+                                                <span class="badge badge-processing">Awaiting return dispatch</span>
+                                                @endif
                                             @endif
                                         @endif
                                         @if($delivery->parcel_status === 'pending_arrival')
                                             @if($delivery->order_id && ! $handoffVerified)
                                                 <span class="badge badge-pending" title="The pickup rider has not completed the seller pickup and hub handoff yet.">Awaiting pickup</span>
-                                            @elseif($centers->isNotEmpty())
+                                            @elseif($handoffVerified && $delivery->center_id)
+                                                {{-- First-mile handover: the pickup rider already handed this parcel to a specific hub, so staff only accept that handover. --}}
+                                                @if($canProcessParcels)
+                                                <form method="POST" action="{{ route('deliveries.receive', $delivery) }}" class="inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap" title="Accept the parcel from the pickup rider at {{ $delivery->logisticsCenter?->name ?? 'this hub' }} and close first-mile custody.">Accept handover</button>
+                                                </form>
+                                                @else
+                                                <span class="badge badge-pending">Awaiting hub receipt</span>
+                                                @endif
+                                            @elseif($centers->isNotEmpty() && $canProcessParcels)
                                                 <form method="POST" action="{{ route('deliveries.receive', $delivery) }}" class="inline-flex items-center gap-1">
                                                     @csrf
                                                     <select name="center_id" required aria-label="Receive at center" class="select !py-1 !px-2 !text-xs !w-28">
@@ -280,14 +303,12 @@
                                                 </form>
                                             @endif
                                         @endif
-                                        @if((! $inboundTransfer || $custodyAccepted) && $delivery->parcel_status === 'received' && ! $receiptUnverified)
-                                            <form method="POST" action="{{ route('deliveries.scan', $delivery) }}" class="inline">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap" title="Logistics Hub Staff verify the received parcel against its records.">Scan</button>
-                                            </form>
+                                        @if($canProcessParcels && (! $inboundTransfer || $custodyAccepted) && $delivery->parcel_status === 'received' && ! $receiptUnverified)
+                                            <a href="{{ route('deliveries.scan-page', ['expect' => $delivery->tracking_number]) }}"
+                                               class="btn btn-primary btn-xs whitespace-nowrap"
+                                               title="Open the scanner, then scan or enter this tracking number and confirm.">Scan Parcel</a>
                                         @endif
-                                        @if((! $inboundTransfer || $custodyAccepted) && $delivery->parcel_status === 'scanned' && ! $receiptUnverified)
+                                        @if($canProcessParcels && (! $inboundTransfer || $custodyAccepted) && $delivery->parcel_status === 'scanned' && ! $receiptUnverified)
                                             <div class="relative inline-block text-left" data-sort-dropdown>
                                                 <button type="button" data-sort-trigger aria-haspopup="true" aria-expanded="false"
                                                         class="btn btn-primary btn-xs cursor-pointer inline-flex items-center gap-1 select-none whitespace-nowrap"
@@ -338,14 +359,22 @@
                                             @if($receiptUnverified)
                                                 <span class="text-[11px] font-semibold text-rose-600" title="Record the seller pickup and hub handoff before moving this parcel.">Resolve custody first</span>
                                             @elseif($routesToOtherHub)
+                                                @if($canProcessParcels)
                                                 <a href="{{ route('hub-transfers.create', array_filter(['origin_center_id' => $delivery->center_id, 'parcel' => $delivery->id])) }}"
                                                    class="btn btn-outline btn-xs whitespace-nowrap"
                                                    title="Routed to {{ $delivery->destinationCenter?->name ?? 'another Logistics Hub' }}. This parcel is preselected on the transfer manifest.">Create hub transfer</a>
+                                                @else
+                                                <span class="badge badge-pending" title="Routed to {{ $delivery->destinationCenter?->name ?? 'another Logistics Hub' }}.">Transfer pending</span>
+                                                @endif
                                             @else
+                                                @if($canProcessParcels)
                                                 <form method="POST" action="{{ route('deliveries.dispatch', $delivery) }}" class="inline">
                                                     @csrf
                                                     <button type="submit" class="btn btn-primary btn-xs whitespace-nowrap" title="Dispatch a same-hub parcel for last-mile delivery.">Dispatch</button>
                                                 </form>
+                                                @else
+                                                <span class="badge badge-processing">Ready for dispatch</span>
+                                                @endif
                                             @endif
                                         @endif
                                         @if($delivery->parcel_status === 'dispatched' && !$routesToOtherHub && !$delivery->rider_id)

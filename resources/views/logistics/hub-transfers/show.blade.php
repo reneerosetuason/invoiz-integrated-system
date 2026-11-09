@@ -97,7 +97,7 @@
                             <th>Loading</th>
                             <th>Receiving</th>
                             <th>Condition / Exception</th>
-                            @if(!$isTransferReadOnly)
+                            @if($canManageOrigin || $canReceiveIncoming)
                                 <th class="text-right">Action</th>
                             @endif
                         </tr>
@@ -137,11 +137,11 @@
                                         @endif
                                     </div>
                                 </td>
-                                @if(!$isTransferReadOnly)
+                                @if($canManageOrigin || $canReceiveIncoming)
                                 <td class="text-right">
                                     @if($entry->loading_status === 'removed')
                                         <span class="text-xs text-[#6E6E73] italic">Removed</span>
-                                    @elseif(in_array($transfer->status, ['loading', 'ready_for_dispatch'], true))
+                                    @elseif($canManageOrigin && in_array($transfer->status, ['loading', 'ready_for_dispatch'], true))
                                         <div class="inline-flex items-center justify-end gap-1.5 flex-wrap">
                                             @if($entry->loading_status !== 'loaded')
                                                 <form method="POST" action="{{ route('hub-transfers.load', $transfer) }}" class="inline">
@@ -157,7 +157,7 @@
                                                 <button type="submit" class="btn btn-danger btn-xs">Remove</button>
                                             </form>
                                         </div>
-                                    @elseif(in_array($transfer->status, ['arrived', 'receiving', 'exception'], true) && $entry->receiving_status === 'pending')
+                                    @elseif($canReceiveIncoming && in_array($transfer->status, ['arrived', 'receiving', 'exception'], true) && $entry->receiving_status === 'pending')
                                         <form method="POST" action="{{ route('hub-transfers.receive', $transfer) }}" class="inline-flex items-center justify-end gap-1.5 flex-wrap">
                                             @csrf
                                             <input type="hidden" name="tracking_number" value="{{ $entry->delivery?->tracking_number }}">
@@ -182,7 +182,7 @@
         </div>
 
         {{-- Workflow Controls / Read-only Management Monitoring --}}
-        @if(!$isTransferReadOnly)
+        @if($canManageOrigin || $canReceiveIncoming)
         <div id="transfer-actions" class="card p-5 space-y-4">
             <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide">Transfer Actions &amp; Lifecycle</h2>
 
@@ -193,39 +193,41 @@
             @endif
 
             <div class="flex flex-wrap items-center gap-2">
-                @if($transfer->status === 'ready_for_dispatch')
+                @if($canManageOrigin && $transfer->status === 'ready_for_dispatch')
                     <form method="POST" action="{{ route('hub-transfers.dispatch', $transfer) }}">
                         @csrf
                         <button type="submit" class="btn btn-primary">Confirm Dispatch</button>
                     </form>
                 @endif
-                @if($transfer->status === 'in_transit')
+                @if($canReceiveIncoming && $transfer->status === 'in_transit')
                     <form method="POST" action="{{ route('hub-transfers.arrive', $transfer) }}">
                         @csrf
                         <button type="submit" class="btn btn-primary">Confirm Arrival</button>
                     </form>
                 @endif
-                @if(in_array($transfer->status, ['arrived', 'receiving', 'exception'], true) && !$transfer->parcels->contains(fn($p) => $p->receiving_status === 'pending'))
+                @if($canReceiveIncoming && in_array($transfer->status, ['arrived', 'receiving', 'exception'], true) && !$transfer->parcels->contains(fn($p) => $p->receiving_status === 'pending'))
                     <form method="POST" action="{{ route('hub-transfers.complete', $transfer) }}">
                         @csrf
                         <button type="submit" class="btn btn-primary">Finalize Receiving</button>
                     </form>
                 @endif
-                @if($transfer->status === 'on_hold')
-                    <form method="POST" action="{{ route('hub-transfers.resume', $transfer) }}">
-                        @csrf
-                        <button type="submit" class="btn btn-primary">Resume Transfer</button>
-                    </form>
-                @elseif(in_array($transfer->status, \App\Models\HubTransfer::ACTIVE_STATUSES, true))
-                    <form method="POST" action="{{ route('hub-transfers.hold', $transfer) }}" class="flex flex-wrap items-center gap-2">
-                        @csrf
-                        <input name="reason" required minlength="3" placeholder="Reason for hold..." class="input !w-56">
-                        <button type="submit" class="btn btn-outline text-amber-700 border-amber-300">Hold Transfer</button>
-                    </form>
+                @if($canManageOrigin)
+                    @if($transfer->status === 'on_hold')
+                        <form method="POST" action="{{ route('hub-transfers.resume', $transfer) }}">
+                            @csrf
+                            <button type="submit" class="btn btn-primary">Resume Transfer</button>
+                        </form>
+                    @elseif(in_array($transfer->status, \App\Models\HubTransfer::ACTIVE_STATUSES, true))
+                        <form method="POST" action="{{ route('hub-transfers.hold', $transfer) }}" class="flex flex-wrap items-center gap-2">
+                            @csrf
+                            <input name="reason" required minlength="3" placeholder="Reason for hold..." class="input !w-56">
+                            <button type="submit" class="btn btn-outline text-amber-700 border-amber-300">Hold Transfer</button>
+                        </form>
+                    @endif
                 @endif
             </div>
 
-            @if(in_array($transfer->status, ['loading', 'ready_for_dispatch'], true))
+            @if($canManageOrigin && in_array($transfer->status, ['loading', 'ready_for_dispatch'], true))
                 <div class="grid gap-4 pt-4 border-t border-[#E8E6E0] md:grid-cols-3">
                     <form method="POST" action="{{ route('hub-transfers.cancel', $transfer) }}" class="space-y-2">
                         @csrf

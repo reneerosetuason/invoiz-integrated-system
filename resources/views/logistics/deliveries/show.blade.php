@@ -37,6 +37,7 @@
         $failedAttempts = $delivery->statusLogs->where('status', 'delivery_failed')->count();
         $isCodDelivery = \App\Support\Cod::isCod($delivery);
         $canOverride = auth()->user()->canManageRiders() && auth()->user()->isLogisticsAdmin();
+        $canProcessParcels = \App\Support\LogisticsAccess::canProcessParcels(auth()->user());
         $codExpected = $isCodDelivery ? \App\Support\Cod::expected($delivery) : null;
     @endphp
 
@@ -196,6 +197,125 @@
             @endif
         </div>
     </div>
+
+    {{-- Rider Assignment (kept near the top so assigning is quick) --}}
+    @if(! $delivery->archived_at && ! $hasActiveHubTransfer && Auth::user()->canManageRiders() && in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
+        <div class="delivery-panel" id="rider-assignment">
+            <div class="flex flex-wrap items-center gap-2 mb-4">
+                <div class="h-2 w-1 rounded-full bg-teal"></div>
+                <h2 class="text-lg font-semibold text-gray-900">Rider Assignment</h2>
+                @if($delivery->rider)
+                    <span class="inline-flex items-center px-2.5 py-0.5 text-xs font-semibold rounded-full bg-teal-light text-teal-dark">
+                        {{ $delivery->rider->name }}
+                    </span>
+                @endif
+            </div>
+
+            @if($delivery->status === 'waiting_for_rider')
+                <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full">
+                    @csrf
+                    <div class="flex flex-col sm:flex-row sm:items-end gap-2">
+                        <div class="flex-1 min-w-0">
+                            <label for="rider_id" class="block text-sm font-medium text-gray-700 mb-1">Assign Rider</label>
+                            <select name="rider_id" id="rider_id" required
+                                    class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                                <option value="">— Select a rider —</option>
+                                @if($riderEligibility->where('eligible', true)->isNotEmpty())
+                                    <optgroup label="✓ Available — Online">
+                                        @foreach($riderEligibility->where('eligible', true) as $item)
+                                            <option value="{{ $item['rider']->id }}">
+                                                @if($item['recommended']) Recommended — @endif✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg ({{ $item['active_deliveries'] }} active)@if($item['distance_km'] !== null) - {{ number_format($item['distance_km'], 2) }} km {{ $item['distance_basis'] === 'pickup' ? 'to pickup' : 'to destination' }}@else - distance unavailable @endif
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if($riderEligibility->where('eligible', false)->isNotEmpty())
+                                    <optgroup label="✕ Unavailable">
+                                        @foreach($riderEligibility->where('eligible', false) as $item)
+                                            <option value="" disabled>
+                                                @if(!$item['is_online'])
+                                                    ○ Offline — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
+                                                @else
+                                                    ✕ {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                            </select>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="submit" class="inline-flex items-center justify-center bg-teal hover:bg-teal-dark text-white font-semibold py-2.5 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
+                                Assign Rider
+                            </button>
+                        </div>
+                    </div>
+                    @if($riderEligibility->where('eligible', true)->isEmpty())
+                        <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination Logistics Hub and service area.</p>
+                    @endif
+                    @if($errors->has('rider_id'))
+                        <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
+                    @endif
+                </form>
+
+                @if($riderEligibility->where('eligible', true)->isNotEmpty())
+                    <form action="{{ route('deliveries.auto-assign', $delivery) }}" method="POST" class="mt-2 flex flex-wrap items-center gap-2">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center justify-center bg-white border border-teal/30 hover:border-teal hover:text-teal-dark text-teal font-semibold py-2 px-4 rounded-xl transition text-sm">
+                            Auto-assign recommended rider
+                        </button>
+                        <span class="text-xs text-gray-500">Nearest eligible rider with a fresh GPS ping; workload is the fallback. Eligibility is rechecked before assignment.</span>
+                    </form>
+                @endif
+            @else
+                @php $reassignLabel = $delivery->status === 'delivery_failed' ? 'Retry — Assign Rider' : 'Reassign Rider'; @endphp
+                <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full">
+                    @csrf
+                    <label for="reassign_rider_id" class="block text-sm font-medium text-gray-700 mb-1">{{ $reassignLabel }}</label>
+                    @if($delivery->rider)
+                        <p class="text-xs text-gray-500 mb-1">Currently assigned: <span class="font-semibold text-gray-700">{{ $delivery->rider->name }}</span>. Moving it appends a new assignment entry — history is preserved.</p>
+                    @endif
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <select name="rider_id" id="reassign_rider_id" required
+                                class="flex-1 min-w-0 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                            <option value="">— Select a rider —</option>
+                            @if($riderEligibility->where('eligible', true)->isNotEmpty())
+                                <optgroup label="✓ Available — Online">
+                                    @foreach($riderEligibility->where('eligible', true) as $item)
+                                        <option value="{{ $item['rider']->id }}">
+                                            @if($item['recommended']) Recommended — @endif✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg ({{ $item['active_deliveries'] }} active)@if($item['distance_km'] !== null) - {{ number_format($item['distance_km'], 2) }} km {{ $item['distance_basis'] === 'pickup' ? 'to pickup' : 'to destination' }}@else - distance unavailable @endif
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                            @if($riderEligibility->where('eligible', false)->isNotEmpty())
+                                <optgroup label="✕ Unavailable">
+                                    @foreach($riderEligibility->where('eligible', false) as $item)
+                                        <option value="" disabled>
+                                            @if(!$item['is_online'])
+                                                ○ Offline — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
+                                            @else
+                                                ✕ {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </optgroup>
+                            @endif
+                        </select>
+                        <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold py-2 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
+                            {{ $delivery->status === 'delivery_failed' ? 'Assign & Retry' : 'Reassign' }}
+                        </button>
+                    </div>
+                    @if($riderEligibility->where('eligible', true)->isEmpty())
+                        <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination Logistics Hub and service area.</p>
+                    @endif
+                    @if($errors->has('rider_id'))
+                        <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
+                    @endif
+                </form>
+            @endif
+        </div>
+    @endif
 
     {{-- Info grid --}}
     <div class="delivery-info-grid grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -516,34 +636,34 @@
                             @if(in_array($delivery->parcel_status, ['pending_arrival', null]))
                                 Awaiting physical arrival and receipt verification at the logistics hub.
                             @elseif($delivery->parcel_status === 'received')
-                                Parcel received at hub. Awaiting physical QR/barcode verification in Sorting Operations.
+                                Parcel received at hub. Awaiting physical barcode verification in Sorting Operations.
                             @elseif($delivery->parcel_status === 'scanned')
                                 Parcel is verified. Ready for destination hub and service area sorting in Sorting Operations.
                             @elseif($delivery->parcel_status === 'sorted')
                                 @if($delivery->destination_center_id && (int) $delivery->destination_center_id !== (int) $delivery->center_id)
                                     Parcel sorted for inter-hub transfer to {{ $delivery->destinationCenter?->name ?? 'destination hub' }}. Proceed through fleet Hub Transfers.
                                 @else
-                                    Parcel sorted at destination hub. Ready for last-mile delivery assignment below.
+                                    Parcel sorted at destination hub. Ready for last-mile delivery assignment.
                                 @endif
                             @elseif($delivery->parcel_status === 'dispatched')
-                                Parcel dispatched from hub sorting. Last-mile Delivery Rider assignment and delivery progress are managed below.
+                                Parcel dispatched from hub sorting. Last-mile Delivery Rider assignment and delivery progress are managed from the Rider Assignment panel.
                             @endif
                         </p>
                     </div>
 
                     {{-- Contextual Action to Sorting Center / Hub Transfers --}}
                     <div class="flex items-center gap-2 shrink-0">
-                        @if(in_array($delivery->parcel_status, ['pending_arrival', null]))
+                        @if($canProcessParcels && in_array($delivery->parcel_status, ['pending_arrival', null]))
                             <a href="{{ route('sorting-center.index', ['tab' => 'incoming', 'search' => $delivery->tracking_number]) }}"
                                class="btn btn-outline btn-sm">
                                 Process in Sorting Center &rarr;
                             </a>
-                        @elseif($delivery->parcel_status === 'received')
+                        @elseif($canProcessParcels && $delivery->parcel_status === 'received')
                             <a href="{{ route('sorting-center.index', ['tab' => 'received', 'search' => $delivery->tracking_number]) }}"
                                class="btn btn-outline btn-sm">
                                 Verify in Sorting Center &rarr;
                             </a>
-                        @elseif($delivery->parcel_status === 'scanned')
+                        @elseif($canProcessParcels && $delivery->parcel_status === 'scanned')
                             <a href="{{ route('sorting-center.index', ['tab' => 'scanned', 'search' => $delivery->tracking_number]) }}"
                                class="btn btn-outline btn-sm">
                                 Sort in Sorting Center &rarr;
@@ -759,115 +879,13 @@
         @if(!$delivery->archived_at)
             <div class="delivery-processing-actions flex flex-wrap gap-3">
                 @if(! $hasActiveHubTransfer && Auth::user()->canManageRiders() && $delivery->status === 'waiting_for_rider')
-                    <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-2xl">
-                        @csrf
-                        <div class="flex flex-col sm:flex-row sm:items-end gap-2">
-                            <div class="flex-1 min-w-0">
-                                <label for="rider_id" class="block text-sm font-medium text-gray-700 mb-1">Assign Rider</label>
-                                <select name="rider_id" id="rider_id" required
-                                        class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                                    <option value="">— Select a rider —</option>
-                                    @if($riderEligibility->where('eligible', true)->isNotEmpty())
-                                        <optgroup label="✓ Available — Online">
-                                            @foreach($riderEligibility->where('eligible', true) as $item)
-                                                <option value="{{ $item['rider']->id }}">
-                                                    @if($item['recommended']) Recommended — @endif✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg ({{ $item['active_deliveries'] }} active)@if($item['distance_km'] !== null) - {{ number_format($item['distance_km'], 2) }} km {{ $item['distance_basis'] === 'pickup' ? 'to pickup' : 'to destination' }}@else - distance unavailable @endif
-                                                </option>
-                                            @endforeach
-                                        </optgroup>
-                                    @endif
-                                    @if($riderEligibility->where('eligible', false)->isNotEmpty())
-                                        <optgroup label="✕ Unavailable">
-                                            @foreach($riderEligibility->where('eligible', false) as $item)
-                                                <option value="" disabled>
-                                                    @if(!$item['is_online'])
-                                                        ○ Offline — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
-                                                    @else
-                                                        ✕ {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
-                                                    @endif
-                                                </option>
-                                            @endforeach
-                                        </optgroup>
-                                    @endif
-                                </select>
-                            </div>
-                            <div class="flex flex-wrap gap-2">
-                                <button type="submit" class="inline-flex items-center justify-center bg-teal hover:bg-teal-dark text-white font-semibold py-2.5 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                                    Assign Rider
-                                </button>
-                                <button type="button" @click="cancelOpen = true"
-                                        class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm whitespace-nowrap">
-                                    Cancel Delivery
-                                </button>
-                            </div>
-                        </div>
-                        @if($riderEligibility->where('eligible', true)->isEmpty())
-                            <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination Logistics Hub and service area.</p>
-                        @endif
-                        @if($errors->has('rider_id'))
-                            <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
-                        @endif
-                    </form>
-
-                    @if($riderEligibility->where('eligible', true)->isNotEmpty())
-                        <form action="{{ route('deliveries.auto-assign', $delivery) }}" method="POST" class="mt-2 flex flex-wrap items-center gap-2">
-                            @csrf
-                            <button type="submit" class="inline-flex items-center justify-center bg-white border border-teal/30 hover:border-teal hover:text-teal-dark text-teal font-semibold py-2 px-4 rounded-xl transition text-sm">
-                                Auto-assign recommended rider
-                            </button>
-                            <span class="text-xs text-gray-500">Nearest eligible rider with a fresh GPS ping; workload is the fallback. Eligibility is rechecked before assignment.</span>
-                        </form>
-                    @endif
+                    <button type="button" @click="cancelOpen = true"
+                            class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm whitespace-nowrap">
+                        Cancel Delivery
+                    </button>
                 @endif
 
-                @if(! $hasActiveHubTransfer && Auth::user()->canManageRiders() && in_array($delivery->status, ['assigned', 'delivery_failed'], true))
-                    @php $reassignLabel = $delivery->status === 'delivery_failed' ? 'Retry — Assign Rider' : 'Reassign Rider'; @endphp
-                    <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full max-w-xl">
-                        @csrf
-                        <label for="reassign_rider_id" class="block text-sm font-medium text-gray-700 mb-1">{{ $reassignLabel }}</label>
-                        @if($delivery->rider)
-                            <p class="text-xs text-gray-500 mb-1">Currently assigned: <span class="font-semibold text-gray-700">{{ $delivery->rider->name }}</span>. Moving it appends a new assignment entry — history is preserved.</p>
-                        @endif
-                        <div class="flex flex-col sm:flex-row gap-2">
-                            <select name="rider_id" id="reassign_rider_id" required
-                                    class="flex-1 min-w-0 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                                <option value="">— Select a rider —</option>
-                                @if($riderEligibility->where('eligible', true)->isNotEmpty())
-                                    <optgroup label="✓ Available — Online">
-                                        @foreach($riderEligibility->where('eligible', true) as $item)
-                                            <option value="{{ $item['rider']->id }}">
-                                                @if($item['recommended']) Recommended — @endif✓ Online — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — up to {{ $item['capacity'] }} kg ({{ $item['active_deliveries'] }} active)@if($item['distance_km'] !== null) - {{ number_format($item['distance_km'], 2) }} km {{ $item['distance_basis'] === 'pickup' ? 'to pickup' : 'to destination' }}@else - distance unavailable @endif
-                                            </option>
-                                        @endforeach
-                                    </optgroup>
-                                @endif
-                                @if($riderEligibility->where('eligible', false)->isNotEmpty())
-                                    <optgroup label="✕ Unavailable">
-                                        @foreach($riderEligibility->where('eligible', false) as $item)
-                                            <option value="" disabled>
-                                                @if(!$item['is_online'])
-                                                    ○ Offline — {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
-                                                @else
-                                                    ✕ {{ $item['rider']->name }} — {{ ucfirst($item['rider']->vehicle_type) }} — {{ $item['reason'] }}
-                                                @endif
-                                            </option>
-                                        @endforeach
-                                    </optgroup>
-                                @endif
-                            </select>
-                            <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold py-2 px-5 rounded-xl transition shadow-sm text-sm whitespace-nowrap">
-                                {{ $delivery->status === 'delivery_failed' ? 'Assign & Retry' : 'Reassign' }}
-                            </button>
-                        </div>
-                        @if($riderEligibility->where('eligible', true)->isEmpty())
-                            <p class="mt-2 text-xs text-amber-600">No eligible riders right now. Riders must be approved, active, online, have a verified vehicle, no active delivery, sufficient capacity, and belong to the delivery's destination Logistics Hub and service area.</p>
-                        @endif
-                        @if($errors->has('rider_id'))
-                            <p class="text-red-500 text-xs mt-1">{{ $errors->first('rider_id') }}</p>
-                        @endif
-                    </form>
-                @endif
-
+                @if($canProcessParcels)
                 @if($delivery->status === 'assigned')
                     <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
                         @csrf
@@ -929,6 +947,7 @@
                             class="inline-flex items-center gap-2 bg-white border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
                         Mark as Failed
                     </button>
+                @endif
                 @endif
 
                 @if($canOverride)
@@ -1106,7 +1125,8 @@
     @php
         $damageProof = $delivery->proofs->firstWhere('type', 'damage_evidence')
             ?? $delivery->proofs->firstWhere('type', 'parcel_evidence');
-        $canReportException = $delivery->rider_id
+        $canReportException = $canProcessParcels
+            && $delivery->rider_id
             && ! in_array($delivery->status, ['delivered', 'cancelled', 'lost', 'damaged', 'returned_to_seller'], true);
     @endphp
 
@@ -1190,6 +1210,7 @@
                         <p class="text-xs text-gray-500 mt-1">Waiting for the seller to confirm physical receipt. Stock and refunds are still pending.</p>
                     @elseif($returnState['can_dispatch'])
                         <p class="text-sm text-gray-600 mb-3">The parcel is back at the Logistics Hub. Record the handoff/courier reference before it leaves to the seller.</p>
+                        @if($canProcessParcels)
                         <form action="{{ route('deliveries.return-to-seller', $delivery) }}" method="POST" class="flex flex-col sm:flex-row gap-2">
                             @csrf
                             <input type="text" name="reference" maxlength="150" placeholder="Courier / handoff reference"
@@ -1198,6 +1219,9 @@
                                 Send to Seller
                             </button>
                         </form>
+                        @else
+                            <p class="text-xs text-gray-500">Return dispatch is recorded by logistics staff at the hub.</p>
+                        @endif
                     @else
                         <p class="text-sm text-gray-500">A failed or damaged parcel must be returned to the Logistics Hub before it can be sent back to the seller.</p>
                     @endif

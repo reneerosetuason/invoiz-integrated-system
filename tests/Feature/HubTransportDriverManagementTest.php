@@ -119,8 +119,9 @@ class HubTransportDriverManagementTest extends TestCase
         $response->assertSee('Hub Transport Drivers');
         $response->assertSee(route('riders.index'), false);
         $response->assertSee(route('hub-transport-drivers.index'), false);
-        // Existing dropdowns must remain untouched.
-        $response->assertSee('id="subnav-deliveries"', false);
+        // Deliveries is a direct link; other dropdowns remain untouched.
+        $response->assertDontSee('id="subnav-deliveries"', false);
+        $response->assertSee(route('deliveries.index'), false);
         $response->assertSee('id="subnav-applications"', false);
     }
 

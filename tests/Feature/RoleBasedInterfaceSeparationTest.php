@@ -156,13 +156,15 @@ class RoleBasedInterfaceSeparationTest extends TestCase
         $response->assertOk();
         // Main Navigation
         $response->assertSee('Deliveries');
-        $response->assertSee('Sorting Center');
         $response->assertSee('Fleet Management');
         $response->assertSee('Riders');
         $response->assertSee('Pickup Requests');
 
-        // Hub Transfers should NOT be an operational menu item for Logistics Admin
+        // Counter operations belong to Hub Staff. The Logistics Admin keeps
+        // read-only monitoring and management and must not see these links.
         $response->assertDontSee('aria-label="Hub Transfers"', false);
+        $response->assertDontSee('aria-label="Sorting Center"', false);
+        $response->assertDontSee('aria-label="Scan Parcel"', false);
 
         // Management section
         $response->assertSee('Management');

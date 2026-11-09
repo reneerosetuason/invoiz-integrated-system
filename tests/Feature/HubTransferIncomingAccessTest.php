@@ -343,7 +343,7 @@ class HubTransferIncomingAccessTest extends TestCase
         $this->assertSame('received', $delivery->fresh()->parcel_status);
     }
 
-    public function test_company_manager_can_receive_at_a_hub_in_their_company(): void
+    public function test_company_manager_is_read_only_for_receiving(): void
     {
         $company = $this->company('Manager Receiving Company');
         $origin = $this->center($company, 'Manager Receiving Origin');
@@ -354,6 +354,16 @@ class HubTransferIncomingAccessTest extends TestCase
         $entry = $this->manifest($transfer, $delivery);
 
         $this->actingAs($this->manager($company))
+            ->post(route('hub-transfers.receive', $transfer), [
+                'tracking_number' => $delivery->tracking_number,
+                'condition' => 'good',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('pending', $entry->fresh()->receiving_status);
+
+        // The assigned destination hub staff member performs the receiving action.
+        $this->actingAs($this->staff($company, $destination))
             ->post(route('hub-transfers.receive', $transfer), [
                 'tracking_number' => $delivery->tracking_number,
                 'condition' => 'good',
