@@ -73,8 +73,12 @@
                                     <span class="font-medium text-[#1B1B1E]">{{ $transfer->destination?->name }}</span>
                                 </td>
                                 <td>
-                                    <div class="font-medium text-[#1B1B1E]">{{ $transfer->truck?->plate_number ?? '—' }}</div>
-                                    <div class="text-[11px] text-[#6E6E73]">{{ $transfer->driver?->name ?? '—' }}</div>
+                                    @if(in_array((int) $transfer->id, $fleetVisibleTransferIds, true))
+                                        <div class="font-medium text-[#1B1B1E]">{{ $transfer->truck?->plate_number ?? '—' }}</div>
+                                        <div class="text-[11px] text-[#6E6E73]">{{ $transfer->driver?->name ?? '—' }}</div>
+                                    @else
+                                        <div class="text-[11px] text-[#6E6E73]">Managed by origin company</div>
+                                    @endif
                                 </td>
                                 <td>
                                     <span class="font-semibold text-[#1B1B1E]">{{ $transfer->parcels_count }}</span>

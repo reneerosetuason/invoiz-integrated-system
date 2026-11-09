@@ -38,11 +38,23 @@
             </div>
         </div>
 
+        @if(! $hubsActive)
+            <div class="card p-4 border-l-4 border-l-amber-500 bg-amber-50/60">
+                <div class="text-[10px] font-bold uppercase tracking-wider text-amber-800">Historical record</div>
+                <div class="mt-0.5 text-sm font-bold text-[#1B1B1E]">One or both hubs are inactive. This transfer is available for historical reference only.</div>
+                <p class="mt-0.5 text-xs text-[#6E6E73]">Operational actions are unavailable while a hub is inactive. The manifest and transfer history remain visible to the origin and destination companies.</p>
+            </div>
+        @endif
+
         <div class="grid gap-4 md:grid-cols-3">
             <div class="card p-4">
                 <div class="text-[10px] font-bold uppercase tracking-wider text-[#6E6E73]">Truck &amp; Driver</div>
-                <div class="mt-1 font-bold text-sm text-[#1B1B1E]">{{ $transfer->truck?->plate_number }} · {{ $transfer->truck?->name ?: $transfer->truck?->vehicle_type }}</div>
-                <div class="text-xs text-[#6E6E73] mt-0.5">Driver: <strong class="text-[#1B1B1E]">{{ $transfer->driver?->name }}</strong></div>
+                @if($canViewOriginPrivate)
+                    <div class="mt-1 font-bold text-sm text-[#1B1B1E]">{{ $transfer->truck?->plate_number }} · {{ $transfer->truck?->name ?: $transfer->truck?->vehicle_type }}</div>
+                    <div class="text-xs text-[#6E6E73] mt-0.5">Driver: <strong class="text-[#1B1B1E]">{{ $transfer->driver?->name }}</strong></div>
+                @else
+                    <div class="mt-1 text-xs text-[#6E6E73]">Fleet and driver details are managed by the origin logistics company.</div>
+                @endif
             </div>
             <div class="card p-4">
                 <div class="text-[10px] font-bold uppercase tracking-wider text-[#6E6E73]">Manifest Status</div>
@@ -65,6 +77,7 @@
         @endif
 
         {{-- One primary next step derived from the transfer's real status. --}}
+        @if($hubsActive)
         <div class="card p-4 border-l-4 {{ $stage['tone'] === 'amber' ? 'border-l-amber-500 bg-amber-50/60' : ($stage['tone'] === 'indigo' ? 'border-l-indigo-500 bg-indigo-50/50' : ($stage['tone'] === 'green' ? 'border-l-emerald-600 bg-emerald-50/50' : ($stage['tone'] === 'gray' ? 'border-l-[#8E8E93] bg-[#FAF9F6]' : 'border-l-[#16697A] bg-[#F0F9F7]'))) }} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <div class="text-[10px] font-bold uppercase tracking-wider text-[#6E6E73]">Next step</div>
@@ -78,6 +91,7 @@
                 <a href="{{ $stage['anchor'] }}" class="btn btn-primary btn-sm shrink-0">{{ $stage['action'] }}</a>
             @endif
         </div>
+        @endif
 
         {{-- Manifest Table --}}
         <div id="manifest" class="card overflow-hidden">
@@ -259,7 +273,7 @@
                 </div>
             @endif
         </div>
-        @else
+        @elseif($hubsActive)
         <div class="card p-5 bg-[#FAF9F6] border-[#E8E6E0] space-y-2">
             <div class="flex items-center gap-2">
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E6F4F1] text-[#0E4A57]">
@@ -282,9 +296,11 @@
                     <li class="border-l-2 border-[#16697A] pl-3">
                         <div class="text-xs font-bold text-[#1B1B1E]">{{ str($event->event_type)->replace('_',' ')->title() }}</div>
                         <div class="text-[11px] text-[#6E6E73] mt-0.5">
-                            {{ $event->created_at->format('M d, Y H:i') }} &middot;
-                            {{ $event->actor_name ?: 'System (automatic)' }}
-                            @if($event->notes) &middot; {{ $event->notes }} @endif
+                            {{ $event->created_at->format('M d, Y H:i') }}
+                            @if($canViewOriginPrivate)
+                                &middot; {{ $event->actor_name ?: 'System (automatic)' }}
+                                @if($event->notes) &middot; {{ $event->notes }} @endif
+                            @endif
                         </div>
                     </li>
                 @endforeach

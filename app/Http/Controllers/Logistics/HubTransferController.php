@@ -31,11 +31,15 @@ class HubTransferController extends Controller
     {
         $global = $this->isNetworkAdmin($request);
         $company = $global ? null : $this->company($request);
-        $query = HubTransfer::query()->when($company, fn ($q) => $q->where('logistics_company_id', $company->id))
-            ->with(['origin', 'destination', 'truck', 'driver'])
+        $query = HubTransfer::query()
+            ->with(['origin', 'destination'])
             ->withCount(['parcels' => fn ($q) => $q->where('loading_status', '!=', 'removed')]);
         if (! $global) {
+            // Cross-company legs are visible to the company on either end of
+            // the manifest, and to hub staff whose hub is on that leg.
             $this->scopeTransfersToUser($query, $request);
+        } elseif ($company) {
+            $query->where('logistics_company_id', $company->id);
         }
 
         if (($search = trim((string) $request->query('search'))) !== '') {
@@ -48,19 +52,47 @@ class HubTransferController extends Controller
             $query->where('status', $status);
         }
 
-        $countsQuery = HubTransfer::query()->when($company, fn ($q) => $q->where('logistics_company_id', $company->id));
+        $countsQuery = HubTransfer::query();
         if (! $global) {
             $this->scopeTransfersToUser($countsQuery, $request);
+        } elseif ($company) {
+            $countsQuery->where('logistics_company_id', $company->id);
         }
         $counts = $countsQuery
             ->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
 
+        $transfers = $query->latest()->paginate(15)->withQueryString();
+
+        // Assigned fleet and driver details belong to the origin company. Load
+        // them only for rows this account is entitled to see, so a foreign
+        // destination company never receives them in the view payload.
+        $viewerCompanyId = $global ? null : LogisticsAccess::companyId($request->user());
+        $fleetVisibleTransferIds = $transfers->getCollection()
+            ->filter(function (HubTransfer $transfer) use ($global, $viewerCompanyId): bool {
+                if ($global) {
+                    return true;
+                }
+
+                $originCompanyId = (int) ($transfer->origin?->logistics_company_id ?? 0);
+
+                return $viewerCompanyId !== null
+                    && $viewerCompanyId > 0
+                    && $originCompanyId === $viewerCompanyId;
+            })
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $transfers->getCollection()
+            ->whereIn('id', $fleetVisibleTransferIds)
+            ->each(fn (HubTransfer $transfer) => $transfer->loadMissing(['truck', 'driver']));
+
         return view('logistics.hub-transfers.index', [
             'company' => $company,
-            'transfers' => $query->latest()->paginate(15)->withQueryString(),
+            'transfers' => $transfers,
             'counts' => $counts,
-            'centers' => $company ? $this->centersFor($company) : collect(),
             'global' => $global,
+            'fleetVisibleTransferIds' => $fleetVisibleTransferIds,
         ]);
     }
 
@@ -221,7 +253,22 @@ class HubTransferController extends Controller
         $validated = $request->validate([
             'logistics_company_id' => [$this->isNetworkAdmin($request) ? 'required' : 'prohibited', 'integer', 'exists:logistics_companies,id'],
             'origin_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)->where('is_active', true)],
-            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('logistics_company_id', $company->id)->where('is_active', true)],
+            // The next hop may belong to another company in the shared network,
+            // but the hub and its company must both be active. The lookup is
+            // server-side; a client-supplied company id is never trusted.
+            'destination_center_id' => [
+                'required',
+                'integer',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! is_numeric($value)) {
+                        return;
+                    }
+                    $failure = $this->destinationEligibilityFailure((int) $value);
+                    if ($failure !== null) {
+                        $fail($failure);
+                    }
+                },
+            ],
             // A truck paired with a driver in Fleet Management is stored as
             // `assigned`, so both available and assigned trucks are valid here.
             'truck_id' => ['required', 'integer', Rule::exists('logistics_trucks', 'id')->where('logistics_company_id', $company->id)->whereIn('status', [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED])],
@@ -399,43 +446,62 @@ class HubTransferController extends Controller
 
     public function show(Request $request, HubTransfer $hubTransfer): View
     {
+        // Historical records stay readable after a hub is deactivated, so
+        // authorization checks who the user is relative to the leg, not
+        // whether the hubs are currently operational.
         $this->authorizeTransfer($request, $hubTransfer);
-        $this->assertCenterAccess($request, $hubTransfer->origin_center_id, $hubTransfer->destination_center_id);
-        $hubTransfer->load(['company', 'origin', 'destination', 'truck', 'driver', 'parcels.delivery', 'events']);
+        $hubsActive = $this->bothHubsActive($hubTransfer);
+        $hubTransfer->load(['company', 'origin', 'destination', 'parcels.delivery', 'events']);
 
-        // Only offer fleet pairs that can actually take over this transfer:
-        // a paired, approved four-wheel truck with a free driver. The current
-        // truck/driver stay selectable, and this transfer's own active leg is
-        // ignored when checking for conflicting manifests.
-        $trucks = LogisticsTruck::query()
-            ->where('logistics_company_id', $hubTransfer->logistics_company_id)
-            ->whereIn('status', [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED])
-            ->whereDoesntHave('transfers', fn ($query) => $query
-                ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
-                ->whereKeyNot($hubTransfer->id))
-            ->orderBy('plate_number')
-            ->get()
-            ->filter(fn (LogisticsTruck $truck) => $truck->isAssignable())
-            ->values();
+        // Inactive-hub records are read-only: the flags below hide every
+        // control, while the mutating endpoints keep their active-hub gate.
+        $canManageOrigin = $hubsActive && $this->canManageOriginSide($request, $hubTransfer);
+        $canReceiveIncoming = $hubsActive && $this->canReceiveAtDestination($request, $hubTransfer);
+        $canViewOriginPrivate = $this->canViewOriginPrivate($request, $hubTransfer);
+        if ($canViewOriginPrivate) {
+            $hubTransfer->loadMissing(['truck', 'driver']);
+        }
 
-        $drivers = HubTransportDriver::query()
-            ->where('logistics_company_id', $hubTransfer->logistics_company_id)
-            ->whereIn('logistics_truck_id', $trucks->pluck('id'))
-            ->where(fn ($query) => $query->where('status', 'available')->orWhere('id', $hubTransfer->driver_id))
-            ->whereDoesntHave('transfers', fn ($query) => $query
-                ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
-                ->whereKeyNot($hubTransfer->id))
-            ->get();
+        // Assignable fleet and reroute targets are origin-side management data.
+        // They are built only for staff physically assigned to the origin hub,
+        // so a foreign destination company never receives them.
+        $fleetOptions = collect();
+        $rerouteHubs = collect();
+        if ($canManageOrigin) {
+            // Only offer fleet pairs that can actually take over this transfer:
+            // a paired, approved four-wheel truck with a free driver. The current
+            // truck/driver stay selectable, and this transfer's own active leg is
+            // ignored when checking for conflicting manifests.
+            $trucks = LogisticsTruck::query()
+                ->where('logistics_company_id', $hubTransfer->logistics_company_id)
+                ->whereIn('status', [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED])
+                ->whereDoesntHave('transfers', fn ($query) => $query
+                    ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                    ->whereKeyNot($hubTransfer->id))
+                ->orderBy('plate_number')
+                ->get()
+                ->filter(fn (LogisticsTruck $truck) => $truck->isAssignable())
+                ->values();
 
-        $fleetOptions = $trucks
-            ->map(fn (LogisticsTruck $truck) => ['truck' => $truck, 'driver' => $drivers->firstWhere('logistics_truck_id', $truck->id)])
-            ->filter(fn (array $option) => $option['driver'] !== null)
-            ->values();
-        $rerouteHubs = LogisticsCenter::query()
-            ->where('is_active', true)
-            ->whereKeyNot($hubTransfer->origin_center_id)
-            ->orderBy('name')
-            ->get();
+            $drivers = HubTransportDriver::query()
+                ->where('logistics_company_id', $hubTransfer->logistics_company_id)
+                ->whereIn('logistics_truck_id', $trucks->pluck('id'))
+                ->where(fn ($query) => $query->where('status', 'available')->orWhere('id', $hubTransfer->driver_id))
+                ->whereDoesntHave('transfers', fn ($query) => $query
+                    ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
+                    ->whereKeyNot($hubTransfer->id))
+                ->get();
+
+            $fleetOptions = $trucks
+                ->map(fn (LogisticsTruck $truck) => ['truck' => $truck, 'driver' => $drivers->firstWhere('logistics_truck_id', $truck->id)])
+                ->filter(fn (array $option) => $option['driver'] !== null)
+                ->values();
+            $rerouteHubs = LogisticsCenter::query()
+                ->where('is_active', true)
+                ->whereKeyNot($hubTransfer->origin_center_id)
+                ->orderBy('name')
+                ->get();
+        }
 
         // Parcel-level progress is derived once so the web console and the
         // driver app render the same journey for every manifest entry.
@@ -453,6 +519,10 @@ class HubTransferController extends Controller
             'rerouteHubs' => $rerouteHubs,
             'parcelProgress' => $parcelProgress,
             'manifestWeight' => $manifestWeight,
+            'canManageOrigin' => $canManageOrigin,
+            'canReceiveIncoming' => $canReceiveIncoming,
+            'canViewOriginPrivate' => $canViewOriginPrivate,
+            'hubsActive' => $hubsActive,
         ]);
     }
 
@@ -626,9 +696,11 @@ class HubTransferController extends Controller
     {
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate([
-            'destination_center_id' => ['required', 'integer', Rule::exists('logistics_centers', 'id')->where('is_active', true)],
+            'destination_center_id' => ['required', 'integer'],
             'reason' => ['required', 'string', 'min:3', 'max:1000'],
         ]);
+        $failure = $this->destinationEligibilityFailure((int) $data['destination_center_id']);
+        abort_if($failure !== null, 422, $failure);
         HubTransferService::reroute(
             $hubTransfer,
             LogisticsCenter::whereKey($data['destination_center_id'])->firstOrFail(),
@@ -698,62 +770,103 @@ class HubTransferController extends Controller
         return LogisticsAccess::isGlobal($request->user());
     }
 
+    /** Historical viewing is allowed on inactive hubs; mutations still require both. */
+    private function bothHubsActive(HubTransfer $transfer): bool
+    {
+        return LogisticsCenter::query()
+            ->whereKey($transfer->origin_center_id)
+            ->where('is_active', true)
+            ->exists()
+            && LogisticsCenter::query()
+                ->whereKey($transfer->destination_center_id)
+                ->where('is_active', true)
+                ->exists();
+    }
+
     private function assertCenterAccess(Request $request, int $originId, int $destinationId): void
     {
         $user = $request->user();
-        abort_if($originId === $destinationId, 403, 'Origin and destination must differ.');
+        abort_if($originId === $destinationId, 422, 'Origin and destination must differ.');
+        abort_unless(
+            LogisticsCenter::whereKey($originId)->where('is_active', true)->exists()
+            && LogisticsCenter::whereKey($destinationId)->where('is_active', true)->exists(),
+            422,
+            'Both hubs must be active.'
+        );
 
         if (LogisticsAccess::isGlobal($user)) {
-            // Global accounts may operate every company, but both hubs must
-            // still belong to the same company.
-            $companyId = (int) (LogisticsCenter::whereKey($originId)->value('logistics_company_id') ?? 0);
-            $company = LogisticsCompany::whereKey($companyId)->where('status', 'active')->firstOrFail();
-            $hubs = LogisticsCenter::query()
-                ->where('logistics_company_id', $company->id)
-                ->whereIn('id', [$originId, $destinationId])
-                ->count();
-            abort_unless($hubs === 2, 403, 'Both hubs must belong to the same logistics company.');
-
+            // Global monitoring may view any active pair, but processing is
+            // still blocked by parcel.operator and the staff-only gates.
             return;
         }
 
         $companyId = LogisticsAccess::companyId($user);
-        abort_unless($companyId > 0, 403, 'Your account is not assigned to a logistics company.');
+        abort_unless($companyId !== null && $companyId > 0, 403, 'Your account is not assigned to a logistics company.');
 
-        $hubs = LogisticsCenter::query()
-            ->where('logistics_company_id', $companyId)
-            ->whereIn('id', [$originId, $destinationId])
-            ->count();
-        abort_unless($hubs === 2, 403, 'Both hubs must belong to your logistics company.');
+        // A leg may cross companies, but the viewer's company must be on at
+        // least one end of it.
+        $originCompanyId = (int) (LogisticsCenter::whereKey($originId)->value('logistics_company_id') ?? 0);
+        $destCompanyId = (int) (LogisticsCenter::whereKey($destinationId)->value('logistics_company_id') ?? 0);
+        abort_unless(
+            $originCompanyId === $companyId || $destCompanyId === $companyId,
+            403,
+            'At least one hub must belong to your logistics company.'
+        );
 
         // Null center = company-wide manager; a non-null center is a hub
         // staff restriction that must cover one side of the transfer.
         $centerId = LogisticsAccess::centerId($user);
         if ($centerId === null) {
             abort_unless($user->isCompanyManager(), 403);
-        } else {
-            abort_unless(
-                $centerId > 0 && in_array($centerId, [$originId, $destinationId], true),
-                403,
-                'You may only operate transfers for your assigned hub.'
-            );
+
+            return;
         }
+
+        abort_unless(
+            $centerId > 0 && in_array($centerId, [$originId, $destinationId], true),
+            403,
+            'You may only operate transfers for your assigned hub.'
+        );
     }
 
     private function authorizeTransfer(Request $request, HubTransfer $transfer): void
     {
+        $user = $request->user();
+        if (LogisticsAccess::isGlobal($user)) {
+            return;
+        }
+
         abort_unless(
-            (int) $transfer->logistics_company_id > 0
-                && LogisticsAccess::canAccessCompany($request->user(), (int) $transfer->logistics_company_id),
+            (int) $transfer->origin_center_id !== (int) $transfer->destination_center_id,
             404
         );
 
-        $hubCount = LogisticsCenter::query()
-            ->where('logistics_company_id', $transfer->logistics_company_id)
-            ->whereIn('id', [$transfer->origin_center_id, $transfer->destination_center_id])
-            ->count();
+        $companyId = LogisticsAccess::companyId($user);
+        abort_unless($companyId !== null && $companyId > 0, 403, 'Your account is not assigned to a logistics company.');
+
+        $originCompanyId = (int) (LogisticsCenter::whereKey($transfer->origin_center_id)->value('logistics_company_id') ?? 0);
+        $destCompanyId = (int) (LogisticsCenter::whereKey($transfer->destination_center_id)->value('logistics_company_id') ?? 0);
+
+        // An account that belongs to neither side must not learn that this
+        // transfer exists. Return the same response as a missing transfer.
         abort_unless(
-            (int) $transfer->origin_center_id !== (int) $transfer->destination_center_id && $hubCount === 2,
+            (int) $transfer->logistics_company_id === $companyId
+            || $originCompanyId === $companyId
+            || $destCompanyId === $companyId,
+            404
+        );
+
+        $centerId = LogisticsAccess::centerId($user);
+        if ($centerId === null) {
+            return;
+        }
+
+        abort_unless($centerId > 0, 403, 'Your account is not assigned to a hub.');
+
+        // A hub account outside both ends of the leg is not one of the
+        // authorized sides either, so keep the same non-disclosing response.
+        abort_unless(
+            in_array($centerId, [(int) $transfer->origin_center_id, (int) $transfer->destination_center_id], true),
             404
         );
     }
@@ -795,6 +908,60 @@ class HubTransferController extends Controller
     }
 
     /**
+     * A next-hop hub is eligible when the hub exists, is active, and belongs
+     * to a logistics company that is active. Shared-network transfers may
+     * cross company boundaries, so the owning company is resolved from the
+     * hub itself rather than from client input.
+     */
+    private function destinationEligibilityFailure(int $centerId): ?string
+    {
+        $center = LogisticsCenter::query()->whereKey($centerId)->first();
+        if (! $center) {
+            return 'The selected destination hub does not exist.';
+        }
+        if (! $center->is_active) {
+            return 'The selected destination hub is not active.';
+        }
+
+        $companyActive = LogisticsCompany::query()
+            ->whereKey($center->logistics_company_id)
+            ->where('status', 'active')
+            ->exists();
+
+        return $companyActive ? null : 'The selected destination hub belongs to an inactive logistics company.';
+    }
+
+    /** Physical origin-side actions (load, remove, dispatch, hold, resume, cancel, reroute, reassign). */
+    private function canManageOriginSide(Request $request, HubTransfer $transfer): bool
+    {
+        $centerId = LogisticsAccess::centerId($request->user());
+
+        return LogisticsAccess::canProcessParcels($request->user())
+            && $centerId !== null
+            && (int) $centerId === (int) $transfer->origin_center_id;
+    }
+
+    /** Physical destination-side actions (arrival, receiving, finalize). */
+    private function canReceiveAtDestination(Request $request, HubTransfer $transfer): bool
+    {
+        $centerId = LogisticsAccess::centerId($request->user());
+
+        return LogisticsAccess::canProcessParcels($request->user())
+            && $centerId !== null
+            && (int) $centerId === (int) $transfer->destination_center_id;
+    }
+
+    /**
+     * Fleet, assigned driver and event actor details belong to the origin
+     * company. Only global monitoring and the origin company's own accounts
+     * may see them; foreign destination staff get the manifest only.
+     */
+    private function canViewOriginPrivate(Request $request, HubTransfer $transfer): bool
+    {
+        return LogisticsAccess::canViewOriginPrivate($request->user(), $transfer);
+    }
+
+    /**
      * Restrict a transfers query to the account's company and, for hub staff,
      * to transfers touching their assigned hub. Company managers keep a null
      * center and therefore see every transfer inside their company only.
@@ -809,13 +976,17 @@ class HubTransferController extends Controller
         $companyId = LogisticsAccess::companyId($user);
         abort_unless($companyId !== null && $companyId > 0, 403, 'Your account is not assigned to a logistics company.');
 
-        $query->where('logistics_company_id', $companyId)
-            ->whereHas('origin', fn ($center) => $center->where('logistics_company_id', $companyId))
-            ->whereHas('destination', fn ($center) => $center->where('logistics_company_id', $companyId));
-
         $centerId = LogisticsAccess::centerId($user);
         if ($centerId === null) {
             abort_unless($user->isCompanyManager(), 403, 'Your account does not have a valid transfer scope.');
+
+            // A company manager sees every leg that touches their company,
+            // including cross-company legs on either end.
+            $query->where(function ($q) use ($companyId): void {
+                $q->where('logistics_company_id', $companyId)
+                    ->orWhereHas('origin', fn ($center) => $center->where('logistics_company_id', $companyId))
+                    ->orWhereHas('destination', fn ($center) => $center->where('logistics_company_id', $companyId));
+            });
 
             return;
         }

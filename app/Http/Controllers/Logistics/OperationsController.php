@@ -7,6 +7,7 @@ use App\Models\HubTransfer;
 use App\Models\HubTransferParcel;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
+use App\Models\User;
 use App\Support\LogisticsAccess;
 use App\Support\ParcelWorkflow;
 use Illuminate\Database\Eloquent\Builder;
@@ -119,7 +120,7 @@ class OperationsController extends Controller
         ];
 
         $incomingTransfers = (clone $incomingTransfersQuery)
-            ->with(['origin', 'destination', 'truck', 'driver'])
+            ->with(['origin', 'destination'])
             ->withCount([
                 'parcels as pending_parcels_count' => fn ($query) => $query
                     ->where('loading_status', '!=', 'removed')
@@ -133,7 +134,7 @@ class OperationsController extends Controller
             ->get();
 
         $outgoingTransfers = (clone $outgoingTransfersQuery)
-            ->with(['origin', 'destination', 'truck', 'driver'])
+            ->with(['origin', 'destination'])
             ->withCount([
                 'parcels as manifest_parcels_count' => fn ($query) => $query
                     ->where('loading_status', '!=', 'removed'),
@@ -154,8 +155,8 @@ class OperationsController extends Controller
             'rider',
             'logisticsCenter',
             'destinationCenter',
-            'incomingTransferParcel.transfer.driver',
-            'latestHubTransferParcel.transfer.driver',
+            'incomingTransferParcel.transfer.origin',
+            'latestHubTransferParcel.transfer.origin',
         ];
 
         $actionParcels = collect()
@@ -174,6 +175,17 @@ class OperationsController extends Controller
                 ),
             ]);
 
+        // Fleet and driver details are origin-company data. Load them only on
+        // transfers whose origin belongs to the viewer's company (or for
+        // global oversight); foreign destination viewers never receive them.
+        $fleetTransfers = $incomingTransfers
+            ->toBase()
+            ->merge($outgoingTransfers->toBase())
+            ->merge($actionParcels->pluck('workflow')->pluck('transfer'))
+            ->filter();
+
+        $this->loadOriginFleetForOwner($fleetTransfers, $user, $global);
+
         return view('logistics.operations.index', [
             'company' => $company,
             'center' => $center,
@@ -186,6 +198,29 @@ class OperationsController extends Controller
             'exceptionEntries' => $exceptionEntries,
             'scopeLabel' => $this->scopeLabel($global, $company, $center),
         ]);
+    }
+
+    /**
+     * @param  Collection<int, HubTransfer>  $transfers
+     */
+    private function loadOriginFleetForOwner(Collection $transfers, User $user, bool $global): void
+    {
+        $companyId = $global ? null : LogisticsAccess::companyId($user);
+
+        foreach ($transfers as $transfer) {
+            if (! $transfer instanceof HubTransfer) {
+                continue;
+            }
+
+            if (! $global) {
+                $originCompanyId = (int) ($transfer->origin?->logistics_company_id ?? 0);
+                if ($companyId === null || $companyId <= 0 || $originCompanyId !== $companyId) {
+                    continue;
+                }
+            }
+
+            $transfer->loadMissing(['truck', 'driver']);
+        }
     }
 
     private function scopeDeliveries(Builder $query, ?int $companyId, ?int $centerId): void

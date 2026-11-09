@@ -108,7 +108,11 @@
                                         @endif
                                         <div class="text-[10px] text-[#6E6E73]">{{ $workflow['custody'] }}</div>
                                         @php
-                                            $responsible = $delivery->rider?->name ?? $workflow['transfer']?->driver?->name;
+                                            $transfer = $workflow['transfer'];
+                                            // The controller loads driver details only
+                                            // for viewers from the origin company.
+                                            $driverVisible = $transfer && $transfer->relationLoaded('driver');
+                                            $responsible = $delivery->rider?->name ?? ($driverVisible ? $transfer->driver?->name : null);
                                         @endphp
                                         @if($responsible)
                                             <div class="text-[10px] text-[#8E8E93]">{{ $delivery->rider ? 'Rider' : 'Transport driver' }}: {{ $responsible }}</div>
@@ -188,7 +192,7 @@
                                 <tr class="hover:bg-[#FCFBF9]">
                                     <td class="align-middle">
                                         <div class="font-mono text-xs font-bold text-[#16697A]">{{ $transfer->reference }}</div>
-                                        <div class="text-[10px] text-[#6E6E73]">{{ $transfer->truck?->plate_number ?? 'No truck' }}</div>
+                                        <div class="text-[10px] text-[#6E6E73]">{{ $transfer->relationLoaded('truck') ? ($transfer->truck?->plate_number ?? 'No truck') : 'Fleet managed by origin company' }}</div>
                                     </td>
                                     <td class="align-middle text-[11px] text-[#1B1B1E]">
                                         {{ $transfer->origin?->name ?? '—' }}
@@ -245,7 +249,7 @@
                                 <tr class="hover:bg-[#FCFBF9]">
                                     <td class="align-middle">
                                         <div class="font-mono text-xs font-bold text-[#16697A]">{{ $transfer->reference }}</div>
-                                        <div class="text-[10px] text-[#6E6E73]">{{ $transfer->driver?->name ?? 'No driver' }}</div>
+                                        <div class="text-[10px] text-[#6E6E73]">{{ $transfer->relationLoaded('driver') ? ($transfer->driver?->name ?? 'No driver') : 'Fleet managed by origin company' }}</div>
                                     </td>
                                     <td class="align-middle text-[11px] text-[#1B1B1E]">
                                         {{ $transfer->origin?->name ?? '—' }}

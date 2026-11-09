@@ -59,18 +59,19 @@ class HubTransferNextHopCreationTest extends TestCase
         ]);
     }
 
-    private function manager(LogisticsCompany $company): User
+    private function staff(LogisticsCompany $company, LogisticsCenter $center): User
     {
         return User::create([
-            'name' => 'Next Hop Manager',
+            'name' => 'Next Hop Hub Staff',
             'email' => 'next-hop-'.uniqid().'@test.local',
             'password' => Hash::make('password123'),
-            'role' => 'admin',
+            'role' => 'staff',
             'is_admin' => false,
             'status' => 'active',
             'account_status' => 'active',
             'email_verified_at' => now(),
             'logistics_company_id' => $company->id,
+            'center_id' => $center->id,
         ]);
     }
 
@@ -158,7 +159,10 @@ class HubTransferNextHopCreationTest extends TestCase
 
     private function moveLeg(LogisticsCompany $company, LogisticsCenter $origin, LogisticsCenter $nextHop, Delivery $delivery, LogisticsTruck $truck, HubTransportDriver $driver): HubTransfer
     {
-        $this->actingAs($this->manager($company))
+        $originStaff = $this->staff($company, $origin);
+        $destinationStaff = $this->staff($company, $nextHop);
+
+        $this->actingAs($originStaff)
             ->post(route('hub-transfers.store'), $this->transferPayload($origin, $nextHop, $truck, $driver, $delivery))
             ->assertRedirect()
             ->assertSessionHasNoErrors();
@@ -168,6 +172,8 @@ class HubTransferNextHopCreationTest extends TestCase
         $this->post(route('hub-transfers.load', $transfer), ['tracking_number' => $delivery->tracking_number])
             ->assertSessionHasNoErrors();
         $this->post(route('hub-transfers.dispatch', $transfer))->assertSessionHasNoErrors();
+
+        $this->actingAs($destinationStaff);
         $this->post(route('hub-transfers.arrive', $transfer))->assertSessionHasNoErrors();
         $this->post(route('hub-transfers.receive', $transfer), [
             'tracking_number' => $delivery->tracking_number,
@@ -181,11 +187,11 @@ class HubTransferNextHopCreationTest extends TestCase
     public function test_fleet_dropdowns_are_enabled_when_a_free_pair_exists(): void
     {
         $company = $this->company();
-        $manager = $this->manager($company);
         $hub = $this->center($company, 'Calamba Hub');
+        $staff = $this->staff($company, $hub);
         [$truck, $driver] = $this->fleet($company);
 
-        $response = $this->actingAs($manager)->get(route('hub-transfers.create', [
+        $response = $this->actingAs($staff)->get(route('hub-transfers.create', [
             'logistics_company_id' => $company->id,
             'origin_center_id' => $hub->id,
         ]));
@@ -201,9 +207,9 @@ class HubTransferNextHopCreationTest extends TestCase
     public function test_blocked_fleet_explains_each_unavailable_truck(): void
     {
         $company = $this->company();
-        $manager = $this->manager($company);
         $hubA = $this->center($company, 'Calamba Hub');
         $hubB = $this->center($company, 'Pila Hub');
+        $staff = $this->staff($company, $hubA);
 
         [$busyTruck, $busyDriver] = $this->fleet($company);
         HubTransfer::create([
@@ -214,11 +220,11 @@ class HubTransferNextHopCreationTest extends TestCase
             'truck_id' => $busyTruck->id,
             'driver_id' => $busyDriver->id,
             'status' => 'loading',
-            'created_by' => $manager->id,
+            'created_by' => $staff->id,
         ]);
         $unpairedTruck = $this->truck($company);
 
-        $response = $this->actingAs($manager)->get(route('hub-transfers.create', [
+        $response = $this->actingAs($staff)->get(route('hub-transfers.create', [
             'logistics_company_id' => $company->id,
             'origin_center_id' => $hubA->id,
         ]));
@@ -235,12 +241,12 @@ class HubTransferNextHopCreationTest extends TestCase
     public function test_truck_with_invalid_driver_license_is_not_offered(): void
     {
         $company = $this->company();
-        $manager = $this->manager($company);
         $hub = $this->center($company, 'Calamba Hub');
+        $staff = $this->staff($company, $hub);
         $truck = $this->truck($company);
         $this->driver($company, $truck, 'available', now()->subDay()->format('Y-m-d'));
 
-        $response = $this->actingAs($manager)->get(route('hub-transfers.create', [
+        $response = $this->actingAs($staff)->get(route('hub-transfers.create', [
             'logistics_company_id' => $company->id,
             'origin_center_id' => $hub->id,
         ]));
@@ -253,15 +259,15 @@ class HubTransferNextHopCreationTest extends TestCase
     public function test_create_page_offers_intermediate_hubs_and_labels_the_final_destination(): void
     {
         $company = $this->company();
-        $manager = $this->manager($company);
         $calamba = $this->center($company, 'Calamba Hub');
         $intermediate = $this->center($company, 'Manila Transfer Hub');
         $pila = $this->center($company, 'Pila Hub');
+        $staff = $this->staff($company, $calamba);
         $this->fleet($company);
 
         $this->delivery($calamba, $pila);
 
-        $response = $this->actingAs($manager)->get(route('hub-transfers.create', [
+        $response = $this->actingAs($staff)->get(route('hub-transfers.create', [
             'logistics_company_id' => $company->id,
             'origin_center_id' => $calamba->id,
         ]));
@@ -281,16 +287,16 @@ class HubTransferNextHopCreationTest extends TestCase
     public function test_transfer_leg_can_end_at_an_intermediate_hub_without_changing_final_destination(): void
     {
         $company = $this->company();
-        $manager = $this->manager($company);
         $calamba = $this->center($company, 'Calamba Hub');
         $intermediate = $this->center($company, 'Manila Transfer Hub');
         $pila = $this->center($company, 'Pila Hub');
         $pilaArea = $this->area($pila, 'Pila');
+        $staff = $this->staff($company, $calamba);
         [$truck, $driver] = $this->fleet($company);
 
         $delivery = $this->delivery($calamba, $pila, $pilaArea);
 
-        $this->actingAs($manager)
+        $this->actingAs($staff)
             ->post(route('hub-transfers.store'), $this->transferPayload($calamba, $intermediate, $truck, $driver, $delivery))
             ->assertRedirect()
             ->assertSessionHasNoErrors();
@@ -308,11 +314,11 @@ class HubTransferNextHopCreationTest extends TestCase
     public function test_final_destination_survives_a_complete_multi_hop_journey(): void
     {
         $company = $this->company();
-        $manager = $this->manager($company);
         $calamba = $this->center($company, 'Calamba Hub');
         $intermediate = $this->center($company, 'Manila Transfer Hub');
         $pila = $this->center($company, 'Pila Hub');
         $pilaArea = $this->area($pila, 'Pila');
+        $intermediateStaff = $this->staff($company, $intermediate);
         [$truckA, $driverA] = $this->fleet($company);
         [$truckB, $driverB] = $this->fleet($company);
 
@@ -328,18 +334,18 @@ class HubTransferNextHopCreationTest extends TestCase
         $this->assertSame('received', HubTransferParcel::where('hub_transfer_id', $legOne->id)->sole()->receiving_status);
 
         // The intermediate hub must receive, scan and sort before another leg.
-        $this->actingAs($manager)
+        $this->actingAs($intermediateStaff)
             ->postJson(route('hub-transfers.store'), $this->transferPayload($intermediate, $pila, $truckB, $driverB, $delivery))
             ->assertStatus(422);
 
-        $this->actingAs($manager);
+        $this->actingAs($intermediateStaff);
         $this->patch(route('deliveries.scan', $delivery))->assertSessionHasNoErrors();
         $this->post(route('deliveries.sort', $delivery), [
             'destination_center_id' => $pila->id,
             'service_area_id' => $pilaArea->id,
         ])->assertSessionHasNoErrors();
 
-        $this->actingAs($manager)
+        $this->actingAs($intermediateStaff)
             ->post(route('hub-transfers.store'), $this->transferPayload($intermediate, $pila, $truckB, $driverB, $delivery->fresh()))
             ->assertRedirect()
             ->assertSessionHasNoErrors();
@@ -354,54 +360,70 @@ class HubTransferNextHopCreationTest extends TestCase
     public function test_circular_next_hop_is_rejected(): void
     {
         $company = $this->company();
-        $manager = $this->manager($company);
         $calamba = $this->center($company, 'Calamba Hub');
         $intermediate = $this->center($company, 'Manila Transfer Hub');
         $pila = $this->center($company, 'Pila Hub');
         $pilaArea = $this->area($pila, 'Pila');
+        $intermediateStaff = $this->staff($company, $intermediate);
         [$truckA, $driverA] = $this->fleet($company);
         [$truckB, $driverB] = $this->fleet($company);
 
         $delivery = $this->delivery($calamba, $pila, $pilaArea);
         $this->moveLeg($company, $calamba, $intermediate, $delivery, $truckA, $driverA);
 
-        $this->actingAs($manager);
+        $this->actingAs($intermediateStaff);
         $this->patch(route('deliveries.scan', $delivery))->assertSessionHasNoErrors();
         $this->post(route('deliveries.sort', $delivery), [
             'destination_center_id' => $pila->id,
             'service_area_id' => $pilaArea->id,
         ])->assertSessionHasNoErrors();
 
-        $this->actingAs($manager)
+        $this->actingAs($intermediateStaff)
             ->postJson(route('hub-transfers.store'), $this->transferPayload($intermediate, $calamba, $truckB, $driverB, $delivery->fresh()))
             ->assertStatus(422)
             ->assertJsonFragment(['message' => "Parcel {$delivery->tracking_number} has already passed through the selected next-hop hub. Choose a hub it has not visited."]);
     }
 
-    public function test_next_hop_must_be_an_active_hub_of_the_same_company(): void
+    public function test_next_hop_must_be_an_active_hub_in_an_active_company(): void
     {
         $company = $this->company();
         $otherCompany = $this->company('Other Co');
-        $manager = $this->manager($company);
+        $inactiveCompany = LogisticsCompany::create([
+            'name' => 'Closed Co '.uniqid(),
+            'status' => 'inactive',
+        ]);
         $calamba = $this->center($company, 'Calamba Hub');
         $pila = $this->center($company, 'Pila Hub');
+        $staff = $this->staff($company, $calamba);
         $inactive = $this->center($company, 'Closed Hub');
         $inactive->update(['is_active' => false]);
+        $inactiveCompanyHub = $this->center($inactiveCompany, 'Closed Company Hub');
         $foreign = $this->center($otherCompany, 'Foreign Hub');
         [$truck, $driver] = $this->fleet($company);
 
         $delivery = $this->delivery($calamba, $pila);
 
-        $this->actingAs($manager)
+        $this->actingAs($staff)
             ->postJson(route('hub-transfers.store'), $this->transferPayload($calamba, $inactive, $truck, $driver, $delivery))
             ->assertStatus(422)
             ->assertJsonValidationErrors('destination_center_id');
 
-        $this->actingAs($manager)
-            ->postJson(route('hub-transfers.store'), $this->transferPayload($calamba, $foreign, $truck, $driver, $delivery))
+        $this->actingAs($staff)
+            ->postJson(route('hub-transfers.store'), $this->transferPayload($calamba, $inactiveCompanyHub, $truck, $driver, $delivery))
             ->assertStatus(422)
             ->assertJsonValidationErrors('destination_center_id');
 
         $this->assertSame(0, HubTransfer::where('logistics_company_id', $company->id)->count());
+
+        // The shared network permits an active hub of another active company
+        // as the next hop; the hub's company is resolved server-side.
+        $this->actingAs($staff)
+            ->post(route('hub-transfers.store'), $this->transferPayload($calamba, $foreign, $truck, $driver, $delivery))
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $transfer = HubTransfer::latest('id')->firstOrFail();
+        $this->assertSame($company->id, (int) $transfer->logistics_company_id);
+        $this->assertSame($foreign->id, (int) $transfer->destination_center_id);
     }
 }

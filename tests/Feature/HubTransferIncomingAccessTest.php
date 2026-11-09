@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Delivery;
 use App\Models\HubTransfer;
+use App\Models\HubTransferEvent;
 use App\Models\HubTransferParcel;
+use App\Models\HubTransportDriver;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
+use App\Models\LogisticsTruck;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
@@ -130,6 +133,31 @@ class HubTransferIncomingAccessTest extends TestCase
             'loading_status' => $loadingStatus,
             'receiving_status' => $receivingStatus,
         ]);
+    }
+
+    /** @return array{0: LogisticsTruck, 1: HubTransportDriver} */
+    private function fleet(LogisticsCompany $company): array
+    {
+        $truck = LogisticsTruck::create([
+            'logistics_company_id' => $company->id,
+            'plate_number' => 'PRIVATE-'.strtoupper(bin2hex(random_bytes(4))),
+            'vehicle_type' => 'truck',
+            'parcel_capacity' => 20,
+            'capacity_kg' => 1000,
+            'status' => 'available',
+            'verification_status' => 'approved',
+        ]);
+        $driver = HubTransportDriver::create([
+            'logistics_company_id' => $company->id,
+            'logistics_truck_id' => $truck->id,
+            'name' => 'Private Origin Driver '.bin2hex(random_bytes(4)),
+            'email' => 'private-driver-'.bin2hex(random_bytes(6)).'@test.local',
+            'password' => Hash::make('secret123'),
+            'status' => 'available',
+            'is_online' => true,
+        ]);
+
+        return [$truck, $driver];
     }
 
     public function test_destination_hub_staff_see_only_parcels_incoming_to_their_hub(): void
@@ -320,7 +348,9 @@ class HubTransferIncomingAccessTest extends TestCase
             ->post(route('hub-transfers.receive', $transfer), $payload)
             ->assertForbidden();
 
-        $this->actingAs($this->manager($otherCompany))
+        // An account from a company that touches neither end must not even
+        // learn that this manifest exists.
+        $this->actingAs($this->staff($otherCompany, $otherDestination))
             ->post(route('hub-transfers.receive', $transfer), $payload)
             ->assertNotFound();
 
@@ -493,5 +523,143 @@ class HubTransferIncomingAccessTest extends TestCase
 
         $this->assertSame('received', $entry->fresh()->receiving_status);
         $this->assertSame(1, HubTransferParcel::where('hub_transfer_id', $transfer->id)->count());
+    }
+
+    public function test_foreign_destination_staff_see_the_manifest_without_origin_fleet_details(): void
+    {
+        $originCompany = $this->company('Origin Network Co');
+        $destinationCompany = $this->company('Destination Network Co');
+        $origin = $this->center($originCompany, 'Origin Network Hub');
+        $destination = $this->center($destinationCompany, 'Destination Network Hub');
+
+        $transfer = $this->transfer($originCompany, $origin, $destination, 'arrived');
+        $delivery = $this->delivery($origin, $destination);
+        $entry = $this->manifest($transfer, $delivery);
+        [$truck, $driver] = $this->fleet($originCompany);
+        $transfer->update(['truck_id' => $truck->id, 'driver_id' => $driver->id]);
+        HubTransferEvent::create([
+            'hub_transfer_id' => $transfer->id,
+            'event_type' => 'truck_assigned',
+            'notes' => 'Truck '.$truck->plate_number.' assigned to '.$driver->name.'.',
+            'actor_name' => 'Origin Staff Person',
+        ]);
+
+        $destinationStaff = $this->staff($destinationCompany, $destination);
+
+        $this->actingAs($destinationStaff)
+            ->get(route('hub-transfers.show', $transfer))
+            ->assertOk()
+            ->assertSee($transfer->reference)
+            ->assertSee($delivery->tracking_number)
+            ->assertSee(route('hub-transfers.receive', $transfer), false)
+            ->assertDontSee($truck->plate_number)
+            ->assertDontSee($driver->name)
+            ->assertDontSee('Origin Staff Person')
+            ->assertDontSee('Reassign Fleet Truck')
+            ->assertDontSee('Correct Destination Hub')
+            ->assertDontSee('Cancel Transfer');
+
+        // Destination staff still accept custody for their incoming manifest.
+        $this->actingAs($destinationStaff)
+            ->post(route('hub-transfers.receive', $transfer), [
+                'tracking_number' => $delivery->tracking_number,
+                'condition' => 'good',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame('received', $entry->fresh()->receiving_status);
+        $this->assertEquals($destination->id, $delivery->fresh()->center_id);
+    }
+
+    public function test_destination_staff_cannot_manage_the_origin_lifecycle(): void
+    {
+        $originCompany = $this->company('Lifecycle Origin Co');
+        $destinationCompany = $this->company('Lifecycle Destination Co');
+        $origin = $this->center($originCompany, 'Lifecycle Origin Hub');
+        $destination = $this->center($destinationCompany, 'Lifecycle Destination Hub');
+        $otherOriginHub = $this->center($originCompany, 'Lifecycle Alternate Hub');
+
+        $transfer = $this->transfer($originCompany, $origin, $destination, 'ready_for_dispatch');
+        $delivery = $this->delivery($origin, $destination);
+        $this->manifest($transfer, $delivery);
+        [$truck] = $this->fleet($originCompany);
+        $transfer->update(['truck_id' => $truck->id]);
+
+        $destinationStaff = $this->staff($destinationCompany, $destination);
+        $originStaff = $this->staff($originCompany, $origin);
+
+        $attempts = [
+            ['hub-transfers.dispatch', []],
+            ['hub-transfers.cancel', ['reason' => 'Destination should not cancel']],
+            ['hub-transfers.reroute', ['destination_center_id' => $otherOriginHub->id, 'reason' => 'Destination should not reroute']],
+            ['hub-transfers.reassign', ['truck_id' => $truck->id]],
+            ['hub-transfers.hold', ['reason' => 'Destination should not hold']],
+        ];
+
+        foreach ($attempts as [$route, $payload]) {
+            $this->actingAs($destinationStaff)
+                ->post(route($route, $transfer), $payload)
+                ->assertForbidden();
+        }
+
+        $this->assertSame('ready_for_dispatch', $transfer->fresh()->status);
+        $this->assertSame($destination->id, (int) $transfer->fresh()->destination_center_id);
+
+        $this->actingAs($originStaff)
+            ->post(route('hub-transfers.hold', $transfer), ['reason' => 'Awaiting dock clearance'])
+            ->assertRedirect();
+        $this->assertSame('on_hold', $transfer->fresh()->status);
+
+        $this->actingAs($destinationStaff)
+            ->post(route('hub-transfers.resume', $transfer))
+            ->assertForbidden();
+        $this->assertSame('on_hold', $transfer->fresh()->status);
+
+        // Origin staff retain the documented management actions.
+        $this->actingAs($originStaff)
+            ->post(route('hub-transfers.resume', $transfer))
+            ->assertRedirect();
+        $this->assertSame('ready_for_dispatch', $transfer->fresh()->status);
+
+        $this->actingAs($originStaff)
+            ->post(route('hub-transfers.reroute', $transfer), [
+                'destination_center_id' => $otherOriginHub->id,
+                'reason' => 'Origin corrected the next hop',
+            ])
+            ->assertRedirect();
+        $this->assertSame($otherOriginHub->id, (int) $transfer->fresh()->destination_center_id);
+
+        $this->actingAs($originStaff)
+            ->post(route('hub-transfers.cancel', $transfer), ['reason' => 'Manifest recalled'])
+            ->assertRedirect();
+        $this->assertSame('cancelled', $transfer->fresh()->status);
+    }
+
+    public function test_unrelated_and_off_route_accounts_receive_not_found(): void
+    {
+        $company = $this->company('Hidden Transfer Co');
+        $origin = $this->center($company, 'Hidden Origin');
+        $destination = $this->center($company, 'Hidden Destination');
+        $thirdHub = $this->center($company, 'Hidden Third Hub');
+        $transfer = $this->transfer($company, $origin, $destination);
+
+        $foreignCompany = $this->company('Hidden Foreign Co');
+        $foreignOrigin = $this->center($foreignCompany, 'Hidden Foreign Origin');
+        $foreignDestination = $this->center($foreignCompany, 'Hidden Foreign Destination');
+
+        $foreignStaff = $this->staff($foreignCompany, $foreignDestination);
+
+        $this->actingAs($foreignStaff)
+            ->get(route('hub-transfers.show', $transfer))
+            ->assertNotFound();
+
+        $this->actingAs($foreignStaff)
+            ->post(route('hub-transfers.hold', $transfer), ['reason' => 'Foreign hold attempt'])
+            ->assertNotFound();
+
+        // A same-company account at a third hub is not on either side of the leg.
+        $this->actingAs($this->staff($company, $thirdHub))
+            ->get(route('hub-transfers.show', $transfer))
+            ->assertNotFound();
     }
 }
