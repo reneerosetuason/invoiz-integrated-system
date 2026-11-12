@@ -68,7 +68,6 @@
                     @elseif(isset($actions['transfer']))
                         @include('shared.returns.partials.destination-select',['returnRequest'=>$case,'excludeCenter'=>$flow->center_id,'selectedCenter'=>$agreement?->seller_center_id,'destinationRequired'=>count($actions)===1])
                     @endif
-                    @if(isset($actions['transfer']) || isset($actions['dispatch_seller']) || isset($actions['refund']))<label>Transport / payment reference<input name="reference" maxlength="150"></label>@endif
                     @if($managed && isset($actions['transfer']))
                         @php($onlineDrivers=\App\Models\HubTransportDriver::where('logistics_company_id', \App\Models\LogisticsCenter::whereKey($flow->center_id)->value('logistics_company_id'))->whereNotIn('status', \App\Models\HubTransportDriver::BLOCKED_STATUSES)->where('is_online',true)->orderBy('name')->get())
                         <label>Inter-hub return driver<select name="driver_id"><option value="">{{ $onlineDrivers->isEmpty()?'No online inter-hub drivers available':'Choose an online driver for the quoted leg' }}</option>@foreach($onlineDrivers as $driver)<option value="{{ $driver->id }}">{{ $driver->name }} · Online</option>@endforeach</select></label>

@@ -58,7 +58,11 @@ class ChatController extends Controller
 
         $messages = $conversation->messages()->with('sender')->orderBy('created_at')->get();
 
-        return view('seller.chat.show', compact('conversation', 'messages'));
+        $blocked = $conversation->buyer && ! $conversation->buyer->is_admin
+            ? \App\Models\ChatBlock::blocksBetween(auth()->user(), $conversation->buyer)
+            : false;
+
+        return view('seller.chat.show', compact('conversation', 'messages', 'blocked'));
     }
 
     public function reply(Request $request, $id)
@@ -66,13 +70,16 @@ class ChatController extends Controller
         $sellerId = auth()->id();
 
         $validated = $request->validate([
-            'body' => ['required', 'string', 'max:2000'],
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
         ]);
 
         $conversation = $this->conversationsForSeller($sellerId)->findOrFail($id);
 
         $other = \App\Models\User::find($conversation->buyer_id);
         abort_unless($other && \App\Support\MessagingAccess::canContact($request->user(), $other), 403);
+        if (\App\Models\ChatBlock::blocksBetween($request->user(), $other)) {
+            abort(403, 'You can no longer exchange messages with this user.');
+        }
 
         if (! $conversation->seller_id) {
             $conversation->update(['seller_id' => $sellerId]);

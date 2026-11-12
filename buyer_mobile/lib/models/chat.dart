@@ -10,6 +10,7 @@ class Conversation {
   final int? sellerId;
   final String? sellerName;
   final String? sellerBusinessName;
+  final bool blocked;
 
   Conversation({
     required this.id,
@@ -23,6 +24,7 @@ class Conversation {
     this.sellerId,
     this.sellerName,
     this.sellerBusinessName,
+    this.blocked = false,
   });
 
   factory Conversation.fromJson(Map<String, dynamic> json) {
@@ -60,6 +62,7 @@ class Conversation {
       sellerId: json['seller_id'] as int?,
       sellerName: sellerName,
       sellerBusinessName: sellerBusinessName,
+      blocked: json['blocked'] as bool? ?? false,
     );
   }
 

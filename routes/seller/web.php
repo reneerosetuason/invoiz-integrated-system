@@ -75,6 +75,23 @@ Route::delete('/sales/{sale}', [\App\Http\Controllers\Seller\SaleController::cla
     Route::get('/chat', [SellerAppChat::class, 'index'])->name('seller.chat.index');
     Route::get('/chat/{conversation}', [SellerAppChat::class, 'show'])->name('seller.chat.show');
     Route::post('/chat/{conversation}/reply', [SellerAppChat::class, 'reply'])->name('seller.chat.reply');
+// Seller blocks/unblocks a buyer in the marketplace chat (admins exempt).
+Route::post('/chat/{conversation}/block', function (\Illuminate\Http\Request $request, $conversationId) {
+    $seller = auth()->user();
+    $conversation = \App\Models\Conversation::where(fn ($q) => $q->where('seller_id', $seller->id)
+        ->orWhere(fn ($legacy) => $legacy->whereNull('seller_id')
+            ->whereHas('messages', fn ($m) => $m->where(fn ($p) => $p->where('sender_id', $seller->id)->orWhere('receiver_id', $seller->id)))))
+        ->findOrFail((int) $conversationId);
+    $buyer = \App\Models\User::find($conversation->buyer_id);
+    abort_unless($buyer && ! $buyer->is_admin && ! $seller->is_admin, 422, 'Platform support cannot be blocked.');
+    if ($request->boolean('blocked')) {
+        \App\Models\ChatBlock::firstOrCreate(['blocker_id' => $seller->id, 'blocked_id' => $buyer->id]);
+    } else {
+        \App\Models\ChatBlock::where('blocker_id', $seller->id)->where('blocked_id', $buyer->id)->delete();
+    }
+
+    return back()->with('success', $request->boolean('blocked') ? 'Buyer blocked.' : 'Buyer unblocked.');
+})->name('seller.chat.block');
 
     // Feedback
     Route::get('/feedback', [SellerAppReviews::class, 'index'])->name('seller.feedback.index');

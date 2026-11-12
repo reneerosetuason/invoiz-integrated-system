@@ -105,10 +105,12 @@ Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
     Route::post('/conversations', [ChatController::class, 'store']);
     Route::get('/conversations/{id}/messages', [ChatController::class, 'messages'])->whereNumber('id');
     Route::post('/conversations/{id}/reply', [ChatController::class, 'reply'])->whereNumber('id');
+    Route::post('/conversations/{id}/block', [ChatController::class, 'block'])->whereNumber('id');
     Route::get('/chat', [ChatController::class, 'index']);
     Route::post('/chat', [ChatController::class, 'store']);
     Route::get('/chat/{id}/messages', [ChatController::class, 'messages'])->whereNumber('id');
     Route::post('/chat/{id}/reply', [ChatController::class, 'reply'])->whereNumber('id');
+    Route::post('/chat/{id}/block', [ChatController::class, 'block'])->whereNumber('id');
 
     });
 

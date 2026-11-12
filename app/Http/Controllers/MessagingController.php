@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatBlock;
 use App\Models\Conversation;
 use App\Models\HubTransportDriver;
 use App\Models\Logistics\Conversation as LogisticsConversation;
@@ -66,6 +67,10 @@ class MessagingController extends Controller
         [$type, $id] = explode(':', $data['recipient']);
         $other = $type === 'driver' ? HubTransportDriver::findOrFail($id) : User::findOrFail($id);
         abort_unless(MessagingAccess::canContact($actor, $other), 403, 'This contact is not available for your role or assignment.');
+        // Blocked users cannot open new marketplace threads (admins exempt).
+        if ($actor instanceof User && $other instanceof User && ChatBlock::blocksBetween($actor, $other)) {
+            abort(403, 'You can no longer exchange messages with this user.');
+        }
         if ($actor instanceof HubTransportDriver || $other instanceof HubTransportDriver) {
             $driver = $actor instanceof HubTransportDriver ? $actor : $other;
             $staff = $actor instanceof User ? $actor : $other;
@@ -210,7 +215,11 @@ class MessagingController extends Controller
         $otherId = $source === 'marketplace' ? ((int) $thread->buyer_id === (int) $actor->id ? $thread->seller_id : $thread->buyer_id) : null;
         $other = $otherId ? User::find($otherId) : null;
         abort_unless($source === 'marketplace' ? ($other && MessagingAccess::canContact($actor, $other)) : MessagingAccess::canSendLogistics($actor, $thread), 403);
-        $data = $request->validate(['body' => 'required|string|max:2000',
+        // Blocked users cannot exchange marketplace messages (admins exempt).
+        if ($other && ChatBlock::blocksBetween($actor, $other)) {
+            abort(403, 'You can no longer exchange messages with this user.');
+        }
+        $data = $request->validate(['body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,csv|max:5120']);
         if ($source === 'marketplace' && $request->hasFile('attachment')) {
             throw \Illuminate\Validation\ValidationException::withMessages(['attachment' => 'Attachments are available in logistics conversations.']);
@@ -246,7 +255,7 @@ class MessagingController extends Controller
             abort_unless($source === 'logistics', 422, 'This message cannot be deleted.');
             $message->update(['deleted_at' => now()]);
         } else {
-            $data = $request->validate(['body' => 'required|string|max:2000']);
+            $data = $request->validate(['body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage]]);
             $message->update($data + ($source === 'logistics' ? ['edited_at' => now()] : []));
         }
         if ($source === 'logistics' && (int) $thread->messages()->reorder()->latest('id')->value('id') === (int) $message->id) {

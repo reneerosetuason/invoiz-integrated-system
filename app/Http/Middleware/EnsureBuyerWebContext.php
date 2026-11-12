@@ -6,6 +6,7 @@ use App\Http\Controllers\Logistics\CentralEntryController;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 /** Prevent dedicated logistics sessions from entering legacy buyer routes. */
 class EnsureBuyerWebContext
@@ -25,7 +26,16 @@ class EnsureBuyerWebContext
             if ($user->isAdmin() && $request->isMethodSafe()
                 && $request->is('shop', 'products', 'sale', 'product/*', 'store/*')) return $next($request);
             if ($request->expectsJson()) return response()->json(['message' => 'This account does not have buyer access.'], 403);
-            return redirect($user->isAdmin() ? '/admin/dashboard' : (CentralEntryController::destinationFor($user) ?? '/login'));
+            $destination = $user->isAdmin() ? '/admin/dashboard' : CentralEntryController::destinationFor($user);
+            if (! $destination || in_array($destination, ['/shop', '/home'], true)) {
+                // Those fallbacks lead back into the buyer area this account
+                // cannot enter. End the ineligible session instead of looping.
+                Auth::guard('web')->logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+                return redirect('/login')->withErrors(['email' => 'This account does not currently have approved marketplace access.']);
+            }
+            return redirect($destination);
         }
         return $next($request);
     }

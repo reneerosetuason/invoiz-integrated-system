@@ -694,10 +694,30 @@ Route::get('/chat/seller/{sellerId}', function(Request $request, $sellerId){
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $sellerId = \App\Models\Seller::userIdFor((int) $sellerId);
   abort_unless(\App\Support\MessagingAccess::canContact(\App\Models\User::findOrFail($buyer['id']), \App\Models\User::findOrFail($sellerId)), 403);
+  $blocked = \App\Models\ChatBlock::blocksBetween(\App\Models\User::findOrFail($buyer['id']), \App\Models\User::findOrFail($sellerId));
   $conv = \App\Models\Conversation::firstOrCreate(['buyer_id'=>$buyer['id'],'seller_id'=>$sellerId], ['subject'=>null]);
   \App\Models\Message::where('conversation_id',$conv->id)->where('sender_id','!=',$buyer['id'])->where('is_read',0)->update(['is_read'=>1]);
   $messages = \App\Models\Message::with('conversation')->where('conversation_id',$conv->id)->orderBy('created_at')->get();
-  return view('buyer.chat-thread',['sellerId'=>(int)$sellerId,'messages'=>$messages]);
+  return view('buyer.chat-thread',['sellerId'=>(int)$sellerId,'messages'=>$messages,'blocked'=>$blocked]);
+});
+
+// Buyer blocks/unblocks a seller in the marketplace chat (admins exempt).
+Route::post('/chat/block/{sellerId}', function(Request $request, $sellerId){
+  $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
+  if(!$buyer) return response()->json(['error'=>'Login required'],401);
+  $sellerId = \App\Models\Seller::userIdFor((int) $sellerId);
+  $buyerUser = \App\Models\User::findOrFail($buyer['id']);
+  $sellerUser = \App\Models\User::findOrFail($sellerId);
+  if ($buyerUser->is_admin || $sellerUser->is_admin) {
+    return response()->json(['error'=>'Platform support cannot be blocked.'], 422);
+  }
+  $blocked = $request->boolean('blocked');
+  if ($blocked) {
+    \App\Models\ChatBlock::firstOrCreate(['blocker_id'=>$buyerUser->id,'blocked_id'=>$sellerUser->id]);
+  } else {
+    \App\Models\ChatBlock::where('blocker_id',$buyerUser->id)->where('blocked_id',$sellerUser->id)->delete();
+  }
+  return response()->json(['ok'=>true,'blocked'=>$blocked]);
 });
 
 Route::post('/chat/send/{sellerId}', function(Request $request, $sellerId){
@@ -705,7 +725,8 @@ Route::post('/chat/send/{sellerId}', function(Request $request, $sellerId){
   if(!$buyer) return response()->json(['error'=>'Login required'],401);
   $sellerId = \App\Models\Seller::userIdFor((int) $sellerId);
   abort_unless(\App\Support\MessagingAccess::canContact(\App\Models\User::findOrFail($buyer['id']), \App\Models\User::findOrFail($sellerId)), 403);
-  $request->validate(['body'=>'required|string|max:2000']);
+  abort_if(\App\Models\ChatBlock::blocksBetween(\App\Models\User::findOrFail($buyer['id']), \App\Models\User::findOrFail($sellerId)), 403, 'You can no longer exchange messages with this user.');
+  $request->validate(['body'=>['required','string','max:2000', new \App\Rules\CleanMessage]]);
   $conv = \App\Models\Conversation::firstOrCreate(['buyer_id'=>$buyer['id'],'seller_id'=>$sellerId], ['subject'=>null]);
   $message = \App\Models\Message::create(['conversation_id'=>$conv->id,'sender_id'=>$buyer['id'],'receiver_id'=>(int)$sellerId,'body'=>$request->input('body'),'is_read'=>0]);
   $conv->touch();

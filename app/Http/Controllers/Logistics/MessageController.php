@@ -517,7 +517,7 @@ class MessageController extends Controller
     {
         $validated = $request->validate([
             'conversation_id' => 'required|integer|exists:logistics_conversations,id',
-            'body' => 'required|string|max:2000',
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,csv|max:5120',
         ], [
             'body.required' => 'Please type a message before sending.',
@@ -613,7 +613,7 @@ class MessageController extends Controller
         abort_unless($message->canBeEditedBy($user), 403, 'You can only edit your own messages.');
 
         $validated = $request->validate([
-            'body' => 'required|string|max:2000',
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
         ]);
 
         $message->update([

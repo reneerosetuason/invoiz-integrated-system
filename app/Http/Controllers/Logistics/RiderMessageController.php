@@ -107,7 +107,7 @@ class RiderMessageController extends Controller
         $conversation = $this->conversationFor($user);
 
         $validated = $request->validate([
-            'body' => 'required|string|max:2000',
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,csv|max:5120',
         ], [
             'body.required' => 'Please type a message before sending.',
@@ -156,7 +156,7 @@ class RiderMessageController extends Controller
         abort_unless($message->canBeEditedBy($request->user()) && $request->user()->role === 'rider', 403);
 
         $validated = $request->validate([
-            'body' => 'required|string|max:2000',
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
         ]);
 
         $message->update([

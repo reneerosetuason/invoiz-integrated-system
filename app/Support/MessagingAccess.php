@@ -43,9 +43,11 @@ final class MessagingAccess
                 || ($company > 0 && $company === $otherCompany);
         }
         foreach ([[$actor, $other], [$other, $actor]] as [$staff, $riderUser]) {
-            if ($staff->isLogisticsStaff() && $riderUser->rider
-                && LogisticsAccess::canAccessCenter($staff, $riderUser->rider->center_id)) {
-                return true;
+            if ($staff->isLogisticsStaff() && ($riderUser->role === 'rider' || $riderUser->relationLoaded('rider'))) {
+                $rider = $riderUser->rider;
+                if ($rider && LogisticsAccess::canAccessCenter($staff, $rider->center_id)) {
+                    return true;
+                }
             }
         }
         // Staff/customer coordination is a delivery-thread reply, never an
@@ -80,6 +82,9 @@ final class MessagingAccess
 
     private static function deliveryContact(User $riderUser, User $customer): bool
     {
+        if ($riderUser->role !== 'rider' && ! $riderUser->relationLoaded('rider')) {
+            return false;
+        }
         $rider = $riderUser->rider;
         if (! $rider || ! $riderUser->hasApprovedRiderProfile()) {
             return false;

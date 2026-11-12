@@ -20,6 +20,17 @@
         </div>
     </div>
     <span class="badge bg-soft !text-ink-light"><x-icon name="shopping-bag" class="h-3.5 w-3.5"/> {{ ($conversation->buyer->role ?? '') === 'admin' ? 'INVOIZ Support' : 'Buyer' }}</span>
+    @unless(($conversation->buyer->role ?? '') === 'admin')
+    <form method="POST" action="{{ route('seller.chat.block', $conversation->id) }}" class="no-print"
+          onsubmit="return confirm(this.dataset.blocked === '1' ? 'Unblock this buyer?' : 'Block this buyer? They will no longer be able to message you.');"
+          data-blocked="{{ $blocked ? '1' : '0' }}">
+        @csrf
+        <input type="hidden" name="blocked" value="{{ $blocked ? '0' : '1' }}">
+        <button type="submit" class="btn !py-2 !px-4 !text-xs {{ $blocked ? 'btn-outline' : '!bg-[#B3261E] !text-white' }}">
+            {{ $blocked ? 'Unblock buyer' : 'Block buyer' }}
+        </button>
+    </form>
+    @endunless
 </div>
 
 <div class="card mt-6 flex h-[calc(100vh-300px)] flex-col overflow-hidden">
@@ -54,6 +65,11 @@
     </div>
 
     {{-- Reply form --}}
+    @if($blocked)
+    <div class="border-t border-borderline p-4 text-center text-sm text-ink-light no-print">
+        You blocked this buyer. Unblock them to exchange messages again.
+    </div>
+    @else
     <form method="POST" action="{{ route('seller.chat.reply', $conversation->id) }}"
           class="border-t border-borderline p-4 no-print">
         @csrf
@@ -65,6 +81,7 @@
             </button>
         </div>
     </form>
+    @endif
 </div>
 </div>
 @endsection

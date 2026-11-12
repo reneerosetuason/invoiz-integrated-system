@@ -37,6 +37,13 @@ class ChatController extends Controller
             ->latest('updated_at')
             ->get();
 
+        $conversations->each(function ($conversation) use ($request) {
+            $seller = $conversation->seller_id ? User::find($conversation->seller_id) : null;
+            $conversation->blocked = ($seller && ! $seller->is_admin && ! $request->user()->is_admin)
+                ? \App\Models\ChatBlock::blocked($request->user(), $seller)
+                : false;
+        });
+
         return response()->json(['conversations' => $conversations]);
     }
 
@@ -44,7 +51,7 @@ class ChatController extends Controller
     {
         $validated = $request->validate([
             'subject' => ['required', 'string', 'max:150'],
-            'body' => ['required', 'string', 'max:2000'],
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
             'seller_id' => ['nullable', 'integer'],
             'product_id' => ['nullable', 'integer', 'required_with:variant_id'],
             'variant_id' => ['nullable', 'integer'],
@@ -61,6 +68,9 @@ class ChatController extends Controller
             $seller = User::find($validated['seller_id']);
             if (! $seller || ! \App\Support\MessagingAccess::canContact($request->user(), $seller)) {
                 throw ValidationException::withMessages(['seller_id' => 'Choose an active store or support contact.']);
+            }
+            if (\App\Models\ChatBlock::blocksBetween($request->user(), $seller)) {
+                throw ValidationException::withMessages(['seller_id' => 'You can no longer exchange messages with this user.']);
             }
         }
         $buyerId = $request->user()->id;
@@ -150,13 +160,16 @@ class ChatController extends Controller
     public function reply(Request $request, $id)
     {
         $validated = $request->validate([
-            'body' => ['required', 'string', 'max:2000'],
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
         ]);
 
         $conversation = Conversation::where('buyer_id', $request->user()->id)->findOrFail($id);
 
         $other = User::find($conversation->seller_id);
         abort_unless($other && \App\Support\MessagingAccess::canContact($request->user(), $other), 403);
+        if (\App\Models\ChatBlock::blocksBetween($request->user(), $other)) {
+            abort(403, 'You can no longer exchange messages with this user.');
+        }
 
         $message = Message::create([
             'conversation_id' => $conversation->id,
@@ -168,5 +181,25 @@ class ChatController extends Controller
         $conversation->touch();
 
         return response()->json(['message' => $message->load('sender:id,first_name,last_name,name')], 201);
+    }
+
+    /**
+     * Block/unblock the seller of this conversation from the buyer app.
+     * Toggles: send {"blocked": true|false}. Admins cannot be blocked.
+     */
+    public function block(Request $request, $id)
+    {
+        $conversation = Conversation::where('buyer_id', $request->user()->id)->findOrFail($id);
+        $other = User::find($conversation->seller_id);
+        if (! $other || $other->is_admin || $request->user()->is_admin) {
+            return response()->json(['message' => 'Platform support cannot be blocked.'], 422);
+        }
+        if ($request->boolean('blocked')) {
+            \App\Models\ChatBlock::firstOrCreate(['blocker_id' => $request->user()->id, 'blocked_id' => $other->id]);
+        } else {
+            \App\Models\ChatBlock::where('blocker_id', $request->user()->id)->where('blocked_id', $other->id)->delete();
+        }
+
+        return response()->json(['ok' => true, 'blocked' => $request->boolean('blocked')]);
     }
 }

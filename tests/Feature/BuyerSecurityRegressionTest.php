@@ -225,11 +225,12 @@ class BuyerSecurityRegressionTest extends TestCase
         $a = OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $product->seller_id, 'quantity' => 1, 'price' => 100, 'variant_label' => 'Size M']);
         $b = OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'seller_id' => $product->seller_id, 'quantity' => 1, 'price' => 100, 'variant_label' => 'Size L']);
         $history = OrderStatusHistory::create(['order_id' => $order->id, 'to_status' => 'delivered', 'created_at' => now()]);
-        $this->postJson('/api/orders/'.$order->id.'/returns', ['product_id' => $product->id, 'reason' => 'wrong_item'])->assertUnprocessable();
-        $this->postJson('/api/orders/'.$order->id.'/returns', ['order_item_id' => $b->id, 'reason' => 'wrong_item'])->assertCreated()->assertJsonPath('return.order_item_id', $b->id);
+        $evidence = \Illuminate\Http\UploadedFile::fake()->create('proof.mp4', 100, 'video/mp4');
+        $this->postJson('/api/orders/'.$order->id.'/returns', ['product_id' => $product->id, 'reason' => 'wrong_item', 'evidence' => $evidence])->assertUnprocessable();
+        $this->post('/api/orders/'.$order->id.'/returns', ['order_item_id' => $b->id, 'reason' => 'wrong_item', 'evidence' => $evidence])->assertCreated()->assertJsonPath('return.order_item_id', $b->id);
         DB::table('order_status_histories')->where('id', $history->id)->update(['created_at' => now()->subDays(8)]);
         $order->touch();
-        $this->postJson('/api/orders/'.$order->id.'/returns', ['order_item_id' => $a->id, 'reason' => 'wrong_item'])->assertUnprocessable()->assertJsonPath('message', 'The return window (7 days after delivery) has closed.');
+        $this->post('/api/orders/'.$order->id.'/returns', ['order_item_id' => $a->id, 'reason' => 'wrong_item', 'evidence' => $evidence])->assertUnprocessable()->assertJsonPath('message', 'The return window (7 days after delivery) has closed.');
     }
 
     public function test_colliding_seller_ids_cannot_confirm_another_stores_remittance(): void

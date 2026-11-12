@@ -7,6 +7,7 @@
   $buyer = session('buyer');
   $sellerId = $sellerId ?? 2;
   $messages = $messages ?? collect();
+  $blocked = $blocked ?? false;
 @endphp
 <a href="{{ url('/messages') }}" style="color:var(--text2);text-decoration:none;font-weight:600;font-size:12px">← Back to messages</a>
 <div class="mc-single-thread" style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);margin-top:12px;overflow:hidden">
@@ -23,6 +24,7 @@
       <div style="font-size:11px;color:var(--text3)"><a href="{{ url('/store/'.$sellerId) }}" style="color:var(--primary-dark,#0E4A57);font-weight:600;text-decoration:none">View store</a> • typically replies in 5 min</div>
     </div>
     <span style="width:8px;height:8px;background:var(--success);border-radius:50%"></span>
+    <button type="button" id="blockBtn" data-blocked="{{ $blocked ? '1' : '0' }}" style="padding:6px 12px;border:1px solid var(--border);background:#fff;color:var(--text2);border-radius:999px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">{{ $blocked ? 'Unblock' : 'Block user' }}</button>
   </div>
   <div id="msgs" style="height:380px;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:8px">
     @forelse($messages as $m)
@@ -45,12 +47,37 @@
       </div>
     @endforelse
   </div>
+  @if($blocked)
+  <div style="padding:14px;text-align:center;font-size:12px;color:var(--text3);border-top:1px solid var(--border)">
+    You blocked this store. Unblock to send messages again.
+  </div>
+  @else
   <form id="chatForm" style="display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border)">
     @csrf
     <input id="msgInput" type="text" placeholder="Type your message..." style="flex:1;padding:10px 14px;border:1px solid var(--border);border-radius:999px;outline:none;font-size:13px;font-family:inherit" autocomplete="off">
     <button type="submit" id="sendBtn" style="padding:10px 18px;background:var(--green);color:#fff;border:none;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">Send</button>
   </form>
+  @endif
 </div>
 <script src="{{ asset('assets/buyer/js/chat-thread.js') }}" data-config="{{ json_encode([($sellerId), ($messages->isNotEmpty() ? (int)$messages->last()->id : 0)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+<script>
+(function(){
+  var btn = document.getElementById('blockBtn');
+  if(!btn) return;
+  var csrf = document.querySelector('meta[name="csrf-token"], input[name="_token"]');
+  btn.addEventListener('click', function(){
+    var blocked = btn.dataset.blocked === '1';
+    btn.disabled = true;
+    fetch('{{ url("/chat/block") }}/{{ $sellerId }}', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','X-CSRF-TOKEN':(csrf?csrf.value:''),'X-Requested-With':'XMLHttpRequest','Accept':'application/json'},
+      body: JSON.stringify({blocked: !blocked, _token: csrf?csrf.value:''})
+    }).then(function(r){ return r.json(); }).then(function(res){
+      if(res && res.ok){ location.reload(); }
+      else { alert((res && res.error) || 'Unable to update block. Please try again.'); btn.disabled = false; }
+    }).catch(function(){ btn.disabled = false; });
+  });
+})();
+</script>
 </div>
 @endsection

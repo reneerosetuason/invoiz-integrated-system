@@ -118,10 +118,11 @@ class BuyerChatController extends Controller
     {
         $data = $request->validate([
             'receiver_id' => 'required|exists:users,id',
-            'body' => 'required|string|max:2000',
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
         ]);
 
         abort_unless(\App\Support\MessagingAccess::canContact($request->user(), User::findOrFail($data['receiver_id'])), 403);
+        abort_if(\App\Models\ChatBlock::blocksBetween($request->user(), User::findOrFail($data['receiver_id'])), 403, 'You can no longer exchange messages with this user.');
 
         $message = Message::create([
             'sender_id' => Auth::id(),

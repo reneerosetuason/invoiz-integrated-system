@@ -180,4 +180,15 @@ class LogisticsLoginSessionIsolationTest extends TestCase
         $this->actingAs($rider)->post('/verify', ['email' => $rider->email, 'code' => '654321'])
             ->assertRedirect('/logistics/rider/entry')->assertSessionMissing('buyer');
     }
+
+    public function test_ineligible_marketplace_accounts_leave_the_session_instead_of_redirecting_in_a_loop(): void
+    {
+        foreach (['pending_buyer', 'seller_without_store'] as $case) {
+            $user = $this->account($case === 'pending_buyer' ? 'buyer' : 'seller', true);
+            if ($case === 'pending_buyer') $user->update(['approval_status' => 'pending']);
+            $this->actingAs($user)->get('/shop')->assertRedirect('/login')->assertSessionHasErrors('email');
+            $this->assertGuest();
+            $this->get('/login')->assertOk();
+        }
+    }
 }

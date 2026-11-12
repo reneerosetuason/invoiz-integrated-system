@@ -98,9 +98,10 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     try {
       final data = await _api.get('messages-center/inbox');
+      final convList = data['conversations'] as List?;
       if (!mounted) return;
       setState(() {
-        _conversations = (data['conversations'] as List)
+        _conversations = (convList ?? [])
             .whereType<Map<String, dynamic>>()
             .map(Conversation.fromJson)
             .toList();

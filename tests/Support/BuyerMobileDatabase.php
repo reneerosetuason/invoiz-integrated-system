@@ -61,7 +61,8 @@ trait BuyerMobileDatabase
             'notifications' => 'type title message icon priority center_id audience link',
             'login_histories' => 'user_id logged_in_at ip_address user_agent',
             'delivery_status_logs' => 'delivery_id status notes changed_by',
-            'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity status refund_amount reason reason_details',
+            'return_requests' => 'order_id order_item_id buyer_id seller_id product_id quantity status refund_amount reason reason_details evidence_path evidence_type',
+            'chat_blocks' => 'blocker_id blocked_id',
         ];
         foreach ($tables as $name => $columns) {
             Schema::create($name, function (Blueprint $table) use ($columns) {

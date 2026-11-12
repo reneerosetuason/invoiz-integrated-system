@@ -168,7 +168,7 @@ class RiderConversationController extends Controller
         $this->authorizeConversation($request, $conversation);
         abort_unless(\App\Support\MessagingAccess::canSendLogistics($request->user(), $conversation), 403);
         $validated = $request->validate([
-            'body' => 'required|string|max:2000',
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,csv|max:5120',
         ]);
 
@@ -214,7 +214,7 @@ class RiderConversationController extends Controller
         abort_unless($message->canBeEditedBy($request->user()), 403, 'You can only edit your own messages.');
 
         $validated = $request->validate([
-            'body' => 'required|string|max:2000',
+            'body' => ['required', 'string', 'max:2000', new \App\Rules\CleanMessage],
         ]);
 
         $message->update([

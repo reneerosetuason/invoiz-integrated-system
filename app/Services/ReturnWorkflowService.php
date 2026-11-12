@@ -108,8 +108,8 @@ class ReturnWorkflowService
                 self::require($target > 0 && $target !== (int) $flow->center_id && LogisticsAccess::canAccessCenter($actor, $target)
                     || ($target > 0 && $target !== (int) $flow->center_id && self::sameCompany((int) $flow->center_id, $target))
                     || $originalReverse || $agreedDestination, 'Choose an active receiving hub for this return.');
-                self::require(! empty($data['reference']), 'Enter the return transport or manifest reference.');
-                $updates = ['stage' => 'in_transfer', 'destination_center_id' => $target, 'transport_reference' => $data['reference']];
+                $ref = ! empty($data['reference']) ? trim($data['reference']) : ('RET-TRF-'.$return->id.'-'.now()->format('ymd').'-'.strtoupper(\Illuminate\Support\Str::random(4)));
+                $updates = ['stage' => 'in_transfer', 'destination_center_id' => $target, 'transport_reference' => $ref];
                 if($agreement && !empty($data['driver_id']))$updates+=['driver_id'=>(int)$data['driver_id'],'driver_accepted_at'=>null,'driver_arrived_at'=>null];
             } elseif ($action === 'receive_transfer') {
                 abort_unless(LogisticsAccess::isCenterStaff($actor, (int) $flow->destination_center_id), 403);
@@ -118,8 +118,8 @@ class ReturnWorkflowService
             } elseif ($action === 'dispatch_seller') {
                 abort_unless($staff, 403);
                 self::require($stage === 'at_hub', 'Receive the returned parcel at the hub first.');
-                self::require(! empty($data['reference']), 'Enter the seller handover or transport reference.');
-                $updates = ['stage' => 'sent_to_seller', 'transport_reference' => $data['reference']];
+                $ref = ! empty($data['reference']) ? trim($data['reference']) : ('RET-DSP-'.$return->id.'-'.now()->format('ymd').'-'.strtoupper(\Illuminate\Support\Str::random(4)));
+                $updates = ['stage' => 'sent_to_seller', 'transport_reference' => $ref];
                 if (ReturnSettlementService::ensure($return)) {
                     $rider=ReturnSettlementService::riderForAssignment((int)($data['rider_id']??0),(int)$flow->center_id);
                     $updates['rider_id']=$rider->id;
@@ -155,15 +155,22 @@ class ReturnWorkflowService
                     self::require($agreement->destination_verified_at !== null && ! empty($agreement->refund_destination), 'The buyer must verify their private refund receiving details first.');
                     self::require(ReturnSettlementService::cents($return->refund_amount) === (int) $agreement->net_refund_cents, 'The refund must match the agreed net amount.');
                     self::require((float) ($data['recovery_amount'] ?? 0) === 0.0, 'Submit and verify refund recovery through the agreement ledger before funding is unlocked.');
-                    $data['reference'] = strtoupper(preg_replace('/\s+/', '', trim($data['reference'] ?? '')));
+                    if (empty($data['reference'])) {
+                        $data['reference'] = 'REF-RET-'.$return->id.'-'.now()->format('ymd').'-'.strtoupper(\Illuminate\Support\Str::random(4));
+                    } else {
+                        $data['reference'] = strtoupper(preg_replace('/\s+/', '', trim($data['reference'])));
+                    }
                     self::require(strlen($data['reference']) >= 4 && ! \App\Models\ReturnAllocation::where('reference', $data['reference'])->exists()
                         && ! ReturnWorkflow::where('refund_reference',$data['reference'])->exists()
                         && !(\Illuminate\Support\Facades\Schema::hasTable('direct_refund_transfers') && \App\Models\DirectRefundTransfer::where('reference',$data['reference'])->exists())
                         && ! \App\Models\EscrowRemittance::where('bank_reference', $data['reference'])->exists(), 'Use a unique actual outgoing refund reference.');
                 }
+                if (empty($data['reference'])) {
+                    $data['reference'] = 'REF-RET-'.$return->id.'-'.now()->format('ymd').'-'.strtoupper(\Illuminate\Support\Str::random(4));
+                }
                 $waived = isset($agreement) && $agreement && ! $agreement->physicalReturn() && $return->status === 'approved' && $flow->stage === 'refund_pending';
                 self::require(($return->status === 'item_received' || $waived) && ! $flow->refund_sent_at, 'This refund is not awaiting payment.');
-                self::require(! empty($data['reference']) && ! empty($data['proof_path']), 'Record the actual transfer reference and proof before sending the refund.');
+                self::require(! empty($data['proof_path']), 'Record the actual transfer proof before sending the refund.');
                 if($sellerDirect)self::require(\Illuminate\Support\Facades\Storage::disk('private')->exists($data['proof_path']),'Upload the actual direct-refund receipt before recording payment.');
                 $amount = (float) $return->refund_amount;
                 $tx = Payments::transactionFor($order);
