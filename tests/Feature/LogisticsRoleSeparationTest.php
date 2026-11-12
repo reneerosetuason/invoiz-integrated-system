@@ -292,7 +292,7 @@ class LogisticsRoleSeparationTest extends TestCase
     }
 
     // ------------------------------------------------------------------
-    // Navigation: Scan Parcel lives under Sorting Center; Deliveries is direct
+    // Navigation: Operations is clickable and expandable with its submenu
     // ------------------------------------------------------------------
 
     public function test_staff_sidebar_places_scan_parcel_under_sorting_center(): void
@@ -303,7 +303,14 @@ class LogisticsRoleSeparationTest extends TestCase
         $response->assertOk();
         $html = $response->getContent();
 
-        // Sorting Center is a direct link to its page, with no dropdown.
+        // Operations is a clickable link to /logistics/operations paired with a separate toggle button.
+        $this->assertMatchesRegularExpression(
+            '/<div class="sb-parent[^"]*"[^>]*>\s*<a href="[^"]*\/logistics\/operations"[^>]*aria-label="Operations"[^>]*>.*?<\/a>\s*<button type="button"[^>]*@click\.stop\.prevent="[^"]*operationsOpen = !operationsOpen[^"]*"[^>]*aria-controls="subnav-operations"[^>]*>/s',
+            $html,
+            'Operations must render as a clickable link paired with a separate sibling dropdown toggle button.'
+        );
+
+        // Sorting Center is a direct link inside the Operations submenu, with no dropdown of its own.
         $this->assertMatchesRegularExpression(
             '/<a href="[^"]*\/logistics\/sorting-center"[^>]*aria-label="Sorting Center"/',
             $html,
@@ -312,20 +319,78 @@ class LogisticsRoleSeparationTest extends TestCase
         $this->assertStringNotContainsString('sortingOpen', $html, 'Sorting Center must not have dropdown state.');
         $this->assertStringNotContainsString('aria-controls="subnav-sorting-center"', $html);
 
-        $response->assertSee('id="subnav-sorting-center"', false);
+        $response->assertSee('id="subnav-operations"', false);
         $response->assertSee(route('deliveries.scan-page'), false);
         $response->assertSee(route('deliveries.index'), false);
+        $response->assertSee(route('sorting-center.index'), false);
+        $response->assertSee(route('hub-transfers.index'), false);
+        $response->assertSee(route('pickup-requests.index'), false);
 
-        // Exactly one Scan Parcel menu entry exists, directly beneath Sorting Center.
+        // All five submenu entries appear in exact order inside #subnav-operations for hub staff.
         $this->assertSame(1, substr_count($html, 'aria-label="Scan Parcel"'));
-        preg_match('/<div[^>]*id="subnav-sorting-center"[^>]*>(.*?)<\/div>/s', $html, $submenu);
-        $this->assertNotEmpty($submenu, 'The Scan Parcel container must exist.');
-        $this->assertSame(1, substr_count($submenu[1], '<a '), 'Scan Parcel must be the only item beneath Sorting Center.');
+        preg_match('/<div[^>]*id="subnav-operations"[^>]*>(.*?)<\/div>/s', $html, $submenu);
+        $this->assertNotEmpty($submenu, 'The Operations submenu container must exist.');
+        $this->assertSame(5, substr_count($submenu[1], '<a '), 'Staff must see all 5 submenu items under Operations.');
+        $this->assertMatchesRegularExpression(
+            '/aria-label="Scan Parcel".*aria-label="Deliveries".*aria-label="Sorting Center".*aria-label="Hub Transfers".*aria-label="Pickup Requests/s',
+            $submenu[1],
+            'Operations submenu items must appear in the exact required order.'
+        );
 
-        // Deliveries is a direct link, without its old dropdown/submenu.
+        // Deliveries is a direct link inside Operations, without its old dropdown/submenu.
         $response->assertDontSee('id="subnav-deliveries"', false);
         $response->assertDontSee('deliveriesOpen', false);
         $response->assertDontSee('aria-label="All Deliveries"', false);
+    }
+
+    public function test_operations_sidebar_auto_expands_on_child_pages_and_highlights_active_page(): void
+    {
+        $this->actingAs($this->originStaff);
+
+        // 1. Visiting /logistics/operations highlights Operations and keeps submenu collapsed by default.
+        $opsHtml = $this->get(route('operations.index'))->assertOk()->getContent();
+        $this->assertStringContainsString('operationsOpen: false', $opsHtml);
+        $this->assertMatchesRegularExpression(
+            '/<a href="[^"]*\/logistics\/operations"[^>]*aria-current="page"/',
+            $opsHtml,
+            'Operations link must be highlighted when visiting /logistics/operations.'
+        );
+        preg_match('/<div[^>]*id="subnav-operations"[^>]*>(.*?)<\/div>/s', $opsHtml, $opsSubmenu);
+        $this->assertNotEmpty($opsSubmenu);
+        $this->assertStringNotContainsString('aria-current="page"', $opsSubmenu[1]);
+
+        // 2. Visiting each child page automatically expands the submenu and highlights only that child page.
+        $childPages = [
+            ['url' => route('deliveries.scan-page'), 'label' => 'Scan Parcel'],
+            ['url' => route('deliveries.index'), 'label' => 'Deliveries'],
+            ['url' => route('sorting-center.index'), 'label' => 'Sorting Center'],
+            ['url' => route('hub-transfers.index'), 'label' => 'Hub Transfers'],
+            ['url' => route('pickup-requests.index'), 'label' => 'Pickup Requests'],
+        ];
+
+        foreach ($childPages as $child) {
+            $childHtml = $this->get($child['url'])->assertOk()->getContent();
+
+            $this->assertStringContainsString(
+                'operationsOpen: true',
+                $childHtml,
+                "Submenu must auto-expand when visiting {$child['label']}."
+            );
+
+            $this->assertDoesNotMatchRegularExpression(
+                '/<a href="[^"]*\/logistics\/operations"[^>]*aria-current="page"/',
+                $childHtml,
+                "Operations parent link must not have aria-current=page when visiting {$child['label']}."
+            );
+
+            preg_match('/<a[^>]*aria-label="'.preg_quote($child['label'], '/').'[^"]*"[^>]*>/', $childHtml, $activeLink);
+            $this->assertNotEmpty($activeLink, "Submenu link for {$child['label']} must exist.");
+            $this->assertStringContainsString(
+                'aria-current="page"',
+                $activeLink[0],
+                "{$child['label']} must be highlighted as active on its own page."
+            );
+        }
     }
 
     public function test_sorting_center_scan_action_opens_the_scanner_instead_of_verifying(): void

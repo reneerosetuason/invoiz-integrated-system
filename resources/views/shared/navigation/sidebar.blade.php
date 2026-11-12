@@ -309,6 +309,8 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeHubDrivers = request()->routeIs('hub-transport-drivers.*');
     $activeRidersGroup = $activeDeliveryRiders || $activeHubDrivers;
     $activePickups   = request()->routeIs('pickup-requests.*');
+    $activeOperationsChild = $activeScan || $activeDeliveries || $activeSorting || $activeTransfers || $activePickups;
+    $activeOperationsGroup = $activeOperations || $activeOperationsChild;
     $activeStaff     = request()->routeIs('staff.*');
     $activeRiderApps = request()->routeIs('rider-applications.*');
     $activeDocChanges = request()->routeIs('document-change-requests.*');
@@ -390,64 +392,86 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
 
         @if(!$isRider)
 
-        {{-- Operations (unified hub queue: receipt, sorting, transfers, last mile) --}}
-        <a href="{{ route('operations.index') }}"
-           aria-label="Operations" data-tip="Operations"
-           @if($activeOperations) aria-current="page" @endif
-           class="{{ $activeOperations ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
-           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $activeOperations ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 13h4l2 3h4l2-3h4M4 13V6a2 2 0 012-2h12a2 2 0 012 2v7M4 13v5a2 2 0 002 2h12a2 2 0 002-2v-5" />
-            </svg>
-            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeOperations ? 'text-teal-dark' : 'text-[#1F2933]' }}">Operations</span>
-        </a>
+        {{-- Operations (clickable parent link + separate submenu toggle arrow) --}}
+        <div class="sb-parent {{ $activeOperations ? 'bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors"
+             :class="sidebarHover ? 'justify-start' : 'justify-center'">
+            <a href="{{ route('operations.index') }}"
+               aria-label="Operations" data-tip="Operations"
+               @if($activeOperations) aria-current="page" @endif
+               class="{{ $activeOperations ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative flex items-center h-10 flex-1 min-w-0 rounded-xl transition-colors gap-3"
+               :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+                <svg class="h-5 w-5 flex-shrink-0 {{ $activeOperations ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 13h4l2 3h4l2-3h4M4 13V6a2 2 0 012-2h12a2 2 0 012 2v7M4 13v5a2 2 0 002 2h12a2 2 0 002-2v-5" />
+                </svg>
+                <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeOperations ? 'text-teal-dark' : 'text-[#1F2933]' }}">Operations</span>
+            </a>
+            <button type="button"
+                    x-show="sidebarHover" x-cloak
+                    @click.stop.prevent="if(!sidebarHover){ sidebarHover = true; operationsOpen = true; } else { operationsOpen = !operationsOpen; }"
+                    :aria-expanded="operationsOpen ? 'true' : 'false'"
+                    aria-controls="subnav-operations"
+                    aria-label="Toggle Operations submenu"
+                    :aria-label="operationsOpen ? 'Collapse Operations' : 'Expand Operations'"
+                    data-tip="Toggle Operations submenu"
+                    class="sb-parent-btn flex items-center justify-center h-10 w-9 rounded-xl {{ $activeOperationsGroup ? 'text-teal-dark' : 'text-[#16697A]/70 group-hover:text-teal-dark' }} hover:bg-teal/15 transition-colors flex-shrink-0">
+                <svg class="h-4 w-4 transition-transform motion-safe:transition-transform flex-shrink-0" :class="operationsOpen ? 'rotate-90' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
 
-        {{-- Deliveries (direct link to All Deliveries) --}}
-        <a href="{{ route('deliveries.index') }}"
-           aria-label="Deliveries" data-tip="Deliveries"
-           @if($activeDeliveries) aria-current="page" @endif
-           class="{{ $activeDeliveries ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
-           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $activeDeliveries ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
-            </svg>
-            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeDeliveries ? 'text-teal-dark' : 'text-[#1F2933]' }}">Deliveries</span>
-        </a>
-
-        {{-- Sorting Center (staff operational hub; management monitors deliveries read-only) --}}
-        @if($canProcessParcels)
-        <a href="{{ route('sorting-center.index') }}"
-           aria-label="Sorting Center" data-tip="Sorting Center"
-           @if($activeSorting) aria-current="page" @endif
-           class="{{ $activeSorting ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
-           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $activeSorting ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeSorting ? 'text-teal-dark' : 'text-[#1F2933]' }}">Sorting Center</span>
-        </a>
-
-        {{-- Scan Parcel (separate direct link beneath Sorting Center) --}}
-        <div class="sb-sub space-y-0.5 my-1" id="subnav-sorting-center" x-show="sidebarHover" x-cloak>
+        {{-- Operations Submenus --}}
+        <div class="sb-sub space-y-0.5 my-1" id="subnav-operations" x-show="sidebarHover && operationsOpen" x-cloak x-collapse>
+            {{-- Scan Parcel --}}
+            @if($canProcessParcels)
             <a href="{{ route('deliveries.scan-page') }}"
                aria-label="Scan Parcel" data-tip="Scan Parcel"
                @if($activeScan) aria-current="page" @endif
                class="{{ $activeScan ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
                 <span>Scan Parcel</span>
             </a>
-        </div>
-        @endif
+            @endif
 
-        {{-- Hub Transfers (Staff operational module only; admin monitors via direct oversight) --}}
-        @if($isStaff && !$isRider)
-        <a href="{{ route('hub-transfers.index') }}" aria-label="Hub Transfers" data-tip="Hub Transfers"
-           @if($activeTransfers) aria-current="page" @endif
-           class="{{ $activeTransfers ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
-           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $activeTransfers ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3 3m-3-3 3-3M5 12h14"/></svg>
-            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeTransfers ? 'text-teal-dark' : 'text-[#1F2933]' }}">Hub Transfers</span>
-        </a>
-        @endif
+            {{-- Deliveries --}}
+            <a href="{{ route('deliveries.index') }}"
+               aria-label="Deliveries" data-tip="Deliveries"
+               @if($activeDeliveries) aria-current="page" @endif
+               class="{{ $activeDeliveries ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
+                <span>Deliveries</span>
+            </a>
+
+            {{-- Sorting Center (staff operational hub; management monitors deliveries read-only) --}}
+            @if($canProcessParcels)
+            <a href="{{ route('sorting-center.index') }}"
+               aria-label="Sorting Center" data-tip="Sorting Center"
+               @if($activeSorting) aria-current="page" @endif
+               class="{{ $activeSorting ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
+                <span>Sorting Center</span>
+            </a>
+            @endif
+
+            {{-- Hub Transfers (Staff operational module only; admin monitors via direct oversight) --}}
+            @if($isStaff && !$isRider)
+            <a href="{{ route('hub-transfers.index') }}"
+               aria-label="Hub Transfers" data-tip="Hub Transfers"
+               @if($activeTransfers) aria-current="page" @endif
+               class="{{ $activeTransfers ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
+                <span>Hub Transfers</span>
+            </a>
+            @endif
+
+            {{-- Pickup Requests --}}
+            <a href="{{ route('pickup-requests.index') }}"
+               aria-label="Pickup Requests{{ $pickupPendingCount > 0 ? ' ('.$pickupPendingCount.' pending)' : '' }}" data-tip="Pickup Requests{{ $pickupPendingCount > 0 ? ' ('.$pickupPendingCount.' pending)' : '' }}"
+               data-pickup-count="{{ $pickupPendingCount }}"
+               @if($activePickups) aria-current="page" @endif
+               class="{{ $activePickups ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
+                <span>Pickup Requests</span>
+                @if($pickupPendingCount > 0)
+                    <span class="ml-auto flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold">{{ $pickupPendingCount }}</span>
+                @endif
+            </a>
+        </div>
 
         {{-- Fleet Management (Admin Only) --}}
         @if($isAdmin && !$isRider)
@@ -495,23 +519,6 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             </a>
         </div>
         @endif
-
-        {{-- Pickup Requests --}}
-        <a href="{{ route('pickup-requests.index') }}"
-           aria-label="Pickup Requests{{ $pickupPendingCount > 0 ? ' ('.$pickupPendingCount.' pending)' : '' }}" data-tip="Pickup Requests{{ $pickupPendingCount > 0 ? ' ('.$pickupPendingCount.' pending)' : '' }}"
-           data-pickup-count="{{ $pickupPendingCount }}"
-           @if($activePickups) aria-current="page" @endif
-           class="{{ $activePickups ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
-           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
-            <svg class="h-5 w-5 flex-shrink-0 {{ $activePickups ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activePickups ? 'text-teal-dark' : 'text-[#1F2933]' }}">Pickup Requests</span>
-            @if($pickupPendingCount > 0)
-                <span class="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold"
-                      :class="sidebarHover ? 'static ml-auto' : 'absolute -top-0.5 -right-0.5'">{{ $pickupPendingCount }}</span>
-            @endif
-        </a>
 
         {{-- For Logistics Staff: Messages appears under Main Navigation --}}
         @if($isStaff)
