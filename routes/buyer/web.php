@@ -10,6 +10,7 @@ use App\Models\Cart;
 use Illuminate\Http\Request;
 
 // ---- Buyer shop (common e-commerce flow: Shopee/Lazada style) ----
+Route::middleware(\App\Http\Middleware\EnsureBuyerWebContext::class)->group(function () {
 Route::get('/shop', [HomeController::class, 'index'])->name('shop');
 Route::get('/products', [HomeController::class, 'index']);
 Route::get('/sale', [HomeController::class, 'sale']);
@@ -797,3 +798,5 @@ Route::post('/help/complaint', function(Request $request){
   ]);
   return back()->with('success','Complaint received. Our team will review it and reply by email within 24 hours on business days.');
 })->name('help.complaint');
+
+});

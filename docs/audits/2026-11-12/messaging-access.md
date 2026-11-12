@@ -23,7 +23,7 @@ The old messaging routes remain available. Their recipient and logistics thread 
 
 Self-messaging and inactive/suspended recipients are blocked. Two ordinary buyers cannot initiate chat with one another. Sellers cannot initiate unrelated seller/buyer contacts. A legacy `role=admin` company manager is not treated as a Platform Administrator; the actual `is_admin` flag controls platform support.
 
-Existing private history stays readable by its participants. Sending is checked again against current account and assignment eligibility. Staff can handle shared rider-support conversations within their scope, but cannot open the private rider/customer threads. Hub driver direct threads belong to that driver and the addressed logistics/support user. Driver IDs and user IDs occupy separate identity namespaces, even when their numeric IDs coincide.
+Existing private history stays readable by its participants. Sending is checked again against current account and assignment eligibility. Staff can handle shared rider-support conversations within their scope and reply in existing delivery coordination threads for deliveries they are authorized to handle. They cannot initiate buyer/seller DMs or open unrelated customer threads. Hub driver direct threads belong to that driver and the addressed logistics/support user. Driver IDs and user IDs occupy separate identity namespaces, even when their numeric IDs coincide.
 
 ## Messaging fixes
 

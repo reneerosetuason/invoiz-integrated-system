@@ -48,6 +48,14 @@ final class MessagingAccess
                 return true;
             }
         }
+        // Staff/customer coordination is a delivery-thread reply, never an
+        // unsolicited direct message (including accounts with other profiles).
+        if ($actor->isLogisticsStaff() || $other->isLogisticsStaff()) return false;
+        if ($actor->role === 'rider' || $other->role === 'rider') {
+            if ($actor->role === 'rider' && $other->role === 'rider') return false;
+            return self::deliveryContact($actor, $other) || self::deliveryContact($other, $actor);
+        }
+        if ($actor->isSeller() && $other->isSeller()) return false;
         // Store enquiries are allowed before an order exists. Sellers may reply
         // to those buyers, or contact buyers who actually ordered from them.
         foreach ([[$actor, $other], [$other, $actor]] as [$buyer, $seller]) {
@@ -64,8 +72,10 @@ final class MessagingAccess
 
     private static function hasThread(User $a, User $b): bool
     {
-        return Conversation::where(fn ($q) => $q->where('buyer_id', $a->id)->where('seller_id', $b->id))
-            ->orWhere(fn ($q) => $q->where('buyer_id', $b->id)->where('seller_id', $a->id))->exists();
+        return Conversation::where(fn ($pair) => $pair
+            ->where(fn ($q) => $q->where('buyer_id', $a->id)->where('seller_id', $b->id))
+            ->orWhere(fn ($q) => $q->where('buyer_id', $b->id)->where('seller_id', $a->id)))
+            ->whereHas('messages', fn ($q) => $q->where('sender_id', $a->id))->exists();
     }
 
     private static function deliveryContact(User $riderUser, User $customer): bool
@@ -127,7 +137,8 @@ final class MessagingAccess
             if ((int) $thread->participant_id === (int) $actor->id) {
                 return true;
             }
-            return $actor->rider && (int) $thread->rider_id === (int) $actor->rider->id;
+            return ($actor->rider && (int) $thread->rider_id === (int) $actor->rider->id)
+                || self::canReplyToDelivery($actor, $thread);
         }
         return false;
     }
@@ -138,17 +149,47 @@ final class MessagingAccess
             return false;
         }
         if (in_array($thread->participant_type, ['buyer', 'seller'], true)) {
+            if (self::canReplyToDelivery($actor, $thread)) {
+                return User::find($thread->participant_id)?->isActive() ?? false;
+            }
             $rider = \App\Models\Rider::find($thread->rider_id);
             $customer = User::find($thread->participant_id);
             return $rider?->user && $customer && self::canContact($rider->user, $customer)
-                && Delivery::where('order_id', $thread->order_id)->where('rider_id', $rider->id)->exists();
+                && self::deliveryForThread($thread)->exists();
         }
         if ($thread->participant_type === 'logistics') {
             $otherId = (int) $thread->participant_id === (int) $actor->id ? $thread->logistics_user_id : $thread->participant_id;
             $other = User::find($otherId);
             return $other && self::canContact($actor, $other);
         }
+        if ($thread->participant_type === 'hub_driver') {
+            $driver = HubTransportDriver::find($thread->participant_id);
+            $staff = User::find($thread->logistics_user_id);
+            return $driver && $staff && self::canContact($driver, $staff);
+        }
         return true;
+    }
+
+    private static function deliveryForThread(LogisticsConversation $thread)
+    {
+        return Delivery::where('order_id', $thread->order_id)
+            ->where(fn ($q) => $q->where('rider_id', $thread->rider_id)
+                ->orWhere('sorting_center_handoff_rider_id', $thread->rider_id)
+                ->orWhere('sorting_center_pickup_rider_id', $thread->rider_id))
+            ->where(function ($q) use ($thread) {
+                if ($thread->participant_type === 'seller') $q->where('seller_id', $thread->participant_id);
+                else $q->whereHas('order', fn ($order) => $order->where('buyer_id', $thread->participant_id));
+            });
+    }
+
+    /** Staff may reply only to an existing, correctly scoped delivery chat. */
+    private static function canReplyToDelivery(User $actor, LogisticsConversation $thread): bool
+    {
+        if (! $actor->isLogisticsStaff() || $actor->isAdmin() || ! $thread->order_id || ! $thread->rider_id
+            || ! in_array($thread->participant_type, ['buyer', 'seller'], true)
+            || ! $thread->messages()->whereIn('sender_type', ['buyer', 'seller', 'rider'])->exists()) return false;
+        return self::deliveryForThread($thread)->get()
+            ->contains(fn ($delivery) => LogisticsAccess::canAccessDelivery($actor, $delivery));
     }
 
     public static function senderType(Actor $actor, LogisticsConversation $thread): string
@@ -156,7 +197,8 @@ final class MessagingAccess
         if ($actor instanceof HubTransportDriver) return 'hub_driver';
         if ($thread->participant_type === 'rider' && (int) $thread->participant_id === (int) $actor->id) return 'rider';
         if (in_array($thread->participant_type, ['buyer', 'seller'], true)) {
-            return (int) $thread->participant_id === (int) $actor->id ? $thread->participant_type : 'rider';
+            if ((int) $thread->participant_id === (int) $actor->id) return $thread->participant_type;
+            return $actor->rider && (int) $actor->rider->id === (int) $thread->rider_id ? 'rider' : 'logistics';
         }
         return 'logistics';
     }
@@ -186,6 +228,24 @@ final class MessagingAccess
                 $users = $riders->pluck('user_id')->filter();
                 $q->orWhere(fn ($support) => $support->where('participant_type', 'rider')
                     ->where(fn ($members) => $members->whereIn('rider_id', $ids)->orWhereIn('participant_id', $users)));
+                // Final authorization also verifies the order's actual party,
+                // current rider assignment, and the staff's delivery scope.
+                if (! $actor->isAdmin()) {
+                    $orders = Delivery::select('order_id')->whereNotNull('order_id');
+                    if (! LogisticsAccess::isGlobal($actor)) {
+                        $centerId = LogisticsAccess::centerId($actor);
+                        if ($centerId !== null) {
+                            if ($centerId > 0) $orders->where('center_id', $centerId);
+                            else $orders->whereRaw('1 = 0');
+                        } else {
+                            $companyId = LogisticsAccess::companyId($actor);
+                            if ($companyId > 0) $orders->whereHas('logisticsCenter', fn ($hub) => $hub->where('logistics_company_id', $companyId));
+                            else $orders->whereRaw('1 = 0');
+                        }
+                    }
+                    $q->orWhere(fn ($delivery) => $delivery->whereIn('participant_type', ['buyer', 'seller'])
+                        ->whereIn('order_id', $orders)->whereNotNull('rider_id')->whereHas('messages'));
+                }
             }
         });
     }

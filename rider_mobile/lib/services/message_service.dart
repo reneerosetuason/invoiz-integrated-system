@@ -117,8 +117,14 @@ class MessageService {
         .toList();
   }
 
-  Future<List<RiderMessage>> poll({int? after}) async {
-    final data = await _api.get(
+  /// Lightweight unread badge count from the unified messaging API.
+  /// Works for every role: buyer, seller, rider, hub courier, staff, admin.
+  Future<int> unreadCount() async {
+    final data = await _api.get('/messaging/unread');
+    return (data['unread_count'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<List<RiderMessage>> poll({int? after}) async {    final data = await _api.get(
       '/rider/messages/poll',
       query: after != null ? {'after': after.toString()} : null,
     );

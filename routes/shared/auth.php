@@ -20,6 +20,9 @@ Route::get('/home', function () {
     if ($user->isAdmin()) {
         return redirect('/admin/dashboard');
     }
+    if ($user->isLogisticsStaff() || $user->role === 'rider') {
+        return app(UnifiedAuthController::class)->redirectForRole($user);
+    }
 
     if ($user->canSell()) {
         return match (session('active_role')) {

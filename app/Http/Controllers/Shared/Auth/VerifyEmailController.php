@@ -41,7 +41,8 @@ class VerifyEmailController extends Controller
 
         $user->update(['otp' => null, 'otp_expires_at' => null]);
 
-        if ($user->hasBlockedMarketplaceApproval()) {
+        $approvedLogisticsAccount = $user->isLogisticsStaff() || ($user->role === 'rider' && $user->hasApprovedRiderProfile());
+        if ($user->hasBlockedMarketplaceApproval() && ! $approvedLogisticsAccount) {
             return redirect('/login')->with('success', 'Email verified. Please wait for administrator approval before signing in.');
         }
 
@@ -95,6 +96,9 @@ class VerifyEmailController extends Controller
 
     protected function redirectForRole(User $user): RedirectResponse
     {
+        if (! $user->isAdmin() && ($user->isLogisticsStaff() || $user->role === 'rider')) {
+            return app(\App\Http\Controllers\Shared\UnifiedAuthController::class)->redirectForRole($user);
+        }
         if ($user->isAdmin()) {
             return redirect('/admin/dashboard');
         }

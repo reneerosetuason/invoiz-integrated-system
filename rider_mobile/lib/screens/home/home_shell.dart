@@ -14,6 +14,7 @@ import '../../providers/notification_provider.dart';
 import '../../providers/rider_provider.dart';
 import '../../services/hub_courier_service.dart';
 import '../../services/location_service.dart';
+import '../../services/message_service.dart';
 import '../../services/tutorial_completion_store.dart';
 import '../auth/login_screen.dart';
 import '../dashboard/dashboard_screen.dart';
@@ -46,6 +47,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   /// Slot 2 (Scan) is an action and never becomes the selection.
   int _tab = 0;
   Timer? _locationTimer;
+  Timer? _msgTimer;
+  int _unreadMessages = 0;
   bool _appResumed = true;
   bool _tutorialChecked = false;
   late final AuthProvider _auth;
@@ -85,6 +88,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _preload();
     if (_auth.courier == null) _startLocationHeartbeat();
+    _loadUnreadMessages();
+    // Keep the red badge honest while the app is open.
+    _msgTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _loadUnreadMessages(),
+    );
     _redirectOnLogout();
     WidgetsBinding.instance.addPostFrameCallback((_) => _maybeShowTutorial());
   }
@@ -93,6 +102,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
     if (_appResumed) {
+      _loadUnreadMessages();
       if (_auth.courier == null) {
         _startLocationHeartbeat();
       }
@@ -121,7 +131,20 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _auth.removeListener(_onAuthChanged);
     _locationTimer?.cancel();
+    _msgTimer?.cancel();
     super.dispose();
+  }
+
+  /// Unread message badge: one lightweight count endpoint covering both
+  /// delivery riders and hub couriers (works for every messaging role).
+  Future<void> _loadUnreadMessages() async {
+    try {
+      final count = await MessageService(_auth.api).unreadCount();
+      if (!mounted) return;
+      if (count != _unreadMessages) setState(() => _unreadMessages = count);
+    } catch (_) {
+      // Badge stays at its last value; the next tick retries silently.
+    }
   }
 
   void _preload() {
@@ -334,12 +357,47 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         actions: [
           // Messages is available to every courier and rider: couriers talk
           // to their logistics company staff through the unified /messaging API.
-          IconButton(
-            icon: const Icon(Icons.chat_bubble_outline),
-            tooltip: 'Messages',
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ConversationsScreen()),
-            ),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chat_bubble_outline),
+                tooltip: 'Messages',
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ConversationsScreen(),
+                    ),
+                  );
+                  _loadUnreadMessages();
+                },
+              ),
+              if (_unreadMessages > 0)
+                Positioned(
+                  right: 4,
+                  top: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: AppColors.danger,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 17),
+                    child: Text(
+                      _unreadMessages > 99 ? '99+' : '$_unreadMessages',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           if (isCourier)
             IconButton(
@@ -371,7 +429,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color: AppColors.warning,
+                        color: AppColors.danger,
                         shape: BoxShape.circle,
                       ),
                       child: Text(

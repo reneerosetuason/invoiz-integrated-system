@@ -36,7 +36,14 @@
       </form>
       <span id="resendTimer" class="text-gray-400"></span>
     </div>
-    <p class="mt-4 text-center text-xs text-gray-400"><a href="{{ url('/login') }}" class="hover:text-teal-dark">← Back to login</a></p>
+    @if(auth()->check() && !auth()->user()->isAdmin() && (auth()->user()->isLogisticsStaff() || auth()->user()->role === 'rider'))
+      <form method="POST" action="{{ route('logistics.logout') }}" class="mt-4 text-center text-xs text-gray-400">
+        @csrf
+        <button type="submit" class="hover:text-teal-dark">← Back to Logistics login</button>
+      </form>
+    @else
+      <p class="mt-4 text-center text-xs text-gray-400"><a href="{{ url('/login') }}" class="hover:text-teal-dark">← Back to login</a></p>
+    @endif
   </div>
 </div>
 <script src="{{ asset('assets/shared/js/auth/verify-2.js') }}"></script>

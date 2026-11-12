@@ -45,6 +45,10 @@
     [...messages].reverse().forEach(message => {
       const bubble = element('div', message.deleted ? 'Message deleted' : message.body);
       bubble.className = 'mc-bubble'; bubble.dataset.mine = String(message.mine);
+      if (!message.mine && message.sender_type === 'logistics' && ['buyer', 'seller'].includes(active?.type)) {
+        const sender = element('strong', `${message.sender?.first_name || 'Logistics support'}\n`);
+        bubble.prepend(sender);
+      }
       if (message.product_card) bubble.prepend(element('strong', `${message.product_card.name}\n`));
       (message.attachments || []).forEach(file => {
         const link = element('a', file.name); link.href = `${root.dataset.base}/attachments/${file.id}`;

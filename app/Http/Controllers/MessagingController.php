@@ -32,6 +32,13 @@ class MessagingController extends Controller
         return view('shared.messages.index', compact('layout'));
     }
 
+    /** Lightweight unread badge count for every messaging-capable actor. */
+    public function unread(Request $request)
+    {
+        $actor = $this->actor($request);
+        return response()->json(['unread_count' => MessagingAccess::unreadCount($actor)]);
+    }
+
     public function contacts(Request $request)
     {
         $actor = $this->actor($request);

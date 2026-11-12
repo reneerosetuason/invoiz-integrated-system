@@ -208,7 +208,7 @@ class UnifiedAuthController extends Controller
 
     public function showVerify(Request $request)
     {
-        $email = $request->query('email', '');
+        $email = Auth::user()?->email ?? $request->query('email', '');
         if (Auth::check() && Auth::user()->email_verified_at) {
             return $this->redirectForRole(Auth::user());
         }
@@ -273,7 +273,8 @@ class UnifiedAuthController extends Controller
 
         $user->update(['email_verified_at' => now(), 'otp' => null, 'otp_expires_at' => null]);
 
-        if ($user->hasBlockedMarketplaceApproval()) {
+        $approvedLogisticsAccount = $user->isLogisticsStaff() || ($user->role === 'rider' && $user->hasApprovedRiderProfile());
+        if ($user->hasBlockedMarketplaceApproval() && ! $approvedLogisticsAccount) {
             return redirect('/login')->with('success', 'Email verified. Please wait for administrator approval before signing in.');
         }
         Auth::login($user);
@@ -378,6 +379,10 @@ class UnifiedAuthController extends Controller
     protected function putBuyerSession(Request $request, User $user): void
     {
         $request->session()->forget(['active_role', 'seller_id']);
+        if (! $user->canUseBuyerArea()) {
+            $request->session()->forget('buyer');
+            return;
+        }
         $request->session()->put('buyer', [
             'id' => $user->id,
             'first_name' => $user->first_name ?? strtok($user->displayName(), ' '),
@@ -529,10 +534,16 @@ class UnifiedAuthController extends Controller
             return redirect()->intended('/admin/dashboard');
         }
 
-        // Logistics company managers (`role=admin` without the platform
-        // flag) stay inside their logistics company, never the platform.
-        if ($user->isCompanyManager()) {
-            return redirect()->intended('/logistics/dashboard');
+        if ($user->isLogisticsStaff() || in_array($user->role, ['logistics_admin', 'logistics_staff', 'staff', 'rider'], true)) {
+            session()->forget(['buyer', 'active_role', 'seller_id', 'url.intended']);
+            $destination = \App\Http\Controllers\Logistics\CentralEntryController::destinationFor($user);
+            if (! $destination) {
+                Auth::logout();
+                session()->invalidate();
+                session()->regenerateToken();
+                return redirect('/logistics/login')->withErrors(['email' => 'This account does not have approved Logistics access.']);
+            }
+            return redirect($destination);
         }
 
         $seller = Seller::where('user_id', $user->id)->first();

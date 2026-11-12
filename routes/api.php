@@ -9,6 +9,7 @@ foreach (['messaging', 'messages-center', 'logistics/messaging'] as $messagingPr
 \Illuminate\Support\Facades\Route::middleware('auth:sanctum')->prefix($messagingPrefix)->group(function () {
     $controller = \App\Http\Controllers\MessagingController::class;
     \Illuminate\Support\Facades\Route::get('/inbox', [$controller, 'inbox']);
+    \Illuminate\Support\Facades\Route::get('/unread', [$controller, 'unread']);
     \Illuminate\Support\Facades\Route::get('/contacts', [$controller, 'contacts']);
     \Illuminate\Support\Facades\Route::post('/start', [$controller, 'start']);
     \Illuminate\Support\Facades\Route::get('/threads/{key}', [$controller, 'messages']);
