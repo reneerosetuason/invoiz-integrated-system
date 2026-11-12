@@ -30,6 +30,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -1040,7 +1041,9 @@ class DeliveryController extends Controller
                     .Rider::MAX_ACTIVE_DELIVERIES.' active deliveries.'];
             }
 
-            $preferences = LogisticsSetting::forUser((int) Auth::id())->delivery ?? [];
+            $preferences = Schema::hasTable('logistics_settings')
+                ? (LogisticsSetting::forUser((int) Auth::id())->delivery ?? [])
+                : [];
             $isReassignment = $lockedDelivery->rider_id
                 && (int) $lockedDelivery->rider_id !== (int) $rider->id;
 
@@ -1121,28 +1124,32 @@ class DeliveryController extends Controller
 
     private function notifyRiderAssigned(Delivery $delivery, Rider $rider): void
     {
-        Notification::create([
-            'type' => 'rider_accepted_delivery',
-            'title' => 'Rider Assigned to Delivery',
-            'message' => "Rider {$rider->name} was assigned to Order #{$delivery->id}.",
-            'icon' => '🛵',
-            'priority' => 'normal',
-            'center_id' => $delivery->center_id,
-            'audience' => $delivery->center_id ? 'center' : 'admin',
-            'link' => route('deliveries.show', $delivery),
-        ]);
+        if (Schema::hasTable('notifications')) {
+            Notification::create([
+                'type' => 'rider_accepted_delivery',
+                'title' => 'Rider Assigned to Delivery',
+                'message' => "Rider {$rider->name} was assigned to Order #{$delivery->id}.",
+                'icon' => '🛵',
+                'priority' => 'normal',
+                'center_id' => $delivery->center_id,
+                'audience' => $delivery->center_id ? 'center' : 'admin',
+                'link' => route('deliveries.show', $delivery),
+            ]);
+        }
 
         // In-app rider notification for the newly assigned rider only, after
         // the assignment transaction succeeded. Reassignment notifies the
         // new holder, never the previous one; notifyOnce suppresses
         // duplicates from retried posts.
-        RiderNotification::notifyOnce(
-            $rider->id,
-            'delivery_assigned',
-            ['delivery_id' => $delivery->id, 'tracking_number' => $delivery->tracking_number],
-            'New Delivery Assignment',
-            "You have been assigned delivery {$delivery->tracking_number}.",
-        );
+        if (Schema::hasTable('rider_notifications')) {
+            RiderNotification::notifyOnce(
+                $rider->id,
+                'delivery_assigned',
+                ['delivery_id' => $delivery->id, 'tracking_number' => $delivery->tracking_number],
+                'New Delivery Assignment',
+                "You have been assigned delivery {$delivery->tracking_number}.",
+            );
+        }
     }
 
     public function updateStatus(Request $request, Delivery $delivery): RedirectResponse
@@ -1747,6 +1754,7 @@ class DeliveryController extends Controller
             return response()->json([
                 'ok' => false,
                 'error' => 'not_found',
+                'warning_type' => 'not_found',
                 'message' => 'No parcel found with tracking number ' . $trackingNumber . '.',
             ], 404);
         }
@@ -1756,22 +1764,42 @@ class DeliveryController extends Controller
             return response()->json([
                 'ok' => false,
                 'error' => 'forbidden',
+                'warning_type' => 'unauthorized',
                 'message' => 'This parcel belongs to another logistics center.',
             ], 403);
+        }
+
+        $condition = OperationsController::resolveCondition($delivery);
+        if ($condition === 'missing') {
+            return response()->json([
+                'ok' => false,
+                'error' => 'parcel_missing',
+                'warning_type' => 'missing',
+                'message' => 'This parcel is flagged as missing and requires investigation before scanning.',
+                'delivery' => $this->scanResultPayload($delivery),
+            ], 409);
         }
 
         if ($this->hasActiveHubTransfer($delivery)) {
             return response()->json([
                 'ok' => false,
                 'error' => 'transfer_in_progress',
+                'warning_type' => 'ineligible',
                 'message' => 'This parcel remains in fleet-transfer custody until receiving is finalized.',
+                'delivery' => $this->scanResultPayload($delivery),
             ], 409);
         }
+
+        $conditionWarning = $condition === 'damaged'
+            ? 'This parcel is recorded as damaged. Verify physical condition individually on the parcel record before sorting or dispatch.'
+            : null;
 
         if ($delivery->parcel_status === 'scanned') {
             return response()->json([
                 'ok' => true,
                 'already' => true,
+                'warning_type' => 'duplicate',
+                'condition_warning' => $conditionWarning,
                 'message' => 'Parcel was already scanned' . ($delivery->scanned_at ? ' on ' . $delivery->scanned_at->format('M d, Y h:i A') : '') . '.',
                 'delivery' => $this->scanResultPayload($delivery),
             ]);
@@ -1781,7 +1809,9 @@ class DeliveryController extends Controller
             return response()->json([
                 'ok' => false,
                 'error' => 'receipt_unverified',
+                'warning_type' => 'ineligible',
                 'message' => 'This parcel has no recorded pickup and hub handoff. Correct custody before scanning it.',
+                'delivery' => $this->scanResultPayload($delivery),
             ], 409);
         }
 
@@ -1789,6 +1819,8 @@ class DeliveryController extends Controller
             return response()->json([
                 'ok' => false,
                 'error' => 'invalid_state',
+                'warning_type' => 'ineligible',
+                'condition_warning' => $conditionWarning,
                 'message' => 'Parcel must be received before scanning (current status: ' . str_replace('_', ' ', $delivery->parcel_status ?? 'pending_arrival') . ').',
                 'delivery' => $this->scanResultPayload($delivery),
             ], 422);
@@ -1797,6 +1829,7 @@ class DeliveryController extends Controller
         return response()->json([
             'ok' => true,
             'can_confirm' => true,
+            'condition_warning' => $conditionWarning,
             'message' => 'Parcel found. Review the details and confirm to verify it.',
             'delivery' => $this->scanResultPayload($delivery),
         ]);
@@ -1820,6 +1853,7 @@ class DeliveryController extends Controller
             return response()->json([
                 'ok' => false,
                 'error' => 'not_found',
+                'warning_type' => 'not_found',
                 'message' => 'No parcel found with tracking number ' . $trackingNumber . '.',
             ], 404);
         }
@@ -1829,6 +1863,7 @@ class DeliveryController extends Controller
             return response()->json([
                 'ok' => false,
                 'error' => 'forbidden',
+                'warning_type' => 'unauthorized',
                 'message' => 'This parcel belongs to another logistics center.',
             ], 403);
         }
@@ -1844,6 +1879,7 @@ class DeliveryController extends Controller
                 return response()->json([
                     'ok' => false,
                     'error' => 'not_found',
+                    'warning_type' => 'not_found',
                     'message' => 'No parcel found with tracking number ' . $delivery->tracking_number . '.',
                 ], 404);
             }
@@ -1852,22 +1888,42 @@ class DeliveryController extends Controller
                 return response()->json([
                     'ok' => false,
                     'error' => 'forbidden',
+                    'warning_type' => 'unauthorized',
                     'message' => 'This parcel belongs to another logistics center.',
                 ], 403);
+            }
+
+            $condition = OperationsController::resolveCondition($fresh);
+            if ($condition === 'missing') {
+                return response()->json([
+                    'ok' => false,
+                    'error' => 'parcel_missing',
+                    'warning_type' => 'missing',
+                    'message' => 'This parcel is flagged as missing and requires investigation before scanning.',
+                    'delivery' => $this->scanResultPayload($fresh),
+                ], 409);
             }
 
             if ($this->hasActiveHubTransfer($fresh)) {
                 return response()->json([
                     'ok' => false,
                     'error' => 'transfer_in_progress',
+                    'warning_type' => 'ineligible',
                     'message' => 'This parcel remains in fleet-transfer custody until receiving is finalized.',
+                    'delivery' => $this->scanResultPayload($fresh),
                 ], 409);
             }
+
+            $conditionWarning = $condition === 'damaged'
+                ? 'This parcel is recorded as damaged. Verify physical condition individually on the parcel record before sorting or dispatch.'
+                : null;
 
             if ($fresh->parcel_status === 'scanned') {
                 return response()->json([
                     'ok' => true,
                     'already' => true,
+                    'warning_type' => 'duplicate',
+                    'condition_warning' => $conditionWarning,
                     'message' => 'Parcel was already scanned' . ($fresh->scanned_at ? ' on ' . $fresh->scanned_at->format('M d, Y h:i A') : '') . '.',
                     'delivery' => $this->scanResultPayload($fresh),
                 ]);
@@ -1877,7 +1933,9 @@ class DeliveryController extends Controller
                 return response()->json([
                     'ok' => false,
                     'error' => 'receipt_unverified',
+                    'warning_type' => 'ineligible',
                     'message' => 'This parcel has no recorded pickup and hub handoff. Correct custody before scanning it.',
+                    'delivery' => $this->scanResultPayload($fresh),
                 ], 409);
             }
 
@@ -1885,6 +1943,8 @@ class DeliveryController extends Controller
                 return response()->json([
                     'ok' => false,
                     'error' => 'invalid_state',
+                    'warning_type' => 'ineligible',
+                    'condition_warning' => $conditionWarning,
                     'message' => 'Parcel must be received before scanning (current status: ' . str_replace('_', ' ', $fresh->parcel_status ?? 'pending_arrival') . ').',
                     'delivery' => $this->scanResultPayload($fresh),
                 ], 422);
@@ -1904,6 +1964,7 @@ class DeliveryController extends Controller
 
             return response()->json([
                 'ok' => true,
+                'condition_warning' => $conditionWarning,
                 'message' => 'Parcel scanned successfully.',
                 'delivery' => $this->scanResultPayload($fresh),
             ]);
@@ -1912,10 +1973,52 @@ class DeliveryController extends Controller
 
     private function scanResultPayload(Delivery $delivery): array
     {
+        $conditionCode = OperationsController::resolveCondition($delivery);
+        $entry = null;
+        try {
+            if (Schema::hasTable('hub_transfer_parcels')) {
+                $entry = $delivery->incomingTransferParcel()->first() ?? $delivery->latestHubTransferParcel()->first();
+            }
+        } catch (\Throwable) {
+            $entry = null;
+        }
+
+        try {
+            $workflow = \App\Support\ParcelWorkflow::describe($delivery, $entry, Auth::user());
+        } catch (\Throwable) {
+            $workflow = [
+                'label' => ucfirst(str_replace('_', ' ', (string) ($delivery->parcel_status ?: $delivery->status))),
+                'next' => null,
+            ];
+        }
+
+        $originHub = null;
+        try {
+            $originHub = $delivery->originCenter?->name;
+        } catch (\Throwable) {
+            $originHub = null;
+        }
+        $currentHub = $delivery->logisticsCenter?->name;
+        $destinationHub = $delivery->destinationCenter?->name;
+
         return [
+            'id' => $delivery->id,
             'tracking_number' => $delivery->tracking_number,
+            'sender_name' => $delivery->sender_name ?? null,
             'recipient_name' => $delivery->recipient_name,
+            'status' => $delivery->status,
             'parcel_status' => $delivery->parcel_status,
+            'center_id' => $delivery->center_id ? (int) $delivery->center_id : null,
+            'origin_hub' => $originHub ?? $currentHub ?? 'Unassigned',
+            'current_hub' => $currentHub ?? 'Unassigned',
+            'destination_hub' => $destinationHub ?? 'Pending Sorting',
+            'destination_center_id' => $delivery->destination_center_id ? (int) $delivery->destination_center_id : null,
+            'service_area_id' => $delivery->service_area_id ? (int) $delivery->service_area_id : null,
+            'service_area_name' => $delivery->serviceArea?->name,
+            'condition_code' => $conditionCode,
+            'condition' => ucfirst($conditionCode),
+            'workflow_label' => $workflow['label'],
+            'next_action' => $workflow['next'],
             'scanned_at' => $delivery->scanned_at?->toIso8601String(),
             'show_url' => route('deliveries.show', $delivery, false),
         ];

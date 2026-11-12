@@ -61,9 +61,12 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 
 Route::middleware(['auth', 'verified', 'staff'])->group(function () {
 
-    // Unified hub operations queue (read-only aggregation; every action links
-    // to the canonical delivery/transfer page that performs the mutation).
+    // Unified hub operations queue and validated bulk operational actions.
     Route::get('operations', [OperationsController::class, 'index'])->name('operations.index');
+    Route::post('operations/bulk-receive', [OperationsController::class, 'bulkReceive'])->middleware('parcel.operator')->name('operations.bulk-receive');
+    Route::post('operations/bulk-sort', [OperationsController::class, 'bulkSort'])->middleware('parcel.operator')->name('operations.bulk-sort');
+    Route::post('operations/bulk-assign-rider', [OperationsController::class, 'bulkAssignRider'])->middleware('rider.manager')->name('operations.bulk-assign-rider');
+    Route::post('operations/bulk-transfer', [OperationsController::class, 'bulkTransfer'])->middleware('parcel.operator')->name('operations.bulk-transfer');
 
     Route::get('hub-transfers', [HubTransferController::class, 'index'])->name('hub-transfers.index');
     Route::get('hub-transfers/create', [HubTransferController::class, 'create'])->middleware('parcel.operator')->name('hub-transfers.create');

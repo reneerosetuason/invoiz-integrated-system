@@ -8,6 +8,8 @@ use App\Models\HubTransfer;
 use App\Models\HubTransferParcel;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
+use App\Models\Rider;
+use App\Models\ServiceArea;
 use App\Models\User;
 use App\Services\FulfillmentWorkflow;
 use App\Services\HubTransferService;
@@ -335,6 +337,1037 @@ class LogisticsOperationsWorkspaceTest extends TestCase
         }
     }
 
+    public function test_operations_search_filters_and_sorting_work_together_within_hub_scope(): void
+    {
+        $rider = \App\Models\Rider::create([
+            'center_id' => $this->hubA->id,
+            'name' => 'Marco FastRider',
+            'status' => 'active',
+            'is_online' => true,
+            'is_verified' => true,
+            'approved_at' => now(),
+        ]);
+
+        $parcelAlpha = $this->delivery([
+            'tracking_number' => 'TRK-20261111-ALPH',
+            'center_id' => $this->hubA->id,
+            'origin_center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubB->id,
+            'sender_name' => 'Elena Sender',
+            'recipient_name' => 'Carlos Buyer',
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subDays(2),
+        ]);
+
+        $parcelBravo = $this->delivery([
+            'tracking_number' => 'TRK-20261111-BRAV',
+            'center_id' => $this->hubA->id,
+            'origin_center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubA->id,
+            'rider_id' => $rider->id,
+            'sender_name' => 'Miguel Merchant',
+            'recipient_name' => 'Lucia Recipient',
+            'parcel_status' => 'sorted',
+            'received_at' => now()->subDay(),
+            'sorted_at' => now()->subHours(4),
+        ]);
+
+        $parcelDamaged = $this->delivery([
+            'tracking_number' => 'TRK-20261111-DMGD',
+            'center_id' => $this->hubA->id,
+            'origin_center_id' => $this->hubB->id,
+            'destination_center_id' => $this->hubA->id,
+            'sender_name' => 'Rosa Store',
+            'recipient_name' => 'Paolo Client',
+            'status' => 'damaged',
+            'parcel_status' => 'received',
+            'received_at' => now(),
+        ]);
+
+        // Foreign hub parcel must never leak through search or filters
+        $this->delivery([
+            'tracking_number' => 'TRK-20261111-FRGN',
+            'center_id' => $this->hubB->id,
+            'origin_center_id' => $this->hubB->id,
+            'destination_center_id' => $this->hubB->id,
+            'sender_name' => 'Elena Sender',
+            'recipient_name' => 'Carlos Buyer',
+            'parcel_status' => 'scanned',
+            'received_at' => now(),
+        ]);
+
+        // 1. Search by tracking number
+        $byTracking = $this->operationsView($this->hubStaff, ['search' => 'ALPH'])->getData()['actionParcels'];
+        $this->assertSame([$parcelAlpha->id], $byTracking->pluck('delivery.id')->all());
+
+        // 2. Search by numeric parcel ID
+        $byId = $this->operationsView($this->hubStaff, ['search' => '#'.$parcelBravo->id])->getData()['actionParcels'];
+        $this->assertSame([$parcelBravo->id], $byId->pluck('delivery.id')->all());
+
+        // 3. Search by sender and recipient names (never returns hubB parcel)
+        $bySender = $this->operationsView($this->hubStaff, ['search' => 'Elena Sender'])->getData()['actionParcels'];
+        $this->assertSame([$parcelAlpha->id], $bySender->pluck('delivery.id')->all());
+
+        $byRecipient = $this->operationsView($this->hubStaff, ['search' => 'Lucia Recipient'])->getData()['actionParcels'];
+        $this->assertSame([$parcelBravo->id], $byRecipient->pluck('delivery.id')->all());
+
+        // 4. Search by assigned rider
+        $byRider = $this->operationsView($this->hubStaff, ['search' => 'Marco FastRider'])->getData()['actionParcels'];
+        $this->assertSame([$parcelBravo->id], $byRider->pluck('delivery.id')->all());
+
+        // 5. Filter by parcel_status, hub_id, date_received, condition
+        $byStatus = $this->operationsView($this->hubStaff, ['parcel_status' => 'scanned'])->getData()['actionParcels'];
+        $this->assertSame([$parcelAlpha->id], $byStatus->pluck('delivery.id')->all());
+
+        $byHub = $this->operationsView($this->hubStaff, ['hub_id' => $this->hubB->id])->getData()['actionParcels'];
+        $this->assertEqualsCanonicalizing([$parcelAlpha->id, $parcelDamaged->id], $byHub->pluck('delivery.id')->all());
+
+        $byDate = $this->operationsView($this->hubStaff, [
+            'date_received' => now()->subDay()->toDateString(),
+        ])->getData()['actionParcels'];
+        $this->assertSame([$parcelBravo->id], $byDate->pluck('delivery.id')->all());
+
+        $byConditionDamaged = $this->operationsView($this->hubStaff, ['condition' => 'damaged'])->getData()['actionParcels'];
+        $this->assertSame([$parcelDamaged->id], $byConditionDamaged->pluck('delivery.id')->all());
+        $this->assertSame('damaged', $byConditionDamaged->first()['condition']);
+
+        $byConditionGood = $this->operationsView($this->hubStaff, ['condition' => 'good'])->getData()['actionParcels'];
+        $this->assertEqualsCanonicalizing([$parcelAlpha->id, $parcelBravo->id], $byConditionGood->pluck('delivery.id')->all());
+
+        // 6. Combined search + filter + sort
+        $combined = $this->operationsView($this->hubStaff, [
+            'condition' => 'good',
+            'sort' => 'oldest',
+        ])->getData()['actionParcels'];
+        $this->assertSame([$parcelAlpha->id, $parcelBravo->id], $combined->pluck('delivery.id')->all());
+
+        $sortedNewest = $this->operationsView($this->hubStaff, [
+            'condition' => 'good',
+            'sort' => 'newest',
+        ])->getData()['actionParcels'];
+        $this->assertSame([$parcelBravo->id, $parcelAlpha->id], $sortedNewest->pluck('delivery.id')->all());
+
+        $sortedTrackingDesc = $this->operationsView($this->hubStaff, [
+            'sort' => 'tracking_desc',
+        ])->getData()['actionParcels'];
+        $this->assertSame(
+            [$parcelDamaged->id, $parcelBravo->id, $parcelAlpha->id],
+            $sortedTrackingDesc->pluck('delivery.id')->all()
+        );
+    }
+
+    public function test_bulk_receive_validates_every_parcel_prevents_duplicates_and_rejects_damaged_or_unauthorized(): void
+    {
+        $eligibleParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261111-RCV1',
+            'center_id' => $this->hubA->id,
+            'order_id' => 101,
+            'picked_up_at' => now()->subHour(),
+            'sorting_center_handoff_at' => now()->subMinutes(30),
+            'sorting_center_handoff_rider_id' => 1,
+            'parcel_status' => 'pending_arrival',
+        ]);
+
+        $unhandedOffOrder = $this->delivery([
+            'tracking_number' => 'TRK-20261111-RCV2',
+            'center_id' => $this->hubA->id,
+            'order_id' => 102,
+            'parcel_status' => 'pending_arrival',
+        ]);
+
+        $damagedParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261111-RCV3',
+            'center_id' => $this->hubA->id,
+            'status' => 'damaged',
+            'parcel_status' => 'pending_arrival',
+        ]);
+
+        $foreignParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261111-RCV4',
+            'center_id' => $this->hubB->id,
+            'parcel_status' => 'pending_arrival',
+        ]);
+
+        $response = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-receive'), [
+            'confirmed' => true,
+            'delivery_ids' => [
+                $eligibleParcel->id,
+                $unhandedOffOrder->id,
+                $damagedParcel->id,
+                $foreignParcel->id,
+            ],
+        ]);
+
+        $response->assertStatus(207)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed', 3);
+
+        $results = collect($response->json('results'))->keyBy('delivery_id');
+        $this->assertSame('succeeded', $results[$eligibleParcel->id]['status']);
+        $this->assertSame('failed', $results[$unhandedOffOrder->id]['status']);
+        $this->assertStringContainsString('handoff', $results[$unhandedOffOrder->id]['message']);
+        $this->assertSame('failed', $results[$damagedParcel->id]['status']);
+        $this->assertStringContainsString('individual condition verification', $results[$damagedParcel->id]['message']);
+        $this->assertSame('failed', $results[$foreignParcel->id]['status']);
+
+        $this->assertSame('received', $eligibleParcel->fresh()->parcel_status);
+        $this->assertNotNull($eligibleParcel->fresh()->received_at);
+        $this->assertDatabaseHas('delivery_status_logs', [
+            'delivery_id' => $eligibleParcel->id,
+            'status' => 'received_at_center',
+            'changed_by' => $this->hubStaff->id,
+        ]);
+
+        // Duplicate receive attempt on the already-received parcel is rejected
+        $duplicate = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-receive'), [
+            'confirmed' => true,
+            'delivery_ids' => [$eligibleParcel->id],
+        ]);
+        $duplicate->assertStatus(422)
+            ->assertJsonPath('succeeded', 0)
+            ->assertJsonPath('failed', 1);
+        $this->assertStringContainsString('Duplicate receive blocked', $duplicate->json('results.0.message'));
+    }
+
+    public function test_bulk_sort_assigns_eligible_scanned_parcels_and_reports_individual_failures(): void
+    {
+        $scannedEligible = $this->delivery([
+            'tracking_number' => 'TRK-20261111-SRT1',
+            'center_id' => $this->hubA->id,
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHour(),
+            'scanned_at' => now()->subMinutes(20),
+        ]);
+
+        $notYetScanned = $this->delivery([
+            'tracking_number' => 'TRK-20261111-SRT2',
+            'center_id' => $this->hubA->id,
+            'parcel_status' => 'received',
+            'received_at' => now()->subHour(),
+        ]);
+
+        $damagedScanned = $this->delivery([
+            'tracking_number' => 'TRK-20261111-SRT3',
+            'center_id' => $this->hubA->id,
+            'status' => 'damaged',
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHour(),
+            'scanned_at' => now()->subMinutes(10),
+        ]);
+
+        $response = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-sort'), [
+            'confirmed' => true,
+            'destination_center_id' => $this->hubB->id,
+            'delivery_ids' => [
+                $scannedEligible->id,
+                $notYetScanned->id,
+                $damagedScanned->id,
+            ],
+        ]);
+
+        $response->assertStatus(207)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed', 2);
+
+        $results = collect($response->json('results'))->keyBy('delivery_id');
+        $this->assertSame('succeeded', $results[$scannedEligible->id]['status']);
+        $this->assertSame('failed', $results[$notYetScanned->id]['status']);
+        $this->assertStringContainsString('scanned', $results[$notYetScanned->id]['message']);
+        $this->assertSame('failed', $results[$damagedScanned->id]['status']);
+        $this->assertStringContainsString('individual condition verification', $results[$damagedScanned->id]['message']);
+
+        $fresh = $scannedEligible->fresh();
+        $this->assertSame('sorted', $fresh->parcel_status);
+        $this->assertSame($this->hubB->id, (int) $fresh->destination_center_id);
+        $this->assertNotNull($fresh->sorted_at);
+        $this->assertDatabaseHas('delivery_status_logs', [
+            'delivery_id' => $scannedEligible->id,
+            'status' => 'sorted',
+            'changed_by' => $this->hubStaff->id,
+        ]);
+    }
+
+    public function test_bulk_assign_rider_and_bulk_transfer_validate_every_parcel_and_report_results(): void
+    {
+        $rider = \App\Models\Rider::create([
+            'center_id' => $this->hubA->id,
+            'name' => 'Elena LastMile',
+            'vehicle_type' => 'motorcycle',
+            'vehicle_capacity_kg' => 25,
+            'license_plate' => 'ABC-1234',
+            'license_expiry' => now()->addYear()->toDateString(),
+            'vehicle_verification' => 'verified',
+            'status' => 'available',
+            'is_online' => true,
+            'is_verified' => true,
+            'approved_at' => now(),
+        ]);
+
+        $readyLastMile = $this->delivery([
+            'tracking_number' => 'TRK-20261111-RDR1',
+            'center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubA->id,
+            'parcel_status' => 'sorted',
+            'status' => 'waiting_for_rider',
+            'weight' => 2.5,
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+            'sorted_at' => now()->subMinutes(30),
+        ]);
+
+        $readyRemoteTransfer = $this->delivery([
+            'tracking_number' => 'TRK-20261111-XFR1',
+            'center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubB->id,
+            'parcel_status' => 'sorted',
+            'status' => 'waiting_for_rider',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+            'sorted_at' => now()->subMinutes(25),
+        ]);
+
+        $damagedSorted = $this->delivery([
+            'tracking_number' => 'TRK-20261111-DMG4',
+            'center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubA->id,
+            'parcel_status' => 'sorted',
+            'status' => 'damaged',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+            'sorted_at' => now()->subMinutes(20),
+        ]);
+
+        // 1. Bulk Assign Rider: assigns readyLastMile, rejects readyRemoteTransfer and damagedSorted
+        $assignResp = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-assign-rider'), [
+            'confirmed' => true,
+            'mode' => 'manual',
+            'rider_id' => $rider->id,
+            'delivery_ids' => [
+                $readyLastMile->id,
+                $readyRemoteTransfer->id,
+                $damagedSorted->id,
+            ],
+        ]);
+
+        $assignResp->assertStatus(207)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed', 2);
+
+        $assignResults = collect($assignResp->json('results'))->keyBy('delivery_id');
+        $this->assertSame('succeeded', $assignResults[$readyLastMile->id]['status']);
+        $this->assertSame('failed', $assignResults[$readyRemoteTransfer->id]['status']);
+        $this->assertStringContainsString('hub transfer', $assignResults[$readyRemoteTransfer->id]['message']);
+        $this->assertSame('failed', $assignResults[$damagedSorted->id]['status']);
+        $this->assertStringContainsString('individual condition verification', $assignResults[$damagedSorted->id]['message']);
+
+        $this->assertSame($rider->id, (int) $readyLastMile->fresh()->rider_id);
+        $this->assertSame('assigned', $readyLastMile->fresh()->status);
+
+        // 2. Bulk Transfer with destination confirmation: validates readyRemoteTransfer, rejects readyLastMile and damagedSorted
+        $transferResp = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-transfer'), [
+            'confirmed' => true,
+            'destination_center_id' => $this->hubB->id,
+            'delivery_ids' => [
+                $readyRemoteTransfer->id,
+                $readyLastMile->id,
+                $damagedSorted->id,
+            ],
+        ]);
+
+        $transferResp->assertStatus(207)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed', 2)
+            ->assertJsonPath('valid_parcel_ids', [$readyRemoteTransfer->id]);
+
+        $this->assertStringContainsString('parcels%5B0%5D='.$readyRemoteTransfer->id, (string) $transferResp->json('manifest_url'));
+        $this->assertDatabaseHas('delivery_status_logs', [
+            'delivery_id' => $readyRemoteTransfer->id,
+            'status' => 'transfer_prepared',
+            'changed_by' => $this->hubStaff->id,
+        ]);
+    }
+
+    public function test_operations_quick_actions_stay_in_workspace_and_enforce_permissions_and_single_parcel_flows(): void
+    {
+        $serviceAreaA = \App\Models\ServiceArea::create([
+            'logistics_center_id' => $this->hubA->id,
+            'name' => 'Hub A Central Zone',
+            'is_active' => true,
+        ]);
+
+        $riderUser = $this->user('quick.rider@example.test', $this->hubA);
+        $rider = \App\Models\Rider::create([
+            'user_id' => $riderUser->id,
+            'center_id' => $this->hubA->id,
+            'service_area_id' => $serviceAreaA->id,
+            'name' => 'Quick Action Rider',
+            'email' => 'quick.rider@example.test',
+            'vehicle_type' => 'motorcycle',
+            'vehicle_capacity_kg' => 25,
+            'vehicle_verification' => 'verified',
+            'status' => 'active',
+            'is_online' => true,
+            'is_verified' => true,
+            'approved_at' => now(),
+        ]);
+
+        $pendingParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261112-QCK1',
+            'center_id' => $this->hubA->id,
+            'parcel_status' => 'pending_arrival',
+            'status' => 'waiting_for_rider',
+        ]);
+        $receivedParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261112-QCK2',
+            'center_id' => $this->hubA->id,
+            'parcel_status' => 'received',
+            'received_at' => now()->subHour(),
+            'status' => 'waiting_for_rider',
+        ]);
+        $scannedParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261112-QCK3',
+            'center_id' => $this->hubA->id,
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subMinutes(40),
+            'status' => 'waiting_for_rider',
+        ]);
+        $sortedLocalParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261112-QCK4',
+            'center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubA->id,
+            'service_area_id' => $serviceAreaA->id,
+            'parcel_status' => 'sorted',
+            'received_at' => now()->subHours(3),
+            'scanned_at' => now()->subHours(2),
+            'sorted_at' => now()->subMinutes(30),
+            'status' => 'waiting_for_rider',
+        ]);
+        $sortedTransferParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261112-QCK5',
+            'center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubB->id,
+            'parcel_status' => 'sorted',
+            'received_at' => now()->subHours(3),
+            'scanned_at' => now()->subHours(2),
+            'sorted_at' => now()->subMinutes(20),
+            'status' => 'waiting_for_rider',
+        ]);
+
+        // Verify Operations index renders in-page quick action buttons instead of redirecting to deliveries.show
+        $page = $this->actingAs($this->hubStaff)->get(route('operations.index'));
+        $page->assertOk();
+        $html = $page->getContent();
+
+        $this->assertStringContainsString("openQuickAction({$pendingParcel->id}, 'receive')", $html);
+        $this->assertStringContainsString('quickScanParcel(', $html);
+        $this->assertStringContainsString("openQuickAction({$scannedParcel->id}, 'sort')", $html);
+        $this->assertStringContainsString("openQuickAction({$sortedLocalParcel->id}, 'assign_rider')", $html);
+        $this->assertStringContainsString("openQuickAction({$sortedTransferParcel->id}, 'transfer')", $html);
+        $this->assertStringNotContainsString(
+            '<a href="'.route('deliveries.show', $scannedParcel).'" class="btn btn-primary btn-xs whitespace-nowrap">Sort parcel</a>',
+            $html
+        );
+        // Detailed parcel view link on tracking number is still preserved
+        $this->assertStringContainsString(route('deliveries.show', $scannedParcel), $html);
+
+        // Execute full single-parcel quick action flow on $pendingParcel directly through Operations routes
+        $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-receive'), [
+            'confirmed' => true,
+            'delivery_ids' => [$pendingParcel->id],
+        ])->assertOk()->assertJsonPath('succeeded', 1);
+        $this->assertSame('received', $pendingParcel->fresh()->parcel_status);
+
+        $lookup = $this->actingAs($this->hubStaff)->postJson(route('deliveries.scan-lookup'), [
+            'tracking_number' => $pendingParcel->tracking_number,
+        ])->assertOk()->assertJsonPath('can_confirm', true);
+        $this->assertSame($pendingParcel->id, $lookup->json('delivery.id'));
+
+        $verify = $this->actingAs($this->hubStaff)->postJson(route('deliveries.scan-verify'), [
+            'tracking_number' => $pendingParcel->tracking_number,
+        ])->assertOk()->assertJsonPath('delivery.parcel_status', 'scanned');
+        $this->assertSame('sort', $verify->json('delivery.next_action.key'));
+
+        $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-sort'), [
+            'confirmed' => true,
+            'destination_center_id' => $this->hubA->id,
+            'service_area_id' => $serviceAreaA->id,
+            'delivery_ids' => [$pendingParcel->id],
+        ])->assertOk()->assertJsonPath('succeeded', 1);
+        $this->assertSame('sorted', $pendingParcel->fresh()->parcel_status);
+
+        $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-assign-rider'), [
+            'confirmed' => true,
+            'mode' => 'manual',
+            'rider_id' => $rider->id,
+            'delivery_ids' => [$pendingParcel->id],
+        ])->assertOk()->assertJsonPath('succeeded', 1);
+        $this->assertSame('assigned', $pendingParcel->fresh()->status);
+
+        // Unauthorized management user without assigned center is forbidden from counter actions
+        $manager = User::create([
+            'name' => 'Company Manager',
+            'first_name' => 'Company',
+            'last_name' => 'Manager',
+            'email' => 'ops.manager@example.test',
+            'password' => Hash::make('secret'),
+            'role' => 'admin',
+            'is_admin' => true,
+            'status' => 'active',
+            'account_status' => 'active',
+            'email_verified_at' => now(),
+            'logistics_company_id' => $this->company->id,
+            'center_id' => null,
+        ]);
+
+        $this->actingAs($manager)->postJson(route('operations.bulk-receive'), [
+            'confirmed' => true,
+            'delivery_ids' => [$receivedParcel->id],
+        ])->assertForbidden();
+
+        $this->actingAs($manager)->postJson(route('operations.bulk-sort'), [
+            'confirmed' => true,
+            'destination_center_id' => $this->hubA->id,
+            'service_area_id' => $serviceAreaA->id,
+            'delivery_ids' => [$scannedParcel->id],
+        ])->assertForbidden();
+
+        $this->actingAs($manager)->postJson(route('operations.bulk-transfer'), [
+            'confirmed' => true,
+            'destination_center_id' => $this->hubB->id,
+            'delivery_ids' => [$sortedTransferParcel->id],
+        ])->assertForbidden();
+    }
+
+    public function test_bulk_eligibility_counters_accurately_reflect_selected_and_mixed_parcels_including_order_linked_scanned_parcels(): void
+    {
+        // Replicate the exact 5-parcel Manila queue scenario:
+        // - 2 Scanned — Ready for Sorting (Good) order-linked parcels already received/scanned at hub
+        // - 3 Received — Good order-linked parcels already received at hub (awaiting scan)
+        $scanned1 = $this->delivery([
+            'tracking_number' => 'TRK-20260819-0011',
+            'order_id' => 6,
+            'center_id' => $this->hubA->id,
+            'status' => 'waiting_for_rider',
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+            'picked_up_at' => null,
+            'sorting_center_handoff_at' => null,
+            'sorting_center_handoff_rider_id' => null,
+        ]);
+        $scanned2 = $this->delivery([
+            'tracking_number' => 'TRK-20260819-0006',
+            'order_id' => 18,
+            'center_id' => $this->hubA->id,
+            'status' => 'arrived_at_shop',
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(3),
+            'scanned_at' => now()->subMinutes(45),
+            'picked_up_at' => null,
+            'sorting_center_handoff_at' => null,
+            'sorting_center_handoff_rider_id' => null,
+        ]);
+        $received1 = $this->delivery([
+            'tracking_number' => 'TRK-20260819-0004',
+            'order_id' => 5,
+            'center_id' => $this->hubA->id,
+            'status' => 'accepted',
+            'parcel_status' => 'received',
+            'received_at' => now()->subHours(4),
+        ]);
+        $received2 = $this->delivery([
+            'tracking_number' => 'TRK-20260819-0005',
+            'order_id' => 10,
+            'center_id' => $this->hubA->id,
+            'status' => 'going_to_pickup',
+            'parcel_status' => 'received',
+            'received_at' => now()->subHours(4),
+        ]);
+        $received3 = $this->delivery([
+            'tracking_number' => 'TRK-20260819-0003',
+            'order_id' => 4,
+            'center_id' => $this->hubA->id,
+            'status' => 'assigned',
+            'parcel_status' => 'received',
+            'received_at' => now()->subHours(5),
+        ]);
+
+        $viewData = $this->operationsView($this->hubStaff)->getData();
+        $byId = collect($viewData['actionParcels'])->keyBy(fn ($item) => $item['delivery']->id);
+
+        $this->assertCount(5, $byId);
+
+        // Both scanned parcels must be eligible for Bulk Assign to Sorting Batch (and nothing else)
+        foreach ([$scanned1->id, $scanned2->id] as $scannedId) {
+            $this->assertSame([
+                'receive' => false,
+                'sort' => true,
+                'assign_rider' => false,
+                'transfer' => false,
+            ], $byId[$scannedId]['eligibility']);
+        }
+
+        // All 3 received parcels are already received and not yet scanned -> 0 across all 4 bulk actions
+        foreach ([$received1->id, $received2->id, $received3->id] as $receivedId) {
+            $this->assertSame([
+                'receive' => false,
+                'sort' => false,
+                'assign_rider' => false,
+                'transfer' => false,
+            ], $byId[$receivedId]['eligibility']);
+        }
+
+        // Simulate Select-All (all 5 selected):
+        $allSelectedIds = [$scanned1->id, $scanned2->id, $received1->id, $received2->id, $received3->id];
+        $countFor = fn (array $selected, string $action): int => $byId
+            ->only($selected)
+            ->filter(fn ($item) => ! empty($item['eligibility'][$action]))
+            ->count();
+
+        $this->assertSame(0, $countFor($allSelectedIds, 'receive'));
+        $this->assertSame(2, $countFor($allSelectedIds, 'sort'));
+        $this->assertSame(0, $countFor($allSelectedIds, 'transfer'));
+        $this->assertSame(0, $countFor($allSelectedIds, 'assign_rider'));
+
+        // Simulate individual selection (1 scanned parcel + 1 received parcel):
+        $partialSelection = [$scanned1->id, $received1->id];
+        $this->assertSame(0, $countFor($partialSelection, 'receive'));
+        $this->assertSame(1, $countFor($partialSelection, 'sort'));
+        $this->assertSame(0, $countFor($partialSelection, 'transfer'));
+        $this->assertSame(0, $countFor($partialSelection, 'assign_rider'));
+
+        // Verify the rendered data-parcels attribute on #operations-workspace-root matches
+        $pageResponse = $this->actingAs($this->hubStaff)->get(route('operations.index'));
+        $pageResponse->assertOk();
+        $html = $pageResponse->getContent();
+        $this->assertMatchesRegularExpression("/data-parcels='([^']+)'/", $html);
+        preg_match("/data-parcels='([^']+)'/", $html, $matches);
+        $frontendParcels = collect(json_decode($matches[1], true, 512, JSON_THROW_ON_ERROR))->keyBy('id');
+
+        $this->assertTrue($frontendParcels[$scanned1->id]['eligibility']['sort']);
+        $this->assertTrue($frontendParcels[$scanned2->id]['eligibility']['sort']);
+        $this->assertFalse($frontendParcels[$received1->id]['eligibility']['sort']);
+        $this->assertFalse($frontendParcels[$received2->id]['eligibility']['sort']);
+        $this->assertFalse($frontendParcels[$received3->id]['eligibility']['sort']);
+
+        // Submitting all 5 selected parcels to operations.bulk-sort processes the exact 2 eligible scanned parcels
+        $sortResp = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-sort'), [
+            'confirmed' => true,
+            'destination_center_id' => $this->hubB->id,
+            'delivery_ids' => $allSelectedIds,
+        ]);
+
+        $sortResp->assertStatus(207)
+            ->assertJsonPath('succeeded', 2)
+            ->assertJsonPath('failed', 3);
+
+        $this->assertSame('sorted', $scanned1->fresh()->parcel_status);
+        $this->assertSame('sorted', $scanned2->fresh()->parcel_status);
+        $this->assertSame('received', $received1->fresh()->parcel_status);
+    }
+
+    public function test_bulk_sorting_enforces_current_hub_custody_and_never_overwrites_conflicting_destinations(): void
+    {
+        $pilaHub = $this->hubA;
+        $staCruzHub = $this->hubB;
+        $staRosaHub = $this->center($this->company, 'Sta. Rosa Hub');
+
+        $staCruzArea = ServiceArea::create([
+            'logistics_center_id' => $staCruzHub->id,
+            'name' => 'Sta. Cruz Poblacion',
+            'is_active' => true,
+        ]);
+        $staRosaArea = ServiceArea::create([
+            'logistics_center_id' => $staRosaHub->id,
+            'name' => 'Sta. Rosa Balibago',
+            'is_active' => true,
+        ]);
+
+        // Parcel 1 & 2: At Pila Hub, scanned, no pre-assigned destination yet
+        $p1 = $this->delivery([
+            'tracking_number' => 'TRK-20261112-1001',
+            'center_id' => $pilaHub->id,
+            'origin_center_id' => $pilaHub->id,
+            'destination_center_id' => null,
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+        ]);
+        $p2 = $this->delivery([
+            'tracking_number' => 'TRK-20261112-1002',
+            'center_id' => $pilaHub->id,
+            'origin_center_id' => $pilaHub->id,
+            'destination_center_id' => $staCruzHub->id,
+            'service_area_id' => $staCruzArea->id,
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+        ]);
+
+        // Parcel 3: Pre-assigned to Sta. Rosa Hub (conflicts with Sta. Cruz batch)
+        $p3 = $this->delivery([
+            'tracking_number' => 'TRK-20261112-1003',
+            'center_id' => $pilaHub->id,
+            'origin_center_id' => $pilaHub->id,
+            'destination_center_id' => $staRosaHub->id,
+            'service_area_id' => $staRosaArea->id,
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+        ]);
+
+        // Parcel 4: Physically in custody at Sta. Cruz Hub (different current hub)
+        $p4AtDifferentHub = $this->delivery([
+            'tracking_number' => 'TRK-20261112-1004',
+            'center_id' => $staCruzHub->id,
+            'origin_center_id' => $staCruzHub->id,
+            'destination_center_id' => null,
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+        ]);
+
+        // Parcel 5: Attached to an active hub transfer (must be blocked from sorting)
+        $p5ActiveTransfer = $this->delivery([
+            'tracking_number' => 'TRK-20261112-1005',
+            'center_id' => $pilaHub->id,
+            'origin_center_id' => $pilaHub->id,
+            'parcel_status' => 'scanned',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+        ]);
+        $activeTransfer = $this->transfer($pilaHub, $staCruzHub, 'pending');
+        $this->entry($activeTransfer, $p5ActiveTransfer, 'loaded', 'pending');
+
+        // 1. Attempting to pass an unrelated current_center_id as the sorting location is rejected (422)
+        $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-sort'), [
+            'confirmed' => true,
+            'current_center_id' => $staRosaHub->id,
+            'destination_center_id' => $staCruzHub->id,
+            'service_area_id' => $staCruzArea->id,
+            'delivery_ids' => [$p1->id],
+        ])->assertStatus(422);
+
+        // 2. Attempting to sort with a service_area_id that belongs to a different hub is rejected (422)
+        $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-sort'), [
+            'confirmed' => true,
+            'current_center_id' => $pilaHub->id,
+            'destination_center_id' => $staCruzHub->id,
+            'service_area_id' => $staRosaArea->id,
+            'delivery_ids' => [$p1->id],
+        ])->assertStatus(422);
+
+        // 3. Bulk sort for Sta. Cruz Hub with all 5 parcels selected:
+        //    - $p1 (unassigned dest at Pila Hub) -> succeeds
+        //    - $p2 (already pre-assigned to Sta. Cruz Hub at Pila Hub) -> succeeds
+        //    - $p3 (pre-assigned to Sta. Rosa Hub) -> REJECTED so its Sta. Rosa destination is NOT overwritten!
+        //    - $p4AtDifferentHub (physically at Sta. Cruz Hub, not Pila Hub) -> REJECTED
+        //    - $p5ActiveTransfer (on active transfer) -> REJECTED
+        $resp = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-sort'), [
+            'confirmed' => true,
+            'current_center_id' => $pilaHub->id,
+            'destination_center_id' => $staCruzHub->id,
+            'service_area_id' => $staCruzArea->id,
+            'delivery_ids' => [$p1->id, $p2->id, $p3->id, $p4AtDifferentHub->id, $p5ActiveTransfer->id],
+        ]);
+
+        $resp->assertStatus(207)
+            ->assertJsonPath('succeeded', 2)
+            ->assertJsonPath('failed', 3)
+            ->assertJsonPath('current_center_id', $pilaHub->id)
+            ->assertJsonPath('destination_center_id', $staCruzHub->id)
+            ->assertJsonPath('sorting_action', 'inter_hub_transfer');
+
+        // Verify sorting never changes current hub (center_id) on sorted parcels
+        $this->assertSame($pilaHub->id, (int) $p1->fresh()->center_id);
+        $this->assertSame($staCruzHub->id, (int) $p1->fresh()->destination_center_id);
+        $this->assertSame($staCruzArea->id, (int) $p1->fresh()->service_area_id);
+        $this->assertSame('sorted', $p1->fresh()->parcel_status);
+
+        $this->assertSame($pilaHub->id, (int) $p2->fresh()->center_id);
+        $this->assertSame($staCruzHub->id, (int) $p2->fresh()->destination_center_id);
+        $this->assertSame('sorted', $p2->fresh()->parcel_status);
+
+        // Verify $p3 kept its Sta. Rosa Hub destination and was NOT overwritten with Sta. Cruz Hub!
+        $this->assertSame($staRosaHub->id, (int) $p3->fresh()->destination_center_id);
+        $this->assertSame($staRosaArea->id, (int) $p3->fresh()->service_area_id);
+        $this->assertSame('scanned', $p3->fresh()->parcel_status);
+
+        // Verify $p4AtDifferentHub and $p5ActiveTransfer remained untouched
+        $this->assertSame($staCruzHub->id, (int) $p4AtDifferentHub->fresh()->center_id);
+        $this->assertSame('scanned', $p4AtDifferentHub->fresh()->parcel_status);
+        $this->assertSame('scanned', $p5ActiveTransfer->fresh()->parcel_status);
+    }
+
+    public function test_mixed_destination_bulk_hub_transfer_groups_by_actual_destination_and_never_combines_or_overwrites_destinations(): void
+    {
+        $pilaHub = $this->hubA;
+        $staCruzHub = $this->hubB;
+        $staRosaHub = $this->center($this->company, 'Sta. Rosa Hub');
+
+        // 3 sorted parcels at Pila Hub:
+        // Parcel A -> Sta. Cruz Hub
+        // Parcel B -> Sta. Rosa Hub
+        // Parcel C -> Sta. Cruz Hub
+        $parcelA = $this->delivery([
+            'tracking_number' => 'TRK-20261112-2001',
+            'center_id' => $pilaHub->id,
+            'origin_center_id' => $pilaHub->id,
+            'destination_center_id' => $staCruzHub->id,
+            'parcel_status' => 'sorted',
+            'received_at' => now()->subHours(3),
+            'scanned_at' => now()->subHours(2),
+            'sorted_at' => now()->subHour(),
+        ]);
+        $parcelB = $this->delivery([
+            'tracking_number' => 'TRK-20261112-2002',
+            'center_id' => $pilaHub->id,
+            'origin_center_id' => $pilaHub->id,
+            'destination_center_id' => $staRosaHub->id,
+            'parcel_status' => 'sorted',
+            'received_at' => now()->subHours(3),
+            'scanned_at' => now()->subHours(2),
+            'sorted_at' => now()->subHour(),
+        ]);
+        $parcelC = $this->delivery([
+            'tracking_number' => 'TRK-20261112-2003',
+            'center_id' => $pilaHub->id,
+            'origin_center_id' => $pilaHub->id,
+            'destination_center_id' => $staCruzHub->id,
+            'parcel_status' => 'sorted',
+            'received_at' => now()->subHours(3),
+            'scanned_at' => now()->subHours(2),
+            'sorted_at' => now()->subHour(),
+        ]);
+
+        // 1. Submitting all 3 parcels without forcing a single destination_center_id:
+        //    Backend blocks combined single-manifest creation (422) and returns the 2 separate destination_groups
+        $mixedResp = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-transfer'), [
+            'confirmed' => true,
+            'delivery_ids' => [$parcelA->id, $parcelB->id, $parcelC->id],
+        ]);
+
+        $mixedResp->assertStatus(422)
+            ->assertJsonPath('manifest_url', null);
+
+        $groups = collect($mixedResp->json('destination_groups'))->keyBy('destination_center_id');
+        $this->assertCount(2, $groups);
+
+        // Group 1: Sta. Cruz Hub — Parcels A & C
+        $this->assertSame(2, $groups[$staCruzHub->id]['parcel_count']);
+        $this->assertEqualsCanonicalizing([$parcelA->id, $parcelC->id], $groups[$staCruzHub->id]['parcel_ids']);
+        $this->assertNotEmpty($groups[$staCruzHub->id]['manifest_url']);
+        $this->assertStringContainsString('destination_center_id='.$staCruzHub->id, $groups[$staCruzHub->id]['manifest_url']);
+
+        // Group 2: Sta. Rosa Hub — Parcel B
+        $this->assertSame(1, $groups[$staRosaHub->id]['parcel_count']);
+        $this->assertSame([$parcelB->id], $groups[$staRosaHub->id]['parcel_ids']);
+        $this->assertNotEmpty($groups[$staRosaHub->id]['manifest_url']);
+        $this->assertStringContainsString('destination_center_id='.$staRosaHub->id, $groups[$staRosaHub->id]['manifest_url']);
+
+        // 2. Submitting all 3 parcels with Sta. Cruz Hub selected as destination_center_id:
+        //    Parcels A & C succeed; Parcel B (Sta. Rosa Hub) is rejected; Parcel B's destination is NEVER overwritten!
+        $partialResp = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-transfer'), [
+            'confirmed' => true,
+            'destination_center_id' => $staCruzHub->id,
+            'delivery_ids' => [$parcelA->id, $parcelB->id, $parcelC->id],
+        ]);
+
+        $partialResp->assertStatus(207)
+            ->assertJsonPath('succeeded', 2)
+            ->assertJsonPath('failed', 1)
+            ->assertJsonPath('valid_parcel_ids', [$parcelA->id, $parcelC->id]);
+
+        // Verify no parcel had its destination_center_id changed
+        $this->assertSame($staCruzHub->id, (int) $parcelA->fresh()->destination_center_id);
+        $this->assertSame($staRosaHub->id, (int) $parcelB->fresh()->destination_center_id);
+        $this->assertSame($staCruzHub->id, (int) $parcelC->fresh()->destination_center_id);
+    }
+
+    public function test_bulk_rider_assignment_enforces_service_area_company_approval_availability_and_blocks_incompatible_assignments(): void
+    {
+        $areaNorth = ServiceArea::create([
+            'logistics_center_id' => $this->hubA->id,
+            'name' => 'Area North',
+            'is_active' => true,
+        ]);
+        $areaSouth = ServiceArea::create([
+            'logistics_center_id' => $this->hubA->id,
+            'name' => 'Area South',
+            'is_active' => true,
+        ]);
+
+        $parcelNorth = $this->delivery([
+            'tracking_number' => 'TRK-20261112-3001',
+            'center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubA->id,
+            'service_area_id' => $areaNorth->id,
+            'parcel_status' => 'sorted',
+            'status' => 'waiting_for_rider',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+            'sorted_at' => now()->subMinutes(30),
+        ]);
+        $parcelSouth = $this->delivery([
+            'tracking_number' => 'TRK-20261112-3002',
+            'center_id' => $this->hubA->id,
+            'destination_center_id' => $this->hubA->id,
+            'service_area_id' => $areaSouth->id,
+            'parcel_status' => 'sorted',
+            'status' => 'waiting_for_rider',
+            'received_at' => now()->subHours(2),
+            'scanned_at' => now()->subHour(),
+            'sorted_at' => now()->subMinutes(30),
+        ]);
+
+        // Rider 1: Approved, online, two-wheel, authorized ONLY for Area North
+        $riderNorth = Rider::create([
+            'center_id' => $this->hubA->id,
+            'service_area_id' => $areaNorth->id,
+            'name' => 'Rider North',
+            'vehicle_type' => 'Motorcycle',
+            'vehicle_verification' => 'verified',
+            'status' => 'active',
+            'is_online' => true,
+            'is_verified' => true,
+            'approved_at' => now()->subDay(),
+            'license_expiry' => now()->addYear()->toDateString(),
+        ]);
+
+        // Rider 2: Unapproved / offline rider in Area South
+        $riderUnapproved = Rider::create([
+            'center_id' => $this->hubA->id,
+            'service_area_id' => $areaSouth->id,
+            'name' => 'Unapproved Rider',
+            'vehicle_type' => 'Motorcycle',
+            'vehicle_verification' => 'pending',
+            'status' => 'pending',
+            'is_online' => false,
+            'is_verified' => false,
+            'approved_at' => null,
+        ]);
+
+        // Rider 3: Rider from another logistics company
+        $otherCompany = $this->company('Rival Logistics');
+        $otherHub = $this->center($otherCompany, 'Rival Hub');
+        $riderOtherCompany = Rider::create([
+            'center_id' => $otherHub->id,
+            'name' => 'Rival Rider',
+            'vehicle_type' => 'Motorcycle',
+            'vehicle_verification' => 'verified',
+            'status' => 'active',
+            'is_online' => true,
+            'is_verified' => true,
+            'approved_at' => now()->subDay(),
+            'license_expiry' => now()->addYear()->toDateString(),
+        ]);
+
+        // 1. Rider from another company is rejected (422)
+        $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-assign-rider'), [
+            'confirmed' => true,
+            'mode' => 'manual',
+            'rider_id' => $riderOtherCompany->id,
+            'delivery_ids' => [$parcelNorth->id],
+        ])->assertStatus(422);
+
+        // 2. Unapproved / offline rider is rejected (422)
+        $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-assign-rider'), [
+            'confirmed' => true,
+            'mode' => 'manual',
+            'rider_id' => $riderUnapproved->id,
+            'delivery_ids' => [$parcelSouth->id],
+        ])->assertStatus(422);
+
+        // 3. Assigning both Area North and Area South parcels to Rider North (authorized ONLY for Area North):
+        //    - $parcelNorth succeeds
+        //    - $parcelSouth is rejected because Rider North is not authorized for Area South!
+        $mixedAssign = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-assign-rider'), [
+            'confirmed' => true,
+            'mode' => 'manual',
+            'rider_id' => $riderNorth->id,
+            'delivery_ids' => [$parcelNorth->id, $parcelSouth->id],
+        ]);
+
+        $mixedAssign->assertStatus(207)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed', 1);
+
+        $this->assertCount(2, $mixedAssign->json('service_area_groups'));
+        $this->assertSame($riderNorth->id, (int) $parcelNorth->fresh()->rider_id);
+        $this->assertSame('assigned', $parcelNorth->fresh()->status);
+
+        // $parcelSouth must remain unassigned
+        $this->assertNull($parcelSouth->fresh()->rider_id);
+        $this->assertSame('waiting_for_rider', $parcelSouth->fresh()->status);
+
+        // 4. Duplicate bulk assignment request on already-assigned $parcelNorth is rejected so it is not double-processed
+        $duplicateAssign = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-assign-rider'), [
+            'confirmed' => true,
+            'mode' => 'manual',
+            'rider_id' => $riderNorth->id,
+            'delivery_ids' => [$parcelNorth->id],
+        ]);
+        $duplicateAssign->assertStatus(422)
+            ->assertJsonPath('succeeded', 0)
+            ->assertJsonPath('failed', 1);
+    }
+
+    public function test_selection_metadata_and_cross_company_security_prevent_unauthorized_or_repeated_processing(): void
+    {
+        $otherCompany = $this->company('External Carrier');
+        $otherHub = $this->center($otherCompany, 'External Hub');
+
+        $foreignParcel = $this->delivery([
+            'tracking_number' => 'TRK-20261112-4001',
+            'center_id' => $otherHub->id,
+            'origin_center_id' => $otherHub->id,
+            'parcel_status' => 'pending_arrival',
+        ]);
+
+        $localPending = $this->delivery([
+            'tracking_number' => 'TRK-20261112-4002',
+            'center_id' => $this->hubA->id,
+            'origin_center_id' => $this->hubA->id,
+            'parcel_status' => 'pending_arrival',
+        ]);
+
+        // Cross-company parcel is rejected during bulk receive while local eligible parcel succeeds
+        $receiveResp = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-receive'), [
+            'confirmed' => true,
+            'delivery_ids' => [$localPending->id, $foreignParcel->id],
+        ]);
+
+        $receiveResp->assertStatus(207)
+            ->assertJsonPath('succeeded', 1)
+            ->assertJsonPath('failed', 1);
+
+        $this->assertSame('received', $localPending->fresh()->parcel_status);
+        $this->assertSame('pending_arrival', $foreignParcel->fresh()->parcel_status);
+
+        // Repeated bulk receive on the same parcel is safely rejected (idempotency / duplicate protection)
+        $repeatReceive = $this->actingAs($this->hubStaff)->postJson(route('operations.bulk-receive'), [
+            'confirmed' => true,
+            'delivery_ids' => [$localPending->id],
+        ]);
+
+        $repeatReceive->assertStatus(422)
+            ->assertJsonPath('succeeded', 0)
+            ->assertJsonPath('failed', 1);
+
+        // Verify frontend data-parcels metadata contains hub names, service area names, eligibility, and ineligibility reasons
+        $page = $this->actingAs($this->hubStaff)->get(route('operations.index'));
+        $page->assertOk();
+        preg_match("/data-parcels='([^']+)'/", $page->getContent(), $matches);
+        $meta = collect(json_decode($matches[1], true, 512, JSON_THROW_ON_ERROR))->keyBy('id');
+
+        $this->assertArrayHasKey($localPending->id, $meta);
+        $this->assertSame($this->hubA->id, $meta[$localPending->id]['center_id']);
+        $this->assertSame($this->hubA->name, $meta[$localPending->id]['current_hub_name']);
+        $this->assertNotEmpty($meta[$localPending->id]['ineligible_reasons']['receive']);
+        $this->assertNotEmpty($meta[$localPending->id]['ineligible_reasons']['sort']);
+    }
+
     // ------------------------------------------------------------------
     // Fixtures
     // ------------------------------------------------------------------
@@ -437,12 +1470,21 @@ class LogisticsOperationsWorkspaceTest extends TestCase
 
         foreach ([
             'hub_transfer_events', 'hub_transfer_parcels', 'hub_transfers',
-            'delivery_status_logs', 'deliveries', 'pickup_requests', 'logistics_trucks',
+            'delivery_status_logs', 'deliveries', 'orders', 'pickup_requests', 'logistics_trucks',
             'hub_transport_drivers', 'riders', 'logistics_centers',
             'logistics_companies', 'users',
         ] as $table) {
             $schema->dropIfExists($table);
         }
+
+        $schema->create('orders', function (Blueprint $table) {
+            $table->id();
+            $table->string('status')->default('pending');
+            $table->string('shipping_city')->nullable();
+            $table->string('shipping_address')->nullable();
+            $table->softDeletes();
+            $table->timestamps();
+        });
 
         $schema->create('users', function (Blueprint $table) {
             $table->id();
@@ -486,6 +1528,15 @@ class LogisticsOperationsWorkspaceTest extends TestCase
             $table->timestamps();
         });
 
+        $schema->create('service_areas', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('logistics_center_id');
+            $table->string('name');
+            $table->string('description')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+
         $schema->create('riders', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
@@ -495,10 +1546,33 @@ class LogisticsOperationsWorkspaceTest extends TestCase
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
             $table->string('vehicle_type')->nullable();
+            $table->decimal('vehicle_capacity_kg', 8, 2)->nullable();
+            $table->string('license_plate')->nullable();
+            $table->string('license_number')->nullable();
+            $table->date('license_expiry')->nullable();
+            $table->string('vehicle_verification')->default('verified');
             $table->string('status')->default('active');
             $table->boolean('is_online')->default(false);
             $table->boolean('is_verified')->default(true);
             $table->timestamp('approved_at')->nullable();
+            $table->timestamps();
+        });
+
+        $schema->create('vehicle_types', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+        });
+
+        $schema->create('logistics_settings', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id');
+            $table->string('photo_path')->nullable();
+            $table->text('notifications')->nullable();
+            $table->boolean('email_notifications')->default(true);
+            $table->text('delivery')->nullable();
+            $table->text('preferences')->nullable();
             $table->timestamps();
         });
 
@@ -555,10 +1629,13 @@ class LogisticsOperationsWorkspaceTest extends TestCase
             $table->string('pickup_pin')->nullable();
             $table->text('notes')->nullable();
             $table->timestamp('estimated_delivery_at')->nullable();
+            $table->timestamp('assigned_at')->nullable();
+            $table->timestamp('accepted_at')->nullable();
             $table->timestamp('picked_up_at')->nullable();
             $table->timestamp('delivered_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
             $table->timestamp('failed_at')->nullable();
+            $table->timestamp('returned_at')->nullable();
             $table->string('failure_reason')->nullable();
             $table->string('cancellation_reason')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
