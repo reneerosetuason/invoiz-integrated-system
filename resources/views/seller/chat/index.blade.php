@@ -3,6 +3,9 @@
 @section('title', 'Chat & Messaging')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
+<div class="mc-legacy mc-legacy-seller">
 <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
         <h2 class="text-xl font-extrabold tracking-tight">Chat / Messaging</h2>
@@ -64,5 +67,6 @@
             <p class="text-sm text-ink-light">Choose a thread on the left to start replying.</p>
         </div>
     </div>
+</div>
 </div>
 @endsection

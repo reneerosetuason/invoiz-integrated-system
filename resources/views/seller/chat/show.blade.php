@@ -3,6 +3,9 @@
 @section('title', 'Conversation')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
+<div class="mc-legacy mc-legacy-seller">
 <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
         <a href="{{ route('seller.chat.index') }}" class="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-ink-light hover:text-primary">
@@ -21,12 +24,12 @@
 
 <div class="card mt-6 flex h-[calc(100vh-300px)] flex-col overflow-hidden">
     {{-- Messages --}}
-    <div class="flex-1 space-y-4 overflow-y-auto p-6" id="chat-scroll">
+    <div class="mc-seller-history flex-1 space-y-4 overflow-y-auto p-6" id="chat-scroll">
         @foreach($messages as $message)
             @php $mine = $message->sender_id === auth()->id(); @endphp
             <div class="flex {{ $mine ? 'justify-end' : 'justify-start' }}">
                 <div class="max-w-[75%]">
-                    <div class="rounded-2xl px-4 py-3 text-sm leading-relaxed {{ $mine ? 'rounded-br-md text-white' : 'rounded-bl-md bg-basebg' }}"
+                    <div data-mine="{{ $mine ? 'true' : 'false' }}" class="mc-seller-bubble rounded-2xl px-4 py-3 text-sm leading-relaxed {{ $mine ? 'rounded-br-md text-white' : 'rounded-bl-md bg-basebg' }}"
                          style="{{ $mine ? 'background:#16697A;' : '' }}">
                         @include('partials.chat-product-card', ['card' => $message->product_card])
                         {{ $message->body }}
@@ -62,6 +65,7 @@
             </button>
         </div>
     </form>
+</div>
 </div>
 @endsection
 

@@ -92,12 +92,13 @@ class BuyerChatController extends Controller
             ->whereIn('role', ['seller', 'admin'])
             ->where('account_status', 'active')
             ->orderBy('name')
-            ->get();
+            ->get()->filter(fn ($user) => \App\Support\MessagingAccess::canContact($request->user(), $user));
 
         $thread = collect();
         $otherUser = null;
         if ($with) {
             $otherUser = User::find($with);
+            abort_unless($otherUser && \App\Support\MessagingAccess::canContact($request->user(), $otherUser), 403);
             if ($otherUser) {
                 $thread = Message::where(function ($q) use ($me, $with) {
                     $q->where('sender_id', $me)->where('receiver_id', $with);
@@ -120,6 +121,8 @@ class BuyerChatController extends Controller
             'body' => 'required|string|max:2000',
         ]);
 
+        abort_unless(\App\Support\MessagingAccess::canContact($request->user(), User::findOrFail($data['receiver_id'])), 403);
+
         $message = Message::create([
             'sender_id' => Auth::id(),
             'receiver_id' => $data['receiver_id'],
@@ -136,6 +139,7 @@ class BuyerChatController extends Controller
 
     public function messages(Request $request, User $user)
     {
+        abort_unless(\App\Support\MessagingAccess::canContact($request->user(), $user), 403);
         $me = Auth::id();
         $after = (int) $request->query('after', 0);
 

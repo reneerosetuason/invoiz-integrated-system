@@ -29,7 +29,9 @@ class ChatBridge
                         ? (int) $message->receiver_id
                         : (int) $message->sender_id;
                     if ($otherId < 1) continue;
-                    $conversation = Conversation::firstOrCreate(
+                    $conversation = Conversation::where(fn ($q) => $q->where('buyer_id', $buyerId)->where('seller_id', $otherId))
+                        ->orWhere(fn ($q) => $q->where('buyer_id', $otherId)->where('seller_id', $buyerId))->first();
+                    $conversation ??= Conversation::firstOrCreate(
                         ['buyer_id' => $buyerId, 'seller_id' => $otherId],
                         ['subject' => 'Support']
                     );

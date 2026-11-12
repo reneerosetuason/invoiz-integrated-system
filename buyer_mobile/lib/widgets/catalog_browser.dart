@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/recently_viewed_service.dart';
 import '../theme.dart';
 import 'product_card.dart';
+import 'skeleton_loading.dart';
 
 class CatalogBrowser extends StatefulWidget {
   final ApiService? api;
@@ -327,10 +328,46 @@ class _CatalogBrowserState extends State<CatalogBrowser> {
                 ),
               ),
               if (_loading)
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.all(40),
-                    child: Center(child: CupertinoActivityIndicator()),
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  sliver: SliverLayoutBuilder(
+                    builder: (_, constraints) {
+                      var columns = constraints.crossAxisExtent >= 900
+                          ? 4
+                          : constraints.crossAxisExtent >= 600
+                          ? 3
+                          : 2;
+                      final textScale = MediaQuery.textScalerOf(
+                        context,
+                      ).scale(1);
+                      if (constraints.crossAxisExtent / columns <
+                          120 * textScale) {
+                        columns =
+                            (constraints.crossAxisExtent / (120 * textScale))
+                                .floor()
+                                .clamp(1, columns);
+                      }
+                      final width =
+                          (constraints.crossAxisExtent - (columns - 1) * 12) /
+                          columns;
+                      return SliverGrid(
+                        delegate: SliverChildBuilderDelegate(
+                          (_, __) => const ProductCardSkeleton(),
+                          childCount: columns * 3,
+                        ),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: columns,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent:
+                              width *
+                                  (constraints.crossAxisExtent < 600
+                                      ? .72
+                                      : .95) +
+                              110 * textScale,
+                        ),
+                      );
+                    },
                   ),
                 )
               else if (_error != null)

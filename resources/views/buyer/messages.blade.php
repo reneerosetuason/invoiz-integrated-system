@@ -1,5 +1,8 @@
 @extends('buyer.layouts.website')
 @section('content')
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
+<div class="mc-legacy mc-legacy-marketplace">
 @php
   $buyer = session('buyer');
   $selId = $selId ?? 0;
@@ -117,4 +120,5 @@
   </div>
 </div>
 <script src="{{ asset('assets/buyer/js/messages-2.js') }}"></script>
+</div>
 @endsection

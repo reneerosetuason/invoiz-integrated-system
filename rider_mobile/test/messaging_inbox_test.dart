@@ -65,7 +65,7 @@ MockClient _backend() {
 
     bool isPath(String suffix) => path.endsWith(suffix);
 
-    if (isPath('/rider/conversations') && request.method == 'GET') {
+    if ((isPath('/rider/conversations') || isPath('/messaging/inbox')) && request.method == 'GET') {
       var threads = [
         _threadJson(
           id: 7,
@@ -86,6 +86,9 @@ MockClient _backend() {
                 (t['tracking'] as String? ?? '').toLowerCase().contains(q))
             .toList();
       }
+      if (isPath('/messaging/inbox')) {
+        threads = threads.map((thread) => {...thread, 'thread_key': 'logistics:${thread['id']}'}).toList();
+      }
       return json({
         'conversations': threads,
         'pagination': {
@@ -96,7 +99,7 @@ MockClient _backend() {
         },
       });
     }
-    if (isPath('/rider/conversations/7') && request.method == 'GET') {
+    if ((isPath('/rider/conversations/7') || isPath('/messaging/threads/logistics:7')) && request.method == 'GET') {
       return json({
         'conversation': _threadJson(
           id: 7,
@@ -118,7 +121,7 @@ MockClient _backend() {
         },
       });
     }
-    if (isPath('/rider/conversations/7/messages') &&
+    if ((isPath('/rider/conversations/7/messages') || isPath('/messaging/threads/logistics:7')) &&
         request.method == 'POST') {
       return json({
         'message': 'Sent.',
@@ -166,6 +169,13 @@ void main() {
   });
 
   group('MessageService conversations', () {
+    test('unified inbox keeps a source-qualified key for staff and driver messages', () async {
+      final service = MessageService(ApiClient(client: _backend()), unified: true);
+      final page = await service.listConversations();
+      expect(page.threads.first.messageKey, 'logistics:7');
+      final thread = await service.getThread(page.threads.first.messageKey);
+      expect(thread.messages.first['body'], 'On my way');
+    });
     test('lists threads with unread and tracking', () async {
       final page = await _service().listConversations();
       expect(page.threads.length, 2);

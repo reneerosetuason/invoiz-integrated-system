@@ -678,6 +678,8 @@ Route::get('/messages', function(Request $request){
   $selId = (int)$request->input('seller', 0);
   $selConv = null; $selMessages = collect(); $selName = '';
   if($selId){
+    $contact = \App\Models\User::find($selId);
+    abort_unless($contact && \App\Support\MessagingAccess::canContact(\App\Models\User::findOrFail($userId), $contact), 403);
     $selConv = \App\Models\Conversation::firstOrCreate(['buyer_id'=>$userId,'seller_id'=>$selId], ['subject'=>null]);
     \App\Models\Message::where('conversation_id',$selConv->id)->where('sender_id','!=',$userId)->where('is_read',0)->update(['is_read'=>1]);
     $selMessages = \App\Models\Message::with('conversation')->where('conversation_id',$selConv->id)->orderBy('created_at')->get();
@@ -690,6 +692,7 @@ Route::get('/chat/seller/{sellerId}', function(Request $request, $sellerId){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login');
   $sellerId = \App\Models\Seller::userIdFor((int) $sellerId);
+  abort_unless(\App\Support\MessagingAccess::canContact(\App\Models\User::findOrFail($buyer['id']), \App\Models\User::findOrFail($sellerId)), 403);
   $conv = \App\Models\Conversation::firstOrCreate(['buyer_id'=>$buyer['id'],'seller_id'=>$sellerId], ['subject'=>null]);
   \App\Models\Message::where('conversation_id',$conv->id)->where('sender_id','!=',$buyer['id'])->where('is_read',0)->update(['is_read'=>1]);
   $messages = \App\Models\Message::with('conversation')->where('conversation_id',$conv->id)->orderBy('created_at')->get();
@@ -700,6 +703,7 @@ Route::post('/chat/send/{sellerId}', function(Request $request, $sellerId){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return response()->json(['error'=>'Login required'],401);
   $sellerId = \App\Models\Seller::userIdFor((int) $sellerId);
+  abort_unless(\App\Support\MessagingAccess::canContact(\App\Models\User::findOrFail($buyer['id']), \App\Models\User::findOrFail($sellerId)), 403);
   $request->validate(['body'=>'required|string|max:2000']);
   $conv = \App\Models\Conversation::firstOrCreate(['buyer_id'=>$buyer['id'],'seller_id'=>$sellerId], ['subject'=>null]);
   $message = \App\Models\Message::create(['conversation_id'=>$conv->id,'sender_id'=>$buyer['id'],'receiver_id'=>(int)$sellerId,'body'=>$request->input('body'),'is_read'=>0]);

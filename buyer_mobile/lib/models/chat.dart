@@ -1,5 +1,7 @@
 class Conversation {
   final int id;
+  final String? threadKey;
+  final bool canSend;
   final String subject;
   final int unreadCount;
   final String? lastBody;
@@ -11,6 +13,8 @@ class Conversation {
 
   Conversation({
     required this.id,
+    this.threadKey,
+    this.canSend = true,
     required this.subject,
     this.unreadCount = 0,
     this.lastBody,
@@ -41,13 +45,18 @@ class Conversation {
     }
     return Conversation(
       id: json['id'] as int,
-      subject: json['subject'] as String? ?? 'Chat',
-      unreadCount: (json['unread_count'] as int?) ?? 0,
-      lastBody: lastMsg?['body'] as String?,
+      threadKey: json['thread_key'] as String?,
+      canSend: json['can_send'] as bool? ?? true,
+      subject: json['name'] as String? ?? json['subject'] as String? ?? 'Chat',
+      unreadCount:
+          (json['unread'] as int?) ?? (json['unread_count'] as int?) ?? 0,
+      lastBody: json['preview'] as String? ?? lastMsg?['body'] as String?,
       lastSender: sender is Map<String, dynamic>
           ? sender['first_name'] as String?
           : null,
-      lastTime: lastMsg?['created_at'] as String?,
+      lastTime:
+          json['last_message_at'] as String? ??
+          lastMsg?['created_at'] as String?,
       sellerId: json['seller_id'] as int?,
       sellerName: sellerName,
       sellerBusinessName: sellerBusinessName,
@@ -67,6 +76,7 @@ class Conversation {
 }
 
 class ChatMessage {
+  final List<Map<String, dynamic>> attachments;
   final ChatProduct? productCard;
   final int id;
   final int conversationId;
@@ -77,6 +87,7 @@ class ChatMessage {
   final String? senderName;
 
   ChatMessage({
+    this.attachments = const [],
     this.productCard,
     required this.id,
     required this.conversationId,
@@ -90,6 +101,9 @@ class ChatMessage {
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     final sender = json['sender'];
     return ChatMessage(
+      attachments: (json['attachments'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList(),
       productCard: json['product_card'] is Map<String, dynamic>
           ? ChatProduct.fromJson(json['product_card'] as Map<String, dynamic>)
           : null,

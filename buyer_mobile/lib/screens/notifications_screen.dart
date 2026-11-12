@@ -7,6 +7,7 @@ import '../services/buyer_updates.dart';
 import '../widgets/inbox_status.dart';
 import '../theme.dart';
 import '../widgets/main_layout.dart';
+import '../widgets/skeleton_loading.dart';
 import 'order_detail_screen.dart';
 import 'chat_screen.dart';
 
@@ -158,7 +159,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       showNotificationIcon: false,
       showSettingsIcon: false,
       child: _loading
-          ? const Center(child: CupertinoActivityIndicator())
+          ? const NotificationsListSkeleton()
           : _error != null
           ? InboxStatus(message: _error!, onRetry: _load)
           : _items.isEmpty

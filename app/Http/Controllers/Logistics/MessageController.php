@@ -82,7 +82,7 @@ class MessageController extends Controller
             });
         }
 
-        return $query;
+        return $query->whereIn('id', \App\Support\MessagingAccess::logisticsIds($request->user()));
     }
 
     /**
@@ -169,6 +169,7 @@ class MessageController extends Controller
     private function authorizeConversation(User $user, Conversation $conversation): void
     {
         abort_unless($user->isLogisticsStaff(), 403);
+        abort_unless(\App\Support\MessagingAccess::canReadLogistics($user, $conversation), 403);
 
         if ($conversation->participant_type === 'logistics') {
             abort_unless(
@@ -344,6 +345,7 @@ class MessageController extends Controller
                 ->get();
 
             $recipients = $riders
+                ->filter(fn ($rider) => $rider->user && \App\Support\MessagingAccess::canContact($request->user(), $rider->user))
                 ->map(fn (Rider $rider) => [
                     // Use the rider profile ID. Older rider profiles may not
                     // have a login account linked yet, but logistics can still
@@ -387,7 +389,7 @@ class MessageController extends Controller
             ->orderBy('name')
             ->limit(50);
 
-        $recipients = $query->get()->map(fn (User $user) => [
+        $recipients = $query->get()->filter(fn ($user) => \App\Support\MessagingAccess::canContact($request->user(), $user))->map(fn (User $user) => [
             'id' => (int) $user->id,
             'name' => $user->displayName() ?: $user->name ?: 'Logistics user',
             'email' => $user->email,
@@ -413,6 +415,8 @@ class MessageController extends Controller
         if ($validated['recipient_type'] === 'rider') {
             $rider = Rider::query()->with('user')->findOrFail($validated['recipient_id']);
             $recipient = $rider->user;
+
+            abort_unless($recipient && \App\Support\MessagingAccess::canContact($user, $recipient), 403);
 
             abort_if($recipient && (int) $recipient->id === (int) $user->id, 422, 'Choose another user to start a conversation.');
 
@@ -451,6 +455,7 @@ class MessageController extends Controller
             }
         } else {
             $recipient = User::findOrFail($validated['recipient_id']);
+            abort_unless(\App\Support\MessagingAccess::canContact($user, $recipient), 403);
             abort_if((int) $recipient->id === (int) $user->id, 422, 'Choose another user to start a conversation.');
 
             $recipientIsAdmin = $recipient->isAdmin() || $recipient->isLogisticsAdmin();
@@ -522,6 +527,7 @@ class MessageController extends Controller
 
         $conversation = Conversation::findOrFail($validated['conversation_id']);
         $this->authorizeConversation($request->user(), $conversation);
+        abort_unless(\App\Support\MessagingAccess::canSendLogistics($request->user(), $conversation), 403);
 
         DB::transaction(function () use ($validated, $request, $conversation) {
             $message = Message::create([

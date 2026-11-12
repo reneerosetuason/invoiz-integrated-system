@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
+import '../widgets/skeleton_loading.dart';
 import 'cart_screen.dart';
 import 'chat_screen.dart';
 import 'login_screen.dart';
@@ -214,7 +215,7 @@ class _SellerStoreScreenState extends State<SellerStoreScreen>
         ],
       ),
       child: _loading
-          ? const Center(child: CupertinoActivityIndicator())
+          ? const StoreSkeleton()
           : _store == null
           ? const Center(child: Text('Store not found.'))
           : Column(

@@ -98,6 +98,8 @@ class ChatController extends Controller
             'body' => 'required|string|max:2000',
         ]);
 
+        abort_unless(\App\Support\MessagingAccess::canContact($request->user(), User::findOrFail($request->receiver_id)), 403);
+
         $logisticsConversation = $this->logisticsConversationWith((int) auth()->id(), (int) $request->receiver_id);
 
         if ($logisticsConversation) {

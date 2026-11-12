@@ -21,7 +21,7 @@ term changes.
 | **Logistics Admin** | The administrator authorized to manage one Logistics Company's operations (hubs, staff, parcels, transfers, reports). | Everything inside one company. | `users.role = admin` + `is_admin = 0` → `isCompanyManager()`; display label today: "Logistics Manager" |
 | **Global Logistics Admin** | The single platform-designated account that oversees all companies' logistics operations. | Company-wide oversight; not a company employee. | `users.role = logistics_admin`, id `18`, `logistics_admin@test.com` → `isLogisticsAdmin()` |
 | **Logistics Hub Staff** | Staff assigned to one Logistics Hub. | Receive, scan, sort, dispatch, escalate exceptions inside the assigned hub. | `users.role` in `staff` / `logistics_staff` + `center_id` → `isStaff()` |
-| **Delivery Rider** | Two-wheel rider doing seller pickup and last-mile delivery. Never moves parcels between hubs. | Pickup, last-mile, proof of delivery, COD collection, rider remittances. | `users.role = rider` + `Rider` profile, `mobile/rider` Flutter app, `/logistics/rider/*` API |
+| **Delivery Rider** | Two-wheel rider doing seller pickup and last-mile delivery. Never moves parcels between hubs. | Pickup, last-mile, proof of delivery, COD collection, rider remittances. | `users.role = rider` + `Rider` profile, `rider_mobile` Flutter app, `/logistics/rider/*` API |
 | **Hub Transport Driver** | Driver of a four-wheel truck moving parcels between Logistics Hubs. | Loading, dispatch, arrival, receiving hand-off for a `HubTransfer`. | `HubTransportDriver`, `hub_transport_drivers`, Sanctum ability `hub-courier`, `/logistics/courier/*` API |
 | **Platform Admin** | Marketplace administrator with platform-level oversight (escrow release, commission configuration, user management). | Platform-level functions; not hub operations. | `users.is_admin = 1` → `isAdmin()` |
 | **Hub Transfer** | One fleet-based transport leg between two Logistics Hubs. | Custody movement; one record per leg. | `HubTransfer`, `hub_transfers`, `HubTransferService` |
@@ -195,7 +195,7 @@ Manual mutations are recorded through the existing audit path (`AuditLogger` /
   retained because an external driver client may already consume them, and no
   client exists in this repository to update. This is recorded as a known
   terminology exception.
-- **Flutter Rider App** (`mobile/rider`): no hub-transfer or truck surface. No
+- **Flutter Rider App** (`rider_mobile`): no hub-transfer or truck surface. No
   Hub Transport Driver UI is added to it.
 - **Web logistics UI**: canonical copy per the rename matrix in §3.
 

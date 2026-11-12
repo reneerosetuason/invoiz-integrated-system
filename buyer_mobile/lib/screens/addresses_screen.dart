@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/address.dart';
 import '../services/api_service.dart';
 import '../widgets/main_layout.dart';
+import '../widgets/skeleton_loading.dart';
 import 'add_address_screen.dart';
 
 class AddressesScreen extends StatefulWidget {
@@ -102,7 +103,7 @@ class _AddressesScreenState extends State<AddressesScreen> {
     title: 'My addresses',
     showBottomNav: false,
     child: _loading
-        ? const Center(child: CupertinoActivityIndicator())
+        ? const GenericPageSkeleton(cardCount: 3)
         : RefreshIndicator.adaptive(
             onRefresh: _load,
             child: ListView(

@@ -8,7 +8,6 @@ import '../../core/utils/format_utils.dart';
 import '../../models/conversation.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/message_service.dart';
-import '../../widgets/app_ui.dart';
 import '../../widgets/stagger_in.dart';
 import 'messages_screen.dart';
 
@@ -46,7 +45,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   }
 
   MessageService _svc() =>
-      MessageService(context.read<AuthProvider>().api);
+      MessageService(context.read<AuthProvider>().api, unified: true);
 
   Future<void> _load({bool reset = false}) async {
     if (reset) {
@@ -63,9 +62,7 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
       );
       if (!mounted) return;
       setState(() {
-        _threads = reset
-            ? result.threads
-            : [..._threads, ...result.threads];
+        _threads = reset ? result.threads : [..._threads, ...result.threads];
         _hasMore = result.hasMore;
         _loading = false;
       });
@@ -97,16 +94,71 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
   }
 
   Future<void> _open(ConversationThread thread) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => MessagesScreen(thread: thread)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => MessagesScreen(thread: thread)));
     if (mounted) _load(reset: true);
+  }
+
+  Future<void> _newMessage() async {
+    try {
+      final contacts = await _svc().contacts();
+      if (!mounted) return;
+      final selected = await showModalBottomSheet<Map<String, dynamic>>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(
+                title: Text('Choose a contact'),
+                subtitle: Text('Based on your role and assignments'),
+              ),
+              if (contacts.isEmpty)
+                const ListTile(title: Text('No contacts available')),
+              for (final contact in contacts)
+                ListTile(
+                  title: Text(contact['name'] as String),
+                  subtitle: Text(contact['role'] as String),
+                  onTap: () => Navigator.pop(context, contact),
+                ),
+            ],
+          ),
+        ),
+      );
+      if (selected == null || !mounted) return;
+      final key = await _svc().start(selected['key'] as String);
+      if (!mounted) return;
+      await _open(
+        ConversationThread(
+          id: int.parse(key.split(':').last),
+          threadKey: key,
+          name: selected['name'] as String,
+          type: 'direct',
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Messages')),
+      appBar: AppBar(
+        title: const Text('Messages'),
+        actions: [
+          IconButton(
+            onPressed: _newMessage,
+            icon: const Icon(Icons.edit_square),
+            tooltip: 'New message',
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
@@ -133,8 +185,10 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
               ),
             ),
           ),
@@ -142,55 +196,57 @@ class _ConversationsScreenState extends State<ConversationsScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? _StateMessage(
-                        icon: Icons.error_outline,
-                        title: _error!,
-                        actionLabel: 'Retry',
-                        onAction: () => _load(reset: true),
-                      )
-                    : _threads.isEmpty
-                        ? const _StateMessage(
-                            icon: Icons.chat_bubble_outline,
-                            title: 'No conversations yet.',
-                            subtitle:
-                                'Your delivery, pickup, order, and support '
-                                'conversations will appear here automatically.',
-                          )
-                        : RefreshIndicator(
-                            onRefresh: () => _load(reset: true),
-                            child: ListView.builder(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                              itemCount: _threads.length + (_hasMore ? 1 : 0),
-                              itemBuilder: (_, i) {
-                                if (i >= _threads.length) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Center(
-                                      child: _loadingMore
-                                          ? const SizedBox(
-                                              width: 22,
-                                              height: 22,
-                                              child:
-                                                  CircularProgressIndicator(
-                                                      strokeWidth: 2),
-                                            )
-                                          : TextButton(
-                                              onPressed: _loadMore,
-                                              child: const Text('Load more'),
-                                            ),
+                ? _StateMessage(
+                    icon: Icons.error_outline,
+                    title: _error!,
+                    actionLabel: 'Retry',
+                    onAction: () => _load(reset: true),
+                  )
+                : _threads.isEmpty
+                ? _StateMessage(
+                    icon: Icons.chat_bubble_outline,
+                    title: 'No conversations yet.',
+                    subtitle: context.read<AuthProvider>().isHubCourier
+                        ? 'Message your logistics coordinator — tap the '
+                              'pencil icon above to pick a contact and start.'
+                        : 'Your delivery, pickup, order, and support '
+                              'conversations will appear here automatically.',
+                  )
+                : RefreshIndicator(
+                    onRefresh: () => _load(reset: true),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                      itemCount: _threads.length + (_hasMore ? 1 : 0),
+                      itemBuilder: (_, i) {
+                        if (i >= _threads.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Center(
+                              child: _loadingMore
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : TextButton(
+                                      onPressed: _loadMore,
+                                      child: const Text('Load more'),
                                     ),
-                                  );
-                                }
-                                return StaggerIn(
-                                  index: i,
-                                  child: _ThreadTile(
-                                    thread: _threads[i],
-                                    onTap: () => _open(_threads[i]),
-                                  ),
-                                );
-                              },
                             ),
+                          );
+                        }
+                        return StaggerIn(
+                          index: i,
+                          child: _ThreadTile(
+                            thread: _threads[i],
+                            onTap: () => _open(_threads[i]),
                           ),
+                        );
+                      },
+                    ),
+                  ),
           ),
         ],
       ),
@@ -208,7 +264,12 @@ class _ThreadTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final unread = thread.unread > 0;
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: const BorderSide(color: AppColors.border),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -217,7 +278,25 @@ class _ThreadTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              AvatarView(label: thread.name, radius: 21),
+              Container(
+                width: 44,
+                height: 44,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  thread.name.trim().isEmpty
+                      ? 'I'
+                      : thread.name.trim().characters.first.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
               const SizedBox(width: AppGaps.md),
               Expanded(
                 child: Column(
@@ -281,7 +360,9 @@ class _ThreadTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 7, vertical: 3),
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
                   decoration: const BoxDecoration(
                     color: AppColors.secondary,
                     shape: BoxShape.circle,
@@ -356,10 +437,7 @@ class _StateMessage extends StatelessWidget {
         if (actionLabel != null && onAction != null) ...[
           const SizedBox(height: AppGaps.lg),
           Center(
-            child: TextButton(
-              onPressed: onAction,
-              child: Text(actionLabel!),
-            ),
+            child: TextButton(onPressed: onAction, child: Text(actionLabel!)),
           ),
         ],
       ],

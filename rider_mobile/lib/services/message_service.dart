@@ -27,27 +27,37 @@ class RiderMessage {
   final bool deleted;
   final List<MessageAttachment> attachments;
   factory RiderMessage.fromJson(Map<String, dynamic> j) => RiderMessage(
-        id: (j['id'] as num?)?.toInt() ?? 0,
-        mine: j['mine'] as bool? ?? false,
-        senderType: j['sender_type'] as String? ?? 'rider',
-        body: j['body'] as String? ?? '',
-        createdAt: j['created_at'] as String? ?? '',
-        time: j['time'] as String? ?? '',
-        dayLabel: j['dayLabel'] as String? ?? '',
-        isRead: j['is_read'] as bool? ?? false,
-        deleted: j['deleted'] as bool? ?? false,
-        attachments: (j['attachments'] as List? ?? []).whereType<Map<String, dynamic>>().map(MessageAttachment.fromJson).toList(),
-      );
+    id: (j['id'] as num?)?.toInt() ?? 0,
+    mine: j['mine'] as bool? ?? false,
+    senderType: j['sender_type'] as String? ?? 'rider',
+    body: j['body'] as String? ?? '',
+    createdAt: j['created_at'] as String? ?? '',
+    time: j['time'] as String? ?? '',
+    dayLabel: j['dayLabel'] as String? ?? '',
+    isRead: j['is_read'] as bool? ?? false,
+    deleted: j['deleted'] as bool? ?? false,
+    attachments: (j['attachments'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(MessageAttachment.fromJson)
+        .toList(),
+  );
 }
 
 class MessageAttachment {
-  const MessageAttachment({required this.id, required this.name, required this.size, required this.url, this.isImage = false});
+  const MessageAttachment({
+    required this.id,
+    required this.name,
+    required this.size,
+    required this.url,
+    this.isImage = false,
+  });
   final int id;
   final String name;
   final String size;
   final String url;
   final bool isImage;
-  factory MessageAttachment.fromJson(Map<String, dynamic> j) => MessageAttachment(
+  factory MessageAttachment.fromJson(Map<String, dynamic> j) =>
+      MessageAttachment(
         id: (j['id'] as num?)?.toInt() ?? 0,
         name: j['name'] as String? ?? '',
         size: j['size'] as String? ?? '',
@@ -88,8 +98,9 @@ class ConversationHeader {
 }
 
 class MessageService {
-  MessageService(this._api);
+  MessageService(this._api, {this.unified = false});
   final ApiClient _api;
+  final bool unified;
   ConversationHeader? conversation;
 
   Future<List<RiderMessage>> getMessages() async {
@@ -100,32 +111,61 @@ class MessageService {
       );
     }
     final list = data['messages'] as List? ?? [];
-    return list.whereType<Map<String, dynamic>>().map(RiderMessage.fromJson).toList();
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(RiderMessage.fromJson)
+        .toList();
   }
 
   Future<List<RiderMessage>> poll({int? after}) async {
-    final data = await _api.get('/rider/messages/poll', query: after != null ? {'after': after.toString()} : null);
+    final data = await _api.get(
+      '/rider/messages/poll',
+      query: after != null ? {'after': after.toString()} : null,
+    );
     final list = data['messages'] as List? ?? [];
-    return list.whereType<Map<String, dynamic>>().map(RiderMessage.fromJson).toList();
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(RiderMessage.fromJson)
+        .toList();
   }
 
-  Future<RiderMessage> send({required String body, Uint8List? fileBytes, String? filename}) async {
+  Future<RiderMessage> send({
+    required String body,
+    Uint8List? fileBytes,
+    String? filename,
+  }) async {
     if (fileBytes != null && filename != null) {
-      final data = await _api.postMultipart('/rider/messages', fileField: 'attachment', fileBytes: fileBytes, filename: filename, fields: {'body': body});
-      return RiderMessage.fromJson(Map<String, dynamic>.from(data['data'] as Map));
+      final data = await _api.postMultipart(
+        '/rider/messages',
+        fileField: 'attachment',
+        fileBytes: fileBytes,
+        filename: filename,
+        fields: {'body': body},
+      );
+      return RiderMessage.fromJson(
+        Map<String, dynamic>.from(data['data'] as Map),
+      );
     }
     final data = await _api.post('/rider/messages', body: {'body': body});
-    return RiderMessage.fromJson(Map<String, dynamic>.from(data['data'] as Map));
+    return RiderMessage.fromJson(
+      Map<String, dynamic>.from(data['data'] as Map),
+    );
   }
 
   /// Inbox threads auto-discovered from the rider's real relationships
   /// (support + per-delivery buyer/seller threads). No recipient picking.
-  Future<ConversationPage> listConversations({String? search, int page = 1}) async {
+  Future<ConversationPage> listConversations({
+    String? search,
+    int page = 1,
+  }) async {
     final query = <String, dynamic>{'page': page.toString()};
     if (search != null && search.trim().isNotEmpty) {
       query['search'] = search.trim();
     }
-    final data = await _api.get('/rider/conversations', query: query);
+    final data = await _api.get(
+      unified ? '/messaging/inbox' : '/rider/conversations',
+      query: query,
+    );
     final list = data['conversations'] as List? ?? [];
     final threads = list
         .whereType<Map<String, dynamic>>()
@@ -139,8 +179,29 @@ class MessageService {
 
   /// One thread's messages (API returns newest-first; callers display
   /// chronologically). Opening marks the thread read server-side.
-  Future<ThreadMessages> getThread(int id, {int page = 1}) async {
-    final data = await _api.get('/rider/conversations/$id', query: {'page': page.toString()});
+  String _threadPath(Object id) =>
+      id is String ? '/messaging/threads/$id' : '/rider/conversations/$id';
+
+  Future<List<Map<String, dynamic>>> contacts() async {
+    final data = await _api.get('/messaging/contacts');
+    return (data['contacts'] as List)
+        .whereType<Map<String, dynamic>>()
+        .toList();
+  }
+
+  Future<String> start(String recipient) async {
+    final data = await _api.post(
+      '/messaging/start',
+      body: {'recipient': recipient},
+    );
+    return data['thread_key'] as String;
+  }
+
+  Future<ThreadMessages> getThread(Object id, {int page = 1}) async {
+    final data = await _api.get(
+      _threadPath(id),
+      query: {'page': page.toString()},
+    );
     final list = data['messages'] as List? ?? [];
     final pagination = data['pagination'] as Map<String, dynamic>?;
     return ThreadMessages(
@@ -151,25 +212,43 @@ class MessageService {
   }
 
   /// Send into a specific thread. Returns the created message payload.
-  Future<Map<String, dynamic>> sendToThread(int id,
-      {required String body, Uint8List? fileBytes, String? filename}) async {
+  Future<Map<String, dynamic>> sendToThread(
+    Object id, {
+    required String body,
+    Uint8List? fileBytes,
+    String? filename,
+  }) async {
     if (fileBytes != null && filename != null) {
-      final data = await _api.postMultipart('/rider/conversations/$id/messages',
-          fileField: 'attachment', fileBytes: fileBytes, filename: filename, fields: {'body': body});
+      final data = await _api.postMultipart(
+        id is String ? _threadPath(id) : '${_threadPath(id)}/messages',
+        fileField: 'attachment',
+        fileBytes: fileBytes,
+        filename: filename,
+        fields: {'body': body},
+      );
       return Map<String, dynamic>.from(data['data'] as Map);
     }
-    final data = await _api.post('/rider/conversations/$id/messages', body: {'body': body});
+    final data = await _api.post(
+      id is String ? _threadPath(id) : '${_threadPath(id)}/messages',
+      body: {'body': body},
+    );
     return Map<String, dynamic>.from(data['data'] as Map);
   }
 
   /// Edit own message in a thread (server enforces ownership).
-  Future<void> editThreadMessage(int threadId, int messageId, String body) async {
-    await _api.patch('/rider/conversations/$threadId/messages/$messageId',
-        body: {'body': body});
+  Future<void> editThreadMessage(
+    Object threadId,
+    int messageId,
+    String body,
+  ) async {
+    await _api.patch(
+      '${_threadPath(threadId)}/messages/$messageId',
+      body: {'body': body},
+    );
   }
 
   /// Soft-delete own message in a thread (server enforces ownership).
-  Future<void> deleteThreadMessage(int threadId, int messageId) async {
-    await _api.delete('/rider/conversations/$threadId/messages/$messageId');
+  Future<void> deleteThreadMessage(Object threadId, int messageId) async {
+    await _api.delete('${_threadPath(threadId)}/messages/$messageId');
   }
 }

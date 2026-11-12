@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/main_layout.dart';
 import '../widgets/order_return_dialog.dart';
+import '../widgets/skeleton_loading.dart';
 import 'return_agreement_screen.dart';
 
 class OrderDetailScreen extends StatefulWidget {
@@ -606,7 +607,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       showBottomNav: false,
       title: 'Order #${widget.orderId}',
       child: _loading
-          ? const Center(child: CupertinoActivityIndicator())
+          ? const OrderDetailSkeleton()
           : _order == null
           ? const Center(child: Text('Order not found.'))
           : ListView(

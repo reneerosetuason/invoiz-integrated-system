@@ -11,6 +11,7 @@ import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/shopping_ui.dart';
+import '../widgets/skeleton_loading.dart';
 import 'checkout_screen.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
@@ -211,7 +212,7 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   )
                 : _loading
-                ? const Center(child: CupertinoActivityIndicator())
+                ? const CartListSkeleton()
                 : _cart == null || _cart!.items.isEmpty
                 ? BuyerEmptyState(
                     icon: CupertinoIcons.bag,

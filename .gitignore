@@ -30,7 +30,7 @@ yarn-error.log
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
 **/android/.gradle/
-**/android/local.properties/
+**/android/local.properties
 
 # IDE and local development files
 **/.idea/
@@ -38,3 +38,17 @@ yarn-error.log
 
 *.apk
 /public/*.apk
+
+# Generated test and screenshot output
+/playwright-report/
+/test-results/
+/shots/
+/debug.log
+
+# Local diagnostic exports; keep schema changes in database/migrations
+/dev_nodata.sql
+/dev_tables.txt
+/full_dev_db.sql
+/full_dev_schema.sql
+/schema.sql
+/test_tables.txt

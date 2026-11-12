@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,10 +20,7 @@ import '../../widgets/loading_widget.dart';
 import '../../widgets/section_header.dart';
 import '../../widgets/stagger_in.dart';
 import '../../widgets/status_badge.dart';
-import 'change_password_screen.dart';
 import 'my_documents_screen.dart';
-import '../earnings/earnings_screen.dart';
-import '../onboarding/rider_tutorial_screen.dart';
 
 /// Photo picker abstraction so widget tests can drive photo selection
 /// without depending on platform-native channels.

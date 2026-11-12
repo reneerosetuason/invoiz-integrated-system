@@ -36,6 +36,7 @@ class HubTransportDriverTripEarningsTest extends TestCase
 
         $manager = new User([
             'name' => 'Global Logistics Admin',
+            'phone' => fake()->unique()->numerify('09#########'),
             'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
             'password' => 'TestManager123!',
             'role' => 'logistics_admin',
@@ -334,20 +335,26 @@ class HubTransportDriverTripEarningsTest extends TestCase
 
         $sellerUser = User::create([
             'name' => 'Test Seller',
+            'phone' => fake()->unique()->numerify('09#########'),
             'email' => 'seller.'.rand(1000, 9999).'@test.com',
             'password' => Hash::make('password123'),
             'role' => 'seller',
             'status' => 'active',
             'email_verified_at' => now(),
         ]);
-        $seller = Seller::create([
+        $seller = Seller::forceCreate([
+            // Keep the fixture compatible with legacy seller FKs targeting users.
+            'id' => $sellerUser->id,
             'user_id' => $sellerUser->id,
             'store_name' => 'Trip Test Store',
+            'line_of_business' => 'Retail',
             'status' => 'active',
         ]);
 
+        $category = \App\Models\Category::create(['name' => 'Trip Test Category '.\Illuminate\Support\Str::ulid()]);
         $product = Product::create([
             'seller_id' => $seller->id,
+            'category_id' => $category->id,
             'name' => 'Trip Test Item',
             'slug' => 'trip-test-item-'.rand(1000, 9999),
             'price' => 500.00,
@@ -355,10 +362,21 @@ class HubTransportDriverTripEarningsTest extends TestCase
             'status' => 'active',
         ]);
 
+        $buyer = $this->manager();
+        $address = \App\Models\Address::create([
+            'buyer_id' => $buyer->id,
+            'recipient_name' => 'Trip Test Buyer',
+            'phone' => '09123456789',
+            'address_line' => 'Test Address',
+            'barangay' => 'Test Barangay',
+            'city' => 'Test City',
+            'province' => 'Test Province',
+        ]);
         $order = Order::create([
             'order_number' => 'ORD-TRIP-'.rand(10000, 99999),
             'user_id' => $this->manager()->id,
-            'buyer_id' => $this->manager()->id,
+            'buyer_id' => $buyer->id,
+            'address_id' => $address->id,
             'seller_id' => $seller->id,
             'status' => 'pending',
             'payment_status' => 'paid',

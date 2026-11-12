@@ -332,14 +332,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       appBar: AppBar(
         title: Text(isCourier ? 'Invoiz Hub Transport' : 'Invoiz Rider'),
         actions: [
-          if (!isCourier)
-            IconButton(
-              icon: const Icon(Icons.chat_bubble_outline),
-              tooltip: 'Messages',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ConversationsScreen()),
-              ),
+          // Messages is available to every courier and rider: couriers talk
+          // to their logistics company staff through the unified /messaging API.
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline),
+            tooltip: 'Messages',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ConversationsScreen()),
             ),
+          ),
           if (isCourier)
             IconButton(
               icon: const Icon(Icons.help_outline),

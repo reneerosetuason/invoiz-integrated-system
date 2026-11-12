@@ -1,6 +1,6 @@
     @if($seller && $editable)
     @php($proposalResolution=old('resolution',$agreement->resolution))
-    <article><h2>{{ $agreement->status==='draft' ? 'Send a resolution proposal' : 'Edit and resend proposal' }}</h2>
+    <details class="return-task" name="return-current-task" {{ $agreement->status==='draft' ? 'open' : '' }}><summary><h2>{{ $agreement->status==='draft' ? 'Send a resolution proposal' : 'Edit and resend proposal' }}</h2></summary><div class="return-disclosure-body">
         <p>@if((int)$agreement->policy_version>=2)For refund-only or partial-refund remedies, the buyer keeps the item and you refund them directly. Physical buyer-fault returns deduct original seller-funded costs and new return delivery automatically. For physical seller-fault returns, you pay return delivery separately and refund the full eligible paid item amount plus its original paid shipping; shipping is calculated automatically.@else Buyer fault means the buyer pays the return fees. Seller fault means you pay them.@endif Sending this proposal records your agreement; the buyer must accept this exact version.</p>
         <form method="post" action="{{ route('returns.agreement.update',$returnRequest) }}">@include('shared.returns.partials.form-identity',['action'=>'propose'])
             <label>Who is responsible?<select name="fault" required><option value="seller" @selected($agreement->fault==='seller')>Seller — wrong, faulty or damaged item supplied</option><option value="buyer" @selected($agreement->fault==='buyer')>Buyer — selected the wrong item, size or color</option></select></label>
@@ -14,6 +14,6 @@
             <label>Explanation for the buyer<textarea name="note" minlength="10" maxlength="1500" required>{{ $agreement->reason_note }}</textarea></label>
             @include('shared.returns.partials.confirm',['confirmation'=>'I agree to this proposal and to pay the return fees if I am responsible.'])<button type="submit">Send resolution proposal</button>
         </form>
-    </article>
+    </div></details>
     @endif
 

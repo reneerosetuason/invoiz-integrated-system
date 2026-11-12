@@ -1,12 +1,15 @@
 @extends('buyer.layouts.website')
 @section('content')
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
+<div class="mc-legacy mc-legacy-single">
 @php
   $buyer = session('buyer');
   $sellerId = $sellerId ?? 2;
   $messages = $messages ?? collect();
 @endphp
 <a href="{{ url('/messages') }}" style="color:var(--text2);text-decoration:none;font-weight:600;font-size:12px">← Back to messages</a>
-<div style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);margin-top:12px;overflow:hidden">
+<div class="mc-single-thread" style="background:#fff;border:1px solid var(--border);border-radius:var(--radius);margin-top:12px;overflow:hidden">
   <div style="display:flex;gap:10px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)">
     @php
       $sname = \App\Models\Seller::nameFor($sellerId);
@@ -49,4 +52,5 @@
   </form>
 </div>
 <script src="{{ asset('assets/buyer/js/chat-thread.js') }}" data-config="{{ json_encode([($sellerId), ($messages->isNotEmpty() ? (int)$messages->last()->id : 0)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+</div>
 @endsection

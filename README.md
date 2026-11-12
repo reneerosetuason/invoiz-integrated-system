@@ -49,6 +49,21 @@ Views, public assets, routes and controllers are grouped by buyer, seller,
 logistics, admin and shared ownership. Each role uses the shared navbar and
 sidebar templates under `resources/views/shared/navigation/`.
 
+| Directory | Purpose |
+| --- | --- |
+| `app/`, `routes/`, `config/` | Shared Laravel application and role-specific endpoints |
+| `resources/views/`, `public/assets/` | Role-owned templates, styles and scripts |
+| `buyer_mobile/`, `rider_mobile/` | Active Flutter applications using the shared backend |
+| `database/` | Migrations, factories, seeders and documented integration SQL |
+| `tests/`, `e2e/` | PHP feature tests and browser test source |
+| `scripts/` | Maintained repository automation |
+| `docs/` | Setup references, flow guides and audit records |
+
+Generated browser reports and screenshots are local output, not application
+source. `.tools/` contains local inspection tools, SDKs and isolated database
+fixtures; it is ignored by Git. Runtime uploads, private downloads and application
+data remain under `storage/` and must not be treated as cleanup artifacts.
+
 All database migrations live directly in `database/migrations/`, using Laravel's
 default discovery and filename ordering. See the [migration organization record](docs/refactoring/migration-structure.md)
 for the logistics migration moves.
@@ -56,6 +71,7 @@ for the logistics migration moves.
 - [Role, authentication and authorization reference](README-INTEGRATED.md)
 - [Folder structure and original refactor](docs/refactoring/file-structure.md)
 - [Unused-file cleanup inventory](docs/refactoring/cleanup.md)
+- [2026-11-12 cleanup and verification](docs/refactoring/cleanup-2026-11-12.md)
 - [Historical database integration notes](docs/DATABASE_CHANGES.md)
 
 ## Verification

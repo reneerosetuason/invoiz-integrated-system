@@ -40,7 +40,6 @@ class RiderMessageController extends Controller
             'is_read' => true,
             'read_at' => now(),
         ]);
-        $conversation->update(['unread_count' => 0]);
 
         return response()->json([
             'conversation' => $this->conversationPayload($conversation),
@@ -88,7 +87,6 @@ class RiderMessageController extends Controller
             'is_read' => true,
             'read_at' => now(),
         ]);
-        $conversation->update(['unread_count' => 0]);
 
         return response()->json([
             'messages' => $query->get()->map(fn ($m) => $this->payload($m, $user))->values(),
@@ -117,7 +115,7 @@ class RiderMessageController extends Controller
             if ($request->hasFile('attachment') && $request->file('attachment')->isValid()) {
                 $file = $request->file('attachment');
                 $filename = Str::uuid() . '.' . strtolower($file->getClientOriginalExtension());
-                $storedPath = $file->storeAs("message-attachments/{$conversation->id}", $filename, 'public');
+                $storedPath = $file->storeAs("message-attachments/{$conversation->id}", $filename, 'local');
 
                 MessageAttachment::create([
                     'message_id' => $message->id,
@@ -125,7 +123,7 @@ class RiderMessageController extends Controller
                     'stored_path' => $storedPath,
                     'mime_type' => $file->getMimeType(),
                     'file_size' => $file->getSize(),
-                    'disk' => 'public',
+                    'disk' => 'local',
                 ]);
             }
 
@@ -166,7 +164,7 @@ class RiderMessageController extends Controller
                 'name' => $a->original_filename,
                 'size' => $a->humanSize(),
                 'is_image' => $a->isImage(),
-                'url' => url('storage/' . $a->stored_path),
+                'url' => route('messaging.attachment', $a),
             ])->values(),
         ];
     }

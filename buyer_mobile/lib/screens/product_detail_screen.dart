@@ -13,6 +13,7 @@ import '../services/recently_viewed_service.dart';
 import '../theme.dart';
 import '../widgets/auth_service_provider.dart';
 import '../widgets/main_layout.dart';
+import '../widgets/skeleton_loading.dart';
 import 'chat_screen.dart';
 import 'login_screen.dart';
 import 'seller_store_screen.dart';
@@ -164,7 +165,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       showBottomNav: false,
       title: 'Product',
       child: _loading
-          ? const Center(child: CupertinoActivityIndicator())
+          ? const ProductDetailSkeleton()
           : _product == null
           ? const Center(child: Text('Product not found.'))
           : Column(

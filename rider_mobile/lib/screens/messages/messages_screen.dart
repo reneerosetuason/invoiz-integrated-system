@@ -85,7 +85,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
       await _pollThread();
       return;
     }
-    if (_messages.isEmpty) return;
     try {
       final svc = _svc();
       final after = _messages.isNotEmpty ? _messages.last.id : null;
@@ -101,21 +100,24 @@ class _MessagesScreenState extends State<MessagesScreen> {
   /// messages so loaded-older history and scroll position survive polling.
   Future<void> _pollThread() async {
     final thread = widget.thread;
-    if (thread == null || _messages.isEmpty) return;
+    if (thread == null) return;
     try {
-      final res = await _svc().getThread(thread.id);
+      final res = await _svc().getThread(thread.messageKey);
       if (!mounted) return;
-      final fresh = res.messages.reversed
-          .map(RiderMessage.fromJson)
-          .toList();
+      final fresh = res.messages.reversed.map(RiderMessage.fromJson).toList();
       if (fresh.isEmpty) return;
       final known = _messages.map((m) => m.id).toSet();
-      final incoming =
-          fresh.where((m) => !known.contains(m.id)).toList();
-      if (incoming.isEmpty) return;
-      final nearBottom = _scroll.hasClients &&
+      final incoming = fresh.where((m) => !known.contains(m.id)).toList();
+      final byId = {for (final message in fresh) message.id: message};
+      final nearBottom =
+          _scroll.hasClients &&
           (_scroll.position.maxScrollExtent - _scroll.position.pixels) < 120;
-      setState(() => _messages.addAll(incoming));
+      setState(() {
+        _messages = [
+          for (final message in _messages) byId[message.id] ?? message,
+          ...incoming,
+        ];
+      });
       if (nearBottom) _jump();
     } catch (_) {}
   }
@@ -126,7 +128,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     if (thread == null) return;
     setState(() => _loading = true);
     try {
-      final res = await _svc().getThread(thread.id);
+      final res = await _svc().getThread(thread.messageKey);
       if (!mounted) return;
       setState(() {
         _header = ConversationHeader(
@@ -137,9 +139,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
               ? 'Conversation'
               : thread.contextLine,
         );
-        _messages = res.messages.reversed
-            .map(RiderMessage.fromJson)
-            .toList();
+        _messages = res.messages.reversed.map(RiderMessage.fromJson).toList();
         _threadPage = res.currentPage;
         _threadHasMore = res.hasMore;
         _loading = false;
@@ -155,7 +155,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
     if (thread == null || !_threadHasMore || _loadingOlder) return;
     setState(() => _loadingOlder = true);
     try {
-      final res = await _svc().getThread(thread.id, page: _threadPage + 1);
+      final res = await _svc().getThread(
+        thread.messageKey,
+        page: _threadPage + 1,
+      );
       if (!mounted) return;
       setState(() {
         _messages.insertAll(
@@ -172,10 +175,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   void _jump() => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
-      });
+    if (_scroll.hasClients) _scroll.jumpTo(_scroll.position.maxScrollExtent);
+  });
 
   Future<void> _send() async {
+    if (widget.thread?.canSend == false) return;
     if (_sending) return;
     final text = _input.text.trim();
     final bytes = _pendingBytes;
@@ -191,12 +195,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
       final thread = widget.thread;
       final RiderMessage msg;
       if (thread != null) {
-        msg = RiderMessage.fromJson(await svc.sendToThread(
-          thread.id,
-          body: text.isEmpty ? '(attachment)' : text,
-          fileBytes: bytes,
-          filename: name,
-        ));
+        msg = RiderMessage.fromJson(
+          await svc.sendToThread(
+            thread.messageKey,
+            body: text.isEmpty ? '(attachment)' : text,
+            fileBytes: bytes,
+            filename: name,
+          ),
+        );
       } else {
         msg = await svc.send(
           body: text.isEmpty ? '(attachment)' : text,
@@ -214,8 +220,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
       _jump();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -247,16 +254,19 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ListTile(
               leading: const Icon(Icons.photo_outlined),
               title: const Text('Photo'),
-              subtitle: const Text('Gallery image',
-                  style: TextStyle(fontSize: 12)),
+              subtitle: const Text(
+                'Gallery image',
+                style: TextStyle(fontSize: 12),
+              ),
               onTap: () => Navigator.of(ctx).pop('photo'),
             ),
             ListTile(
               leading: const Icon(Icons.attach_file_outlined),
               title: const Text('File'),
               subtitle: const Text(
-                  'JPG, PNG, PDF, DOC, XLS, CSV up to 5 MB',
-                  style: TextStyle(fontSize: 12)),
+                'JPG, PNG, PDF, DOC, XLS, CSV up to 5 MB',
+                style: TextStyle(fontSize: 12),
+              ),
               onTap: () => Navigator.of(ctx).pop('file'),
             ),
           ],
@@ -273,7 +283,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
     final file = await picker.pickImage(
-        source: ImageSource.gallery, maxWidth: 1600, imageQuality: 80);
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 80,
+    );
     if (file == null) return;
     final bytes = await file.readAsBytes();
     if (!mounted) return;
@@ -287,18 +300,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: const [
-        'jpg', 'jpeg', 'png', 'webp', 'pdf',
-        'doc', 'docx', 'xls', 'xlsx', 'csv',
+        'jpg',
+        'jpeg',
+        'png',
+        'webp',
+        'pdf',
+        'doc',
+        'docx',
+        'xls',
+        'xlsx',
+        'csv',
       ],
       withData: true,
     );
     if (result == null || result.files.isEmpty) return;
     final file = result.files.first;
-    final bytes = file.bytes ?? (file.path != null ? await file.xFile.readAsBytes() : Uint8List(0));
+    final bytes =
+        file.bytes ??
+        (file.path != null ? await file.xFile.readAsBytes() : Uint8List(0));
     if (bytes.lengthInBytes > 5 * 1024 * 1024) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('File must not exceed 5 MB.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File must not exceed 5 MB.')),
+      );
       return;
     }
     if (!mounted) return;
@@ -324,7 +348,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     if (editing == null || thread == null || text.isEmpty) return;
     setState(() => _sending = true);
     try {
-      await _svc().editThreadMessage(thread.id, editing.id, text);
+      await _svc().editThreadMessage(thread.messageKey, editing.id, text);
       if (!mounted) return;
       setState(() {
         final i = _messages.indexWhere((m) => m.id == editing.id);
@@ -348,8 +372,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
       _input.clear();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -363,8 +388,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete message?'),
-        content:
-            const Text('This message will be removed for everyone.'),
+        content: const Text('This message will be removed for everyone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -372,15 +396,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete',
-                style: TextStyle(color: AppColors.warning)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.warning),
+            ),
           ),
         ],
       ),
     );
     if (confirm != true || !mounted) return;
     try {
-      await _svc().deleteThreadMessage(thread.id, message.id);
+      await _svc().deleteThreadMessage(thread.messageKey, message.id);
       if (!mounted) return;
       setState(() {
         final i = _messages.indexWhere((m) => m.id == message.id);
@@ -402,10 +428,26 @@ class _MessagesScreenState extends State<MessagesScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
       }
     }
+  }
+
+  Widget _privateImage(MessageAttachment attachment, BoxFit fit) {
+    return FutureBuilder<Uint8List>(
+      future: context.read<AuthProvider>().api.getSharedImage(
+        'messaging/attachments/${attachment.id}',
+      ),
+      builder: (context, snapshot) => snapshot.hasData
+          ? Image.memory(snapshot.data!, width: 180, fit: fit)
+          : Text(
+              snapshot.hasError
+                  ? 'Unable to load attachment'
+                  : 'Loading attachment…',
+            ),
+    );
   }
 
   void _viewAttachment(MessageAttachment a) {
@@ -416,16 +458,21 @@ class _MessagesScreenState extends State<MessagesScreen> {
         child: GestureDetector(
           onTap: () => Navigator.of(ctx).pop(),
           child: InteractiveViewer(
-            child: Image.network(
-              a.url,
-              fit: BoxFit.contain,
-              loadingBuilder: (_, child, progress) =>
-                  progress == null ? child : const Center(child: CircularProgressIndicator()),
-              errorBuilder: (_, _, _) => const Center(
-                child: Text('Unable to load attachment',
-                    style: TextStyle(color: Colors.white)),
-              ),
-            ),
+            child: a.url.contains('/message-center/')
+                ? _privateImage(a, BoxFit.contain)
+                : Image.network(
+                    a.url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (_, child, progress) => progress == null
+                        ? child
+                        : const Center(child: CircularProgressIndicator()),
+                    errorBuilder: (_, _, _) => const Center(
+                      child: Text(
+                        'Unable to load attachment',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
           ),
         ),
       ),
@@ -454,13 +501,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
               onTap: () => _viewAttachment(a),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  a.url,
-                  width: 180,
-                  height: 140,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => fileLabel(),
-                ),
+                child: a.url.contains('/message-center/')
+                    ? _privateImage(a, BoxFit.cover)
+                    : Image.network(
+                        a.url,
+                        width: 180,
+                        height: 140,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => fileLabel(),
+                      ),
               ),
             )
           : fileLabel(),
@@ -481,25 +530,28 @@ class _MessagesScreenState extends State<MessagesScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            AvatarView(
-              label: _header?.displayName ?? 'Messages',
-              radius: 17,
-            ),
+            AvatarView(label: _header?.displayName ?? 'Messages', radius: 17),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_header?.displayName ?? 'Messages',
-                      style:
-                          const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                  Text(
+                    _header?.displayName ?? 'Messages',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   if (_header != null)
                     Text(
                       _header!.tracking != null
                           ? '${_header!.recipientLabel ?? 'Support'} · ${_header!.tracking}'
                           : (_header!.recipientLabel ?? 'Support'),
                       style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                 ],
               ),
@@ -508,243 +560,369 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ),
         centerTitle: false,
       ),
-      body: Column(children: [
-        if (widget.thread != null && _threadHasMore && !_loading)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: _loadingOlder
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+      body: Column(
+        children: [
+          if (widget.thread != null && _threadHasMore && !_loading)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: _loadingOlder
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : TextButton(
+                      onPressed: _loadOlder,
+                      child: const Text('Load older messages'),
+                    ),
+            ),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _messages.isEmpty
+                ? const Center(
+                    child: Text(
+                      'No messages yet. Start a conversation with Logistics.',
+                    ),
                   )
-                : TextButton(
-                    onPressed: _loadOlder,
-                    child: const Text('Load older messages'),
-                  ),
-          ),
-        Expanded(
-          child: _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _messages.isEmpty
-                  ? const Center(child: Text('No messages yet. Start a conversation with Logistics.'))
-                  : ListView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _messages.length,
-                      itemBuilder: (_, i) {
-                        final m = _messages[i];
-                        final showDay = i == 0 || _messages[i - 1].dayLabel != m.dayLabel;
-                        return Column(children: [
+                : ListView.builder(
+                    controller: _scroll,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (_, i) {
+                      final m = _messages[i];
+                      final showDay =
+                          i == 0 || _messages[i - 1].dayLabel != m.dayLabel;
+                      return Column(
+                        children: [
                           if (showDay)
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 5),
+                                  horizontal: 12,
+                                  vertical: 5,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.surfaceSoft,
                                   borderRadius: BorderRadius.circular(
-                                      AppRadius.pill),
+                                    AppRadius.pill,
+                                  ),
                                 ),
-                                child: Text(m.dayLabel,
-                                    style: AppText.caption),
+                                child: Text(m.dayLabel, style: AppText.caption),
                               ),
                             ),
                           Align(
-                            alignment: m.mine ? Alignment.centerRight : Alignment.centerLeft,
+                            alignment: m.mine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
                             child: Container(
                               margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 12,
+                              ),
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.75,
+                              ),
                               decoration: BoxDecoration(
                                 color: m.mine ? AppTheme.primary : Colors.white,
                                 // Tight corner on the sender's side marks
                                 // the direction of each message.
                                 borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(18),
-                                  topRight: const Radius.circular(18),
-                                  bottomLeft: Radius.circular(m.mine ? 18 : 6),
-                                  bottomRight:
-                                      Radius.circular(m.mine ? 6 : 18),
+                                  topLeft: const Radius.circular(14),
+                                  topRight: const Radius.circular(14),
+                                  bottomLeft: Radius.circular(m.mine ? 14 : 4),
+                                  bottomRight: Radius.circular(m.mine ? 4 : 14),
                                 ),
-                                border: Border.all(color: m.mine ? AppTheme.primary : AppColors.border),
+                                border: Border.all(
+                                  color: m.mine
+                                      ? AppTheme.primary
+                                      : AppColors.border,
+                                ),
                               ),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                if (m.deleted) const Text('This message was deleted', style: TextStyle(fontStyle: FontStyle.italic, color: AppColors.textSecondary)),
-                                if (!m.deleted) Text(m.body, style: TextStyle(color: m.mine ? Colors.white : AppColors.textPrimary)),
-                                if (m.attachments.isNotEmpty) ...m.attachments.map((a) => _attachmentTile(a, m.mine)),
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(m.time, style: TextStyle(fontSize: 10, color: m.mine ? Colors.white70 : AppColors.textSecondary)),
-                                    if (m.mine && !m.deleted && widget.thread != null)
-                                      PopupMenuButton<String>(
-                                        icon: Icon(Icons.more_vert,
-                                            size: 14,
-                                            color: m.mine ? Colors.white70 : AppColors.textSecondary),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        tooltip: 'Message actions',
-                                        onSelected: (value) {
-                                          if (value == 'edit') {
-                                            _startEdit(m);
-                                          } else if (value == 'delete') {
-                                            _deleteMessage(m);
-                                          }
-                                        },
-                                        itemBuilder: (_) => const [
-                                          PopupMenuItem(
-                                              value: 'edit',
-                                              child: Text('Edit')),
-                                          PopupMenuItem(
-                                              value: 'delete',
-                                              child: Text('Delete')),
-                                        ],
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (m.deleted)
+                                    const Text(
+                                      'This message was deleted',
+                                      style: TextStyle(
+                                        fontStyle: FontStyle.italic,
+                                        color: AppColors.textSecondary,
                                       ),
-                                  ],
-                                ),
-                              ]),
+                                    ),
+                                  if (!m.deleted)
+                                    Text(
+                                      m.body,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        height: 1.6,
+                                        color: m.mine
+                                            ? Colors.white
+                                            : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  if (m.attachments.isNotEmpty)
+                                    ...m.attachments.map(
+                                      (a) => _attachmentTile(a, m.mine),
+                                    ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        m.time,
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: m.mine
+                                              ? Colors.white70
+                                              : AppColors.textSecondary,
+                                        ),
+                                      ),
+                                      if (m.mine &&
+                                          !m.deleted &&
+                                          widget.thread != null)
+                                        PopupMenuButton<String>(
+                                          icon: Icon(
+                                            Icons.more_vert,
+                                            size: 14,
+                                            color: m.mine
+                                                ? Colors.white70
+                                                : AppColors.textSecondary,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          tooltip: 'Message actions',
+                                          onSelected: (value) {
+                                            if (value == 'edit') {
+                                              _startEdit(m);
+                                            } else if (value == 'delete') {
+                                              _deleteMessage(m);
+                                            }
+                                          },
+                                          itemBuilder: (_) => const [
+                                            PopupMenuItem(
+                                              value: 'edit',
+                                              child: Text('Edit'),
+                                            ),
+                                            PopupMenuItem(
+                                              value: 'delete',
+                                              child: Text('Delete'),
+                                            ),
+                                          ],
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ]);
-                      },
-                    ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: AppColors.border))),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedSwitcher(
-                duration: AppMotion.micro,
-                switchInCurve: AppMotion.easeOut,
-                child: _editing != null
-                    ? Container(
-                        key: ValueKey(_editing!.id),
-                        width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.secondary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(12),
+                        ],
+                      );
+                    },
                   ),
-                  child: Row(
-                    children: [
-                      const Expanded(
-                        child: Text('Editing message',
-                            style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary)),
-                      ),
-                      TextButton(
-                        onPressed: _sending ? null : _cancelEdit,
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(0, 0),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: const Text('Cancel',
-                            style: TextStyle(fontSize: 12)),
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-            ),
-              AnimatedSwitcher(
-                duration: AppMotion.micro,
-                switchInCurve: AppMotion.easeOut,
-                child: _pendingName != null
-                    ? Container(
-                        key: ValueKey(_pendingName),
-                        width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceSoft,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Row(
-                    children: [
-                      _pendingIsImage && _pendingBytes != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.memory(
-                                _pendingBytes!,
-                                width: 48,
-                                height: 48,
-                                fit: BoxFit.cover,
-                              ),
-                            )
-                          : Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                    color: AppColors.border),
-                              ),
-                              child: const Icon(
-                                  Icons.insert_drive_file_outlined,
-                                  color: AppColors.textSecondary),
-                            ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _pendingName!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600),
-                            ),
-                            Text(
-                              '${(_pendingBytes!.lengthInBytes / 1024).toStringAsFixed(0)} KB',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _sending
-                            ? null
-                            : () => setState(_clearPending),
-                        icon: const Icon(Icons.close, size: 18),
-                        tooltip: 'Remove attachment',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ],
-                  ),
-                )
-              : const SizedBox.shrink(),
-            ),
-              Row(children: [
-            IconButton(
-                onPressed: _sending ? null : _showAttachMenu,
-                icon: const Icon(Icons.add_circle_outline),
-                tooltip: 'Attach photo or file'),
-            Expanded(child: TextField(controller: _input, decoration: InputDecoration(hintText: 'Type a message...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)), contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)), onSubmitted: (_) => _send())),
-            const SizedBox(width: 8),
-            CircleAvatar(backgroundColor: AppTheme.primary, child: IconButton(icon: _sending ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.send_outlined, color: Colors.white, size: 18), onPressed: _sending ? null : () => _send())),
-          ]),
-            ],
           ),
-        ),
-      ]),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: AppColors.border)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedSwitcher(
+                  duration: AppMotion.micro,
+                  switchInCurve: AppMotion.easeOut,
+                  child: _editing != null
+                      ? Container(
+                          key: ValueKey(_editing!.id),
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                  'Editing message',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _sending ? null : _cancelEdit,
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(0, 0),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                AnimatedSwitcher(
+                  duration: AppMotion.micro,
+                  switchInCurve: AppMotion.easeOut,
+                  child: _pendingName != null
+                      ? Container(
+                          key: ValueKey(_pendingName),
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceSoft,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              _pendingIsImage && _pendingBytes != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.memory(
+                                        _pendingBytes!,
+                                        width: 48,
+                                        height: 48,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: AppColors.border,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.insert_drive_file_outlined,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _pendingName!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${(_pendingBytes!.lengthInBytes / 1024).toStringAsFixed(0)} KB',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: _sending
+                                    ? null
+                                    : () => setState(_clearPending),
+                                icon: const Icon(Icons.close, size: 18),
+                                tooltip: 'Remove attachment',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed:
+                          _sending ||
+                              widget.thread?.canSend == false ||
+                              widget.thread?.threadKey?.startsWith(
+                                    'marketplace:',
+                                  ) ==
+                                  true
+                          ? null
+                          : _showAttachMenu,
+                      icon: const Icon(Icons.add_circle_outline),
+                      tooltip: 'Attach photo or file',
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _input,
+                        enabled: widget.thread?.canSend != false,
+                        decoration: InputDecoration(
+                          hintText: widget.thread?.canSend == false
+                              ? 'Conversation is read only'
+                              : 'Type a message...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                        ),
+                        onSubmitted: (_) => _send(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    CircleAvatar(
+                      backgroundColor: AppTheme.primary,
+                      child: IconButton(
+                        icon: _sending
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.send_outlined,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                        onPressed: _sending || widget.thread?.canSend == false
+                            ? null
+                            : () => _send(),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

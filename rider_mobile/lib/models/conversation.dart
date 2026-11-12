@@ -13,9 +13,14 @@ class ConversationThread {
     this.preview,
     this.unread = 0,
     this.lastMessageAt,
+    this.threadKey,
+    this.canSend = true,
   });
 
   final int id;
+  final String? threadKey;
+  final bool canSend;
+  Object get messageKey => threadKey ?? id;
   final String name;
   final String type;
   final String? typeLabel;
@@ -30,8 +35,7 @@ class ConversationThread {
     final role = (typeLabel ?? type).isEmpty
         ? ''
         : _titleCase(typeLabel ?? type);
-    final ref = tracking ??
-        (orderId != null ? 'Order #$orderId' : null);
+    final ref = tracking ?? (orderId != null ? 'Order #$orderId' : null);
     if (role.isEmpty) return ref ?? '';
     if (ref == null || ref.isEmpty) return role;
     return '$role · $ref';
@@ -45,6 +49,8 @@ class ConversationThread {
   factory ConversationThread.fromJson(Map<String, dynamic> json) {
     return ConversationThread(
       id: (json['id'] as num?)?.toInt() ?? 0,
+      threadKey: json['thread_key'] as String?,
+      canSend: json['can_send'] as bool? ?? true,
       name: json['name'] as String? ?? '',
       type: json['type'] as String? ?? '',
       typeLabel: json['type_label'] as String?,

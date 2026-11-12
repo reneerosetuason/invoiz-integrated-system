@@ -32,6 +32,7 @@ class InterHubRemittanceAcceptanceTest extends TestCase
             'logistics_companies' => 'name status deleted_at',
             'hub_transport_drivers' => 'name email password status is_online logistics_company_id user_id logistics_truck_id deleted_at',
             'logistics_trucks' => 'hub_transport_driver_id deleted_at',
+            'rider_applications' => 'hub_transport_driver_id user_id application_type status logistics_center_id license_expiry deleted_at',
             'hub_transfers' => 'reference logistics_company_id driver_id status received_at origin_center_id destination_center_id truck_id',
             'hub_transfer_parcels' => 'hub_transfer_id delivery_id loading_status receiving_status',
             'hub_transfer_events' => 'hub_transfer_id',

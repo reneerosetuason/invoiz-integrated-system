@@ -5,6 +5,19 @@ require __DIR__.'/buyer/api.php';
 require __DIR__.'/shared/api-user.php';
 require __DIR__.'/logistics/api.php';
 
+foreach (['messaging', 'messages-center', 'logistics/messaging'] as $messagingPrefix) {
+\Illuminate\Support\Facades\Route::middleware('auth:sanctum')->prefix($messagingPrefix)->group(function () {
+    $controller = \App\Http\Controllers\MessagingController::class;
+    \Illuminate\Support\Facades\Route::get('/inbox', [$controller, 'inbox']);
+    \Illuminate\Support\Facades\Route::get('/contacts', [$controller, 'contacts']);
+    \Illuminate\Support\Facades\Route::post('/start', [$controller, 'start']);
+    \Illuminate\Support\Facades\Route::get('/threads/{key}', [$controller, 'messages']);
+    \Illuminate\Support\Facades\Route::post('/threads/{key}', [$controller, 'send'])->middleware('throttle:60,1');
+    \Illuminate\Support\Facades\Route::match(['patch', 'delete'], '/threads/{key}/messages/{id}', [$controller, 'update'])->whereNumber('id');
+    \Illuminate\Support\Facades\Route::get('/attachments/{attachment}', [$controller, 'attachment']);
+});
+}
+
 \Illuminate\Support\Facades\Route::middleware(['auth:sanctum'])->group(function () {
     \Illuminate\Support\Facades\Route::get('/remittances/payout-account', [\App\Http\Controllers\PayoutAccountController::class, 'index']);
     \Illuminate\Support\Facades\Route::post('/remittances/payout-account', [\App\Http\Controllers\PayoutAccountController::class, 'update']);

@@ -1,4 +1,7 @@
 <x-app-layout>
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
+
     <div x-data="messagesApp({
             conversations: @js($conversationsData),
             messages: @js($messagesData),
@@ -16,7 +19,7 @@
             recipientsUrl: @js(route('messages.recipients', [], false)),
             startUrl: @js(route('messages.start', [], false))
         })"
-         class="lw-messages h-[calc(100vh-7rem)] flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+         class="mc-legacy lw-messages h-[calc(100vh-7rem)] flex bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
 
         {{-- ================= Conversation List Panel ================= --}}
         <div class="lw-message-list w-full sm:w-80 lg:w-96 border-r border-gray-200 flex-col bg-gray-50/50 flex-shrink-0"
@@ -195,7 +198,7 @@
 
                         <div class="flex mb-2" :class="msg.mine ? 'justify-end' : 'justify-start'">
                             <div class="max-w-[75%] group">
-                                <div class="inline-block w-fit max-w-full px-3.5 py-2 rounded-2xl text-sm leading-snug text-left whitespace-pre-wrap break-words align-top" :class="msg.mine ? 'bg-teal text-white rounded-br-md' : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md shadow-sm'"><span x-text="msg.deleted ? 'This message was deleted.' : msg.body" :class="msg.deleted ? 'italic opacity-60' : ''"></span><span x-show="msg.edited_at && !msg.deleted" class="text-[10px] italic opacity-70 ml-1.5">Edited</span></div>
+                                <div class="mc-message-bubble inline-block w-fit max-w-full px-3.5 py-2 rounded-2xl text-sm leading-snug text-left whitespace-pre-wrap break-words align-top" :class="msg.mine ? 'bg-teal text-white rounded-br-md' : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md shadow-sm'"><span x-text="msg.deleted ? 'This message was deleted.' : msg.body" :class="msg.deleted ? 'italic opacity-60' : ''"></span><span x-show="msg.edited_at && !msg.deleted" class="text-[10px] italic opacity-70 ml-1.5">Edited</span></div>
 
                                 {{-- Attachments --}}
                                 <template x-for="att in (msg.deleted ? [] : msg.attachments)" :key="att.id">

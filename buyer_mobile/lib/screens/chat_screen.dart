@@ -4,6 +4,7 @@ import '../widgets/buyer_field.dart';
 import 'package:flutter/cupertino.dart';
 import '../widgets/buyer_page.dart';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/chat.dart';
 import '../widgets/chat_product_card.dart';
@@ -96,7 +97,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _error = null;
     });
     try {
-      final data = await _api.get('conversations');
+      final data = await _api.get('messages-center/inbox');
       if (!mounted) return;
       setState(() {
         _conversations = (data['conversations'] as List)
@@ -132,6 +133,7 @@ class _ChatScreenState extends State<ChatScreen> {
           api: _api,
           conversationId: conversation['id'] as int,
           subject: conversation['subject'] as String? ?? 'Support inquiry',
+          threadKey: conversation['thread_key'] as String?,
         ),
       ),
     );
@@ -220,6 +222,8 @@ class _ChatScreenState extends State<ChatScreen> {
                 api: _api,
                 conversationId: c.id,
                 subject: c.displayName,
+                threadKey: c.threadKey,
+                canSend: c.canSend,
               ),
             ),
           ).then((_) {
@@ -228,7 +232,8 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.card,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border),
         ),
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -237,26 +242,18 @@ class _ChatScreenState extends State<ChatScreen> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: c.sellerId != null
-                    ? AppColors.primaryDark
-                    : AppColors.primary,
-                shape: BoxShape.circle,
+                color: AppColors.surfaceSoft,
+                borderRadius: BorderRadius.circular(12),
               ),
               alignment: Alignment.center,
-              child: c.sellerId != null
-                  ? Text(
-                      c.initial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  : const Icon(
-                      Icons.support_agent,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+              child: Text(
+                c.initial,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -320,11 +317,15 @@ class ChatThreadScreen extends StatefulWidget {
   final int conversationId;
   final String subject;
   final ApiService? api;
+  final String? threadKey;
+  final bool canSend;
   const ChatThreadScreen({
     super.key,
     required this.conversationId,
     required this.subject,
     this.api,
+    this.threadKey,
+    this.canSend = true,
   });
 
   @override
@@ -340,6 +341,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
   String? _error, _sendError;
   final _scroll = ScrollController();
   bool _sending = false, _fetching = false;
+  bool _hasOlder = false, _loadingOlder = false;
+  int _page = 1;
   Timer? _refreshTimer;
 
   @override
@@ -367,23 +370,29 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
   }
 
   Future<void> _load({bool silent = false}) async {
-    if (!mounted || _fetching || _sending) return;
+    if (!mounted || _fetching || _sending || (silent && _page > 1)) return;
     _fetching = true;
-    if (!silent)
+    if (!silent) {
       setState(() {
         _loading = true;
         _error = null;
       });
+    }
     final nearBottom = !_scroll.hasClients || _scroll.position.extentAfter < 80;
     try {
       final data = await _api.get(
-        'conversations/${widget.conversationId}/messages',
+        widget.threadKey == null
+            ? 'conversations/${widget.conversationId}/messages'
+            : 'messages-center/threads/${widget.threadKey}',
       );
       if (!mounted) return;
       final incoming = (data['messages'] as List)
           .whereType<Map<String, dynamic>>()
           .map(ChatMessage.fromJson)
           .toList();
+      if (widget.threadKey != null) {
+        incoming.sort((a, b) => a.id.compareTo(b.id));
+      }
       final changed =
           incoming.length != _messages.length ||
           (incoming.isNotEmpty &&
@@ -397,6 +406,10 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
       );
       setState(() {
         _messages = [...incoming, ...newer];
+        if (widget.threadKey != null) {
+          _hasOlder = (data['pagination']?['last_page'] as int? ?? 1) > 1;
+          _page = 1;
+        }
         _loading = false;
         _error = null;
       });
@@ -419,7 +432,38 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
     });
   }
 
+  Future<void> _loadOlder() async {
+    if (widget.threadKey == null || _loadingOlder) return;
+    setState(() => _loadingOlder = true);
+    try {
+      final result = await _api.get(
+        'messages-center/threads/${widget.threadKey}',
+        query: {'page': '${_page + 1}'},
+      );
+      if (!mounted) return;
+      final older = (result['messages'] as List)
+          .whereType<Map<String, dynamic>>()
+          .map(ChatMessage.fromJson)
+          .toList()
+          .reversed;
+      final known = _messages.map((message) => message.id).toSet();
+      setState(() {
+        _messages.insertAll(
+          0,
+          older.where((message) => !known.contains(message.id)),
+        );
+        _page = result['pagination']['current_page'] as int;
+        _hasOlder = _page < (result['pagination']['last_page'] as int);
+      });
+    } catch (error) {
+      if (mounted) setState(() => _sendError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingOlder = false);
+    }
+  }
+
   Future<void> _send() async {
+    if (!widget.canSend) return;
     final text = _inputCtrl.text.trim();
     if (text.isEmpty || _sending || _loading) return;
     if (text.length > 2000) {
@@ -434,12 +478,14 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
     });
     try {
       final r = await _api.post(
-        'conversations/${widget.conversationId}/reply',
+        widget.threadKey == null
+            ? 'conversations/${widget.conversationId}/reply'
+            : 'messages-center/threads/${widget.threadKey}',
         {'body': text},
       );
       if (!mounted) return;
       final message = ChatMessage.fromJson(
-        r['message'] as Map<String, dynamic>,
+        (r['message'] ?? r['data']) as Map<String, dynamic>,
       );
       setState(() {
         if (!_messages.any((m) => m.id == message.id)) _messages.add(message);
@@ -481,6 +527,11 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
       ],
       child: Column(
         children: [
+          if (_hasOlder)
+            TextButton(
+              onPressed: _loadingOlder ? null : _loadOlder,
+              child: const Text('Load earlier messages'),
+            ),
           Expanded(
             child: _loading
                 ? const Center(child: CupertinoActivityIndicator())
@@ -520,12 +571,14 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
                   Expanded(
                     child: BuyerField(
                       controller: _inputCtrl,
-                      readOnly: _sending,
+                      readOnly: _sending || !widget.canSend,
                       maxLength: 2000,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message...',
+                      decoration: InputDecoration(
+                        hintText: widget.canSend
+                            ? 'Type a message...'
+                            : 'Conversation is read only',
                         counterText: '',
                         contentPadding: EdgeInsets.symmetric(
                           horizontal: 12,
@@ -536,7 +589,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
                   ),
                   const SizedBox(width: 8),
                   BuyerButton.primary(
-                    onPressed: _sending || _loading ? null : _send,
+                    onPressed: _sending || _loading || !widget.canSend
+                        ? null
+                        : _send,
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(46, 46),
                       padding: EdgeInsets.zero,
@@ -566,17 +621,20 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width.clamp(0, 760) * .78,
         ),
         decoration: BoxDecoration(
-          color: mine ? AppColors.primaryDark : Colors.white,
+          color: mine ? AppColors.primary : AppColors.card,
+          border: Border.all(
+            color: mine ? AppColors.primary : AppColors.border,
+          ),
           borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: Radius.circular(mine ? 16 : 6),
-            bottomRight: Radius.circular(mine ? 6 : 16),
+            topLeft: const Radius.circular(14),
+            topRight: const Radius.circular(14),
+            bottomLeft: Radius.circular(mine ? 14 : 4),
+            bottomRight: Radius.circular(mine ? 4 : 14),
           ),
         ),
         child: Column(
@@ -599,9 +657,26 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
               m.body,
               style: TextStyle(
                 fontSize: 14,
+                height: 1.6,
                 color: mine ? Colors.white : AppColors.textPrimary,
               ),
             ),
+            for (final attachment in m.attachments)
+              if (attachment['is_image'] == true)
+                FutureBuilder<Uint8List>(
+                  future: _api.getImage(
+                    'messaging/attachments/${attachment['id']}',
+                  ),
+                  builder: (context, snapshot) => snapshot.hasData
+                      ? Image.memory(
+                          snapshot.data!,
+                          width: 180,
+                          fit: BoxFit.contain,
+                        )
+                      : Text(attachment['name'] as String? ?? 'Attachment'),
+                )
+              else
+                Text(attachment['name'] as String? ?? 'Attachment'),
             const SizedBox(height: 2),
             Text(
               _time(m.createdAt),
@@ -638,6 +713,28 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
   final _subject = TextEditingController(), _body = TextEditingController();
   bool _sending = false;
   String? _error;
+  List<Map<String, dynamic>> _contacts = [];
+  String? _recipient;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadContacts();
+  }
+
+  Future<void> _loadContacts() async {
+    try {
+      final result = await widget.api.get('messages-center/contacts');
+      if (!mounted) return;
+      setState(() {
+        _contacts = (result['contacts'] as List)
+            .whereType<Map<String, dynamic>>()
+            .toList();
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    }
+  }
 
   @override
   void dispose() {
@@ -653,14 +750,34 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
       _error = null;
     });
     try {
+      if (_recipient != null) {
+        final thread = await widget.api.post('messages-center/start', {
+          'recipient': _recipient,
+        });
+        final key = thread['thread_key'] as String;
+        await widget.api.post('messages-center/threads/$key', {
+          'body': _body.text.trim(),
+        });
+        if (!mounted) return;
+        final contact = _contacts.firstWhere(
+          (contact) => contact['key'] == _recipient,
+        );
+        Navigator.pop(context, <String, dynamic>{
+          'id': int.parse(key.split(':').last),
+          'thread_key': key,
+          'subject': contact['name'],
+        });
+        return;
+      }
       final result = await widget.api.post('conversations', {
         'subject': _subject.text.trim().isEmpty
             ? 'Support inquiry'
             : _subject.text.trim(),
         'body': _body.text.trim(),
       });
-      if (mounted)
+      if (mounted) {
         Navigator.pop(context, result['conversation'] as Map<String, dynamic>);
+      }
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -672,7 +789,7 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
   Widget build(BuildContext context) => PopScope(
     canPop: !_sending,
     child: BuyerAlertDialog(
-      title: const Text('Contact support'),
+      title: const Text('New message'),
       content: SingleChildScrollView(
         child: Form(
           key: _form,
@@ -681,6 +798,27 @@ class _NewMessageDialogState extends State<_NewMessageDialog> {
             children: [
               const Text(
                 'For a product question, use Chat with seller on the product or store page.',
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _recipient,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Contact'),
+                hint: const Text('Platform support'),
+                items: _contacts
+                    .map(
+                      (contact) => DropdownMenuItem<String>(
+                        value: contact['key'] as String,
+                        child: Text(
+                          contact['name'] as String,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _sending
+                    ? null
+                    : (value) => setState(() => _recipient = value),
               ),
               const SizedBox(height: 12),
               BuyerField.form(

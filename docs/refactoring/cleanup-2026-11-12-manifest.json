@@ -1,0 +1,388 @@
+{
+  "date": "2026-11-12",
+  "recoveryArchive": "storage/framework/cleanup-recovery-20261112.zip",
+  "archiveSha256": "996754037d08817de41cd98ed88c027378e76d0e33adce2f8cfc545adf873642",
+  "removedFiles": [
+    {
+      "path": "app/Http/Controllers/Logistics/Auth/RegisteredUserController.php",
+      "reason": "Unrouted starter self-registration code; logistics register GET and POST already redirect to login.",
+      "bytes": 1387,
+      "sha256": "d83aeae80c92a186c4e90b117cfad78f805c80fee21fc1da4204c5fd73b9921c"
+    },
+    {
+      "path": "debug.log",
+      "reason": "Historical root export or diagnostic output with no application/automation reference; preserved in private recovery archive.",
+      "bytes": 11194,
+      "sha256": "6e1ab0fd1c6bfba81662c56f3cb8afbef1646fc9cff1b64db71d6febcaa18af8"
+    },
+    {
+      "path": "dev_nodata.sql",
+      "reason": "Historical root export or diagnostic output with no application/automation reference; preserved in private recovery archive.",
+      "bytes": 267358,
+      "sha256": "7740a1ef78c3fc2fea103149273ef40c62a904228bf1fc7740f17b6507e4d2aa"
+    },
+    {
+      "path": "dev_tables.txt",
+      "reason": "Historical root export or diagnostic output with no application/automation reference; preserved in private recovery archive.",
+      "bytes": 3270,
+      "sha256": "56a2208ce5058d3d592b896d39977cfe03955350c2ac1efe682e0b41475a01d9"
+    },
+    {
+      "path": "full_dev_db.sql",
+      "reason": "Historical root export or diagnostic output with no application/automation reference; preserved in private recovery archive.",
+      "bytes": 1190566,
+      "sha256": "0b7b3d59362bdd713d3df25124468c02d750fff57a32a8dce0e5ea9956477bf9"
+    },
+    {
+      "path": "full_dev_schema.sql",
+      "reason": "Historical root export or diagnostic output with no application/automation reference; preserved in private recovery archive.",
+      "bytes": 1403298,
+      "sha256": "a7fdf7083f7e9b5d9ddf00fcb1c74d800240f6414fd1409bd97870de0bcfbb6b"
+    },
+    {
+      "path": "mobile/rider/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java",
+      "reason": "Incomplete obsolete Android-only stub; active rider client is rider_mobile and active buyer client is buyer_mobile.",
+      "bytes": 4206,
+      "sha256": "8521f9fd0ab47d814ed08cb5fadb6c9a6ddafe6260cdedd655534cb0b6802f93"
+    },
+    {
+      "path": "mobile/rider/android/gradle/wrapper/gradle-wrapper.jar",
+      "reason": "Incomplete obsolete Android-only stub; active rider client is rider_mobile and active buyer client is buyer_mobile.",
+      "bytes": 53636,
+      "sha256": "16caeaf66d57a0d1d2087fef6a97efa62de8da69afa5b908f40db35afc4342da"
+    },
+    {
+      "path": "mobile/rider/android/gradlew",
+      "reason": "Incomplete obsolete Android-only stub; active rider client is rider_mobile and active buyer client is buyer_mobile.",
+      "bytes": 4971,
+      "sha256": "ec56c02543666d92d9ac5ae7fcc48f88ce4de0deb8b7f9b39928ca46f68c1b2b"
+    },
+    {
+      "path": "mobile/rider/android/gradlew.bat",
+      "reason": "Incomplete obsolete Android-only stub; active rider client is rider_mobile and active buyer client is buyer_mobile.",
+      "bytes": 2314,
+      "sha256": "f4f428c5626b3d90cef3bd4e7fd3ad3ea5760442db8c09d586b5bfe031dbe5e3"
+    },
+    {
+      "path": "mobile/rider/android/local.properties",
+      "reason": "Incomplete obsolete Android-only stub; active rider client is rider_mobile and active buyer client is buyer_mobile.",
+      "bytes": 155,
+      "sha256": "3e6dd02d18c4a04ef50766d7b0ded2570edb15cce9c803d4dc24f4c41a94749b"
+    },
+    {
+      "path": "playwright-report/index.html",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 520520,
+      "sha256": "8e14ad774f1730c6152956972105bcb3fa0da7ac53d22397ad6e90e81cd334e3"
+    },
+    {
+      "path": "public/assets/admin/css/buyers.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 2704,
+      "sha256": "285b4f49cb409e4a1deb66c314b2bd688dcbfe6f7e65444f60ed154c885ffa45"
+    },
+    {
+      "path": "public/assets/admin/css/categories.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 10348,
+      "sha256": "f8b8ee1ad11777201146f9d563a9cb9979b92b7ab47624b278a4d65060b6697b"
+    },
+    {
+      "path": "public/assets/admin/css/commission.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 11719,
+      "sha256": "2f10a52ebaf610cb26f36d58fcf659f852f840b43cd8694b451d04cd51f29123"
+    },
+    {
+      "path": "public/assets/admin/css/complaints.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 6470,
+      "sha256": "938c6ed2724df1584e95471910d5f1e985fbcbc7529a691dd2e4156c799f4a65"
+    },
+    {
+      "path": "public/assets/admin/css/partials/list-ui-styles.css",
+      "reason": "Stylesheet referenced only by the unused legacy partial removed in this cleanup.",
+      "bytes": 17846,
+      "sha256": "4f6522dd5a0abd373c619e30af55352baf1fd77565034781329be857a57b6ffe"
+    },
+    {
+      "path": "public/assets/admin/css/partials/order-ui-styles.css",
+      "reason": "Stylesheet referenced only by the unused legacy partial removed in this cleanup.",
+      "bytes": 26714,
+      "sha256": "a6cf1564e83a3c0ece28844f0c490ed807433f3f11f51acf9f91231dbe9412d6"
+    },
+    {
+      "path": "public/assets/admin/css/payments.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 13818,
+      "sha256": "f46e22b26b7ae5b2ed5c29f6f47a7bfbd75da89549623040a26224898744bcf5"
+    },
+    {
+      "path": "public/assets/admin/css/products.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 6739,
+      "sha256": "af7235d78862cfa5a7fe80e8704a066ce5a1848035b5f85ad9dcb3251ec9a1f3"
+    },
+    {
+      "path": "public/assets/admin/css/reports.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 16917,
+      "sha256": "f6ba048bcebae055d0ff92903107233c1e6303e9aa94b8ed12101aba6087506f"
+    },
+    {
+      "path": "public/assets/admin/css/seller-detail.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 3564,
+      "sha256": "9b51cf46d61ceefbe4f96add037a7b478af093f34fab8923f80508f5906e5657"
+    },
+    {
+      "path": "public/assets/admin/css/sellers.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 18676,
+      "sha256": "efb3fabb1a14296fd0445a5754c94a642c1fb859073c2ccee3194ee5cc1c347e"
+    },
+    {
+      "path": "public/assets/admin/css/settings.css",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 6450,
+      "sha256": "57a6201e8beafa255a1c92c8550a9b3018ad2543c32a49af58f28f6cef6a8030"
+    },
+    {
+      "path": "public/assets/admin/js/categories.js",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 4230,
+      "sha256": "3345db3940167d58f66ccac4229a9934609cdacf38d346473bc4162659b19a71"
+    },
+    {
+      "path": "public/assets/admin/js/payments.js",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 1650,
+      "sha256": "af5257e47053fd8312bb3b1fadbf9b574da52b7a918e93b44bac84f956956b1b"
+    },
+    {
+      "path": "public/assets/admin/js/seller-detail.js",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 61,
+      "sha256": "47e8bacaf33ad19ddbbb62ea3e2faa6841ebcf34cedfbeb7c75c66c038da7384"
+    },
+    {
+      "path": "public/assets/seller/js/orders/waybill.js",
+      "reason": "Unreferenced superseded page asset; no literal or dynamic loader uses it.",
+      "bytes": 1380,
+      "sha256": "f3cc8d2c83a0a2981ff0c8e221903e9d86a379f85efbd66ed7d6ec6bc83ea5dc"
+    },
+    {
+      "path": "resources/views/admin/partials/list-ui-styles.blade.php",
+      "reason": "Unreferenced legacy admin partial; active pages use their own current markup and styles.",
+      "bytes": 91,
+      "sha256": "d08801d980028a4ceecbb622281b1f13645d2591592da8e924e3cb89f002c450"
+    },
+    {
+      "path": "resources/views/admin/partials/order-status-chip.blade.php",
+      "reason": "Unreferenced legacy admin partial; active pages use their own current markup and styles.",
+      "bytes": 2061,
+      "sha256": "ce1bbaa8c0a7071f014c53d807b8b888d45a093681f54e74df3a539d6fd04829"
+    },
+    {
+      "path": "resources/views/admin/partials/order-ui-styles.blade.php",
+      "reason": "Unreferenced legacy admin partial; active pages use their own current markup and styles.",
+      "bytes": 92,
+      "sha256": "60d614254a1d57223e5a3ad5547ab603bfc78978ca8df80b58127d697f09429d"
+    },
+    {
+      "path": "resources/views/logistics/auth/register.blade.php",
+      "reason": "Unrouted starter self-registration code; logistics register GET and POST already redirect to login.",
+      "bytes": 2016,
+      "sha256": "7859ee2ebe7e07082de93f1ed0d7c3580c6915c0d65636cfb229fb70019870e2"
+    },
+    {
+      "path": "resources/views/shared/returns/delivery-escrow.blade.php",
+      "reason": "Superseded return payment view; current admin escrow route redirects to consolidated Payments and current inbox uses shared remittances views. Runtime support classes and routes are retained.",
+      "bytes": 3453,
+      "sha256": "f65cfb6678f7f3d3258576bf2f5d17ab30a8b9d1ccd7f0d7d27e6cdcee8e3f11"
+    },
+    {
+      "path": "resources/views/shared/returns/partials/remittance-inbox.blade.php",
+      "reason": "Superseded return payment view; current admin escrow route redirects to consolidated Payments and current inbox uses shared remittances views. Runtime support classes and routes are retained.",
+      "bytes": 3265,
+      "sha256": "e48d95994381ac7f56259d6f9c6c608164d0f37f60378813009db12bff89d516"
+    },
+    {
+      "path": "schema.sql",
+      "reason": "Historical root export or diagnostic output with no application/automation reference; preserved in private recovery archive.",
+      "bytes": 267358,
+      "sha256": "d8aa688ccb5c280a50de36a8dcc3c6f218b97e8c94a7552754294e0bbffc45b4"
+    },
+    {
+      "path": "shots/buyer-01-home.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 791677,
+      "sha256": "39ff055cd123fdfc879040b43e362a53201b24bcb82469ead676f947d622bce3"
+    },
+    {
+      "path": "shots/buyer-02-feed-scroll.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 695521,
+      "sha256": "19b7d67880c1a972d6acc7f27d984753e39dd7a5638fa92e2c1d8f105309ad26"
+    },
+    {
+      "path": "shots/rider-01-dashboard.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 224529,
+      "sha256": "eeed142932fccbb74e58a7e4b238dff600deb0a5b51c21ac071f1736faa93c8c"
+    },
+    {
+      "path": "shots/rider-01-home.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 388891,
+      "sha256": "d05c2fec8bc7c8aa0a60b3f0e86eb34efa7e330b64b90e4f8f94906f6a959881"
+    },
+    {
+      "path": "shots/rider-02-after-switch-tap.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 224448,
+      "sha256": "1577957b62764605d6fa660da9d678b1d22f9286524830d9d7d5baf41c5c05ec"
+    },
+    {
+      "path": "shots/rider-03-profile.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 225377,
+      "sha256": "bd7f80fec144c76a449b98c1395c675a12776b1a520ec7bf750e38660c5c59ac"
+    },
+    {
+      "path": "shots/rider-04-settings.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 291885,
+      "sha256": "f7783c9121f097587070815c423e9316664dfef9e8854ab4bde5eb2b10b649b4"
+    },
+    {
+      "path": "shots/rider-05-settings-bottom.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 261465,
+      "sha256": "e93c0af8cf96144e4ab9d0d2d9735a879365bcace1f6cef46ce4712319d7f60c"
+    },
+    {
+      "path": "shots/rider-06-logout-confirm.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 227445,
+      "sha256": "3dbae107ed81bf1dcccdbf8e7d1a8e4da4b89054fdfdf7021ed5f6d56d1e2d4a"
+    },
+    {
+      "path": "shots/rider-07-login.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 176556,
+      "sha256": "6d78b6943df6f987f1c9f9c89248eae7df4c001e5c5b2b8e21282421320e2598"
+    },
+    {
+      "path": "shots/rider-08-creds.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 213793,
+      "sha256": "1fa56463989addbaa0b83fdd342fdaada6c4b1d462d31d506eabe2b78700a42b"
+    },
+    {
+      "path": "shots/rider-09-clear.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 205698,
+      "sha256": "734e2f454dbc34ccc0cc0717f022e39e29e916eb3395abd7115ad77001e9ed29"
+    },
+    {
+      "path": "shots/rider-10-creds.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 209953,
+      "sha256": "667b4f7fffd08f97c6c73889b07133cb6d08a004d0ab95ec5b42e17f2934e5d6"
+    },
+    {
+      "path": "shots/rider-11-signin.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 278046,
+      "sha256": "1af3596240c1e83fdb1ba60e4e5e9b3738bbed0bb9e1c4e00653856507c36541"
+    },
+    {
+      "path": "shots/rider-12-transfers.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 143353,
+      "sha256": "302b1b21ecfda817be72b38216b4554d50ffe86c7a33818c97fc7db5b833dd07"
+    },
+    {
+      "path": "shots/rider-13-pickup-login.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 175990,
+      "sha256": "4b667de63f72d185a168b9106744ff21dae185881012b46abd7e2c17f54ca33e"
+    },
+    {
+      "path": "shots/rider-14-state.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 253748,
+      "sha256": "2b81a48ec0948e33102d185a366aac234c3306c6fe15c565fa9e8b8bfee2714b"
+    },
+    {
+      "path": "shots/test-receipt.png",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 15028,
+      "sha256": "760f43c792d04e15c82501ffc05588e92892a394d48ed63d19048ef9cfef8feb"
+    },
+    {
+      "path": "test-results/.last-run.json",
+      "reason": "Generated screenshot or browser-test output; source tests and Playwright report configuration remain.",
+      "bytes": 45,
+      "sha256": "91d1c43004802cd49950d78eb11c8fa7d05da8ffffe219a8b13b2f561bc00903"
+    },
+    {
+      "path": "test_tables.txt",
+      "reason": "Historical root export or diagnostic output with no application/automation reference; preserved in private recovery archive.",
+      "bytes": 2630,
+      "sha256": "b4a36159cc061b1714f0c283ae25ec06bfd742f860cd04b370693cc9e575e44a"
+    }
+  ],
+  "emptyDirectoriesRemoved": [
+    "mobile/rider/android/app/src/main/java/io/flutter/plugins",
+    "mobile/rider/android/app/src/main/java/io/flutter",
+    "mobile/rider/android/app/src/main/java/io",
+    "mobile/rider/android/app/src/main/java",
+    "mobile/rider/android/app/src/main",
+    "mobile/rider/android/gradle/wrapper",
+    "public/assets/admin/css/partials",
+    "mobile/rider/android/app/src",
+    "public/assets/seller/js/orders",
+    "mobile/rider/android/app",
+    "mobile/rider/android/gradle",
+    "mobile/rider/android",
+    "mobile/rider",
+    "mobile",
+    "test-results",
+    "shots",
+    "playwright-report"
+  ],
+  "retainedDynamicAsset": "public/assets/seller/js/products/edit.js",
+  "verification": {
+    "removedFiles": 55,
+    "removedEmptyDirectories": 17,
+    "routesUnchanged": 576,
+    "isolatedReturnTestsPassed": 148,
+    "isolatedCommerceAndEarningsTestsPassed": 111,
+    "mixedSuitePassed": 253,
+    "mixedSuitePreExistingFailures": 20,
+    "mixedSuiteNewFailures": 0,
+    "existingFailureClasses": {
+      "Tests\\Feature\\BuyerWebShoppingTest": 8,
+      "Tests\\Feature\\SharedBackendTest": 1,
+      "Tests\\Feature\\ReturnSettlementTest": 10,
+      "Tests\\Feature\\CodReconciliationTest": 1
+    },
+    "routeCount": 576,
+    "retainedSourceHashesMatch": true,
+    "removedPathsReferenced": [],
+    "allowedMetadataEdits": [
+      ".gitignore",
+      "README.md",
+      "docs/logistics-terminology-and-role-mapping.md",
+      "docs/refactoring/cleanup.md"
+    ],
+    "bladeCompilation": "passed",
+    "viteBuild": "passed",
+    "optimizedAutoload": "passed with scripts and plugins disabled",
+    "renderedRoleStatePages": 72,
+    "sharedBackend": "91 models; no data changed",
+    "activeSourcePreserved": true
+  }
+}

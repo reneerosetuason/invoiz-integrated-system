@@ -17,8 +17,7 @@ class ChatController extends Controller
 {
     public function unreadCount(Request $request)
     {
-        $count = Message::whereHas('conversation', fn ($q) => $q->where('buyer_id', $request->user()->id))
-            ->where('sender_id', '!=', $request->user()->id)->where('is_read', false)->count();
+        $count = \App\Support\MessagingAccess::unreadCount($request->user());
 
         return response()->json(['unread_count' => $count]);
     }
@@ -51,9 +50,16 @@ class ChatController extends Controller
             'variant_id' => ['nullable', 'integer'],
         ]);
 
+        if (empty($validated['seller_id'])) {
+            $validated['seller_id'] = User::where('is_admin', true)->get()->first(fn ($user) => $user->isActive())?->id;
+            if (! $validated['seller_id']) {
+                throw ValidationException::withMessages(['seller_id' => 'Platform support is currently unavailable. Please try again later.']);
+            }
+        }
+
         if (! empty($validated['seller_id'])) {
             $seller = User::find($validated['seller_id']);
-            if (! $seller || (int) $seller->id === (int) $request->user()->id || ! $seller->isActive() || (! $seller->canSell() && ! $seller->isAdmin())) {
+            if (! $seller || ! \App\Support\MessagingAccess::canContact($request->user(), $seller)) {
                 throw ValidationException::withMessages(['seller_id' => 'Choose an active store or support contact.']);
             }
         }
@@ -148,6 +154,9 @@ class ChatController extends Controller
         ]);
 
         $conversation = Conversation::where('buyer_id', $request->user()->id)->findOrFail($id);
+
+        $other = User::find($conversation->seller_id);
+        abort_unless($other && \App\Support\MessagingAccess::canContact($request->user(), $other), 403);
 
         $message = Message::create([
             'conversation_id' => $conversation->id,

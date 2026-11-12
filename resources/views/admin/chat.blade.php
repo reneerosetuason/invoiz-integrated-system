@@ -1,6 +1,9 @@
 ﻿@extends('admin.layout')
 
 @section('content')
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
+<div class="mc-legacy mc-legacy-admin">
 <style>
   .chat-grid { display:grid; grid-template-columns:320px 1fr; gap:16px; height:calc(100vh - 160px); min-height:520px; }
   .panel { background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:0 1px 4px rgba(16,24,40,.04); display:flex; flex-direction:column; overflow:hidden; }
@@ -255,4 +258,5 @@
   setInterval(poll, 3000);
 })();
 </script>
+</div>
 @endsection

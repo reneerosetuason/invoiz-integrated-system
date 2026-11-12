@@ -322,11 +322,11 @@
                             </div>
 
                             <!-- Messages Icon -->
-                            <a href="{{ route('messages.index') }}" class="relative text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary" title="Messages" aria-label="Messages">
+                            <a href="{{ route('messaging.index') }}" class="relative text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary" title="Messages" aria-label="Messages">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                                 </svg>
-                                @php try { $topbarUnreadMsgs = \App\Models\Logistics\Conversation::unreadForLogisticsUser((int) auth()->id()); } catch (\Throwable $e) { $topbarUnreadMsgs = 0; } @endphp
+                                @php try { $topbarUnreadMsgs = \App\Support\MessagingAccess::unreadCount(auth()->user()); } catch (\Throwable $e) { $topbarUnreadMsgs = 0; } @endphp
                                 @if($topbarUnreadMsgs)
                                     <span class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-secondary text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">{{ $topbarUnreadMsgs }}</span>
                                 @endif

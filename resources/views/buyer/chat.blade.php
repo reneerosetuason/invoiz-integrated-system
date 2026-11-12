@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Chat - Invoiz Buyer</title>
 <link rel="stylesheet" href="{{ asset('assets/buyer/css/chat.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
 </head>
-<body>
+<body class="mc-legacy mc-legacy-buyer">
   <div class="topbar">
     <div class="logo"><img src="{{ asset('assets/shared/images/logo.png') }}" alt="Invoiz" style="width:100%;height:100%;object-fit:cover;" /></div>
     <h1>Chat / Messaging</h1>

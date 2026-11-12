@@ -77,7 +77,6 @@ class RiderMessageController extends Controller
             'is_read' => true,
             'read_at' => now(),
         ]);
-        $conversation->update(['unread_count' => 0]);
 
         return view('logistics.rider.messages', [
             'user' => $user,
@@ -95,7 +94,6 @@ class RiderMessageController extends Controller
             'is_read' => true,
             'read_at' => now(),
         ]);
-        $conversation->update(['unread_count' => 0]);
 
         return response()->json([
             'messages' => $this->messagesFor($conversation)->map(fn ($m) => $this->messagePayload($m, 'rider', $user->id))->values(),

@@ -7,6 +7,7 @@ import '../widgets/buyer_controls.dart';
 import '../widgets/buyer_page.dart';
 import '../widgets/image_preview.dart';
 import '../widgets/return_fee_receipt_dialog.dart';
+import '../widgets/skeleton_loading.dart';
 
 class ReturnAgreementScreen extends StatefulWidget {
   const ReturnAgreementScreen({
@@ -387,7 +388,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                 ),
               ),
             if (_data == null && _error == null)
-              const Center(child: CircularProgressIndicator()),
+              const GenericPageSkeleton(cardCount: 2),
             if (_data != null) ...[
               BuyerPanel(
                 title: 'Return #${widget.returnId}',

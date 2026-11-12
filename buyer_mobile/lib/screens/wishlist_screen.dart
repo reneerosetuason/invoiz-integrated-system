@@ -10,6 +10,7 @@ import '../widgets/buyer_page.dart';
 import '../widgets/inbox_status.dart';
 import '../widgets/main_layout.dart';
 import '../widgets/product_photo.dart';
+import '../widgets/skeleton_loading.dart';
 import 'login_screen.dart';
 import 'product_detail_screen.dart';
 import 'product_list_screen.dart';
@@ -172,7 +173,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
         ),
       ],
       child: _loading
-          ? const Center(child: CupertinoActivityIndicator())
+          ? const ProductGridSkeleton()
           : _error != null
           ? InboxStatus(message: _error!, onRetry: _load)
           : _items.isEmpty

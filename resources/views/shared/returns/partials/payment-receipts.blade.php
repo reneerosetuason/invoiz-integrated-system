@@ -1,9 +1,9 @@
 @php($visibleReceipts = $agreement->payments->filter(fn($p)=>($admin || (int)$p->payer_user_id===(int)$user->id) && (!($deliveryReceiptsOnly??false) || $p->purpose==='return_budget')))
 @if($visibleReceipts->isNotEmpty())
-<article><h2>{{ $admin ? 'Review uploaded payment receipts' : 'Your submitted receipts' }}</h2>
+<details class="return-task" name="return-current-task" {{ $admin && $agreement->payments->contains('status','submitted') ? 'open' : '' }}><summary><h2>{{ $admin ? 'Review uploaded payment receipts' : 'Your submitted receipts' }}</h2></summary><div class="return-disclosure-body">
     <p>Each payment stays awaiting verification until admin opens its receipt and checks the actual incoming transfer.</p>
     @foreach($visibleReceipts as $payment)
-    <details @if($admin && $payment->status==='submitted') open @endif>
+    <details name="return-receipt" @if($admin && $payment->status==='submitted') open @endif>
         <summary>{{ $payment->purpose==='return_budget'?'Return transport fee':'Seller funding for buyer refund' }} · {{ peso($payment->amount_cents/100) }} · {{ $payment->status==='submitted'?'Awaiting admin verification':ucfirst($payment->status) }}</summary>
         <p><b>Transfer reference:</b> {{ $payment->reference }}</p>
         @if($payment->review_note)<p><b>Admin response:</b> {{ $payment->review_note }}</p>@endif
@@ -19,5 +19,5 @@
         @endif
     </details>
     @endforeach
-</article>
+</div></details>
 @endif

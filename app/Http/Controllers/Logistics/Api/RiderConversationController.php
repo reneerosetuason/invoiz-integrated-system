@@ -20,7 +20,7 @@ class RiderConversationController extends Controller
         return (int) $request->user()->rider->id;
     }
 
-    private function ensureConversationsForRider(int $riderId, int $userId): void
+    public function ensureConversationsForRider(int $riderId, int $userId): void
     {
         // Rider support (logistics) thread.
         Conversation::firstOrCreate(
@@ -53,7 +53,7 @@ class RiderConversationController extends Controller
             }
 
             // Seller(s) ??? one per distinct seller in the shared order_items.
-            $sellerIds = $order->items->pluck('seller_id')->unique()->filter();
+            $sellerIds = collect([$delivery->seller_id])->filter();
             foreach ($sellerIds as $sid) {
                 $seller = \App\Models\User::find($sid);
                 if (! $seller) {
@@ -70,6 +70,7 @@ class RiderConversationController extends Controller
 
     private function authorizeConversation(Request $request, Conversation $conv): void
     {
+        abort_unless(\App\Support\MessagingAccess::canReadLogistics($request->user(), $conv), 403);
         $userId = (int) $request->user()->id;
         $riderId = $this->riderId($request);
         // Logistics: participant_type rider with participant_id = userId and rider_id = riderId
@@ -109,7 +110,9 @@ class RiderConversationController extends Controller
         $this->ensureConversationsForRider($riderId, $userId);
 
         $search = trim((string) $request->query('search', ''));
-        $query = Conversation::where('rider_id', $riderId)->with(['delivery'])->orderByDesc('last_message_at');
+        $query = Conversation::where('rider_id', $riderId)
+            ->whereIn('id', \App\Support\MessagingAccess::logisticsIds($request->user()))
+            ->with(['delivery'])->orderByDesc('last_message_at');
 
         if ($search !== '') {
             $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
@@ -147,7 +150,6 @@ class RiderConversationController extends Controller
         $paginator = $query->paginate($perPage, ['*'], 'page', $page);
         // Mark as read for rider's incoming messages
         $conversation->messages()->where('is_read', false)->where('sender_type', '!=', 'rider')->update(['is_read' => true, 'read_at' => now()]);
-        $conversation->update(['unread_count' => 0]);
 
         return response()->json([
             'conversation' => $this->payload($conversation),
@@ -164,6 +166,7 @@ class RiderConversationController extends Controller
     public function store(Request $request, Conversation $conversation): JsonResponse
     {
         $this->authorizeConversation($request, $conversation);
+        abort_unless(\App\Support\MessagingAccess::canSendLogistics($request->user(), $conversation), 403);
         $validated = $request->validate([
             'body' => 'required|string|max:2000',
             'attachment' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,csv|max:5120',
@@ -180,14 +183,14 @@ class RiderConversationController extends Controller
             if ($request->hasFile('attachment') && $request->file('attachment')->isValid()) {
                 $file = $request->file('attachment');
                 $filename = Str::uuid() . '.' . strtolower($file->getClientOriginalExtension());
-                $storedPath = $file->storeAs("message-attachments/{$conversation->id}", $filename, 'public');
+                $storedPath = $file->storeAs("message-attachments/{$conversation->id}", $filename, 'local');
                 MessageAttachment::create([
                     'message_id' => $message->id,
                     'original_filename' => $file->getClientOriginalName(),
                     'stored_path' => $storedPath,
                     'mime_type' => $file->getMimeType(),
                     'file_size' => $file->getSize(),
-                    'disk' => 'public',
+                    'disk' => 'local',
                 ]);
             }
             $conversation->update(['last_message_preview' => str($validated['body'])->limit(80), 'last_message_at' => now()]);
@@ -254,7 +257,7 @@ class RiderConversationController extends Controller
             'time' => $m->created_at->format('g:i A'),
             'day' => $m->created_at->format('Y-m-d'),
             'dayLabel' => $m->created_at->isToday() ? 'Today' : ($m->created_at->isYesterday() ? 'Yesterday' : $m->created_at->format('F j, Y')),
-            'attachments' => $deleted ? [] : $m->attachments->map(fn ($a) => ['id' => $a->id, 'name' => $a->original_filename, 'size' => $a->humanSize(), 'is_image' => $a->isImage(), 'url' => url('storage/' . $a->stored_path)])->values(),
+            'attachments' => $deleted ? [] : $m->attachments->map(fn ($a) => ['id' => $a->id, 'name' => $a->original_filename, 'size' => $a->humanSize(), 'is_image' => $a->isImage(), 'url' => route('messaging.attachment', $a)])->values(),
         ];
     }
 }

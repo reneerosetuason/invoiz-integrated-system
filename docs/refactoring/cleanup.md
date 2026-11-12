@@ -1,5 +1,9 @@
 # Unused-file cleanup
 
+The [2026-11-12 follow-up](cleanup-2026-11-12.md) records the later removal of
+superseded assets, unused views and generated leftovers. The inventory below is
+the historical 2026-10-28 cleanup and retains its original recovery archive.
+
 Follow-up to the role-based refactor. This cleanup removes files that have no
 remaining route, application, component namespace, template or asset dependency.
 The live marketplace, Seller Center, logistics workspace and admin interface

@@ -1,6 +1,12 @@
 {{-- Shared sidebar. Role sections retain the active layouts' original markup and active-state rules. --}}
 
 {{-- ==================== BUYER ==================== --}}
+@php
+    if (auth()->check()) {
+        try { $unreadMsgs = \App\Support\MessagingAccess::unreadCount(auth()->user()); }
+        catch (\Throwable $e) { $unreadMsgs = $unreadMsgs ?? 0; }
+    }
+@endphp
 @if($navigationRole === 'buyer')
 @if(($navigationVariant ?? '') === 'website')
 <aside id="sidebar" class="sb2 sb2--buyer" aria-label="Buyer sidebar">
@@ -86,7 +92,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 12V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v5"/><path d="M4 12a2 2 0 0 1 0 4v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1a2 2 0 0 1 0-4"/><path d="M13 5v2m0 4v2m0 4v2"/></svg>
             <span class="sb-label sb-hide-collapsed">Vouchers</span>
           </a>
-          <a href="{{ url('/messages') }}" title="Messages" class="{{ request()->is('messages','chat','chat/*') ? 'active' : '' }}">
+          <a href="{{ route('messaging.index') }}" title="Messages" class="{{ request()->is('messages','chat','chat/*','message-center*') ? 'active' : '' }}">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             <span class="sb-label sb-hide-collapsed">Messages</span>
             @if($unreadMsgs > 0)<span class="sb-badge" data-count="{{ $unreadMsgs }}"><span class="sb-num">{{ $unreadMsgs > 99 ? '99+' : $unreadMsgs }}</span><span class="sr-only"> unread messages</span></span>@endif
@@ -212,7 +218,7 @@ $bInitials = strtoupper(substr($buyer['first_name'] ?? '', 0, 1).substr($buyer['
             </a>
 
             <div class="nav-section sb-hide-collapsed">Support</div>
-            <a href="{{ route('seller.chat.index') }}" title="Chat / Messaging" class="{{ request()->routeIs('seller.chat.*') ? 'active' : '' }}">
+            <a href="{{ route('messaging.index') }}" title="Chat / Messaging" class="{{ request()->routeIs('seller.chat.*', 'messaging.*') ? 'active' : '' }}">
                 <x-icon name="chat" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Chat / Messaging</span>
             </a>
 
@@ -322,9 +328,9 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeRemittances = request()->routeIs('remittances.index', 'remittances.export');
     $activeHubPayouts = request()->routeIs('remittances.hub-payouts.*');
     $activeReports   = request()->routeIs('reports.*');
-    $activeMessages  = request()->routeIs('messages.*');
+    $activeMessages  = request()->routeIs('messages.*', 'messaging.*');
     $msgUnreadCount = 0;
-    try { $msgUnreadCount = \App\Models\Logistics\Conversation::unreadForLogisticsUser((int) auth()->id()); } catch (\Throwable $e) {}
+    try { $msgUnreadCount = $unreadMsgs ?? \App\Support\MessagingAccess::unreadCount(auth()->user()); } catch (\Throwable $e) {}
     $activeSettings  = request()->routeIs('settings.*');
 @endphp
 
@@ -522,7 +528,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
 
         {{-- For Logistics Staff: Messages appears under Main Navigation --}}
         @if($isStaff)
-        <a href="{{ route('messages.index') }}"
+        <a href="{{ route('messaging.index') }}"
            aria-label="Messages" data-tip="Messages"
            @if($activeMessages) aria-current="page" @endif
            class="{{ $activeMessages ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
@@ -690,7 +696,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         <p x-show="sidebarHover" x-cloak class="nav-section">Other</p>
 
         {{-- Messages (logistics inbox; unread badge from logistics_conversations) --}}
-        <a href="{{ route('messages.index') }}"
+        <a href="{{ route('messaging.index') }}"
            aria-label="Messages" data-tip="Messages"
            @if($activeMessages) aria-current="page" @endif
            class="{{ $activeMessages ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
@@ -842,7 +848,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <x-icon name="alert-triangle" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Complaints</span>
           </a>
-          <a class="nav-link" href="/admin/chat" title="Chat / Messaging">
+          <a class="nav-link" href="{{ route('messaging.index') }}" title="Chat / Messaging">
             <x-icon name="chat" class="nav-icon" aria-hidden="true" />
             <span class="nav-text sb-label sb-hide-collapsed">Chat / Messaging</span>
           </a>

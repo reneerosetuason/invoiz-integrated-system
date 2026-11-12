@@ -75,6 +75,7 @@ class RiderDocumentChangeRequestTest extends TestCase
 
         return User::create([
             'name' => 'Logistics Admin',
+            'phone' => fake()->unique()->numerify('09#########'),
             'email' => User::GLOBAL_LOGISTICS_ADMIN_EMAIL,
             'password' => Hash::make('secret123'),
             'role' => 'logistics_admin',
@@ -90,6 +91,7 @@ class RiderDocumentChangeRequestTest extends TestCase
 
         return User::create([
             'name' => 'Logistics Staff '.$this->seq,
+            'phone' => fake()->unique()->numerify('09#########'),
             'email' => "docs-staff-{$this->seq}@test.local",
             'password' => Hash::make('secret123'),
             'role' => 'logistics_staff',
@@ -105,6 +107,7 @@ class RiderDocumentChangeRequestTest extends TestCase
 
         return User::create([
             'name' => 'Marketplace Admin '.$this->seq,
+            'phone' => fake()->unique()->numerify('09#########'),
             'email' => "docs-marketplace-{$this->seq}@test.local",
             'password' => Hash::make('secret123'),
             'role' => 'admin',
@@ -125,6 +128,7 @@ class RiderDocumentChangeRequestTest extends TestCase
 
         $user = User::create([
             'name' => 'Document Rider '.$this->seq,
+            'phone' => fake()->unique()->numerify('09#########'),
             'email' => $email,
             'password' => Hash::make('secret123'),
             'role' => 'rider',

@@ -8,6 +8,7 @@ import '../models/order.dart';
 import '../services/api_service.dart';
 import '../theme.dart';
 import '../widgets/main_layout.dart';
+import '../widgets/skeleton_loading.dart';
 import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -183,7 +184,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ),
         Expanded(
           child: _loading
-              ? const Center(child: CupertinoActivityIndicator())
+              ? const OrderListSkeleton()
               : RefreshIndicator.adaptive(
                   onRefresh: _load,
                   child: _orders.isEmpty

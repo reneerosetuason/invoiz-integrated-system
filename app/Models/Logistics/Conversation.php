@@ -78,11 +78,16 @@ class Conversation extends Model
 
     public static function unreadForLogisticsUser(int $userId): int
     {
+        $user = \App\Models\User::find($userId);
+        if (! $user) return 0;
+        $allowed = \App\Support\MessagingAccess::logisticsIds($user);
         $sharedUnread = (int) static::query()
+            ->whereIn('id', $allowed)
             ->where('participant_type', '!=', 'logistics')
             ->sum('unread_count');
 
         $directUnread = Message::query()
+            ->whereIn('conversation_id', $allowed)
             ->where('sender_type', 'logistics')
             ->where('sender_id', '!=', $userId)
             ->where('is_read', false)

@@ -1,3 +1,5 @@
+<div class="return-payment-task">
+<p class="return-payment-amount">Amount to transfer <strong>{{ peso($paymentCents/100) }}</strong></p>
 @if($settings)
     <p><b>Platform receiving account:</b> {{ $settings->account_name }}</p>
     <p><small>Account details / instructions supplied by the platform:</small>{{ $settings->account_details }}</p>
@@ -13,3 +15,5 @@
     @include('shared.returns.partials.confirm',['confirmation'=>'I transferred this amount to the platform account and attached its actual receipt.'])
     <button type="submit" @disabled(!$settings)>{{ $uploadButton }}</button>
 </form>
+
+</div>

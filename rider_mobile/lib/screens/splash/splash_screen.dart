@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/deep_link_service.dart';
+import '../../widgets/app_ui.dart';
 import '../../widgets/deep_link_broker.dart';
 import '../auth/login_screen.dart';
 import '../home/role_home.dart';
@@ -89,14 +90,10 @@ class _SplashScreenState extends State<SplashScreen> {
               'Delivering happiness, on time.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 48),
             const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                color: AppColors.primaryDark,
-              ),
+              width: 120,
+              child: SkeletonBox(height: 5, radius: AppRadius.pill),
             ),
           ],
         ),

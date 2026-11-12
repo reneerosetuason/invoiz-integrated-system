@@ -11,8 +11,10 @@
     <script src="{{ asset('assets/logistics/js/rider/entry.js') }}"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link rel="stylesheet" href="{{ asset('assets/logistics/css/layouts/app-2.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/theme.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/shared/css/messages.css') }}?v={{ filemtime(public_path('assets/shared/css/messages.css')) }}">
 </head>
-<body class="font-sans antialiased bg-gradient-to-br from-[#16697A] via-[#0E4A57] to-[#0B3B46] min-h-screen p-4 sm:p-8">
+<body class="mc-legacy mc-legacy-rider font-sans antialiased bg-gradient-to-br from-[#16697A] via-[#0E4A57] to-[#0B3B46] min-h-screen p-4 sm:p-8">
 @php
     $initialMessages = $messages->map(fn ($m) => [
         'id' => $m->id,
@@ -66,7 +68,7 @@
 
                 <div class="flex mb-2" :class="msg.mine ? 'justify-end' : 'justify-start'">
                     <div class="max-w-[75%] group">
-                        <div class="inline-block w-fit max-w-full px-3.5 py-2 rounded-2xl text-sm leading-snug text-left whitespace-pre-wrap break-words align-top" :class="msg.mine ? 'bg-teal text-white rounded-br-md' : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md shadow-sm'"><span x-text="msg.deleted ? 'This message was deleted.' : msg.body" :class="msg.deleted ? 'italic opacity-60' : ''"></span><span x-show="msg.edited_at && !msg.deleted" class="text-[10px] italic opacity-70 ml-1.5">Edited</span></div>
+                        <div class="mc-message-bubble inline-block w-fit max-w-full px-3.5 py-2 rounded-2xl text-sm leading-snug text-left whitespace-pre-wrap break-words align-top" :class="msg.mine ? 'bg-teal text-white rounded-br-md' : 'bg-white border border-gray-200 text-gray-900 rounded-bl-md shadow-sm'"><span x-text="msg.deleted ? 'This message was deleted.' : msg.body" :class="msg.deleted ? 'italic opacity-60' : ''"></span><span x-show="msg.edited_at && !msg.deleted" class="text-[10px] italic opacity-70 ml-1.5">Edited</span></div>
 
                         <template x-for="att in (msg.deleted ? [] : msg.attachments)" :key="att.id">
                             <div class="mt-1.5" :class="msg.mine ? 'text-right' : 'text-left'">

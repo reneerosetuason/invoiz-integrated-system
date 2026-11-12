@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../services/buyer_updates.dart';
 import '../widgets/main_layout.dart';
 import '../widgets/buyer_page.dart';
+import '../widgets/skeleton_loading.dart';
 
 class AccountDeletionScreen extends StatefulWidget {
   final ApiService? api;
@@ -154,7 +155,7 @@ class _AccountDeletionScreenState extends State<AccountDeletionScreen> {
       showBottomNav: false,
       showSettingsIcon: false,
       child: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const GenericPageSkeleton(cardCount: 2)
           : ListView(
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               padding: EdgeInsets.fromLTRB(

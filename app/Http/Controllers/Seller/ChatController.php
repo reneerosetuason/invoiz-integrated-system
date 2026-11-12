@@ -71,6 +71,9 @@ class ChatController extends Controller
 
         $conversation = $this->conversationsForSeller($sellerId)->findOrFail($id);
 
+        $other = \App\Models\User::find($conversation->buyer_id);
+        abort_unless($other && \App\Support\MessagingAccess::canContact($request->user(), $other), 403);
+
         if (! $conversation->seller_id) {
             $conversation->update(['seller_id' => $sellerId]);
         }
