@@ -111,25 +111,39 @@
             {{-- Verification result --}}
             <div x-show="result" x-cloak tabindex="-1" x-ref="resultPanel" class="delivery-scan-result rounded-2xl outline-none">
                 <template x-if="result">
-                    <div :class="alreadyScanned ? 'bg-amber-50 border-amber-200' : (readyToConfirm ? 'bg-sky-50 border-sky-200' : 'bg-green-50 border-green-200')"
+                    <div :class="['missing', 'ineligible', 'unauthorized'].includes(warningType) ? 'bg-red-50 border-red-200' : (alreadyScanned ? 'bg-amber-50 border-amber-200' : (readyToConfirm ? 'bg-sky-50 border-sky-200' : 'bg-green-50 border-green-200'))"
                          class="rounded-2xl border p-4">
                         <div class="flex items-start gap-3">
-                            <div :class="alreadyScanned ? 'bg-amber-100 text-amber-700' : (readyToConfirm ? 'bg-sky-100 text-sky-700' : 'bg-green-100 text-green-700')"
+                            <div :class="['missing', 'ineligible', 'unauthorized'].includes(warningType) ? 'bg-red-100 text-red-700' : (alreadyScanned ? 'bg-amber-100 text-amber-700' : (readyToConfirm ? 'bg-sky-100 text-sky-700' : 'bg-green-100 text-green-700'))"
                                  class="h-9 w-9 rounded-full flex items-center justify-center flex-shrink-0">
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                <svg x-show="['missing', 'ineligible', 'unauthorized'].includes(warningType)" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                <svg x-show="!['missing', 'ineligible', 'unauthorized'].includes(warningType)" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                             </div>
-                            <div class="min-w-0">
-                                <p x-text="alreadyScanned ? 'Parcel Already Scanned' : (readyToConfirm ? 'Review Parcel' : 'Parcel Verified')"
-                                   :class="alreadyScanned ? 'text-amber-800' : (readyToConfirm ? 'text-sky-800' : 'text-green-800')"
+                            <div class="min-w-0 flex-1">
+                                <p x-text="warningType === 'missing' ? 'Missing Parcel Alert' : (warningType === 'ineligible' ? 'Parcel Not Eligible for Scan' : (alreadyScanned ? 'Duplicate Scan — Parcel Already Scanned' : (readyToConfirm ? 'Review Matched Parcel' : 'Parcel Verified')))"
+                                   :class="['missing', 'ineligible', 'unauthorized'].includes(warningType) ? 'text-red-800' : (alreadyScanned ? 'text-amber-800' : (readyToConfirm ? 'text-sky-800' : 'text-green-800'))"
                                    class="font-bold text-sm"></p>
                                 <p class="mt-0.5 font-mono font-semibold text-gray-900 break-all" x-text="result.tracking_number"></p>
-                                <dl class="mt-2 space-y-1 text-sm">
+                                <dl class="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                                    <div><dt class="text-xs text-gray-500 inline">Sender: </dt><dd class="inline font-medium text-gray-800" x-text="result.sender_name || '—'"></dd></div>
                                     <div><dt class="text-xs text-gray-500 inline">Recipient: </dt><dd class="inline font-medium text-gray-800" x-text="result.recipient_name || '—'"></dd></div>
-                                    <div><dt class="text-xs text-gray-500 inline">Status: </dt><dd class="inline font-medium text-gray-800" x-text="result.parcel_status"></dd></div>
-                                    <div><dt class="text-xs text-gray-500 inline">Scanned at: </dt><dd class="inline font-medium text-gray-800" x-text="result.scanned_at ? new Date(result.scanned_at).toLocaleString() : '—'"></dd></div>
+                                    <div><dt class="text-xs text-gray-500 inline">Status: </dt><dd class="inline font-medium text-gray-800" x-text="result.workflow_label || result.parcel_status || '—'"></dd></div>
+                                    <div>
+                                        <dt class="text-xs text-gray-500 inline">Condition: </dt>
+                                        <dd class="inline font-semibold"
+                                            :class="result.condition_code === 'damaged' ? 'text-amber-700' : (result.condition_code === 'missing' ? 'text-red-700' : 'text-emerald-700')"
+                                            x-text="result.condition || 'Good'"></dd>
+                                    </div>
+                                    <div><dt class="text-xs text-gray-500 inline">Origin Hub: </dt><dd class="inline font-medium text-gray-800" x-text="result.origin_hub || '—'"></dd></div>
+                                    <div><dt class="text-xs text-gray-500 inline">Destination Hub: </dt><dd class="inline font-medium text-gray-800" x-text="result.destination_hub || '—'"></dd></div>
+                                    <div class="sm:col-span-2"><dt class="text-xs text-gray-500 inline">Scanned at: </dt><dd class="inline font-medium text-gray-800" x-text="result.scanned_at ? new Date(result.scanned_at).toLocaleString() : '—'"></dd></div>
                                 </dl>
                             </div>
                         </div>
+
+                        <p x-show="conditionWarning" role="alert" x-cloak
+                           class="mt-3 text-xs font-medium text-amber-800 bg-amber-100 border border-amber-200 rounded-lg px-3 py-2"
+                           x-text="conditionWarning"></p>
 
                         <p x-show="mismatch" role="alert" x-cloak
                            class="mt-3 text-xs text-amber-700 bg-amber-100 rounded-lg px-3 py-2"
@@ -153,10 +167,16 @@
                                     class="btn btn-ghost btn-sm disabled:opacity-60 disabled:cursor-not-allowed">
                                 Cancel
                             </button>
-                            <a x-show="confirmed || alreadyScanned" x-cloak
+                            <a x-show="(confirmed || alreadyScanned) && result.condition_code !== 'missing'" x-cloak
                                href="{{ route('sorting-center.index', ['tab' => 'scanned']) }}"
                                class="btn btn-primary btn-sm">
                                 Proceed to Sort &rarr;
+                            </a>
+                            <a x-show="!readyToConfirm && !confirmed && !alreadyScanned && result.next_action && result.next_action.enabled && result.next_action.url"
+                               :href="result.next_action ? result.next_action.url : '#'"
+                               x-cloak
+                               class="btn btn-primary btn-sm">
+                                <span x-text="result.next_action ? result.next_action.label : 'Open valid action'"></span> &rarr;
                             </a>
                             <a x-show="result.show_url" :href="result.show_url"
                                class="btn btn-outline btn-sm">

@@ -71,6 +71,8 @@ function scanParcel(options) {
         readyToConfirm: false,
         confirmed: false,
         mismatch: false,
+        warningType: '',
+        conditionWarning: '',
         formCode: initialExpect,
         expect: initialExpect,
         lookupCode: '',
@@ -129,7 +131,11 @@ function scanParcel(options) {
             this._detector = null;
             try {
                 if (typeof window.BarcodeDetector === 'function') {
-                    this._detector = new window.BarcodeDetector({ formats: ['code128'] });
+                    try {
+                        this._detector = new window.BarcodeDetector({ formats: ['code128', 'qr_code'] });
+                    } catch (e) {
+                        this._detector = new window.BarcodeDetector({ formats: ['code128'] });
+                    }
                 }
             } catch (e) {
                 this._detector = null;
@@ -321,6 +327,8 @@ function scanParcel(options) {
             this.alreadyScanned = false;
             this.readyToConfirm = false;
             this.confirmed = false;
+            this.warningType = '';
+            this.conditionWarning = '';
             this.lookupCode = '';
 
             this.postTracking(this.lookupUrl, value)
@@ -354,6 +362,8 @@ function scanParcel(options) {
         handleLookupResponse(data, status, value) {
             this.message = '';
             this.result = (data && data.delivery) ? data.delivery : null;
+            this.warningType = (data && data.warning_type) ? data.warning_type : '';
+            this.conditionWarning = (data && data.condition_warning) ? data.condition_warning : '';
             this.mismatch = this.result && this.expect
                 && this.normalize(this.result.tracking_number) !== this.normalize(this.expect);
 
@@ -431,6 +441,12 @@ function scanParcel(options) {
             if (data && data.delivery) {
                 this.result = data.delivery;
             }
+            if (data && data.warning_type) {
+                this.warningType = data.warning_type;
+            }
+            if (data && data.condition_warning) {
+                this.conditionWarning = data.condition_warning;
+            }
 
             if (data && data.ok) {
                 this.state = 'done';
@@ -489,6 +505,8 @@ function scanParcel(options) {
             this.alreadyScanned = false;
             this.readyToConfirm = false;
             this.confirmed = false;
+            this.warningType = '';
+            this.conditionWarning = '';
             this.lookupCode = '';
             this.mismatch = false;
             this.message = '';

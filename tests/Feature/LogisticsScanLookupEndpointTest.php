@@ -368,4 +368,58 @@ class LogisticsScanLookupEndpointTest extends TestCase
         $this->assertNotNull($confirmed->scanned_at);
         $this->assertGreaterThanOrEqual(1, DB::table('delivery_status_logs')->where('delivery_id', $delivery->id)->count());
     }
+
+    public function test_scan_returns_origin_destination_condition_and_warns_on_missing_or_duplicate_parcels(): void
+    {
+        $origin = LogisticsCenter::create(['name' => 'Origin Hub', 'is_active' => true]);
+        $destination = LogisticsCenter::create(['name' => 'Destination Hub', 'is_active' => true]);
+        $staff = $this->createStaff($origin->id);
+
+        $goodParcel = Delivery::create([
+            'tracking_number' => 'TRK-20261109-GD01',
+            'parcel_status' => 'received',
+            'status' => 'waiting_for_rider',
+            'center_id' => $origin->id,
+            'destination_center_id' => $destination->id,
+            'recipient_name' => 'Maria Buyer',
+        ]);
+
+        $lookup = $this->actingAs($staff)->postJson('/logistics/deliveries/scan-lookup', [
+            'tracking_number' => 'TRK-20261109-GD01',
+        ]);
+        $lookup->assertOk()
+            ->assertJsonPath('delivery.tracking_number', 'TRK-20261109-GD01')
+            ->assertJsonPath('delivery.origin_hub', 'Origin Hub')
+            ->assertJsonPath('delivery.destination_hub', 'Destination Hub')
+            ->assertJsonPath('delivery.condition', 'Good')
+            ->assertJsonPath('delivery.condition_code', 'good');
+
+        // Duplicate scan warning when already scanned
+        $goodParcel->update(['parcel_status' => 'scanned', 'scanned_at' => now()]);
+        $duplicate = $this->actingAs($staff)->postJson('/logistics/deliveries/scan-lookup', [
+            'tracking_number' => 'TRK-20261109-GD01',
+        ]);
+        $duplicate->assertOk()
+            ->assertJsonPath('already', true)
+            ->assertJsonPath('warning_type', 'duplicate');
+
+        // Missing parcel is blocked with warning_type = 'missing'
+        Delivery::create([
+            'tracking_number' => 'TRK-20261109-MS01',
+            'parcel_status' => 'received',
+            'status' => 'lost',
+            'center_id' => $origin->id,
+            'destination_center_id' => $destination->id,
+            'recipient_name' => 'Lost Recipient',
+        ]);
+
+        $missing = $this->actingAs($staff)->postJson('/logistics/deliveries/scan-lookup', [
+            'tracking_number' => 'TRK-20261109-MS01',
+        ]);
+        $missing->assertStatus(409)
+            ->assertJsonPath('ok', false)
+            ->assertJsonPath('error', 'parcel_missing')
+            ->assertJsonPath('warning_type', 'missing')
+            ->assertJsonPath('delivery.condition', 'Missing');
+    }
 }
