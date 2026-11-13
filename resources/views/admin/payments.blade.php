@@ -53,7 +53,7 @@
             <tbody>
                 @forelse($adminRemittances ?? [] as $remit)
                     <tr>
-                        <td><a class="po-truncate po-order" href="{{ url('/admin/orders/'.$remit->order_id) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">#{{ $remit->order?->order_number ?? $remit->order_id }}</a></td>
+                        <td><a class="po-truncate po-order" href="{{ ($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id) }}</a></td>
                         <td class="po-money">&#8369;{{ number_format((float) $remit->amount, 2) }}</td>
                         <td>@include('admin.partials.payment-status', ['paymentStatus' => $remit->status])</td>
                         <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-order-{{ $remit->id }}" aria-haspopup="dialog" aria-label="View admin remittance {{ $remit->id }}">View</button></td>
@@ -87,7 +87,7 @@
             <tbody>
                 @forelse($escrowRemittancesList ?? [] as $remit)
                     <tr>
-                        <td><a class="po-truncate po-order" href="{{ $remit->source==='return'?route('returns.agreement',$remit->return_id):url('/admin/orders/'.$remit->order_id) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->source==='return'?'Return #'.$remit->return_id:'#'.($remit->order?->order_number ?? $remit->order_id) }}</a></td>
+                        <td><a class="po-truncate po-order" href="{{ $remit->source==='return'?route('returns.agreement',$remit->return_id):($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->source==='return'?'Return #'.$remit->return_id:($remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id)) }}</a></td>
                         <td class="po-recipient"><span class="po-truncate po-recipient-name">{{ $remit->recipient_name }}</span><small class="po-truncate">{{ $remit->roleLabel() }}</small></td>
                         <td class="po-money">&#8369;{{ number_format((float) $remit->amount, 2) }}</td>
                         <td>@include('admin.partials.payment-status', ['paymentStatus' => $remit->status])</td>
@@ -140,7 +140,7 @@
 <dialog class="po-dialog" id="payout-detail-{{ $payoutKey }}" aria-labelledby="payout-title-{{ $payoutKey }}">
     <header><div><p class="po-eyebrow">{{ $remit->source==='return'?'Return #'.$remit->return_id.' · ':'' }}Allocation #{{ $remit->id }}</p><h2 id="payout-title-{{ $payoutKey }}">Payout details</h2></div><button type="button" class="po-close" data-payment-close aria-label="Close payout details">&times;</button></header>
     <dl class="po-detail-list">
-        <div><dt>Order</dt><dd><a href="{{ url('/admin/orders/'.$remit->order_id) }}">#{{ $remit->order?->order_number ?? $remit->order_id }}</a></dd></div>
+        <div><dt>Order</dt><dd><a href="{{ ($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}">{{ $remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id) }}</a></dd></div>
         <div><dt>Recipient</dt><dd>{{ $remit->recipient_name }}</dd></div>
         <div><dt>Role</dt><dd>{{ $remit->roleLabel() }}</dd></div>
         <div><dt>Amount</dt><dd class="po-detail-amount">&#8369;{{ number_format((float) $remit->amount, 2) }}</dd></div>
@@ -165,10 +165,10 @@
             @if($remit->source==='return')
                 <input type="hidden" name="action" value="release">
                 <label><input type="checkbox" name="confirm" value="1" required> I confirm release of this funded service share to the recipient's remittances.</label>
-            @elseif($remit->order?->payment?->method === 'gcash')
+            @elseif($remit->settlement_reference || $remit->order?->payment?->method === 'gcash')
                 <label for="payout-reference-{{ $remit->id }}">Transfer / retention reference</label>
                 <input id="payout-reference-{{ $remit->id }}" name="bank_reference" maxlength="150" required autocomplete="off" aria-describedby="payout-help-{{ $remit->id }}">
-                <p id="payout-help-{{ $remit->id }}">Record the actual transfer or retention reference for this GCash payout.</p>
+                <p id="payout-help-{{ $remit->id }}">Record the actual bank transfer or retention reference for this payout.</p>
             @endif
             <button class="po-button po-button-primary" type="submit">Release payout</button>
         </form>
@@ -182,7 +182,7 @@
     @else
         <p class="po-dialog-note">{{ match($remit->status) { 'remitted' => 'Payout sent. Awaiting recipient confirmation.', 'accepted' => 'The recipient has confirmed this payout.', 'held_in_escrow' => 'Held in escrow. Release becomes available when settlement requirements are met.', default => 'No release action is available for this status.' } }}</p>
     @endif
-    <footer><button type="button" class="po-button" data-payment-close>Close</button><a href="{{ url('/admin/orders/'.$remit->order_id) }}" class="po-button">Open order &rarr;</a></footer>
+    <footer><button type="button" class="po-button" data-payment-close>Close</button><a href="{{ ($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" class="po-button">{{ $remit->settlement_reference ? 'Open truck trip' : 'Open order' }} &rarr;</a></footer>
 </dialog>
 @endforeach
 

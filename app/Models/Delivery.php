@@ -61,7 +61,7 @@ class Delivery extends Model
         'recipient_lng',
         'status',
         'parcel_status',
-        'weight',
+        'weight', 'length_cm', 'width_cm', 'height_cm',
         'notes',
         'package_type',
         'package_description',

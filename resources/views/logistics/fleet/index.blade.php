@@ -350,6 +350,10 @@
                                                         <label class="block text-xs font-semibold text-[#1B1B1E] mb-1">Max Weight Capacity (kg) *</label>
                                                         <input name="capacity_kg" type="number" step="0.01" min="0.01" value="{{ $truck->capacity_kg }}" required class="input w-full text-xs">
                                                     </div>
+<div><label class="text-xs">Cargo length (cm)</label><input name="cargo_length_cm" type="number" min="0.01" max="10000" step="0.01" value="{{ $truck->cargo_length_cm }}" class="input w-full text-xs"></div>
+<div><label class="text-xs">Cargo width (cm)</label><input name="cargo_width_cm" type="number" min="0.01" max="10000" step="0.01" value="{{ $truck->cargo_width_cm }}" class="input w-full text-xs"></div>
+<div><label class="text-xs">Cargo height (cm)</label><input name="cargo_height_cm" type="number" min="0.01" max="10000" step="0.01" value="{{ $truck->cargo_height_cm }}" class="input w-full text-xs"></div>
+
                                                 </div>
                                                 <div class="grid grid-cols-2 gap-3">
                                                     <div>
@@ -842,6 +846,10 @@
                     <label class="block text-xs font-semibold text-[#1B1B1E] mb-1">Max Weight Capacity (kg) *</label>
                     <input name="capacity_kg" type="number" step="0.01" min="0.01" required placeholder="e.g. 2000.00" class="input w-full text-xs">
                 </div>
+<div><label class="text-xs">Cargo length (cm)</label><input name="cargo_length_cm" type="number" min="0.01" max="10000" step="0.01" class="input w-full text-xs"></div>
+<div><label class="text-xs">Cargo width (cm)</label><input name="cargo_width_cm" type="number" min="0.01" max="10000" step="0.01" class="input w-full text-xs"></div>
+<div><label class="text-xs">Cargo height (cm)</label><input name="cargo_height_cm" type="number" min="0.01" max="10000" step="0.01" class="input w-full text-xs"></div>
+
             </div>
             <div>
                 <label class="block text-xs font-semibold text-[#1B1B1E] mb-1">OR / CR Registration Number</label>

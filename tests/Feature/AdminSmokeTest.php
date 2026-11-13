@@ -155,7 +155,11 @@ class AdminSmokeTest extends TestCase
             ->post('/admin/commission/earnings', [
                 'origin_hub_fee' => 31,
                 'pickup_rider_per_item' => 32,
-                'inter_hub_driver_fee' => 21,
+                'trip_base_payment' => 101,
+                'trip_rate_per_km' => 6,
+                'trip_bonus_50' => 55,
+                'trip_bonus_80' => 110,
+                'trip_volumetric_divisor' => 5000,
                 'destination_hub_fee' => 33,
                 'last_mile_rider_fee' => 51,
             ])
@@ -164,7 +168,8 @@ class AdminSmokeTest extends TestCase
         $rates = EscrowEarnings::rates();
         $this->assertSame(31.0, $rates['origin_hub_fee']);
         $this->assertSame(32.0, $rates['pickup_rider_per_item']);
-        $this->assertSame(21.0, $rates['inter_hub_driver_fee']);
+        $this->assertSame(101.0, $rates['trip_base_payment']);
+        $this->assertSame(6.0, $rates['trip_rate_per_km']);
         $this->assertSame(33.0, $rates['destination_hub_fee']);
         $this->assertSame(51.0, $rates['last_mile_rider_fee']);
     }

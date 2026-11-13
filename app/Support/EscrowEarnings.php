@@ -36,6 +36,12 @@ use Illuminate\Support\Facades\Schema;
 class EscrowEarnings
 {
     public const SETTING_KEYS = [
+        'trip_base_payment' => 'earnings_trip_base_payment',
+        'trip_rate_per_km' => 'earnings_trip_rate_per_km',
+        'trip_bonus_50' => 'earnings_trip_bonus_50',
+        'trip_bonus_80' => 'earnings_trip_bonus_80',
+        'trip_volumetric_divisor' => 'earnings_trip_volumetric_divisor',
+
         'origin_hub_fee' => 'earnings_origin_hub_fee',
         'pickup_rider_per_item' => 'earnings_pickup_rider_per_item',
         'inter_hub_driver_fee' => 'earnings_inter_hub_driver_fee',
@@ -48,6 +54,12 @@ class EscrowEarnings
     public static function rates(): array
     {
         $rates = [
+            'trip_base_payment' => (float) config('earnings.trip_base_payment', 100),
+            'trip_rate_per_km' => (float) config('earnings.trip_rate_per_km', 5),
+            'trip_bonus_50' => (float) config('earnings.trip_bonus_50', 50),
+            'trip_bonus_80' => (float) config('earnings.trip_bonus_80', 100),
+            'trip_volumetric_divisor' => (float) config('earnings.trip_volumetric_divisor', 5000),
+
             'origin_hub_fee' => round((float) config('earnings.origin_hub_fee', 30.00), 2),
             'pickup_rider_per_item' => round((float) config('earnings.pickup_rider_per_item', 30.00), 2),
             'inter_hub_driver_fee' => round((float) config('earnings.inter_hub_driver_fee', 20.00), 2),
@@ -143,7 +155,7 @@ class EscrowEarnings
     /**
      * Authoritative transfer legs for a delivery, oldest first.
      *
-     * @return \Illuminate\Support\Collection<int, HubTransfer>
+     * @return Collection<int, HubTransfer>
      */
     public static function transferLegs(Delivery $delivery)
     {
@@ -347,6 +359,20 @@ class EscrowEarnings
         $pickupRiderRate = round($rates['pickup_rider_per_item'], 2);
         $pickupRiderFee = round($pickupRiderRate * $itemQuantity, 2);
         $interHubDriverFee = $route['inter_hub_completed'] ? round($rates['inter_hub_driver_fee'], 2) : 0.0;
+        $sellerInterHubBudget = $interHubDriverFee;
+        $platformTripAdjustment = 0.0;
+        if ($delivery && Schema::hasColumn('hub_transfers', 'payment_version')) {
+            $dynamicLegs = self::transferLegs($delivery)->filter(fn ($leg) => (int) $leg->payment_version === 1 && $leg->status === 'received' && $leg->payment_snapshot
+                && $leg->parcels()->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed')->exists());
+            if ($dynamicLegs->isNotEmpty()) {
+                $legacyCompleted = self::transferLegs($delivery)->contains(fn ($leg) => (int) $leg->payment_version !== 1 && $leg->status === 'received'
+                    && $leg->parcels()->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed')->exists());
+                $legacyBudget = $legacyCompleted ? round($rates['inter_hub_driver_fee'], 2) : 0;
+                $interHubDriverFee = $legacyBudget + $dynamicLegs->sum(fn ($leg) => (int) ($leg->payment_snapshot['allocations'][$delivery->id] ?? 0)) / 100;
+                $sellerInterHubBudget = $legacyBudget + $dynamicLegs->sum(fn ($leg) => (int) ($leg->payment_snapshot['seller_budgets'][$delivery->id] ?? 0)) / 100;
+                $platformTripAdjustment = round($interHubDriverFee - $sellerInterHubBudget, 2);
+            }
+        }
         $destinationHubFee = $route['inter_hub_completed'] ? round($rates['destination_hub_fee'], 2) : 0.0;
 
         $customDeliveryFee = $delivery?->getAttribute('delivery_fee');
@@ -362,14 +388,14 @@ class EscrowEarnings
 
         $hubFeesTotal = round($originHubFee + $destinationHubFee, 2);
         $riderFeesTotal = round($pickupRiderFee + $interHubDriverFee + $lastMileRiderFee, 2);
-        $merchLogisticsDeducted = round($originHubFee + $pickupRiderFee + $interHubDriverFee + $destinationHubFee, 2);
+        $merchLogisticsDeducted = round($originHubFee + $pickupRiderFee + $sellerInterHubBudget + $destinationHubFee, 2);
 
         $rawSellerRemaining = round(
             $buyerTotalPayable
             - $lastMileRiderFee
             - $originHubFee
             - $pickupRiderFee
-            - $interHubDriverFee
+            - $sellerInterHubBudget
             - $destinationHubFee
             - $adminCommission,
             2
@@ -403,6 +429,7 @@ class EscrowEarnings
             'pickup_rider_fee' => $pickupRiderFee,
             'pickup_rider_rate' => $pickupRiderRate,
             'inter_hub_driver_fee' => $interHubDriverFee,
+            'platform_trip_adjustment' => $platformTripAdjustment,
             'destination_hub_fee' => $destinationHubFee,
             'last_mile_rider_fee' => $lastMileRiderFee,
             'hub_fees_total' => $hubFeesTotal,
@@ -445,7 +472,7 @@ class EscrowEarnings
 
         $allocations = round($seller + $lastMile + $origin + $pickup + $interHub + $destination + $admin
             + (float) ($calc['return_funding'] ?? 0), 2);
-        $allocationDifference = round($buyerPaid + $deficit - $allocations, 2);
+        $allocationDifference = round($buyerPaid + $deficit + (float) ($calc['platform_trip_adjustment'] ?? 0) - $allocations, 2);
         $voucherDifference = round($grossMerch + $shippingBase
             - ($buyerPaid + $absorbed + (float) ($calc['merchandise_refunded'] ?? 0)), 2);
 
@@ -573,6 +600,9 @@ class EscrowEarnings
      */
     public static function creditInterHubDriverOnTransferReceipt(HubTransfer|Delivery $transferOrDelivery, ?Delivery $delivery = null): mixed
     {
+        if ($transferOrDelivery instanceof HubTransfer && (int) $transferOrDelivery->payment_version === 1) {
+            return null;
+        }
         $parcel = $transferOrDelivery instanceof Delivery ? $transferOrDelivery : $delivery;
         if ($parcel?->order?->payment?->method === 'gcash') {
             self::syncRemittancesForOrder($parcel->order);
@@ -664,7 +694,7 @@ class EscrowEarnings
                 'vehicle_ownership' => $isDriverOwned ? 'driver_owned' : 'company',
                 'amount' => $totalAmount,
                 'earned_on' => now()->toDateString(),
-                'description' => "Inter-hub transport {$delivery->tracking_number}" . ($isDriverOwned ? " (Includes ₱{$vehicleAllowance} vehicle allowance)" : ""),
+                'description' => "Inter-hub transport {$delivery->tracking_number}" . ($isDriverOwned ? " (Includes ₱{$vehicleAllowance} vehicle allowance)" : ''),
             ]);
         } catch (\Throwable $e) {
             \Log::warning('Inter-hub driver earning credit failed: '.$e->getMessage());
@@ -684,6 +714,9 @@ class EscrowEarnings
      */
     public static function creditInterHubDriverForCompletedTrip(HubTransfer $transfer): ?HubTransferEarning
     {
+        if ((int) $transfer->payment_version === 1) {
+            return \App\Services\TripPaymentService::complete($transfer);
+        }
         try {
             if (! Schema::hasTable('hub_transfer_earnings')) {
                 return null;
@@ -722,7 +755,7 @@ class EscrowEarnings
                 'vehicle_ownership' => $isDriverOwned ? 'driver_owned' : 'company',
                 'amount' => $totalAmount,
                 'earned_on' => now()->toDateString(),
-                'description' => "Inter-hub transfer trip {$transfer->reference}" . ($isDriverOwned ? " (Includes ₱{$vehicleAllowance} vehicle allowance)" : ""),
+                'description' => "Inter-hub transfer trip {$transfer->reference}" . ($isDriverOwned ? " (Includes ₱{$vehicleAllowance} vehicle allowance)" : ''),
             ]);
         } catch (\Throwable $e) {
             \Log::warning('Inter-hub driver trip earning credit failed: '.$e->getMessage());
@@ -922,6 +955,24 @@ class EscrowEarnings
                         'auto_remitted' => (bool) $isSettled,
                     ],
                 ];
+
+                $dynamicTrip = $legs->first(fn ($leg) => (int) $leg->payment_version === 1 && $leg->status !== 'cancelled' && $leg->parcels()->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed')->exists());
+                if ($dynamicTrip) {
+                    $rows[EscrowRemittance::ROLE_INTER_HUB_DRIVER]['amount'] = 0;
+                    $rows[EscrowRemittance::ROLE_INTER_HUB_DRIVER]['rule_applied'] = 'Paid once through trip settlement; shipment allocation recorded on manifest';
+                    // A new leg must not erase an unpaid historical leg's remittance.
+                    $legacyLeg = $legs->first(fn ($leg) => (int) $leg->payment_version !== 1 && $leg->status === 'received'
+                        && $leg->parcels()->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed')->exists());
+                    if ($legacyLeg) {
+                        $legacyDriver = $legacyLeg->driver;
+                        $rows[EscrowRemittance::ROLE_INTER_HUB_DRIVER] = array_replace($rows[EscrowRemittance::ROLE_INTER_HUB_DRIVER], [
+                            'amount' => self::interHubDriverFee(), 'hub_transfer_id' => $legacyLeg->id,
+                            'hub_transport_driver_id' => $legacyLeg->driver_id, 'recipient_user_id' => $legacyDriver?->user_id,
+                            'recipient_name' => $legacyDriver?->name, 'rider_id' => null,
+                            'rule_applied' => 'Historical shipment allocation; subsequent dynamic trips are paid separately',
+                        ]);
+                    }
+                }
 
                 foreach ($rows as $role => $meta) {
                     $existing = EscrowRemittance::where('order_id', $order->id)

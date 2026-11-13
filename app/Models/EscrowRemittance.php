@@ -35,6 +35,7 @@ class EscrowRemittance extends Model
     public const STATUS_VOIDED = 'voided';
 
     protected $fillable = [
+        'settlement_reference',
         'order_id',
         'delivery_id',
         'payment_transaction_id',

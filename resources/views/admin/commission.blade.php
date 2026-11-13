@@ -76,17 +76,12 @@
           <div style="font-size:11px; color:#6E6E73; margin-top:4px;">Earned per item picked up from seller.</div>
         </div>
 
+        @foreach(['trip_base_payment' => 'Base Trip Payment (PHP)', 'trip_rate_per_km' => 'Rate Per Kilometer (PHP/km)', 'trip_bonus_50' => 'Load Bonus: 50% to below 80% (PHP)', 'trip_bonus_80' => 'Load Bonus: 80% to 100% (PHP)', 'trip_volumetric_divisor' => 'Volumetric Divisor (cm?/kg)'] as $field => $label)
         <div style="background:#fff; border:1px solid #E8E6E0; border-radius:10px; padding:12px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-            <label style="font-size:12px; font-weight:700; color:#1B1B1E; margin:0;">Inter-Hub Driver</label>
-            <span style="font-size:10px; font-weight:700; background:#E0F2FE; color:#0369A1; padding:2px 6px; border-radius:4px;">Per transfer</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:4px;">
-            <span style="font-weight:700; color:#6E6E73;">₱</span>
-            <input type="number" step="0.01" min="0" name="inter_hub_driver_fee" value="{{ number_format($escrowRates['inter_hub_driver_fee'], 2, '.', '') }}" style="padding:6px 10px; border:1px solid #D1D5DB; border-radius:6px; font-size:14px; font-weight:700; width:100%;" required>
-          </div>
-          <div style="font-size:11px; color:#6E6E73; margin-top:4px;">Linehaul driver transport fee.</div>
+          <label for="{{ $field }}" style="font-size:12px;font-weight:700;">{{ $label }}</label>
+          <input id="{{ $field }}" name="{{ $field }}" type="number" step="0.01" min="{{ $field === 'trip_volumetric_divisor' ? 1 : 0 }}" max="{{ $field === 'trip_volumetric_divisor' ? 100000 : 5000 }}" value="{{ old($field, $escrowRates[$field]) }}" class="input w-full" required>
         </div>
+        @endforeach
 
         <div style="background:#fff; border:1px solid #E8E6E0; border-radius:10px; padding:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">

@@ -82,14 +82,28 @@
 
         <div class="card p-6">
             <h3 class="mb-4 text-base font-bold">Shipping Details</h3>
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div class="space-y-4">
                 <div>
-                    <label class="field-label">Weight</label>
-                    <input type="text" name="weight" maxlength="50" value="{{ old('weight', $product->weight) }}" class="input" placeholder="e.g. 1.5 kg">
+                    <label class="field-label">Actual weight (kg)</label>
+                    <input type="number" step="0.01" min="0" name="weight" value="{{ old('weight', $product->weight_value) }}" class="input" placeholder="2">
+                    @error('weight')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
-                <div>
-                    <label class="field-label">Dimensions</label>
-                    <input type="text" name="dimensions" maxlength="100" value="{{ old('dimensions', $product->dimensions) }}" class="input" placeholder="e.g. 30 × 20 × 15 cm">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <label class="field-label">Length (cm)</label>
+                        <input type="number" step="0.1" min="0" name="length" value="{{ old('length', $product->length) }}" class="input" placeholder="40">
+                        @error('length')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="field-label">Width (cm)</label>
+                        <input type="number" step="0.1" min="0" name="width" value="{{ old('width', $product->width) }}" class="input" placeholder="30">
+                        @error('width')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <label class="field-label">Height (cm)</label>
+                        <input type="number" step="0.1" min="0" name="height" value="{{ old('height', $product->height) }}" class="input" placeholder="20">
+                        @error('height')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
+                    </div>
                 </div>
             </div>
             <p class="mt-3 text-xs text-ink-light">

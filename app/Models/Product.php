@@ -49,6 +49,50 @@ class Product extends Model
         'rating' => 'float',
     ];
 
+    /** Numeric value of weight without unit (for input fields). */
+    public function getWeightValueAttribute(): ?string
+    {
+        if ($this->weight === null || $this->weight === '') {
+            return null;
+        }
+        if (preg_match('/^\s*(\d+(?:\.\d+)?)\s*(?:kg|kgs)?\s*$/i', (string) $this->weight, $m)) {
+            return $m[1];
+        }
+
+        return (string) $this->weight;
+    }
+
+    /** Parsed length from dimensions string (cm). */
+    public function getLengthAttribute(): ?string
+    {
+        return $this->parsedDimensions()['length'] ?? null;
+    }
+
+    /** Parsed width from dimensions string (cm). */
+    public function getWidthAttribute(): ?string
+    {
+        return $this->parsedDimensions()['width'] ?? null;
+    }
+
+    /** Parsed height from dimensions string (cm). */
+    public function getHeightAttribute(): ?string
+    {
+        return $this->parsedDimensions()['height'] ?? null;
+    }
+
+    /** Extract length, width, height from dimensions like "40 × 30 × 20 cm". */
+    public function parsedDimensions(): array
+    {
+        if (empty($this->dimensions)) {
+            return [];
+        }
+        if (preg_match('/^\s*(\d+(?:\.\d+)?)\s*(?:[x×*]|by)\s*(\d+(?:\.\d+)?)\s*(?:[x×*]|by)\s*(\d+(?:\.\d+)?)/iu', (string) $this->dimensions, $m)) {
+            return ['length' => $m[1], 'width' => $m[2], 'height' => $m[3]];
+        }
+
+        return [];
+    }
+
     /** Alert level for this product (seller-configurable, defaults to 5). */
     public function lowStockThreshold(): int
     {
@@ -100,6 +144,57 @@ class Product extends Model
             }
         }
         return null;
+    }
+
+    /** All valid image URLs in display order (main image first). */
+    public function getGalleryUrlsAttribute(): array
+    {
+        $urls = [];
+        $candidates = [];
+
+        try {
+            $images = $this->relationLoaded('images') ? $this->images : $this->images()->get();
+            $sorted = $images->sortBy(fn ($img) => [!$img->is_main, (int) ($img->sort_order ?? 0), $img->id]);
+            foreach ($sorted as $img) {
+                $p = $img->resolved_path ?? $img->path ?? $img->image_path;
+                if ($p) {
+                    $candidates[] = $p;
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        if (!empty($this->image) && !in_array($this->image, $candidates, true)) {
+            $hasMain = false;
+            try {
+                $hasMain = ($this->relationLoaded('images') ? $this->images : $this->images()->get())->contains('is_main', true);
+            } catch (\Throwable $e) {}
+
+            if ($hasMain) {
+                $candidates[] = $this->image;
+            } else {
+                array_unshift($candidates, $this->image);
+            }
+        }
+
+        foreach ($candidates as $path) {
+            if (!$path || !is_string($path)) continue;
+            $clean = trim($path);
+            if ($clean === '') continue;
+            if (str_starts_with($clean, 'http://') || str_starts_with($clean, 'https://')) {
+                $url = $clean;
+            } else {
+                $url = asset('storage/' . ltrim($clean, '/'));
+            }
+            if (!in_array($url, $urls, true)) {
+                $urls[] = $url;
+            }
+        }
+
+        if (empty($urls) && $this->primary_image_url) {
+            $urls[] = $this->primary_image_url;
+        }
+
+        return $urls;
     }
 
     /**

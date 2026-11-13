@@ -11,6 +11,10 @@ class PaymentController extends Controller
 {
     public function index(Request $request)
     {
+        if (Schema::hasColumn('hub_transfers', 'payment_version')) {
+            \App\Models\HubTransfer::where('payment_version', 1)->where('status', 'received')->whereNotNull('payment_confirmed_at')
+                ->whereHas('parcels')->eachById(fn ($trip) => \App\Services\TripPaymentService::refreshEligibility($trip));
+        }
         $txQuery = PaymentTransaction::with(
             'order.seller',
             'order.buyer',
@@ -67,8 +71,9 @@ class PaymentController extends Controller
             'pending' => (float) \App\Models\EscrowRemittance::where('status', 'pending_remittance')->sum('amount'),
             'remitted' => (float) \App\Models\EscrowRemittance::where('status', 'remitted')->sum('amount'),
         ] : ['held' => 0, 'pending' => 0, 'remitted' => 0];
-        foreach(['held'=>'held_in_escrow','pending'=>'pending_remittance','remitted'=>'remitted'] as $key=>$state)
+        foreach(['held'=>'held_in_escrow','pending'=>'pending_remittance','remitted'=>'remitted'] as $key=>$state) {
             $escrowTotals[$key]+=(float)$combinedPayouts->where('source','return')->where('status',$state)->sum('amount');
+        }
 
         $adminRemittanceQuery = \App\Models\EscrowRemittance::where('recipient_role', \App\Models\EscrowRemittance::ROLE_ADMIN)->where('amount', '>', 0);
         $adminRemittances = $hasEscrowTable ? (clone $adminRemittanceQuery)->with(['order.payment', 'delivery'])->latest('id')

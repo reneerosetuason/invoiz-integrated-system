@@ -80,6 +80,10 @@ class HubTransferService
             abort_if($manifest->contains(fn ($entry) => $entry->delivery?->weight === null), 422, 'Parcel weights must be recorded before dispatch.');
             abort_if($manifest->sum(fn ($entry) => (float) $entry->delivery->weight) > (float) $truck->capacity_kg, 422, 'Truck weight capacity is exceeded.');
 
+            if ((int) $locked->payment_version === 1) {
+                TripPaymentService::assertUnchanged($locked);
+            }
+
             $locked->update([
                 'status' => 'in_transit',
                 'dispatched_by' => $actor?->id,
@@ -330,6 +334,7 @@ class HubTransferService
             }
             abort_unless(in_array($locked->status, ['loading', 'ready_for_dispatch'], true), 409, 'A transfer can only be cancelled before dispatch.');
 
+            TripPaymentService::reverse($locked, $actor, 'Trip cancelled: '.$reason);
             $locked->parcels()
                 ->whereNotIn('loading_status', ['removed'])
                 ->update(['loading_status' => 'removed', 'receiving_status' => 'removed']);
@@ -391,6 +396,7 @@ class HubTransferService
 
             $newTruck = LogisticsTruck::query()->whereKey($truck->id)->lockForUpdate()->firstOrFail();
             $newDriver = HubTransportDriver::query()->whereKey($driver->id)->lockForUpdate()->firstOrFail();
+            TripPaymentService::reverse($locked, $actor, 'Fleet reassigned before departure.');
             $oldTruckId = $locked->truck_id;
             $oldDriverId = $locked->driver_id;
 
@@ -476,6 +482,10 @@ class HubTransferService
                 ->exists();
             abort_if($alreadyVisited, 422, 'Every parcel on this manifest has already passed through the selected hub. Choose a hub they have not visited.');
 
+            TripPaymentService::reverse($locked, $actor, 'Route changed: '.$reason);
+            if ((int) $locked->payment_version === 1) {
+                $locked->update(['route_distance_km' => null, 'route_distance_source' => null, 'route_recorded_by' => null]);
+            }
             $previousId = (int) $locked->destination_center_id;
             $previous = $locked->destination?->name ?? ('Hub #'.$previousId);
 

@@ -12,11 +12,69 @@ class HomeController extends Controller {
   public function index(Request $request){
     $q = $this->catalogQuery($request);
     if($request->filled('category')) $q->where('category_id', $request->integer('category'));
-    if($request->filled('search')) $q->where('name','like','%'.$request->search.'%');
+
+    $matchingStores = collect();
+    if($request->filled('search')) {
+      $term = trim((string) $request->input('search'));
+      $q->where(function ($sq) use ($term) {
+        $sq->where('products.name', 'like', '%'.$term.'%')
+           ->orWhere('products.description', 'like', '%'.$term.'%')
+           ->orWhere('products.brand', 'like', '%'.$term.'%')
+           ->orWhereHas('seller', function ($sel) use ($term) {
+             $sel->where('store_name', 'like', '%'.$term.'%')
+                 ->orWhere('business_name', 'like', '%'.$term.'%')
+                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', '%'.$term.'%'));
+           });
+      });
+
+      try {
+        $matchingStores = \App\Models\Seller::approved()
+          ->with('user')
+          ->where(function ($sq) use ($term) {
+            $sq->where('store_name', 'like', '%'.$term.'%')
+               ->orWhere('business_name', 'like', '%'.$term.'%')
+               ->orWhere('line_of_business', 'like', '%'.$term.'%')
+               ->orWhereHas('user', fn ($u) => $u->where('name', 'like', '%'.$term.'%'));
+          })
+          ->take(4)
+          ->get()
+          ->map(function ($store) {
+            $uid = (int) $store->user_id;
+            $catalogIds = array_values(array_unique(array_filter([(int) $store->id, $uid])));
+            $productsCount = Product::storefront()->whereIn('seller_id', $catalogIds)->count();
+            $productIds = Product::whereIn('seller_id', $catalogIds)->pluck('id');
+            $rating = null;
+            try {
+              if (class_exists(\App\Models\Review::class)) {
+                $rating = \App\Models\Review::whereIn('product_id', $productIds)->where('status', 'visible')->avg('rating');
+              }
+            } catch (\Throwable $e) {}
+            if ($rating === null) {
+              $rating = Product::whereIn('id', $productIds)->avg('rating');
+            }
+
+            return [
+              'id' => $store->id,
+              'user_id' => $uid,
+              'name' => $store->display_name,
+              'line' => $store->line_of_business ?: 'Verified Seller',
+              'city' => $store->city ?: ($store->user?->city ?? ''),
+              'logo' => $store->logoUrl(),
+              'products_count' => $productsCount,
+              'rating' => $rating ? round((float) $rating, 1) : null,
+              'url' => url('/store/' . $uid),
+            ];
+          });
+      } catch (\Throwable $e) {
+        $matchingStores = collect();
+      }
+    }
     $sort = $this->sortCatalog($q, $request->input('sort', 'recommended'));
     $products = $q->get();
     $this->attachSale($products);
-    $products = $products->filter(fn ($p) => $p->on_sale)->values();
+    if ($request->boolean('on_sale')) {
+      $products = $products->filter(fn ($p) => $p->on_sale)->values();
+    }
     $categories = Category::active()
       ->orderByRaw("CASE WHEN name = 'Appliances' THEN 0 ELSE 1 END, name")
       ->get();
@@ -32,16 +90,16 @@ class HomeController extends Controller {
     [$cartLines, $cartTotal] = $this->cartPreview($buyer);
 
     $favoriteIds = $buyer ? Favorite::where('buyer_id', $buyer['id'])->pluck('product_id')->map(fn ($id) => (int) $id)->all() : [];
-    return view('buyer.home', compact('products','categories','stats','cartLines','cartTotal','buyer','favoriteIds','sort') + ['saleMode' => false]);
+    return view('buyer.home', compact('products','categories','stats','cartLines','cartTotal','buyer','favoriteIds','sort','matchingStores') + ['saleMode' => false]);
   }
   public function show($id){
-    $p = Product::with(['category','variants'])->storefront()->findOrFail($id);
+    $p = Product::with(['category','variants','images'])->storefront()->findOrFail($id);
     $p->trackView();
     $p->setRelation('reviews', Review::with('buyer')->where('product_id', $p->id)->where('status', 'visible')->latest()->get());
     $reviewAverage = Review::where('product_id', $p->id)->where('status', 'visible')->avg('rating');
     if ($reviewAverage !== null) $p->rating = $reviewAverage;
     $sellerUserId = \App\Models\Seller::userIdFor((int) $p->seller_id);
-    $buyer = request()->session()->get('buyer') ?? (Auth::check() ? ['id' => Auth::id()] : null);
+    $buyer = \App\Support\BuyerSession::current();
     $isFavorited = $buyer ? Favorite::where('buyer_id', $buyer['id'])->where('product_id', $p->id)->exists() : false;
     $sale = \App\Support\Sales::saleFor($p);
     $salePrice = $sale ? \App\Support\Sales::priceFor($p) : null;
@@ -52,7 +110,19 @@ class HomeController extends Controller {
   public function sale(Request $request){
     $q = \App\Support\Sales::scopeDiscounted($this->catalogQuery($request));
     if($request->filled('category')) $q->where('category_id', $request->integer('category'));
-    if($request->filled('search')) $q->where('name','like','%'.$request->search.'%');
+    if($request->filled('search')) {
+      $term = trim((string) $request->input('search'));
+      $q->where(function ($sq) use ($term) {
+        $sq->where('products.name', 'like', '%'.$term.'%')
+           ->orWhere('products.description', 'like', '%'.$term.'%')
+           ->orWhere('products.brand', 'like', '%'.$term.'%')
+           ->orWhereHas('seller', function ($sel) use ($term) {
+             $sel->where('store_name', 'like', '%'.$term.'%')
+                 ->orWhere('business_name', 'like', '%'.$term.'%')
+                 ->orWhereHas('user', fn ($u) => $u->where('name', 'like', '%'.$term.'%'));
+           });
+      });
+    }
     $sort = $this->sortCatalog($q, $request->input('sort', 'recommended'));
     $products = $q->get();
     $this->attachSale($products);

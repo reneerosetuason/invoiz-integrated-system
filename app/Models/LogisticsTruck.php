@@ -39,7 +39,7 @@ class LogisticsTruck extends Model
         'vehicle_type',
         'model',
         'parcel_capacity',
-        'capacity_kg',
+        'capacity_kg', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm',
         'status',
         'verification_status',
         'verification_notes',

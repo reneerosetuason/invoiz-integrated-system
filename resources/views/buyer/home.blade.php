@@ -30,11 +30,50 @@
   </nav>
 
   <div class="shead rv">
-    <div class="eyebrow">Shop</div>
+    <div class="eyebrow">{{ request('search') ? 'Search results' : 'Shop' }}</div>
     @php $activeCat = $categories->firstWhere('id', (int) request('category')); @endphp
-    <h2>{{ $activeCat ? $activeCat->name : 'All products' }}</h2>
+    <h2>{{ $activeCat ? $activeCat->name : (request('search') ? 'Results for "'.request('search').'"' : 'All products') }}</h2>
     <div class="count">{{ $products->count() }} {{ $products->count() === 1 ? 'product' : 'products' }}</div>
   </div>
+
+  @if(request('search') && !empty($matchingStores) && $matchingStores->isNotEmpty())
+    <div class="search-stores-section rv" style="margin:16px 0 22px;">
+      <div style="font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin-bottom:10px;">Matching Stores ({{ $matchingStores->count() }})</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(300px, 1fr));gap:12px;">
+        @foreach($matchingStores as $st)
+          <div class="search-store-card" style="background:#fff;border:1px solid var(--hair);border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+            <div style="width:52px;height:52px;border-radius:14px;background:#F8F7F4;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid var(--hair);">
+              @if(!empty($st['logo']))
+                <img src="{{ $st['logo'] }}" alt="{{ $st['name'] }}" style="width:100%;height:100%;object-fit:cover;">
+              @else
+                <span style="font-weight:800;font-size:18px;color:#0E4A57;">{{ strtoupper(substr($st['name'], 0, 1)) }}</span>
+              @endif
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <a href="{{ $st['url'] }}" style="font-weight:700;font-size:14.5px;color:#0E4A57;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" class="u-line">{{ $st['name'] }}</a>
+              </div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                {{ $st['line'] }} @if(!empty($st['city'])) &bull; {{ $st['city'] }} @endif
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;font-size:11.5px;color:var(--muted);margin-top:3px;">
+                <span><b>{{ $st['products_count'] }}</b> {{ $st['products_count'] === 1 ? 'product' : 'products' }}</span>
+                @if(!empty($st['rating']))
+                  <span style="color:#A16207;font-weight:700;display:inline-flex;align-items:center;gap:2px;">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    {{ number_format((float)$st['rating'], 1) }}
+                  </span>
+                @endif
+              </div>
+            </div>
+            <a href="{{ $st['url'] }}" class="btn-p btn-solid" style="padding:7px 14px;font-size:12px;border-radius:999px;text-decoration:none;flex-shrink:0;">
+              Visit Store
+            </a>
+          </div>
+        @endforeach
+      </div>
+    </div>
+  @endif
 
   <form method="GET" action="{{ !empty($saleMode) && $saleMode ? url('/sale') : url('/shop') }}" class="catalog-sort rv" style="display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin:14px 0">
     @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif

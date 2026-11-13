@@ -10,11 +10,11 @@ class HubTransfer extends Model
 {
     public const ACTIVE_STATUSES = ['pending', 'assigned', 'loading', 'ready_for_dispatch', 'in_transit', 'arrived', 'receiving', 'exception', 'on_hold'];
 
-    protected $fillable = ['reference', 'logistics_company_id', 'origin_center_id', 'destination_center_id', 'truck_id', 'driver_id', 'status', 'planned_dispatch_at', 'notes', 'created_by', 'dispatched_by', 'arrived_by', 'received_by', 'dispatched_at', 'arrived_at', 'received_at', 'origin_arrived_at', 'destination_arrived_at'];
+    protected $fillable = ['payment_version', 'route_distance_km', 'route_distance_source', 'route_recorded_by', 'payment_snapshot', 'payment_confirmed_at', 'payment_confirmed_by', 'reference', 'logistics_company_id', 'origin_center_id', 'destination_center_id', 'truck_id', 'driver_id', 'status', 'planned_dispatch_at', 'notes', 'created_by', 'dispatched_by', 'arrived_by', 'received_by', 'dispatched_at', 'arrived_at', 'received_at', 'origin_arrived_at', 'destination_arrived_at'];
 
     protected function casts(): array
     {
-        return ['planned_dispatch_at' => 'datetime', 'dispatched_at' => 'datetime', 'arrived_at' => 'datetime', 'received_at' => 'datetime', 'origin_arrived_at' => 'datetime', 'destination_arrived_at' => 'datetime'];
+        return ['payment_snapshot' => 'array', 'payment_confirmed_at' => 'datetime', 'planned_dispatch_at' => 'datetime', 'dispatched_at' => 'datetime', 'arrived_at' => 'datetime', 'received_at' => 'datetime', 'origin_arrived_at' => 'datetime', 'destination_arrived_at' => 'datetime'];
     }
 
     public function company(): BelongsTo

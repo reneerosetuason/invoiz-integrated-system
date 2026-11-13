@@ -40,13 +40,39 @@
   @endif
 
   <div class="pdetail">
-    @php $productImage = $p->primary_image_url; $hasPImg = (bool)$productImage; @endphp
-    <div class="gallery rv">
-      <div class="gmain">
-        @if($hasPImg)
-          <button type="button" class="media-image-button" data-image-viewer data-image-src="{{ $productImage }}" aria-label="Preview {{ $p->name }}">
-            <img src="{{ $productImage }}" alt="{{ $p->name }}" fetchpriority="high">
-          </button>
+    @php
+      $gallery = $p->gallery_urls;
+      $hasImages = !empty($gallery);
+    @endphp
+    <div class="gallery rv" style="max-width:440px;width:100%;">
+      <div class="gmain" style="position:relative;overflow:hidden;border-radius:18px;background:#F8F7F4;aspect-ratio:1/1;max-height:440px;display:flex;align-items:center;justify-content:center;">
+        @if($hasImages)
+          @if(count($gallery) > 1)
+            <div class="gallery-viewport" id="galleryViewport" style="display:flex;width:100%;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;-ms-overflow-style:none;touch-action:pan-y;cursor:grab;">
+              @foreach($gallery as $idx => $imgUrl)
+                <div class="gallery-slide" data-index="{{ $idx }}" style="flex:0 0 100%;min-width:100%;height:100%;scroll-snap-align:center;scroll-snap-stop:always;position:relative;display:flex;align-items:center;justify-content:center;">
+                  <button type="button" class="media-image-button" data-image-viewer data-image-src="{{ $imgUrl }}" aria-label="Preview {{ $p->name }} (photo {{ $idx + 1 }})" style="width:100%;height:100%;padding:0;border:none;background:transparent;cursor:zoom-in;display:flex;align-items:center;justify-content:center;">
+                    <img src="{{ $imgUrl }}" alt="{{ $p->name }} - photo {{ $idx + 1 }}" style="width:100%;height:100%;object-fit:contain;display:block;" loading="{{ $idx === 0 ? 'eager' : 'lazy' }}" fetchpriority="{{ $idx === 0 ? 'high' : 'auto' }}">
+                  </button>
+                </div>
+              @endforeach
+            </div>
+
+            <button type="button" class="gallery-arrow gallery-prev" id="galleryPrevBtn" aria-label="Previous photo" onclick="gallerySlide(-1)" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);border:1px solid rgba(0,0,0,0.08);box-shadow:0 3px 10px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;color:#0E4A57;cursor:pointer;z-index:5;transition:transform .15s, background .15s;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <button type="button" class="gallery-arrow gallery-next" id="galleryNextBtn" aria-label="Next photo" onclick="gallerySlide(1)" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.92);backdrop-filter:blur(4px);border:1px solid rgba(0,0,0,0.08);box-shadow:0 3px 10px rgba(0,0,0,0.12);display:flex;align-items:center;justify-content:center;color:#0E4A57;cursor:pointer;z-index:5;transition:transform .15s, background .15s;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+
+            <div class="gallery-counter" id="galleryCounter" style="position:absolute;bottom:10px;right:10px;background:rgba(14,74,87,0.85);backdrop-filter:blur(4px);color:#fff;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;letter-spacing:0.02em;pointer-events:none;z-index:5;">
+              1 / {{ count($gallery) }}
+            </div>
+          @else
+            <button type="button" class="media-image-button" data-image-viewer data-image-src="{{ $gallery[0] }}" aria-label="Preview {{ $p->name }}" style="width:100%;height:100%;padding:0;border:none;background:transparent;cursor:zoom-in;display:flex;align-items:center;justify-content:center;">
+              <img src="{{ $gallery[0] }}" alt="{{ $p->name }}" fetchpriority="high" style="width:100%;height:100%;object-fit:contain;display:block;">
+            </button>
+          @endif
         @else
           <div class="pimg-fallback" role="img" aria-label="{{ $p->name }} — product image coming soon">
             <div class="mark">INVOIZ</div>
@@ -54,6 +80,16 @@
           </div>
         @endif
       </div>
+
+      @if($hasImages && count($gallery) > 1)
+        <div class="gallery-thumbs" id="galleryThumbs" style="display:flex;gap:8px;overflow-x:auto;padding:10px 2px 2px;scrollbar-width:thin;-webkit-overflow-scrolling:touch;">
+          @foreach($gallery as $i => $thumbUrl)
+            <button type="button" class="gallery-thumb {{ $i === 0 ? 'active' : '' }}" onclick="galleryGoTo({{ $i }})" data-thumb-index="{{ $i }}" aria-label="View photo {{ $i + 1 }}" style="flex:0 0 54px;width:54px;height:54px;border-radius:10px;overflow:hidden;border:2px solid {{ $i === 0 ? '#0E4A57' : 'transparent' }};padding:0;background:#F8F7F4;cursor:pointer;opacity:{{ $i === 0 ? '1' : '0.6' }};transition:all .15s;outline:none;">
+              <img src="{{ $thumbUrl }}" alt="Thumbnail {{ $i + 1 }}" style="width:100%;height:100%;object-fit:contain;display:block;">
+            </button>
+          @endforeach
+        </div>
+      @endif
     </div>
 
     <div class="pinfo rv">
@@ -250,4 +286,176 @@
   </div>
 </div>
 <script id="product-config-script" src="{{ asset('assets/buyer/js/product.js') }}?v={{ filemtime(public_path('assets/buyer/js/product.js')) }}" data-config="{{ json_encode([($effPrice), ((int) $p->stock), ($vgroups->isNotEmpty()), ('/buy/'.$p->id), ('/cart/add/'.$p->id), (csrf_token()), ((int)$p->id)], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>
+<script>
+(function(){
+  var viewport = document.getElementById('galleryViewport');
+  if (!viewport) return;
+
+  var thumbs = document.querySelectorAll('.gallery-thumb');
+  var counter = document.getElementById('galleryCounter');
+  var slides = viewport.querySelectorAll('.gallery-slide');
+  var total = slides.length;
+  if (total <= 1) return;
+
+  var currentIndex = 0;
+  var isNavigating = false;
+
+  function updateActive(idx) {
+    if (idx < 0) idx = 0;
+    if (idx >= total) idx = total - 1;
+    currentIndex = idx;
+    if (counter) counter.textContent = (idx + 1) + ' / ' + total;
+    thumbs.forEach(function(tb, i){
+      if (i === idx) {
+        tb.style.borderColor = '#0E4A57';
+        tb.style.opacity = '1';
+        try { tb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }); } catch(e){}
+      } else {
+        tb.style.borderColor = 'transparent';
+        tb.style.opacity = '0.6';
+      }
+    });
+  }
+
+  window.galleryGoTo = function(idx) {
+    if (idx < 0 || idx >= total) return;
+    var targetSlide = slides[idx];
+    if (targetSlide) {
+      isNavigating = true;
+      viewport.scrollTo({
+        left: targetSlide.offsetLeft,
+        behavior: 'smooth'
+      });
+      updateActive(idx);
+      setTimeout(function(){ isNavigating = false; }, 350);
+    }
+  };
+
+  window.gallerySlide = function(direction) {
+    var next = currentIndex + direction;
+    if (next < 0) next = total - 1;
+    else if (next >= total) next = 0;
+    window.galleryGoTo(next);
+  };
+
+  // Sync active slide on scroll
+  var scrollDebounce;
+  viewport.addEventListener('scroll', function(){
+    if (isNavigating) return;
+    clearTimeout(scrollDebounce);
+    scrollDebounce = setTimeout(function(){
+      var width = viewport.clientWidth || 1;
+      var scrollLeft = viewport.scrollLeft;
+      var nearest = Math.round(scrollLeft / width);
+      if (nearest >= 0 && nearest < total && nearest !== currentIndex) {
+        updateActive(nearest);
+      }
+    }, 50);
+  }, { passive: true });
+
+  // Touch swipe support for mobile
+  var touchStartX = 0, touchStartY = 0, touchEndX = 0, touchDeltaX = 0;
+  viewport.addEventListener('touchstart', function(e){
+    if (e.touches && e.touches.length > 0) {
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+      touchEndX = touchStartX;
+      touchDeltaX = 0;
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchmove', function(e){
+    if (e.touches && e.touches.length > 0) {
+      touchEndX = e.touches[0].clientX;
+      touchDeltaX = touchEndX - touchStartX;
+    }
+  }, { passive: true });
+
+  viewport.addEventListener('touchend', function(e){
+    var deltaX = touchStartX - touchEndX;
+    var deltaY = Math.abs((e.changedTouches && e.changedTouches[0] ? e.changedTouches[0].clientY : 0) - touchStartY);
+    if (Math.abs(deltaX) > 40 && deltaY < Math.abs(deltaX) * 1.5) {
+      if (deltaX > 0 && currentIndex < total - 1) {
+        window.galleryGoTo(currentIndex + 1);
+      } else if (deltaX < 0 && currentIndex > 0) {
+        window.galleryGoTo(currentIndex - 1);
+      }
+    }
+  }, { passive: true });
+
+  // Mouse drag support for desktop
+  var isMouseDown = false, mouseStartX = 0, mouseScrollStart = 0, hasDragged = false;
+  viewport.addEventListener('mousedown', function(e){
+    if (e.target.closest('.gallery-arrow')) return;
+    isMouseDown = true;
+    hasDragged = false;
+    mouseStartX = e.pageX;
+    mouseScrollStart = viewport.scrollLeft;
+    viewport.style.cursor = 'grabbing';
+    viewport.style.userSelect = 'none';
+  });
+
+  window.addEventListener('mousemove', function(e){
+    if (!isMouseDown) return;
+    var dist = e.pageX - mouseStartX;
+    if (Math.abs(dist) > 5) {
+      hasDragged = true;
+    }
+    viewport.scrollLeft = mouseScrollStart - dist;
+  });
+
+  window.addEventListener('mouseup', function(e){
+    if (!isMouseDown) return;
+    isMouseDown = false;
+    viewport.style.cursor = 'grab';
+    viewport.style.removeProperty('user-select');
+    if (hasDragged) {
+      var width = viewport.clientWidth || 1;
+      var targetIdx = Math.round(viewport.scrollLeft / width);
+      window.galleryGoTo(targetIdx);
+    }
+  });
+
+  viewport.querySelectorAll('button[data-image-viewer]').forEach(function(btn){
+    btn.addEventListener('click', function(e){
+      if (hasDragged) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+  });
+
+  // Keyboard navigation
+  viewport.setAttribute('tabindex', '0');
+  viewport.addEventListener('keydown', function(e){
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      window.gallerySlide(-1);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      window.gallerySlide(1);
+    }
+  });
+})();
+</script>
+<style>
+.shopx .pdetail {
+  display: grid;
+  grid-template-columns: minmax(300px, 440px) 1fr;
+  gap: 36px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .shopx .pdetail {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+}
+.gallery-viewport::-webkit-scrollbar { display: none; }
+.gallery-thumbs::-webkit-scrollbar { height: 4px; }
+.gallery-thumbs::-webkit-scrollbar-thumb { background: rgba(14,74,87,0.2); border-radius: 4px; }
+.gallery-arrow:hover { background: #fff !important; transform: translateY(-50%) scale(1.06) !important; }
+.gallery-thumb:hover { opacity: 0.9 !important; }
+.gallery-slide button:focus-visible { outline: 2px solid #0E4A57; outline-offset: -2px; }
+</style>
 @endsection

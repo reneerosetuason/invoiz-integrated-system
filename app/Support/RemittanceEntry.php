@@ -64,7 +64,7 @@ final class RemittanceEntry extends Fluent
     {
         return [
             'id'=>$this->id,'source'=>$this->source,'key'=>$this->key,'return_id'=>$this->return_id,
-            'order_number'=>$this->order?->order_number??'#'.$this->order_id,'role'=>$this->recipient_role,'role_label'=>$this->roleLabel(),
+            'order_number'=>$this->order?->order_number?? ($this->hubTransfer?->reference ?? '#'.$this->order_id),'role'=>$this->recipient_role,'role_label'=>$this->roleLabel(),
             'amount'=>(float)$this->amount,'status'=>$this->status,'can_accept'=>$this->status==='remitted',
             'bank_reference'=>$this->bank_reference,'remitted_at'=>$this->remitted_at?->toIso8601String(),
             'tracking_number'=>$this->delivery?->tracking_number,

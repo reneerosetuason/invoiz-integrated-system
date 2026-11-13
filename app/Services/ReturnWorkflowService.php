@@ -163,7 +163,7 @@ class ReturnWorkflowService
                     self::require(strlen($data['reference']) >= 4 && ! \App\Models\ReturnAllocation::where('reference', $data['reference'])->exists()
                         && ! ReturnWorkflow::where('refund_reference',$data['reference'])->exists()
                         && !(\Illuminate\Support\Facades\Schema::hasTable('direct_refund_transfers') && \App\Models\DirectRefundTransfer::where('reference',$data['reference'])->exists())
-                        && ! \App\Models\EscrowRemittance::where('bank_reference', $data['reference'])->exists(), 'Use a unique actual outgoing refund reference.');
+                        && ! EscrowRemittance::where('bank_reference', $data['reference'])->exists(), 'Use a unique actual outgoing refund reference.');
                 }
                 if (empty($data['reference'])) {
                     $data['reference'] = 'REF-RET-'.$return->id.'-'.now()->format('ymd').'-'.strtoupper(\Illuminate\Support\Str::random(4));
@@ -259,6 +259,9 @@ class ReturnWorkflowService
         $reservedLogistics = (float) EscrowRemittance::where('order_id', $order->id)
             ->whereNotIn('recipient_role', [EscrowRemittance::ROLE_SELLER, EscrowRemittance::ROLE_ADMIN])
             ->whereIn('status', ['held_in_escrow', 'pending_remittance'])->sum('amount');
+        $tripBudget = TripPaymentService::orderBudget($order);
+        $released += $tripBudget['released'];
+        $reservedLogistics += $tripBudget['reserved'];
         $platformRefunds=max(0,(float)($tx?->refunded_amount??0)-$externalRefunds);
         $shortfall = round(max(0, $amount + $released + $reservedLogistics + $returnReserves + $platformRefunds - $funded - $previousRecovery), 2);
         $available = round(max(0, $funded + $previousRecovery - $released - $reservedLogistics - $returnReserves - $platformRefunds), 2);
@@ -270,6 +273,8 @@ class ReturnWorkflowService
             $originalShare = $calc['gross_merch'] - $calc['merch_discount'] + $calc['buyer_shipping_paid'];
             $sellerRows = EscrowRemittance::where('order_id', $order->id)->where('seller_id', $sellerId);
             $ownLogistics = (clone $sellerRows)->whereNotIn('recipient_role', ['seller','admin'])->where('status','!=','voided')->sum('amount');
+            $ownTripBudget = TripPaymentService::orderBudget($order, $sellerId);
+            $ownLogistics += $ownTripBudget['reserved'] + $ownTripBudget['released'];
             $ownReleased = (clone $sellerRows)->whereIn('recipient_role', ['seller','admin'])->whereIn('status',['remitted','accepted'])->sum('amount');
             $ownRefunds = ReturnRequest::where('order_id',$order->id)->where('seller_id',$sellerId)
                 ->when(\Illuminate\Support\Facades\Schema::hasColumn('return_workflows','refund_source'),fn($q)=>$q->whereDoesntHave('workflow',fn($w)=>$w->where('refund_source','seller_direct')))

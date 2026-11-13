@@ -76,6 +76,8 @@
             </div>
         @endif
 
+        @include('logistics.hub-transfers.trip-payment')
+
         {{-- One primary next step derived from the transfer's real status. --}}
         @if($hubsActive)
         <div class="card p-4 border-l-4 {{ $stage['tone'] === 'amber' ? 'border-l-amber-500 bg-amber-50/60' : ($stage['tone'] === 'indigo' ? 'border-l-indigo-500 bg-indigo-50/50' : ($stage['tone'] === 'green' ? 'border-l-emerald-600 bg-emerald-50/50' : ($stage['tone'] === 'gray' ? 'border-l-[#8E8E93] bg-[#FAF9F6]' : 'border-l-[#16697A] bg-[#F0F9F7]'))) }} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

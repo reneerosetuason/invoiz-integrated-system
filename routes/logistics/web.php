@@ -72,6 +72,9 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::get('hub-transfers/create', [HubTransferController::class, 'create'])->middleware('parcel.operator')->name('hub-transfers.create');
     Route::post('hub-transfers', [HubTransferController::class, 'store'])->middleware('parcel.operator')->name('hub-transfers.store');
     Route::get('hub-transfers/{hubTransfer}', [HubTransferController::class, 'show'])->name('hub-transfers.show');
+        Route::post('hub-transfers/{hubTransfer}/payment/prepare', [HubTransferController::class, 'preparePayment'])->middleware('parcel.operator')->name('hub-transfers.payment.prepare');
+        Route::post('hub-transfers/{hubTransfer}/payment/confirm', [HubTransferController::class, 'confirmPayment'])->middleware('parcel.operator')->name('hub-transfers.payment.confirm');
+        Route::post('hub-transfers/{hubTransfer}/payment/reverse', [HubTransferController::class, 'reversePayment'])->middleware('parcel.operator')->name('hub-transfers.payment.reverse');
     Route::post('hub-transfers/{hubTransfer}/load', [HubTransferController::class, 'loadParcel'])->middleware('parcel.operator')->name('hub-transfers.load');
     Route::delete('hub-transfers/{hubTransfer}/parcels/{parcel}', [HubTransferController::class, 'removeParcel'])->middleware('parcel.operator')->name('hub-transfers.parcels.remove');
     Route::post('hub-transfers/{hubTransfer}/dispatch', [HubTransferController::class, 'dispatch'])->middleware('parcel.operator')->name('hub-transfers.dispatch');

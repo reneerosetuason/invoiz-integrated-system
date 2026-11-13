@@ -35,8 +35,15 @@ class ProductController extends Controller
 
         if ($request->has('search') && $request->filled('search')) {
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%'.$request->input('search').'%')
-                    ->orWhere('description', 'like', '%'.$request->input('search').'%');
+                $term = trim((string) $request->input('search'));
+                $q->where('products.name', 'like', '%'.$term.'%')
+                    ->orWhere('products.description', 'like', '%'.$term.'%')
+                    ->orWhere('products.brand', 'like', '%'.$term.'%')
+                    ->orWhereHas('seller', function ($sel) use ($term) {
+                        $sel->where('store_name', 'like', '%'.$term.'%')
+                            ->orWhere('business_name', 'like', '%'.$term.'%')
+                            ->orWhereHas('user', fn ($u) => $u->where('name', 'like', '%'.$term.'%'));
+                    });
             });
         }
 

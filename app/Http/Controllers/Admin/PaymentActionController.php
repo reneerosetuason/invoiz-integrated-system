@@ -59,17 +59,25 @@ class PaymentActionController extends Controller
     {
         $released = DB::transaction(function () use ($request, $id): ?array {
             $record = EscrowRemittance::findOrFail($id);
-            $order = Order::lockForUpdate()->findOrFail($record->order_id);
+            $order = $record->order_id ? Order::lockForUpdate()->findOrFail($record->order_id) : null;
+            abort_unless($order || $record->settlement_reference, 404);
+            if ($record->settlement_reference && ! $order) {
+                $trip = \App\Services\HubTransferService::lockTransfer($record->hub_transfer_id);
+                \App\Services\TripPaymentService::assertReleasable($trip);
+            }
             $remittance = EscrowRemittance::query()->lockForUpdate()->findOrFail($id);
             if ($remittance->status !== 'pending_remittance') {
                 return null;
             }
-            if ($order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()
-                || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists()) {
+            if ($order && ($order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()
+                || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists())) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['return' => 'Resolve the return or dispute before releasing this order payout.']);
             }
 
-            $isGcash = \App\Services\GcashEscrowService::isGcash($order);
+            $isGcash = $order && \App\Services\GcashEscrowService::isGcash($order);
+            if ($remittance->settlement_reference) {
+                $request->validate(['bank_reference' => ['required', 'string', 'max:150']]);
+            }
             if ($isGcash) {
                 // Refunded orders may still owe fees for completed logistics work,
                 // funded by the separately verified recovery deposit.

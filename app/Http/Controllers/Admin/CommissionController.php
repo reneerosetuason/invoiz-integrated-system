@@ -92,11 +92,11 @@ class CommissionController extends Controller
             ->join('categories', 'categories.id', '=', 'products.category_id')
             ->leftJoin('commission_rates', 'commission_rates.category_id', '=', 'categories.id')
             ->where('orders.payment_status', 'paid')
-            ->selectRaw("categories.id, categories.name,
+            ->selectRaw('categories.id, categories.name,
                          SUM(order_items.total_price) as category_sales,
                          COUNT(DISTINCT orders.id) as orders_count,
                          COALESCE(commission_rates.rate, 10.00) as rate,
-                         SUM(order_items.total_price * COALESCE(commission_rates.rate, 10.00) / 100) as category_commission")
+                         SUM(order_items.total_price * COALESCE(commission_rates.rate, 10.00) / 100) as category_commission')
             ->groupBy('categories.id', 'categories.name', 'commission_rates.rate')
             ->orderByDesc('category_commission')
             ->get();
@@ -144,12 +144,16 @@ class CommissionController extends Controller
         $validated = $request->validate([
             'origin_hub_fee'        => 'required|numeric|min:0|max:5000',
             'pickup_rider_per_item' => 'required|numeric|min:0|max:5000',
-            'inter_hub_driver_fee'  => 'required|numeric|min:0|max:5000',
+            'trip_base_payment' => 'required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_rate_per_km' => 'required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_bonus_50' => 'required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_bonus_80' => 'required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_volumetric_divisor' => 'required|numeric|min:1|max:100000|decimal:0,2',
             'destination_hub_fee'   => 'required|numeric|min:0|max:5000',
             'last_mile_rider_fee'   => 'required|numeric|min:0|max:5000',
         ]);
 
-        EscrowEarnings::updateRates($validated);
+        DB::transaction(fn () => EscrowEarnings::updateRates($validated));
 
         return redirect()->back()->with('status', 'Escrow earnings distribution schedule updated successfully.');
     }

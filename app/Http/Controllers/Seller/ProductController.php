@@ -67,13 +67,39 @@ class ProductController extends Controller
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
             'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'weight'       => ['nullable', 'string', 'max:50'],
+            'weight'       => ['nullable', function ($attribute, $value, $fail) {
+                if (! is_numeric($value) && ! preg_match('/^\s*\d+(?:\.\d+)?\s*(?:kg|kgs|g)?\s*$/i', (string) $value)) {
+                    $fail('The actual weight must be a valid number.');
+                }
+            }],
+            'length' => ['nullable', 'numeric', 'min:0', 'max:99999', 'required_with:width,height'],
+            'width' => ['nullable', 'numeric', 'min:0', 'max:99999', 'required_with:length,height'],
+            'height' => ['nullable', 'numeric', 'min:0', 'max:99999', 'required_with:length,width'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
         'image'        => ['nullable', 'image', 'max:5120'],
         'images'       => ['nullable', 'array', 'max:9'],
         'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
         'status'       => ['required', 'in:' . implode(',', $this->allowedStatuses())],
         ]);
+
+        if ($request->filled('length') && $request->filled('width') && $request->filled('height')) {
+            $l = trim((string) $request->input('length'));
+            $w = trim((string) $request->input('width'));
+            $h = trim((string) $request->input('height'));
+            $validated['dimensions'] = "{$l} × {$w} × {$h} cm";
+        } elseif ($request->filled('dimensions')) {
+            $validated['dimensions'] = trim((string) $request->input('dimensions'));
+        } else {
+            $validated['dimensions'] = null;
+        }
+        unset($validated['length'], $validated['width'], $validated['height']);
+
+        if (! empty($validated['weight'])) {
+            $rawWeight = trim((string) $validated['weight']);
+            $validated['weight'] = is_numeric($rawWeight) ? ($rawWeight.' kg') : $rawWeight;
+        } else {
+            $validated['weight'] = null;
+        }
 
         $validated['seller_id'] = auth()->id();
         $validated = $this->itemPricing($validated, $request);
@@ -140,13 +166,39 @@ class ProductController extends Controller
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
             'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'weight'       => ['nullable', 'string', 'max:50'],
+            'weight'       => ['nullable', function ($attribute, $value, $fail) {
+                if (! is_numeric($value) && ! preg_match('/^\s*\d+(?:\.\d+)?\s*(?:kg|kgs|g)?\s*$/i', (string) $value)) {
+                    $fail('The actual weight must be a valid number.');
+                }
+            }],
+            'length' => ['nullable', 'numeric', 'min:0', 'max:99999', 'required_with:width,height'],
+            'width' => ['nullable', 'numeric', 'min:0', 'max:99999', 'required_with:length,height'],
+            'height' => ['nullable', 'numeric', 'min:0', 'max:99999', 'required_with:length,width'],
             'dimensions'   => ['nullable', 'string', 'max:100'],
         'image'        => ['nullable', 'image', 'max:5120'],
         'images'       => ['nullable', 'array', 'max:9'],
         'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
         'status'       => ['required', 'in:' . implode(',', $this->allowedStatuses())],
         ]);
+
+        if ($request->filled('length') && $request->filled('width') && $request->filled('height')) {
+            $l = trim((string) $request->input('length'));
+            $w = trim((string) $request->input('width'));
+            $h = trim((string) $request->input('height'));
+            $validated['dimensions'] = "{$l} × {$w} × {$h} cm";
+        } elseif ($request->filled('dimensions')) {
+            $validated['dimensions'] = trim((string) $request->input('dimensions'));
+        } else {
+            $validated['dimensions'] = null;
+        }
+        unset($validated['length'], $validated['width'], $validated['height']);
+
+        if (! empty($validated['weight'])) {
+            $rawWeight = trim((string) $validated['weight']);
+            $validated['weight'] = is_numeric($rawWeight) ? ($rawWeight.' kg') : $rawWeight;
+        } else {
+            $validated['weight'] = null;
+        }
 
         $validated['low_stock_threshold'] ??= 5;
 
