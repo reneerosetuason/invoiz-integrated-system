@@ -61,8 +61,8 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 
 Route::middleware(['auth', 'verified', 'staff'])->group(function () {
 
-    // Unified hub operations queue and validated bulk operational actions.
-    Route::get('operations', [OperationsController::class, 'index'])->name('operations.index');
+    // Unified hub operations queue and validated bulk operational actions (Logistics Staff only).
+    Route::get('operations', [OperationsController::class, 'index'])->middleware('parcel.operator')->name('operations.index');
     Route::post('operations/bulk-receive', [OperationsController::class, 'bulkReceive'])->middleware('parcel.operator')->name('operations.bulk-receive');
     Route::post('operations/bulk-sort', [OperationsController::class, 'bulkSort'])->middleware('parcel.operator')->name('operations.bulk-sort');
     Route::post('operations/bulk-assign-rider', [OperationsController::class, 'bulkAssignRider'])->middleware(['parcel.operator', 'rider.manager'])->name('operations.bulk-assign-rider');
@@ -83,10 +83,9 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('hub-transfers/{hubTransfer}/resume', [HubTransferController::class, 'resume'])->middleware('parcel.operator')->name('hub-transfers.resume');
     Route::post('hub-transfers/{hubTransfer}/reassign', [HubTransferController::class, 'reassign'])->middleware('parcel.operator')->name('hub-transfers.reassign');
     Route::post('hub-transfers/{hubTransfer}/reroute', [HubTransferController::class, 'reroute'])->middleware('parcel.operator')->name('hub-transfers.reroute');
-    // Sorting Center operational hub (read-only aggregation; mutations
-    // post to the existing deliveries.* routes).
-    Route::get('sorting-center', [SortingCenterController::class, 'index'])->name('sorting-center.index');
-    Route::get('sorting-center/export', [SortingCenterController::class, 'export'])->name('sorting-center.export');
+    // Sorting Center operational hub (Logistics Staff only).
+    Route::get('sorting-center', [SortingCenterController::class, 'index'])->middleware('parcel.operator')->name('sorting-center.index');
+    Route::get('sorting-center/export', [SortingCenterController::class, 'export'])->middleware('parcel.operator')->name('sorting-center.export');
 
     // Deliveries
     // Parcel QR scanner (page + verify endpoint). The GET route must be
@@ -132,14 +131,14 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
         Route::get('hub-transport-drivers/{driver}', [HubTransportDriverController::class, 'show'])->name('hub-transport-drivers.show');
     });
 
-    // Pickup Requests (staff: approve/reject/route pickups at their center; admin: monitor only)
-    Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');
-    Route::get('pickup-requests/{pickupRequest}', [PickupRequestController::class, 'show'])->name('pickup-requests.show');
-    Route::post('pickup-requests/{pickupRequest}/route', [PickupRequestController::class, 'route'])
-        ->middleware('parcel.operator')
-        ->name('pickup-requests.route');
-    Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->middleware('parcel.operator')->name('pickup-requests.approve');
-    Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->middleware('parcel.operator')->name('pickup-requests.reject');
+    // Pickup Requests (staff only: view/approve/reject/route pickups at their center)
+    Route::middleware('parcel.operator')->group(function () {
+        Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');
+        Route::get('pickup-requests/{pickupRequest}', [PickupRequestController::class, 'show'])->name('pickup-requests.show');
+        Route::post('pickup-requests/{pickupRequest}/route', [PickupRequestController::class, 'route'])->name('pickup-requests.route');
+        Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->name('pickup-requests.approve');
+        Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->name('pickup-requests.reject');
+    });
 
     // Fleet Management (Admin Only)
     Route::middleware('admin')->group(function () {

@@ -37,16 +37,20 @@ class OperationsController extends Controller
     public function index(Request $request): View
     {
         $user = $request->user();
-        abort_unless($user && ($user->isLogisticsStaff() || LogisticsAccess::isGlobal($user)), 403);
+        abort_unless(
+            $user && LogisticsAccess::canProcessParcels($user),
+            403,
+            'The Operations workspace is reserved for logistics staff assigned to an active hub.'
+        );
 
         $global = LogisticsAccess::isGlobal($user);
         $companyId = LogisticsAccess::companyId($user);
         $centerId = LogisticsAccess::centerId($user);
 
-        if (! $global && ($companyId === null || $companyId === 0)) {
+        if ($companyId === null || $companyId === 0) {
             abort(403, 'Your account is not assigned to an active logistics company.');
         }
-        if (! $global && $centerId === 0) {
+        if ($centerId === null || $centerId <= 0) {
             abort(403, 'Your account is not assigned to an active logistics hub.');
         }
 

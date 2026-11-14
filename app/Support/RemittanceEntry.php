@@ -60,6 +60,33 @@ final class RemittanceEntry extends Fluent
     { return $this->source==='order'?$this->record->settlementModeLabel():'Escrow release · recipient confirms receipt'; }
     public function canAcceptHubPayout($user): bool
     { return $this->source==='order'?$this->record->canAcceptHubPayout($user):$this->record->canAccept($user); }
+    public function sourceSiteLabel(): string
+    {
+        return $this->source === 'return' ? 'Site Admin (Return Escrow)' : 'Site Admin (Platform Escrow)';
+    }
+    public function confirmedByLabel(): ?string
+    {
+        if ($this->status !== 'accepted') {
+            return null;
+        }
+        if ($this->notes && preg_match('/Confirmed received by ([^\n—]+?) on \d{4}-\d{2}-\d{2}/', (string) $this->notes, $matches)) {
+            return trim($matches[1]);
+        }
+        return $this->recipient_name ?: 'Assigned Hub Staff';
+    }
+    public function confirmedAtLabel(): ?string
+    {
+        if ($this->status !== 'accepted') {
+            return null;
+        }
+        if ($this->notes && preg_match('/Confirmed received by [^\n]+? on (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/', (string) $this->notes, $matches)) {
+            return $matches[1];
+        }
+        if ($this->accepted_at instanceof \Carbon\CarbonInterface) {
+            return $this->accepted_at->format('M d, Y h:i A');
+        }
+        return 'Confirmed';
+    }
     public function api(): array
     {
         return [

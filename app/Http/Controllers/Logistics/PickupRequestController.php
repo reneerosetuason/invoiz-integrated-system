@@ -22,9 +22,15 @@ class PickupRequestController extends Controller
         $isAdmin = LogisticsAccess::isGlobal($user);
         $canProcessParcels = $user && LogisticsAccess::canProcessParcels($user);
 
+        abort_unless(
+            $canProcessParcels,
+            403,
+            'Pickup requests are managed exclusively by logistics staff at an assigned hub.'
+        );
+
         $status = $request->input('status');
 
-        if ($status === 'routing' && ! $isAdmin && ! $canProcessParcels) {
+        if ($status === 'routing' && ! $canProcessParcels) {
             abort(403, 'Only authorized logistics personnel can view unrouted pickup requests.');
         }
 
@@ -63,7 +69,7 @@ class PickupRequestController extends Controller
             'pickupRequests' => $pickupRequests,
             'isAdmin' => $isAdmin,
             'canProcessParcels' => $canProcessParcels,
-            'needsRoutingCount' => ($isAdmin || $canProcessParcels)
+            'needsRoutingCount' => $canProcessParcels
                 ? PickupRequest::query()->needsRouting($user)->count()
                 : 0,
             'activeStatus' => $status,
@@ -73,6 +79,11 @@ class PickupRequestController extends Controller
     public function show(Request $request, PickupRequest $pickupRequest): View
     {
         $user = $request->user();
+        abort_unless(
+            $user && LogisticsAccess::canProcessParcels($user),
+            403,
+            'Pickup requests are managed exclusively by logistics staff at an assigned hub.'
+        );
         $this->authorizeView($user, $pickupRequest);
 
         return view('logistics.pickup-requests.show', [
@@ -360,7 +371,13 @@ class PickupRequestController extends Controller
 
     private function authorizeView(User $user, PickupRequest $pickupRequest): void
     {
-        if ($pickupRequest->center_id === null && LogisticsAccess::canProcessParcels($user)) {
+        abort_unless(
+            LogisticsAccess::canProcessParcels($user),
+            403,
+            'Pickup requests are managed exclusively by logistics staff at an assigned hub.'
+        );
+
+        if ($pickupRequest->center_id === null) {
             return;
         }
 

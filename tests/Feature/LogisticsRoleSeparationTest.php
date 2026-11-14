@@ -79,6 +79,10 @@ class LogisticsRoleSeparationTest extends TestCase
 
         $this->actingAs($this->logisticsAdmin);
 
+        // Staff-only operational workspaces (Operations, Sorting Center, Scan Parcel, Pickup Requests).
+        $this->assertForbidden(fn () => $this->get(route('operations.index')));
+        $this->assertForbidden(fn () => $this->get(route('sorting-center.index')));
+        $this->assertForbidden(fn () => $this->get(route('sorting-center.export')));
         $this->assertForbidden(fn () => $this->get(route('deliveries.scan-page')));
         $this->assertForbidden(fn () => $this->post(route('deliveries.scan-lookup'), [
             'tracking_number' => $delivery->tracking_number,
@@ -98,7 +102,9 @@ class LogisticsRoleSeparationTest extends TestCase
         ]));
         $this->assertForbidden(fn () => $this->post(route('deliveries.return-to-seller', $delivery)));
 
-        // Seller pickup processing and routing.
+        // Seller pickup viewing, processing, and routing are strictly reserved for hub staff.
+        $this->assertForbidden(fn () => $this->get(route('pickup-requests.index')));
+        $this->assertForbidden(fn () => $this->get(route('pickup-requests.show', $pickup)));
         $this->assertForbidden(fn () => $this->post(route('pickup-requests.approve', $pickup)));
         $this->assertForbidden(fn () => $this->post(route('pickup-requests.reject', $pickup), [
             'rejection_reason' => 'Cannot collect',
@@ -169,9 +175,14 @@ class LogisticsRoleSeparationTest extends TestCase
         foreach ([$this->platformAdmin, $this->companyManager] as $manager) {
             $this->actingAs($manager);
 
+            $this->assertForbidden(fn () => $this->get(route('operations.index')));
+            $this->assertForbidden(fn () => $this->get(route('sorting-center.index')));
+            $this->assertForbidden(fn () => $this->get(route('sorting-center.export')));
             $this->assertForbidden(fn () => $this->get(route('deliveries.scan-page')));
             $this->assertForbidden(fn () => $this->patch(route('deliveries.scan', $delivery)));
             $this->assertForbidden(fn () => $this->post(route('deliveries.receive', $delivery)));
+            $this->assertForbidden(fn () => $this->get(route('pickup-requests.index')));
+            $this->assertForbidden(fn () => $this->get(route('pickup-requests.show', $pickup)));
             $this->assertForbidden(fn () => $this->post(route('pickup-requests.approve', $pickup)));
             $this->assertForbidden(fn () => $this->post(route('hub-transfers.dispatch', $transfer)));
             $this->assertForbidden(fn () => $this->get(route('hub-transfers.create')));
@@ -228,9 +239,18 @@ class LogisticsRoleSeparationTest extends TestCase
 
         // Seller pickup review stays a staff operation.
         $pickup = $this->pendingPickup($this->origin);
+        $this->get(route('pickup-requests.index'))->assertOk()->assertSee($pickup->delivery->tracking_number);
+        $this->get(route('pickup-requests.show', $pickup))->assertOk()->assertSee($pickup->delivery->tracking_number);
         $this->post(route('pickup-requests.approve', $pickup))
             ->assertSessionHas('success');
         $this->assertSame('approved', $pickup->fresh()->status);
+
+        // Staff can also reject a pending pickup request at their assigned hub.
+        $rejectablePickup = $this->pendingPickup($this->origin);
+        $this->post(route('pickup-requests.reject', $rejectablePickup), [
+            'rejection_reason' => 'Seller requested reschedule',
+        ])->assertSessionHas('success');
+        $this->assertSame('rejected', $rejectablePickup->fresh()->status);
 
         // The staff counter dashboard is still available.
         $this->get(route('sorting-center.index'))->assertOk();
@@ -289,7 +309,11 @@ class LogisticsRoleSeparationTest extends TestCase
 
         $this->patch(route('deliveries.scan', $otherDelivery))->assertForbidden();
 
+        $this->get(route('pickup-requests.show', $otherPickup))->assertForbidden();
         $this->post(route('pickup-requests.approve', $otherPickup))->assertForbidden();
+        $this->post(route('pickup-requests.reject', $otherPickup), [
+            'rejection_reason' => 'Not our hub',
+        ])->assertForbidden();
     }
 
     public function test_staff_scan_api_still_works_within_their_facility(): void
@@ -318,14 +342,14 @@ class LogisticsRoleSeparationTest extends TestCase
     {
         $this->actingAs($this->logisticsAdmin);
 
-        // Read-only operational aggregation (no counter forms for management).
-        $sorting = $this->get(route('sorting-center.index'));
-        $sorting->assertOk();
-        $sorting->assertDontSee('Accept handover');
-
-        // Personnel and facility management pages stay available.
+        // Read-only monitoring and management pages stay available.
+        $this->get(route('dashboard'))->assertOk();
+        $this->get(route('deliveries.index'))->assertOk();
+        $this->get(route('riders.index'))->assertOk();
+        $this->get(route('tracking.index'))->assertOk();
         $this->get(route('staff.index'))->assertOk();
         $this->get(route('staff.create'))->assertOk();
+        $this->get(route('centers.index'))->assertOk();
     }
 
     // ------------------------------------------------------------------
@@ -588,10 +612,13 @@ class LogisticsRoleSeparationTest extends TestCase
     public function test_every_parcel_counter_route_is_gated_by_the_operator_middleware(): void
     {
         $counterRoutes = [
+            'operations.index',
             'operations.bulk-receive',
             'operations.bulk-sort',
             'operations.bulk-assign-rider',
             'operations.bulk-transfer',
+            'sorting-center.index',
+            'sorting-center.export',
             'hub-transfers.create',
             'hub-transfers.store',
             'hub-transfers.load',
@@ -624,6 +651,8 @@ class LogisticsRoleSeparationTest extends TestCase
             'deliveries.dispatch',
             'deliveries.archive',
             'deliveries.restore',
+            'pickup-requests.index',
+            'pickup-requests.show',
             'pickup-requests.route',
             'pickup-requests.approve',
             'pickup-requests.reject',
@@ -639,15 +668,11 @@ class LogisticsRoleSeparationTest extends TestCase
         // Management and monitoring routes must stay reachable without parcel.operator.
         $managementRoutes = [
             'dashboard',
-            'operations.index',
             'hub-transfers.index',
             'hub-transfers.show',
-            'sorting-center.index',
             'deliveries.index',
             'deliveries.show',
             'deliveries.export',
-            'pickup-requests.index',
-            'pickup-requests.show',
             'riders.index',
             'hub-transport-drivers.index',
             'fleet.index',
@@ -682,6 +707,23 @@ class LogisticsRoleSeparationTest extends TestCase
         $dashboard->assertOk();
         $dashboard->assertSee('All Authorized Hubs');
         $dashboard->assertDontSee('Awaiting Sorting / Dispatch');
+        $dashboard->assertDontSee('Pickup Requests to Review');
+        $dashboard->assertDontSee('Pickup reviews overdue');
+        $dashboard->assertDontSee('Incoming parcels not received');
+        $dashboard->assertDontSee('Sorting backlog');
+        // HQ Admin sidebar must completely hide the Operations parent menu, toggle button, and submenu.
+        $dashboard->assertDontSee('aria-label="Operations"', false);
+        $dashboard->assertDontSee('aria-controls="subnav-operations"', false);
+        $dashboard->assertDontSee('id="subnav-operations"', false);
+        $dashboard->assertDontSee('aria-label="Scan Parcel"', false);
+        $dashboard->assertDontSee('aria-label="Sorting Center"', false);
+        $dashboard->assertDontSee('aria-label="Hub Transfers"', false);
+        $dashboard->assertDontSee('aria-label="Pickup Requests', false);
+        $dashboard->assertDontSee(route('operations.index'), false);
+        $dashboard->assertDontSee(route('sorting-center.index'), false);
+        $dashboard->assertDontSee(route('pickup-requests.index'), false);
+        // HQ Admin still sees top-level Deliveries read-only monitoring link in the sidebar.
+        $dashboard->assertSee('aria-label="Deliveries"', false);
 
         $filteredDashboard = $this->get(route('dashboard', [
             'center_id' => $this->origin->id,
@@ -770,6 +812,382 @@ class LogisticsRoleSeparationTest extends TestCase
         ] as $uri) {
             $this->assertContains($uri, $registered, "Route {$uri} must still be registered.");
         }
+    }
+
+    public function test_site_admin_can_manage_and_release_hub_remittances_while_hq_admin_is_read_only(): void
+    {
+        $order = Order::create([
+            'order_number' => 'ORD-REMIT-1001',
+            'buyer_id' => 900,
+            'seller_id' => 901,
+            'status' => 'delivered',
+            'payment_status' => 'paid',
+            'total_amount' => 500,
+            'total' => 500,
+        ]);
+
+        Payment::create([
+            'order_id' => $order->id,
+            'method' => 'cod',
+            'status' => 'paid',
+            'amount' => 500,
+        ]);
+
+        $delivery = Delivery::create([
+            'tracking_number' => 'TRK-REMIT-1001',
+            'order_id' => $order->id,
+            'seller_id' => 901,
+            'center_id' => $this->origin->id,
+            'destination_center_id' => $this->destination->id,
+            'status' => 'delivered',
+            'parcel_status' => 'delivered',
+            'sender_name' => 'Seller',
+            'sender_address' => '10 Seller St',
+            'recipient_name' => 'Buyer',
+            'recipient_address' => '20 Buyer St',
+            'payment_method' => 'cod',
+            'amount_to_collect' => 500,
+            'delivery_fee' => 50,
+        ]);
+
+        $originRemit = \App\Models\EscrowRemittance::create([
+            'order_id' => $order->id,
+            'delivery_id' => $delivery->id,
+            'recipient_role' => \App\Models\EscrowRemittance::ROLE_ORIGIN_HUB,
+            'logistics_center_id' => $this->origin->id,
+            'recipient_name' => $this->origin->name,
+            'rule_applied' => 'Origin hub fee ₱30.00',
+            'amount' => 30.00,
+            'settlement_mode' => 'escrow_bank_remittance',
+            'status' => \App\Models\EscrowRemittance::STATUS_PENDING_REMITTANCE,
+        ]);
+
+        // Newly created remittance is pending_remittance (never automatically marked as received)
+        $this->assertSame(\App\Models\EscrowRemittance::STATUS_PENDING_REMITTANCE, $originRemit->status);
+
+        // HQ Logistics Admin cannot release Site Admin remittances (403)
+        $this->actingAs($this->logisticsAdmin)
+            ->post(route('admin.escrow.remit', $originRemit->id))
+            ->assertForbidden();
+
+        // Site Admin (Platform Admin) can release the pending remittance
+        $this->actingAs($this->platformAdmin)
+            ->post(route('admin.escrow.remit', $originRemit->id))
+            ->assertRedirect();
+
+        $this->assertSame(\App\Models\EscrowRemittance::STATUS_REMITTED, $originRemit->fresh()->status);
+        $this->assertNotNull($originRemit->fresh()->remitted_at);
+
+        // Both Site Admin and HQ Logistics Admin can monitor remittances with filters
+        $this->actingAs($this->logisticsAdmin)
+            ->get(route('remittances.index', ['center_id' => $this->origin->id, 'payout_status' => 'remitted']))
+            ->assertOk()
+            ->assertSee('Hub Remittances & Confirmation History')
+            ->assertSee($this->origin->name)
+            ->assertSee('HQ Admin · Read-Only Monitoring')
+            ->assertDontSee('aria-label="Hub remittances"', false);
+    }
+
+    public function test_staff_hub_remittance_viewing_receipt_confirmation_duplicate_prevention_and_cross_hub_403(): void
+    {
+        $order = Order::create([
+            'order_number' => 'ORD-REMIT-2002',
+            'buyer_id' => 900,
+            'seller_id' => 901,
+            'status' => 'delivered',
+            'payment_status' => 'paid',
+            'total_amount' => 450,
+            'total' => 450,
+        ]);
+
+        $delivery = Delivery::create([
+            'tracking_number' => 'TRK-REMIT-2002',
+            'order_id' => $order->id,
+            'seller_id' => 901,
+            'center_id' => $this->origin->id,
+            'destination_center_id' => $this->destination->id,
+            'status' => 'delivered',
+            'parcel_status' => 'delivered',
+            'sender_name' => 'Seller',
+            'sender_address' => '10 Seller St',
+            'recipient_name' => 'Buyer',
+            'recipient_address' => '20 Buyer St',
+            'payment_method' => 'cod',
+            'amount_to_collect' => 450,
+            'delivery_fee' => 50,
+        ]);
+
+        $originPayout = \App\Models\EscrowRemittance::create([
+            'order_id' => $order->id,
+            'delivery_id' => $delivery->id,
+            'recipient_role' => \App\Models\EscrowRemittance::ROLE_ORIGIN_HUB,
+            'logistics_center_id' => $this->origin->id,
+            'recipient_name' => $this->origin->name,
+            'rule_applied' => 'Origin hub fee ₱30.00',
+            'amount' => 30.00,
+            'bank_reference' => 'REF-ORIGIN-2002',
+            'remitted_at' => now(),
+            'status' => \App\Models\EscrowRemittance::STATUS_REMITTED,
+        ]);
+
+        $destPayout = \App\Models\EscrowRemittance::create([
+            'order_id' => $order->id,
+            'delivery_id' => $delivery->id,
+            'recipient_role' => \App\Models\EscrowRemittance::ROLE_DESTINATION_HUB,
+            'logistics_center_id' => $this->destination->id,
+            'recipient_name' => $this->destination->name,
+            'rule_applied' => 'Destination hub fee ₱20.00',
+            'amount' => 20.00,
+            'bank_reference' => 'REF-DEST-2002',
+            'remitted_at' => now(),
+            'status' => \App\Models\EscrowRemittance::STATUS_REMITTED,
+        ]);
+
+        $codRemittance = \App\Models\Remittance::create([
+            'order_id' => $order->id,
+            'delivery_id' => $delivery->id,
+            'rider_id' => Rider::query()->value('id'),
+            'seller_id' => 901,
+            'amount' => 400.00,
+            'status' => 'sent',
+        ]);
+
+        // HQ Logistics Admin must NOT confirm hub remittance or COD remittance receipts (403)
+        $this->actingAs($this->logisticsAdmin)
+            ->post(route('remittances.hub-payouts.accept', $originPayout->id), ['confirm_received' => 1])
+            ->assertForbidden();
+
+        $this->actingAs($this->logisticsAdmin)
+            ->post(route('remittances.incoming.accept', ['source' => 'order', 'id' => $originPayout->id]), ['confirm_received' => 1])
+            ->assertForbidden();
+
+        $this->actingAs($this->logisticsAdmin)
+            ->post(route('remittances.confirm-received', $codRemittance))
+            ->assertForbidden();
+
+        // Cross-hub access restriction (403): Destination Staff cannot view or confirm Origin Hub remittances
+        $this->actingAs($this->destinationStaff)
+            ->get(route('remittances.hub-payouts.index', ['center_id' => $this->origin->id]))
+            ->assertForbidden();
+
+        $this->actingAs($this->destinationStaff)
+            ->post(route('remittances.incoming.accept', ['source' => 'order', 'id' => $originPayout->id]), ['confirm_received' => 1])
+            ->assertForbidden();
+
+        // Origin Staff views only Origin Hub remittances and sees complete details
+        $this->actingAs($this->originStaff)
+            ->get(route('remittances.hub-payouts.index'))
+            ->assertOk()
+            ->assertSee('REF-ORIGIN-2002')
+            ->assertSee('Site Admin (Platform Escrow)')
+            ->assertSee($this->origin->name)
+            ->assertDontSee('REF-DEST-2002');
+
+        // Origin Staff confirms receipt of Origin Hub remittance
+        $this->actingAs($this->originStaff)
+            ->post(route('remittances.hub-payouts.accept', $originPayout->id), [
+                'confirm_received' => 1,
+                'note' => 'Verified deposit in hub account',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertSame(\App\Models\EscrowRemittance::STATUS_ACCEPTED, $originPayout->fresh()->status);
+        $this->assertStringContainsString('Confirmed received by '.$this->originStaff->name, (string) $originPayout->fresh()->notes);
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $this->originStaff->id,
+            'action' => 'hub_remittance.confirmed',
+            'entity' => 'escrow_remittance',
+            'entity_id' => (string) $originPayout->id,
+        ]);
+
+        // Duplicate confirmation prevention: second confirmation does not re-process or duplicate audit logs
+        $auditCountBefore = DB::table('audit_logs')->where('action', 'hub_remittance.confirmed')->count();
+        $this->actingAs($this->originStaff)
+            ->post(route('remittances.hub-payouts.accept', $originPayout->id), ['confirm_received' => 1])
+            ->assertRedirect()
+            ->assertSessionHas('info');
+        $this->assertSame($auditCountBefore, DB::table('audit_logs')->where('action', 'hub_remittance.confirmed')->count());
+
+        // Confirmed details (who confirmed and when) are displayed on the Hub Remittances page
+        $this->actingAs($this->originStaff)
+            ->get(route('remittances.hub-payouts.index'))
+            ->assertOk()
+            ->assertSee($this->originStaff->name)
+            ->assertSee('Received · recorded in hub earnings');
+    }
+
+    public function test_transactions_pickup_and_hub_to_door_fee_calculations_filters_summary_cards_and_commission(): void
+    {
+        $pickupRider = Rider::query()->firstOrFail();
+
+        $lastMileUser = User::create([
+            'name' => 'Last Mile Rider',
+            'email' => 'lastmile.rider@example.test',
+            'password' => Hash::make('secret'),
+            'role' => 'rider',
+            'status' => 'active',
+            'account_status' => 'active',
+            'email_verified_at' => now(),
+        ]);
+        $lastMileRider = Rider::create([
+            'user_id' => $lastMileUser->id,
+            'center_id' => $this->destination->id,
+            'service_area_id' => $this->destinationArea->id,
+            'name' => 'Last Mile Rider',
+            'email' => $lastMileUser->email,
+            'vehicle_type' => 'motorcycle',
+            'vehicle_verification' => 'verified',
+            'status' => 'available',
+            'is_verified' => true,
+            'approved_at' => now(),
+        ]);
+
+        // Direct unit assertions on Transaction fee & commission rules:
+        // 5 Pickup parcels = ₱150.00 (5 × ₱30.00)
+        // 5 Hub-to-Door parcels = ₱250.00 (5 × ₱50.00)
+        // 10% commission formula preserved
+        $this->assertSame(150.00, \App\Models\Transaction::calculatePickupFee(5));
+        $this->assertSame(250.00, \App\Models\Transaction::calculateHubToDoorFee(5));
+        $this->assertSame(10.00, \App\Models\Transaction::calculateManagementCommission(100.00));
+
+        // Seed 5 Pickup-only transactions at Origin Hub (5 × ₱30 = ₱150)
+        for ($i = 1; $i <= 5; $i++) {
+            $delivery = Delivery::create([
+                'tracking_number' => "TRK-PICKUP-00{$i}",
+                'center_id' => $this->origin->id,
+                'origin_center_id' => $this->origin->id,
+                'service_area_id' => $this->originArea->id,
+                'status' => 'picked_up',
+                'parcel_status' => 'received',
+                'sender_name' => 'Seller',
+                'sender_address' => '10 Seller St',
+                'recipient_name' => 'Buyer',
+                'recipient_address' => '20 Buyer St',
+                'sorting_center_handoff_rider_id' => $pickupRider->id,
+                'sorting_center_handoff_at' => now(),
+                'delivery_fee' => 30,
+            ]);
+
+            \App\Models\Transaction::create([
+                'delivery_id' => $delivery->id,
+                'tracking_number' => $delivery->tracking_number,
+                'pickup_rider_id' => $pickupRider->id,
+                'rider_id' => null,
+                'logistics_center_id' => $this->origin->id,
+                'origin_center_id' => $this->origin->id,
+                'amount' => 100.00,
+                'rider_fee' => 30.00,
+                'pickup_rider_fee' => 30.00,
+                'last_mile_rider_fee' => 0.00,
+                'admin_commission' => 10.00,
+                'status' => 'completed',
+            ]);
+        }
+
+        // Seed 5 Hub-to-Door-only transactions at Destination Hub (5 × ₱50 = ₱250)
+        for ($i = 1; $i <= 5; $i++) {
+            $delivery = Delivery::create([
+                'tracking_number' => "TRK-LASTMILE-00{$i}",
+                'center_id' => $this->destination->id,
+                'destination_center_id' => $this->destination->id,
+                'service_area_id' => $this->destinationArea->id,
+                'rider_id' => $lastMileRider->id,
+                'status' => 'delivered',
+                'parcel_status' => 'delivered',
+                'sender_name' => 'Seller',
+                'sender_address' => '10 Seller St',
+                'recipient_name' => 'Buyer',
+                'recipient_address' => '20 Buyer St',
+                'delivery_fee' => 50,
+            ]);
+
+            \App\Models\Transaction::create([
+                'delivery_id' => $delivery->id,
+                'tracking_number' => $delivery->tracking_number,
+                'pickup_rider_id' => null,
+                'rider_id' => $lastMileRider->id,
+                'logistics_center_id' => $this->destination->id,
+                'destination_center_id' => $this->destination->id,
+                'amount' => 200.00,
+                'rider_fee' => 50.00,
+                'pickup_rider_fee' => 0.00,
+                'last_mile_rider_fee' => 50.00,
+                'admin_commission' => 0.00, // Should fallback to 10% of 200.00 = 20.00
+                'status' => 'completed',
+            ]);
+        }
+
+        // Logistics Staff is forbidden from accessing Transactions (403)
+        $this->actingAs($this->originStaff)
+            ->get(route('transactions.index'))
+            ->assertForbidden();
+
+        // HQ Logistics Admin views all 10 transactions and accurate summary cards (never auto-charging ₱80/parcel)
+        $response = $this->actingAs($this->logisticsAdmin)
+            ->get(route('transactions.index'))
+            ->assertOk()
+            ->assertSee('Total Transactions')
+            ->assertSee('Total Transaction Amount')
+            ->assertSee('Total Pickup Fees')
+            ->assertSee('Total Hub-to-Door Fees')
+            ->assertSee('Total Rider Fees')
+            ->assertSee('Total Commissions')
+            ->assertSee('Tracking Number')
+            ->assertSee('Assignment Type')
+            ->assertSee('Assigned Rider')
+            ->assertSee('Number of Assigned Parcels')
+            ->assertSee('Fee per Parcel')
+            ->assertSee('Management Commission');
+
+        $totals = $response->viewData('totals');
+        $this->assertSame(10, $totals->total_transactions);
+        $this->assertSame(1500.00, $totals->total_amount); // (5 × 100) + (5 × 200)
+        $this->assertSame(5, $totals->total_pickup_parcels);
+        $this->assertSame(150.00, $totals->total_pickup_fees); // 5 × ₱30
+        $this->assertSame(5, $totals->total_hub_to_door_parcels);
+        $this->assertSame(250.00, $totals->total_hub_to_door_fees); // 5 × ₱50
+        $this->assertSame(400.00, $totals->total_rider_fees); // ₱150 + ₱250 (NOT 10 × ₱80 = ₱800)
+        $this->assertSame(150.00, $totals->total_commissions); // (5 × 10) + (5 × 20)
+
+        // Filter by assignment_type = pickup
+        $pickupFiltered = $this->actingAs($this->logisticsAdmin)
+            ->get(route('transactions.index', ['assignment_type' => 'pickup']))
+            ->assertOk()
+            ->assertSee('TRK-PICKUP-001')
+            ->assertDontSee('TRK-LASTMILE-001');
+        $pickupTotals = $pickupFiltered->viewData('totals');
+        $this->assertSame(5, $pickupTotals->total_transactions);
+        $this->assertSame(150.00, $pickupTotals->total_pickup_fees);
+        $this->assertSame(0.00, $pickupTotals->total_hub_to_door_fees);
+        $this->assertSame(150.00, $pickupTotals->total_rider_fees);
+
+        // Filter by assignment_type = hub_to_door
+        $lastMileFiltered = $this->actingAs($this->logisticsAdmin)
+            ->get(route('transactions.index', ['assignment_type' => 'hub_to_door']))
+            ->assertOk()
+            ->assertSee('TRK-LASTMILE-001')
+            ->assertDontSee('TRK-PICKUP-001');
+        $lastMileTotals = $lastMileFiltered->viewData('totals');
+        $this->assertSame(5, $lastMileTotals->total_transactions);
+        $this->assertSame(0.00, $lastMileTotals->total_pickup_fees);
+        $this->assertSame(250.00, $lastMileTotals->total_hub_to_door_fees);
+        $this->assertSame(250.00, $lastMileTotals->total_rider_fees);
+
+        // Filter by rider_id, center_id, tracking search, status, and date
+        $this->actingAs($this->logisticsAdmin)
+            ->get(route('transactions.index', [
+                'rider_id' => $lastMileRider->id,
+                'center_id' => $this->destination->id,
+                'search' => 'TRK-LASTMILE-003',
+                'status' => 'completed',
+                'date_from' => now()->toDateString(),
+                'date_to' => now()->toDateString(),
+            ]))
+            ->assertOk()
+            ->assertSee('TRK-LASTMILE-003')
+            ->assertDontSee('TRK-LASTMILE-001')
+            ->assertDontSee('TRK-PICKUP-001');
     }
 
     // ------------------------------------------------------------------
@@ -1025,10 +1443,11 @@ class LogisticsRoleSeparationTest extends TestCase
             'hub_transfer_events', 'hub_transfer_parcels', 'hub_transfers',
             'order_status_histories', 'courier_pickups', 'seller_notifications',
             'delivery_failures', 'delivery_proofs', 'delivery_status_logs',
-            'delivery_items', 'pickup_requests', 'payments', 'deliveries',
+            'delivery_items', 'pickup_requests', 'payments', 'payment_transactions', 'payment_disputes',
+            'escrow_remittances', 'remittances', 'audit_logs', 'return_requests', 'deliveries',
             'orders', 'sellers', 'logistics_settings', 'rider_locations', 'riders', 'vehicle_types',
             'service_areas', 'logistics_centers', 'logistics_companies', 'users',
-            'logistics_trucks', 'hub_transport_drivers', 'transactions',
+            'logistics_trucks', 'hub_transport_drivers', 'transactions', 'notifications',
         ] as $table) {
             $schema->dropIfExists($table);
         }
@@ -1374,6 +1793,7 @@ class LogisticsRoleSeparationTest extends TestCase
 
         $schema->create('hub_transport_drivers', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
             $table->unsignedBigInteger('logistics_company_id')->nullable();
             $table->unsignedBigInteger('logistics_truck_id')->nullable();
             $table->string('name')->nullable();
@@ -1385,14 +1805,95 @@ class LogisticsRoleSeparationTest extends TestCase
             $table->softDeletes();
         });
 
+        $schema->create('return_requests', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('order_item_id')->nullable();
+            $table->unsignedBigInteger('buyer_id')->nullable();
+            $table->unsignedBigInteger('seller_id')->nullable();
+            $table->unsignedBigInteger('product_id')->nullable();
+            $table->integer('quantity')->default(1);
+            $table->string('status')->default('pending');
+            $table->decimal('refund_amount', 12, 2)->default(0);
+            $table->timestamps();
+        });
+
+        $schema->create('payment_disputes', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->string('status')->default('open');
+            $table->timestamps();
+        });
+
         $schema->create('transactions', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('delivery_id')->nullable();
+            $table->string('tracking_number')->nullable();
+            $table->unsignedBigInteger('rider_id')->nullable();
+            $table->unsignedBigInteger('pickup_rider_id')->nullable();
             $table->unsignedBigInteger('logistics_center_id')->nullable();
+            $table->unsignedBigInteger('origin_center_id')->nullable();
+            $table->unsignedBigInteger('destination_center_id')->nullable();
+            $table->unsignedBigInteger('service_area_id')->nullable();
             $table->decimal('amount', 10, 2)->default(0);
             $table->decimal('rider_fee', 10, 2)->default(0);
+            $table->decimal('logistics_fee', 10, 2)->default(0);
             $table->decimal('admin_commission', 10, 2)->default(0);
+            $table->decimal('origin_hub_fee', 10, 2)->default(0);
+            $table->decimal('pickup_rider_fee', 10, 2)->default(0);
+            $table->decimal('inter_hub_driver_fee', 10, 2)->default(0);
+            $table->decimal('destination_hub_fee', 10, 2)->default(0);
+            $table->decimal('last_mile_rider_fee', 10, 2)->default(0);
             $table->string('status')->default('completed');
+            $table->timestamps();
+        });
+
+        $schema->create('escrow_remittances', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('delivery_id')->nullable();
+            $table->unsignedBigInteger('payment_transaction_id')->nullable();
+            $table->unsignedBigInteger('hub_transfer_id')->nullable();
+            $table->unsignedBigInteger('hub_transport_driver_id')->nullable();
+            $table->string('recipient_role', 40);
+            $table->unsignedBigInteger('recipient_user_id')->nullable();
+            $table->unsignedBigInteger('rider_id')->nullable();
+            $table->unsignedBigInteger('logistics_center_id')->nullable();
+            $table->unsignedBigInteger('seller_id')->nullable();
+            $table->string('recipient_name')->nullable();
+            $table->string('rule_applied')->nullable();
+            $table->decimal('amount', 12, 2)->default(0);
+            $table->string('settlement_mode', 40)->default('escrow_bank_remittance');
+            $table->string('status', 40)->default('held_in_escrow');
+            $table->string('bank_reference')->nullable();
+            $table->timestamp('remitted_at')->nullable();
+            $table->unsignedBigInteger('remitted_by')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamps();
+        });
+
+        $schema->create('remittances', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id')->nullable();
+            $table->unsignedBigInteger('delivery_id')->nullable();
+            $table->unsignedBigInteger('rider_id')->nullable();
+            $table->unsignedBigInteger('seller_id')->nullable();
+            $table->decimal('amount', 12, 2)->default(0);
+            $table->string('status')->default('pending');
+            $table->string('reference')->nullable();
+            $table->timestamp('sent_at')->nullable();
+            $table->timestamp('confirmed_at')->nullable();
+            $table->unsignedBigInteger('confirmed_by')->nullable();
+            $table->timestamps();
+        });
+
+        $schema->create('audit_logs', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('action');
+            $table->string('entity');
+            $table->string('entity_id')->nullable();
+            $table->json('meta')->nullable();
             $table->timestamps();
         });
 
@@ -1402,6 +1903,20 @@ class LogisticsRoleSeparationTest extends TestCase
             $table->decimal('latitude', 10, 7)->nullable();
             $table->decimal('longitude', 10, 7)->nullable();
             $table->timestamp('recorded_at')->nullable();
+            $table->timestamps();
+        });
+
+        $schema->create('notifications', function (Blueprint $table) {
+            $table->id();
+            $table->string('type')->nullable();
+            $table->string('title')->nullable();
+            $table->text('message')->nullable();
+            $table->string('icon')->nullable();
+            $table->string('priority')->nullable();
+            $table->unsignedBigInteger('center_id')->nullable();
+            $table->string('audience')->nullable();
+            $table->string('link')->nullable();
+            $table->boolean('is_read')->default(false);
             $table->timestamps();
         });
     }

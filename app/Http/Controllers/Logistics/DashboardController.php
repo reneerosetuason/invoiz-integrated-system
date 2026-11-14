@@ -192,7 +192,9 @@ class DashboardController extends Controller
                 ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
                 ->whereNotIn('status', ['delivered', 'cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller'])
                 ->count(),
-            'pickups' => (int) PickupRequest::query()->pendingReview($user)->count(),
+            'pickups' => LogisticsAccess::canProcessParcels($user)
+                ? (int) PickupRequest::query()->pendingReview($user)->count()
+                : 0,
         ];
 
         // Today's activity is intentionally separate from the all-time KPI
