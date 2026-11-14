@@ -48,10 +48,19 @@ Route::get('/', function (Request $request) {
         // Deals must have a visible discount badge; tiny differences that round to 0% stay in the regular catalog.
         $deals = $dealRows->map($presentProduct)->filter(fn ($item) => $item['compare_at'] > $item['price'] && $item['pct'] > 0)->values()->all();
         $featured = (clone $dealQuery)->whereIn('products.id', \App\Support\LandingFeatures::ids())->orderByDesc('products.created_at')->get()->map($presentProduct)->all();
-        $categories = \App\Models\Category::active()->withCount(['products' => fn ($q) => $q->where('status', 'active')])->orderByDesc('products_count')->take(10)->get()->map(function ($c) {
-            $imgs = Product::where('category_id', $c->id)->where('status', 'active')->orderByDesc('created_at')->take(8)->get()
-                ->map(fn ($p) => $p->primary_image_url)->filter()->unique()->take(4)->values()->all();
+        $categories = \App\Models\Category::active()->withCount(['products' => fn ($q) => $q->where('status', 'active')])->orderByDesc('products_count')->take(10)->get()->map(function ($c) use ($presentProduct) {
+            $prods = Product::with('category')->storefront()
+                ->where('category_id', $c->id)
+                ->where('status', 'active')
+                ->select('products.*')
+                ->selectSub(\App\Models\Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_rating')
+                ->selectSub(\App\Models\Review::query()->selectRaw('COUNT(*)')->whereColumn('reviews.product_id', 'products.id')->where('status', 'visible'), 'visible_reviews_count')
+                ->orderByDesc('created_at')
+                ->take(8)
+                ->get();
+            $imgs = $prods->map(fn ($p) => $p->primary_image_url)->filter()->unique()->take(4)->values()->all();
             $c->cover_images = $imgs;
+            $c->showcase_products = $prods->map($presentProduct)->all();
             return $c;
         });
         $sellers = \App\Models\Seller::approved()->with('user')->get();

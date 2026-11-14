@@ -157,24 +157,176 @@
 </section>
 <section id="categories">
 <div class="mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-24" style="max-width:1200px">
-<div class="rv">
-<p class="eyebrow">Browse</p>
-<h2 class="font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.75rem,3vw,2.25rem);line-height:1.1">Shop by category</h2>
+<div class="rv flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <p class="eyebrow">Browse</p>
+    <h2 class="font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.75rem,3vw,2.25rem);line-height:1.1">Shop by category</h2>
+  </div>
+  <a href="{{ url('/shop') }}" class="group inline-flex items-center gap-1.5 text-sm font-semibold text-teal-dark">
+    Browse all categories <span class="nudgeright inline-block transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+  </a>
 </div>
-<div class="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-@forelse(($categories ?? collect()) as $c)
-<a href="{{ url('/shop?category='.$c->id) }}" class="count-card group block overflow-hidden rounded-[14px] bg-white rv" style="border:1px solid rgba(15,76,92,.12)">
-@if(!empty(($c->cover_images ?? [])[0]))<img src="{{ $c->cover_images[0] }}" alt="" loading="lazy" class="zoom h-36 w-full object-cover md:h-44" style="filter:saturate(.88)">@else<span class="flex h-36 w-full items-center justify-center text-3xl font-extrabold text-teal md:h-44" style="background:linear-gradient(180deg,#FDFCF8,#EAF4F3)">{{ strtoupper(mb_substr($c->name,0,1)) }}</span>@endif
-<div class="flex items-center justify-between gap-2 px-3.5 py-3" style="border-top:1px solid rgba(15,76,92,.12)">
-<span class="min-w-0"><span class="block truncate font-display font-medium" style="font-size:1.02rem">{{ $c->name }}</span><span class="mt-0.5 block text-[13px] text-muted tnum">{{ $c->products_count }} {{ $c->products_count == 1 ? 'item' : 'items' }}</span></span>
-<span class="nudgeright shrink-0 text-teal transition-transform duration-200 group-hover:translate-x-1">→</span>
-</div></a>
+
+<div class="mt-8 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4" data-category-cards-grid>
+@forelse(($categories ?? collect()) as $catIdx => $c)
+  @php 
+    $prods = collect($c->showcase_products ?? [])->filter(fn($p) => !empty($p['image']))->values();
+    if ($prods->isEmpty() && !empty(($c->cover_images ?? [])[0])) {
+      $prods = collect([['id' => null, 'name' => $c->name, 'price' => null, 'image' => $c->cover_images[0]]]);
+    }
+  @endphp
+  <a href="{{ url('/shop?category='.$c->id) }}" class="count-card group block overflow-hidden rounded-[14px] bg-white rv transition-all duration-300" style="border:1px solid rgba(15,76,92,.12)" data-category-card data-cat-id="{{ $c->id }}">
+    <!-- Image Stage with Horizontal Slide / Swipe Transition of different products -->
+    <div class="relative h-40 w-full overflow-hidden bg-gradient-to-b from-[#FDFCF8] to-[#EAF4F3] md:h-48" data-category-stage>
+      @if($prods->isNotEmpty())
+        <div class="category-slide-track flex h-full w-full will-change-transform" style="transform: translateX(0%); transition: transform 650ms cubic-bezier(0.25, 1, 0.5, 1);">
+          @foreach($prods as $pIdx => $p)
+          <div 
+            class="category-slide relative h-full w-full shrink-0 flex-none" 
+            style="width: 100%;"
+            data-slide-index="{{ $pIdx }}"
+          >
+            <img 
+              src="{{ $p['image'] }}" 
+              alt="{{ $p['name'] }}" 
+              loading="lazy" 
+              class="zoom h-full w-full object-cover" 
+              style="filter:saturate(.92)"
+            >
+            @if(!empty($p['name']) && $p['name'] !== $c->name)
+            <div class="absolute inset-x-2 bottom-2 z-20 flex items-center justify-between gap-1 rounded-lg bg-black/60 px-2.5 py-1 text-white backdrop-blur-md">
+              <span class="truncate text-[11px] font-medium">{{ $p['name'] }}</span>
+              @if(!empty($p['price']))
+              <span class="shrink-0 text-[11px] font-bold text-amber tnum">₱{{ number_format($p['price']) }}</span>
+              @endif
+            </div>
+            @endif
+          </div>
+          @endforeach
+        </div>
+
+        @if($prods->count() > 1)
+        <!-- Pagination indicator dots in top right -->
+        <div class="absolute right-2.5 top-2.5 z-30 flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 backdrop-blur-sm pointer-events-none">
+          @foreach($prods as $dotIdx => $p)
+          <span 
+            class="category-dot h-1.5 w-1.5 rounded-full transition-all duration-300 {{ $dotIdx === 0 ? 'bg-amber w-3' : 'bg-white/60' }}" 
+            data-dot-index="{{ $dotIdx }}"
+          ></span>
+          @endforeach
+        </div>
+        @endif
+      @else
+        <span class="flex h-full w-full items-center justify-center text-3xl font-extrabold text-teal">
+          {{ strtoupper(mb_substr($c->name, 0, 1)) }}
+        </span>
+      @endif
+    </div>
+
+    <!-- Category Card Footer -->
+    <div class="flex items-center justify-between gap-2 px-3.5 py-3" style="border-top:1px solid rgba(15,76,92,.12)">
+      <span class="min-w-0">
+        <span class="block truncate font-display font-medium" style="font-size:1.02rem">{{ $c->name }}</span>
+        <span class="mt-0.5 block text-[13px] text-muted tnum">{{ $c->products_count }} {{ $c->products_count == 1 ? 'item' : 'items' }}</span>
+      </span>
+      <span class="nudgeright shrink-0 text-teal transition-transform duration-200 group-hover:translate-x-1">&rarr;</span>
+    </div>
+  </a>
 @empty
-<p class="col-span-full rounded-[14px] bg-white p-6 text-base text-muted rv" style="border:1px solid rgba(15,76,92,.12)">Categories appear here once sellers list products.</p>
+  <p class="col-span-full rounded-[14px] bg-white p-6 text-base text-muted rv" style="border:1px solid rgba(15,76,92,.12)">
+    Categories appear here once sellers list products.
+  </p>
 @endforelse
 </div>
 </div>
 </section>
+<script>
+(function() {
+  function initCategorySwipers() {
+    var cards = document.querySelectorAll('[data-category-card]');
+    if (!cards.length) return;
+    var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reducedMotion) return;
+
+    cards.forEach(function(card, cardIdx) {
+      if (card.__slideInitialized) return;
+      card.__slideInitialized = true;
+
+      var track = card.querySelector('.category-slide-track');
+      var slides = card.querySelectorAll('.category-slide');
+      var dots = card.querySelectorAll('.category-dot');
+      var total = slides.length;
+      if (!track || total <= 1) return;
+
+      // Clone first slide for seamless continuous horizontal swipe
+      var firstClone = slides[0].cloneNode(true);
+      firstClone.classList.add('category-slide-clone');
+      firstClone.setAttribute('aria-hidden', 'true');
+      track.appendChild(firstClone);
+
+      var current = 0;
+      var timer = null;
+      var isHovered = false;
+      var isTransitioning = false;
+
+      function updateDots(idx) {
+        if (!dots.length) return;
+        var activeDot = idx % total;
+        dots.forEach(function(dot, i) {
+          if (i === activeDot) {
+            dot.classList.remove('bg-white/60');
+            dot.classList.add('bg-amber', 'w-3');
+          } else {
+            dot.classList.remove('bg-amber', 'w-3');
+            dot.classList.add('bg-white/60');
+          }
+        });
+      }
+
+      function swipeNext() {
+        if (isHovered || document.hidden || isTransitioning) return;
+        isTransitioning = true;
+        current++;
+
+        track.style.transition = 'transform 650ms cubic-bezier(0.25, 1, 0.5, 1)';
+        track.style.transform = 'translateX(-' + (current * 100) + '%)';
+        updateDots(current);
+
+        if (current === total) {
+          setTimeout(function() {
+            track.style.transition = 'none';
+            current = 0;
+            track.style.transform = 'translateX(0%)';
+            void track.offsetHeight;
+            isTransitioning = false;
+          }, 660);
+        } else {
+          setTimeout(function() {
+            isTransitioning = false;
+          }, 660);
+        }
+      }
+
+      var initialDelay = 1800 + (cardIdx * 450);
+      var intervalTime = 3800;
+
+      card.addEventListener('mouseenter', function() { isHovered = true; });
+      card.addEventListener('mouseleave', function() { isHovered = false; });
+
+      setTimeout(function() {
+        swipeNext();
+        timer = setInterval(swipeNext, intervalTime);
+      }, initialDelay);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCategorySwipers);
+  } else {
+    initCategorySwipers();
+  }
+})();
+</script>
 <section id="stores">
 <div class="mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-24" style="max-width:1200px">
 <div class="rv">

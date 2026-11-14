@@ -48,8 +48,8 @@
                     </select>
                 </div>
                 <div class="md:col-span-2">
-                    <label class="field-label">Description</label>
-                    <textarea name="description" rows="4" class="textarea" placeholder="Describe your product...">{{ old('description') }}</textarea>
+                    <label class="field-label">Description <span class="text-red-500">*</span></label>
+                    <textarea name="description" rows="4" class="textarea" placeholder="Describe your product..." required>{{ old('description') }}</textarea>
                 </div>
             </div>
         </div>
@@ -86,24 +86,24 @@
             <h3 class="mb-4 text-base font-bold">Shipping Details</h3>
             <div class="space-y-4">
                 <div>
-                    <label class="field-label">Actual weight (kg)</label>
-                    <input type="number" step="0.01" min="0" name="weight" value="{{ old('weight') }}" class="input" placeholder="2">
+                    <label class="field-label">Actual weight (kg) <span class="text-red-500">*</span></label>
+                    <input type="number" step="0.01" min="0" name="weight" value="{{ old('weight') }}" class="input" placeholder="2" required>
                     @error('weight')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div>
-                        <label class="field-label">Length (cm)</label>
-                        <input type="number" step="0.1" min="0" name="length" value="{{ old('length') }}" class="input" placeholder="40">
+                        <label class="field-label">Length (cm) <span class="text-red-500">*</span></label>
+                        <input type="number" step="0.1" min="0" name="length" value="{{ old('length') }}" class="input" placeholder="40" required>
                         @error('length')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="field-label">Width (cm)</label>
-                        <input type="number" step="0.1" min="0" name="width" value="{{ old('width') }}" class="input" placeholder="30">
+                        <label class="field-label">Width (cm) <span class="text-red-500">*</span></label>
+                        <input type="number" step="0.1" min="0" name="width" value="{{ old('width') }}" class="input" placeholder="30" required>
                         @error('width')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="field-label">Height (cm)</label>
-                        <input type="number" step="0.1" min="0" name="height" value="{{ old('height') }}" class="input" placeholder="20">
+                        <label class="field-label">Height (cm) <span class="text-red-500">*</span></label>
+                        <input type="number" step="0.1" min="0" name="height" value="{{ old('height') }}" class="input" placeholder="20" required>
                         @error('height')<p class="mt-1 text-xs text-red-500">{{ $message }}</p>@enderror
                     </div>
                 </div>
@@ -151,10 +151,10 @@
                     <x-icon name="box" class="h-8 w-8 text-ink-light" />
                 </div>
                 <div class="min-w-0 w-full flex-1">
-                    <label class="field-label">Upload images (1–9, JPG/PNG)</label>
-                    <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple
+                    <label class="field-label">Upload images (1–9, JPG/PNG) <span class="text-red-500">*</span></label>
+                    <input type="file" name="images[]" accept=".jpg,.jpeg,.png,image/jpeg,image/png" class="input !py-2.5" multiple required
                            data-photo-editor data-photo-preview-key="product-cover-preview" data-photo-gallery-key="product-gallery-preview">
-                    <p class="mt-2 text-xs text-ink-light">Up to 9 images, JPG or PNG (max 5 MB each). The first image is the cover.</p>
+                    <p class="mt-2 text-xs text-ink-light">Required — up to 9 images, JPG or PNG (max 5 MB each). The first image is the cover.</p>
                     <div data-photo-gallery-target-key="product-gallery-preview" aria-live="polite"></div>
                 </div>
             </div>
