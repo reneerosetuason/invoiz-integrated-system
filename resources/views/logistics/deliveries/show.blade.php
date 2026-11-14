@@ -36,8 +36,8 @@
         $maxAttempts = (int) ($attemptPrefs['max_attempts'] ?? 2);
         $failedAttempts = $delivery->statusLogs->where('status', 'delivery_failed')->count();
         $isCodDelivery = \App\Support\Cod::isCod($delivery);
-        $canOverride = auth()->user()->canManageRiders() && auth()->user()->isLogisticsAdmin();
         $canProcessParcels = \App\Support\LogisticsAccess::canProcessParcels(auth()->user());
+        $canOverride = $canProcessParcels && auth()->user()->canManageRiders();
         $codExpected = $isCodDelivery ? \App\Support\Cod::expected($delivery) : null;
         $assignmentBlockReason = $delivery->riderAssignmentBlockReason();
         $assignmentScope = $delivery->riderAssignmentScope();
@@ -200,8 +200,8 @@
         </div>
     </div>
 
-    {{-- Rider Assignment (kept near the top so assigning is quick) --}}
-    @if(! $delivery->archived_at && ! $hasActiveHubTransfer && Auth::user()->canManageRiders() && in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
+    {{-- Rider Assignment (kept near the top so assigning is quick for hub staff) --}}
+    @if($canProcessParcels && ! $delivery->archived_at && ! $hasActiveHubTransfer && Auth::user()->canManageRiders() && in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
         <div class="delivery-panel" id="rider-assignment">
             <div class="flex flex-wrap items-center gap-2 mb-4">
                 <div class="h-2 w-1 rounded-full bg-teal"></div>
@@ -879,105 +879,109 @@
         </div>
 
         @if(!$delivery->archived_at)
-            @if($assignmentBlockReason && $delivery->status === 'waiting_for_rider')
-                <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
-                    <p class="font-semibold">Next step before last-mile assignment</p>
-                    <p class="mt-1">{{ $assignmentBlockReason }}</p>
-                    @if($assignmentScope['center_id'] && $delivery->center_id && (int) $assignmentScope['center_id'] !== (int) $delivery->center_id)
-                        <p class="mt-1">Current hub: {{ $delivery->logisticsCenter?->name ?? 'Handling hub' }}. Final destination: {{ $delivery->destinationCenter?->name ?? 'Destination hub' }}. Completing one transfer does not complete the remaining route.</p>
-                        <a class="btn btn-outline btn-sm mt-3" href="{{ route('hub-transfers.index', ['search' => $delivery->tracking_number]) }}">Continue in Hub Transfers &rarr;</a>
-                    @else
-                        <a class="btn btn-outline btn-sm mt-3" href="{{ route('sorting-center.index', ['search' => $delivery->tracking_number]) }}">Continue in Sorting Center &rarr;</a>
+            @if(! $canProcessParcels)
+                <p class="text-sm text-gray-500">
+                    Management accounts have read-only monitoring access. Delivery status updates, rider assignments, and archiving are performed by logistics staff at the assigned hub.
+                </p>
+            @else
+                @if($assignmentBlockReason && $delivery->status === 'waiting_for_rider')
+                    <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+                        <p class="font-semibold">Next step before last-mile assignment</p>
+                        <p class="mt-1">{{ $assignmentBlockReason }}</p>
+                        @if($assignmentScope['center_id'] && $delivery->center_id && (int) $assignmentScope['center_id'] !== (int) $delivery->center_id)
+                            <p class="mt-1">Current hub: {{ $delivery->logisticsCenter?->name ?? 'Handling hub' }}. Final destination: {{ $delivery->destinationCenter?->name ?? 'Destination hub' }}. Completing one transfer does not complete the remaining route.</p>
+                            <a class="btn btn-outline btn-sm mt-3" href="{{ route('hub-transfers.index', ['search' => $delivery->tracking_number]) }}">Continue in Hub Transfers &rarr;</a>
+                        @else
+                            <a class="btn btn-outline btn-sm mt-3" href="{{ route('sorting-center.index', ['search' => $delivery->tracking_number]) }}">Continue in Sorting Center &rarr;</a>
+                        @endif
+                    </div>
+                @endif
+                <div class="delivery-processing-actions flex flex-wrap gap-3">
+                    @if(! $hasActiveHubTransfer && Auth::user()->canManageRiders() && $delivery->status === 'waiting_for_rider')
+                        <button type="button" @click="cancelOpen = true"
+                                class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm whitespace-nowrap">
+                            Cancel Delivery
+                        </button>
                     @endif
+
+                    @if($delivery->status === 'assigned')
+                        <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
+                            @csrf
+                            @method('PATCH')
+                            <input type="hidden" name="status" value="picked_up">
+                            <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
+                                Confirm Pickup
+                            </button>
+                        </form>
+                        <button type="button" @click="cancelOpen = true"
+                                class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                            Cancel Delivery
+                        </button>
+                    @endif
+
+                    @if($delivery->status === 'picked_up')
+                        <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
+                            @csrf
+                            @method('PATCH')
+                            <input type="hidden" name="status" value="out_for_delivery">
+                            <button type="submit" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
+                                Mark as Out for Delivery
+                            </button>
+                        </form>
+                        <button type="button" @click="failOpen = true"
+                                class="inline-flex items-center gap-2 bg-white border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                            Mark as Failed
+                        </button>
+                    @endif
+
+                    @if($delivery->status === 'out_for_delivery')
+                        <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST" class="flex flex-wrap items-end gap-2">
+                            @csrf
+                            @method('PATCH')
+                            <input type="hidden" name="status" value="delivered">
+                            @if($isCodDelivery)
+                                <div>
+                                    <label for="amount_received" class="block text-xs font-medium text-gray-600 mb-1">Cash Received (COD)</label>
+                                    <input type="number" name="amount_received" id="amount_received"
+                                           value="{{ old('amount_received') }}" min="0" step="0.01" inputmode="decimal" required
+                                           class="w-44 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
+                                    <p class="mt-1 text-[11px] text-gray-500">
+                                        @if($codExpected !== null)
+                                            Amount to collect: &#8369;{{ number_format($codExpected, 2) }}. Differences are flagged for reconciliation.
+                                        @else
+                                            Enter the actual cash received; the amount to collect is not configured.
+                                        @endif
+                                    </p>
+                                    @error('amount_received')
+                                        <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+                            @endif
+                            <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
+                                Mark as Delivered
+                            </button>
+                        </form>
+                        <button type="button" @click="failOpen = true"
+                                class="inline-flex items-center gap-2 bg-white border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                            Mark as Failed
+                        </button>
+                    @endif
+
+                    @if($canOverride)
+                        <button type="button" @click="overrideOpen = true"
+                                class="inline-flex items-center gap-2 bg-white border border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            Override Status
+                        </button>
+                    @endif
+
+                    <button type="button" @click="archiveOpen = true"
+                            class="inline-flex items-center gap-2 sm:ml-auto bg-white border border-gray-200 hover:border-gray-300 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
+                        Archive
+                    </button>
                 </div>
             @endif
-            <div class="delivery-processing-actions flex flex-wrap gap-3">
-                @if(! $hasActiveHubTransfer && Auth::user()->canManageRiders() && $delivery->status === 'waiting_for_rider')
-                    <button type="button" @click="cancelOpen = true"
-                            class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm whitespace-nowrap">
-                        Cancel Delivery
-                    </button>
-                @endif
-
-                @if($canProcessParcels)
-                @if($delivery->status === 'assigned')
-                    <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="status" value="picked_up">
-                        <button type="submit" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
-                            Confirm Pickup
-                        </button>
-                    </form>
-                    <button type="button" @click="cancelOpen = true"
-                            class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:border-red-300 hover:text-red-600 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                        Cancel Delivery
-                    </button>
-                @endif
-
-                @if($delivery->status === 'picked_up')
-                    <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST">
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="status" value="out_for_delivery">
-                        <button type="submit" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
-                            Mark as Out for Delivery
-                        </button>
-                    </form>
-                    <button type="button" @click="failOpen = true"
-                            class="inline-flex items-center gap-2 bg-white border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                        Mark as Failed
-                    </button>
-                @endif
-
-                @if($delivery->status === 'out_for_delivery')
-                    <form action="{{ route('deliveries.update-status', $delivery) }}" method="POST" class="flex flex-wrap items-end gap-2">
-                        @csrf
-                        @method('PATCH')
-                        <input type="hidden" name="status" value="delivered">
-                        @if($isCodDelivery)
-                            <div>
-                                <label for="amount_received" class="block text-xs font-medium text-gray-600 mb-1">Cash Received (COD)</label>
-                                <input type="number" name="amount_received" id="amount_received"
-                                       value="{{ old('amount_received') }}" min="0" step="0.01" inputmode="decimal" required
-                                       class="w-44 rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm">
-                                <p class="mt-1 text-[11px] text-gray-500">
-                                    @if($codExpected !== null)
-                                        Amount to collect: &#8369;{{ number_format($codExpected, 2) }}. Differences are flagged for reconciliation.
-                                    @else
-                                        Enter the actual cash received; the amount to collect is not configured.
-                                    @endif
-                                </p>
-                                @error('amount_received')
-                                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                                @enderror
-                            </div>
-                        @endif
-                        <button type="submit" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-5 py-2.5 rounded-xl transition shadow-sm">
-                            Mark as Delivered
-                        </button>
-                    </form>
-                    <button type="button" @click="failOpen = true"
-                            class="inline-flex items-center gap-2 bg-white border border-red-200 hover:border-red-300 hover:bg-red-50 text-red-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                        Mark as Failed
-                    </button>
-                @endif
-                @endif
-
-                @if($canOverride)
-                    <button type="button" @click="overrideOpen = true"
-                            class="inline-flex items-center gap-2 bg-white border border-amber-300 hover:bg-amber-50 text-amber-700 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                        Override Status
-                    </button>
-                @endif
-
-                <button type="button" @click="archiveOpen = true"
-                        class="inline-flex items-center gap-2 sm:ml-auto bg-white border border-gray-200 hover:border-gray-300 text-gray-600 font-semibold px-4 py-2.5 rounded-xl transition text-sm">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"/></svg>
-                    Archive
-                </button>
-            </div>
         @else
             <div class="flex flex-wrap items-center gap-4">
                 <p class="text-sm text-gray-500">
@@ -985,13 +989,15 @@
                     @if($delivery->archiver && $archiverNameVisible) by {{ $delivery->archiver->name }}@endif
                     @if($delivery->archive_note) · “{{ $delivery->archive_note }}”@endif
                 </p>
-                <form action="{{ route('deliveries.restore', $delivery) }}" method="POST" x-data
-                      x-on:submit.prevent="$el.submit()">
-                    @csrf
-                    <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold px-4 py-2 rounded-xl transition text-sm">
-                        Restore Delivery
-                    </button>
-                </form>
+                @if($canProcessParcels)
+                    <form action="{{ route('deliveries.restore', $delivery) }}" method="POST" x-data
+                          x-on:submit.prevent="$el.submit()">
+                        @csrf
+                        <button type="submit" class="bg-teal hover:bg-teal-dark text-white font-semibold px-4 py-2 rounded-xl transition text-sm">
+                            Restore Delivery
+                        </button>
+                    </form>
+                @endif
             </div>
         @endif
 

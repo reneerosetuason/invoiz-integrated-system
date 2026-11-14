@@ -299,9 +299,11 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $accountTitle = $user->role === 'admin' ? $user->roleLabel() : $userName;
     $profilePhotoUrl = $user->profilePhotoUrl();
     $pickupPendingCount = 0;
-    try {
-        $pickupPendingCount = (int) \App\Models\PickupRequest::query()->pendingReview($user)->count();
-    } catch (\Throwable $e) {}
+    if ($canProcessParcels) {
+        try {
+            $pickupPendingCount = (int) \App\Models\PickupRequest::query()->pendingReview($user)->count();
+        } catch (\Throwable $e) {}
+    }
 
     $activeDashboard = request()->routeIs('dashboard');
     $activeScan      = request()->routeIs('deliveries.scan-page');
@@ -314,7 +316,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
     $activeDeliveryRiders = request()->routeIs('riders.*');
     $activeHubDrivers = request()->routeIs('hub-transport-drivers.*');
     $activeRidersGroup = $activeDeliveryRiders || $activeHubDrivers;
-    $activePickups   = request()->routeIs('pickup-requests.*');
+    $activePickups   = $canProcessParcels && request()->routeIs('pickup-requests.*');
     $activeOperationsChild = $activeScan || $activeDeliveries || $activeSorting || $activeTransfers || $activePickups;
     $activeOperationsGroup = $activeOperations || $activeOperationsChild;
     $activeStaff     = request()->routeIs('staff.*');
@@ -398,7 +400,8 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
 
         @if(!$isRider)
 
-        {{-- Operations (clickable parent link + separate submenu toggle arrow) --}}
+        @if($canProcessParcels)
+        {{-- Operations (clickable parent link + separate submenu toggle arrow, Logistics Staff only) --}}
         <div class="sb-parent {{ $activeOperations ? 'bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors"
              :class="sidebarHover ? 'justify-start' : 'justify-center'">
             <a href="{{ route('operations.index') }}"
@@ -429,14 +432,12 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         {{-- Operations Submenus --}}
         <div class="sb-sub space-y-0.5 my-1" id="subnav-operations" x-show="sidebarHover && operationsOpen" x-cloak x-collapse>
             {{-- Scan Parcel --}}
-            @if($canProcessParcels)
             <a href="{{ route('deliveries.scan-page') }}"
                aria-label="Scan Parcel" data-tip="Scan Parcel"
                @if($activeScan) aria-current="page" @endif
                class="{{ $activeScan ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
                 <span>Scan Parcel</span>
             </a>
-            @endif
 
             {{-- Deliveries --}}
             <a href="{{ route('deliveries.index') }}"
@@ -446,25 +447,21 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
                 <span>Deliveries</span>
             </a>
 
-            {{-- Sorting Center (staff operational hub; management monitors deliveries read-only) --}}
-            @if($canProcessParcels)
+            {{-- Sorting Center --}}
             <a href="{{ route('sorting-center.index') }}"
                aria-label="Sorting Center" data-tip="Sorting Center"
                @if($activeSorting) aria-current="page" @endif
                class="{{ $activeSorting ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
                 <span>Sorting Center</span>
             </a>
-            @endif
 
-            {{-- Hub Transfers (Staff operational module only; admin monitors via direct oversight) --}}
-            @if($isStaff && !$isRider)
+            {{-- Hub Transfers --}}
             <a href="{{ route('hub-transfers.index') }}"
                aria-label="Hub Transfers" data-tip="Hub Transfers"
                @if($activeTransfers) aria-current="page" @endif
                class="{{ $activeTransfers ? 'active bg-teal-light text-teal-dark font-semibold' : 'text-[#4A5568] hover:text-[#0E4A57] hover:bg-teal-light/60 font-medium' }} relative group flex items-center h-[34px] w-full rounded-lg transition-colors px-2.5 text-[13px] whitespace-nowrap">
                 <span>Hub Transfers</span>
             </a>
-            @endif
 
             {{-- Pickup Requests --}}
             <a href="{{ route('pickup-requests.index') }}"
@@ -478,6 +475,21 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
                 @endif
             </a>
         </div>
+        @endif
+
+        {{-- Deliveries (top-level read-only monitoring link for HQ Admin / non-counter accounts) --}}
+        @if(!$canProcessParcels)
+        <a href="{{ route('deliveries.index') }}"
+           aria-label="Deliveries" data-tip="Deliveries"
+           @if($activeDeliveries) aria-current="page" @endif
+           class="{{ $activeDeliveries ? 'active bg-teal-light text-teal-dark font-semibold' : 'hover:bg-teal-light hover:text-teal-dark text-[#1F2933]' }} relative group flex items-center h-10 w-full rounded-xl transition-colors gap-3"
+           :class="sidebarHover ? 'px-3 justify-start' : 'justify-center'">
+            <svg class="h-5 w-5 flex-shrink-0 {{ $activeDeliveries ? 'text-teal-dark' : 'text-teal' }} transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+            <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap block {{ $activeDeliveries ? 'text-teal-dark' : 'text-[#1F2933]' }}">Deliveries</span>
+        </a>
+        @endif
 
         {{-- Fleet Management (Admin Only) --}}
         @if($isAdmin && !$isRider)
@@ -639,6 +651,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
         </a>
         @endif
 
+        @if(!$isAdmin)
         <a href="{{ route('remittances.hub-payouts.index') }}"
            aria-label="Hub remittances" data-tip="Hub remittances"
            @if($activeHubPayouts) aria-current="page" @endif
@@ -647,6 +660,7 @@ $sbInitials = strtoupper(substr(auth()->user()->first_name ?? '', 0, 1).substr(a
             <svg class="h-5 w-5 flex-shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l2 2 4-4M5 3h14v18l-3-2-4 2-4-2-3 2V3z" /></svg>
             <span x-show="sidebarHover" x-cloak class="text-sm font-medium whitespace-nowrap">Hub remittances</span>
         </a>
+        @endif
 
         @if($isAdmin)
         <div x-show="sidebarHover" x-cloak class="border-t border-teal/10 my-0.5 w-full"></div>

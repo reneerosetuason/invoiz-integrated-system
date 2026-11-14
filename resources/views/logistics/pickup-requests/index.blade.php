@@ -7,17 +7,15 @@
                 </h1>
                 <p class="text-xs text-[#6E6E73] mt-0.5">
                     {{ $activeStatus === 'routing'
-                        ? 'Route unassigned pickups to a logistics hub before review'
-                        : 'Review seller pickup requests and assign a rider to collect items from the seller' }}
+                        ? ($canProcessParcels ?? false ? 'Route unassigned pickups to a logistics hub before review' : 'Monitor unassigned pickups awaiting hub assignment')
+                        : ($canProcessParcels ?? false ? 'Review seller pickup requests and assign a rider to collect items from the seller' : 'Monitor seller pickup requests and hub review status across authorized centers') }}
                 </p>
             </div>
-            @if($isAdmin)
+            @if(($canProcessParcels ?? false) && $needsRoutingCount > 0)
                 <a href="{{ route('pickup-requests.index', ['status' => 'routing']) }}"
                    class="btn {{ $activeStatus === 'routing' ? 'btn-primary' : 'btn-outline' }}">
                     Needs Hub Assignment
-                    @if($needsRoutingCount > 0)
-                        <span class="badge badge-pending">{{ $needsRoutingCount }}</span>
-                    @endif
+                    <span class="badge badge-pending">{{ $needsRoutingCount }}</span>
                 </a>
             @endif
         </div>
@@ -33,7 +31,7 @@
                     <label class="field-label">Status</label>
                     <select name="status" class="select">
                         <option value="">All Statuses</option>
-                        @if($isAdmin)
+                        @if($isAdmin || ($canProcessParcels ?? false))
                             <option value="routing" @selected(request('status') === 'routing')>Needs hub assignment</option>
                         @endif
                         @foreach(['pending', 'approved', 'rejected', 'completed'] as $s)

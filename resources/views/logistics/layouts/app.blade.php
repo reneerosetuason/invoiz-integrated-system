@@ -36,7 +36,7 @@
         <div class="min-h-screen" x-data="{
             sidebarHover: @js($sidebarStartExpanded),
             sidebarKey: @js('invoiz:logistics:sidebar:' . auth()->id()),
-            operationsOpen: @js((request()->routeIs('deliveries.*') && !request()->routeIs('deliveries.archived')) || request()->routeIs('sorting-center.*', 'hub-transfers.*', 'pickup-requests.*')),
+            operationsOpen: @js(\App\Support\LogisticsAccess::canProcessParcels(auth()->user()) && ((request()->routeIs('deliveries.*') && !request()->routeIs('deliveries.archived')) || request()->routeIs('sorting-center.*', 'hub-transfers.*', 'pickup-requests.*'))),
             applicationsOpen: @js(request()->routeIs('rider-applications.*', 'document-change-requests.*', 'center-applications.*')),
             ridersOpen: @js(request()->routeIs('riders.*', 'hub-transport-drivers.*')),
             navPersistTimeout: null,

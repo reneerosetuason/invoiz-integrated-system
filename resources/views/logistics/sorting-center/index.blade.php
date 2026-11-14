@@ -379,7 +379,11 @@
                                             @endif
                                         @endif
                                         @if($delivery->parcel_status === 'dispatched' && !$routesToOtherHub && !$delivery->rider_id)
-                                            <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-primary btn-xs whitespace-nowrap" title="Parcel is physically dispatched at hub. Assign delivery rider in Deliveries.">Assign Rider &rarr;</a>
+                                            @if($canProcessParcels && auth()->user()->canManageRiders())
+                                                <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-primary btn-xs whitespace-nowrap" title="Parcel is physically dispatched at hub. Assign delivery rider in Deliveries.">Assign Rider &rarr;</a>
+                                            @else
+                                                <span class="badge badge-pending">Awaiting rider assignment</span>
+                                            @endif
                                         @endif
                                     </div>
                                 </td>

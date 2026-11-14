@@ -26,7 +26,11 @@
         </div>
 
         <form method="GET" action="{{ route('remittances.hub-payouts.index') }}" class="flex flex-wrap items-end gap-3 rounded-2xl border border-gray-200 bg-white p-4">
-            <div class="min-w-0 flex-1">
+            <div class="min-w-[200px] flex-1">
+                <label for="payout-search" class="mb-1 block text-sm font-semibold text-gray-700">Search reference or order</label>
+                <input id="payout-search" type="text" name="search" value="{{ request('search') }}" placeholder="Reference #, order #, or tracking #..." class="w-full rounded-xl border-gray-300 text-sm">
+            </div>
+            <div class="min-w-[200px] flex-1">
                 <label for="payout-status" class="mb-1 block text-sm font-semibold text-gray-700">Payment status</label>
                 <select id="payout-status" name="status" class="w-full rounded-xl border-gray-300 text-sm">
                     <option value="">All remittances</option>
@@ -45,6 +49,7 @@
                         <div class="min-w-0 flex-1">
                             <h2 class="break-all text-sm font-bold text-gray-900">{{ $payout->source==='return'?'Return #'.$payout->return_id:($payout->order?->order_number ?: 'Payout #'.$payout->id) }}</h2>
                             <p class="mt-1 break-words text-sm text-gray-600">{{ $payout->logisticsCenter?->name ?? 'Logistics hub' }} · {{ $payout->roleLabel() }}</p>
+                            <p class="mt-1 text-xs text-gray-500">Source: <span class="font-medium text-gray-700">{{ $payout->sourceSiteLabel() }}</span> · Reference: <span class="font-mono font-medium text-gray-700">{{ $payout->bank_reference ?: 'Not released yet' }}</span></p>
                             <p class="mt-2 text-xs font-semibold {{ $payout->status === 'accepted' ? 'text-emerald-700' : 'text-gray-600' }}">
                                 {{ match($payout->status) {
                                     'accepted' => '✓ Received · recorded in hub earnings',
@@ -62,10 +67,14 @@
                         <summary class="inline-flex min-h-[40px] cursor-pointer items-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700">View payment details</summary>
                         <dl class="mt-3 grid gap-3 rounded-xl bg-gray-50 p-3 text-sm sm:grid-cols-2">
                             <div class="min-w-0"><dt class="text-xs text-gray-500">Transfer reference</dt><dd class="mt-1 break-all font-medium">{{ $payout->bank_reference ?: 'Not released yet' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-xs text-gray-500">Source site / admin</dt><dd class="mt-1 font-medium">{{ $payout->sourceSiteLabel() }}</dd></div>
+                            <div class="min-w-0"><dt class="text-xs text-gray-500">Receiving hub</dt><dd class="mt-1 font-medium">{{ $payout->logisticsCenter?->name ?? 'Logistics hub' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-xs text-gray-500">Receiving staff</dt><dd class="mt-1 font-medium">{{ $payout->confirmedByLabel() ?? 'Awaiting hub staff confirmation' }}</dd></div>
                             <div class="min-w-0"><dt class="text-xs text-gray-500">Admin release date</dt><dd class="mt-1 font-medium">{{ $payout->remitted_at?->format('M d, Y · h:i A') ?? 'Not released yet' }}</dd></div>
+                            <div class="min-w-0"><dt class="text-xs text-gray-500">Receipt confirmation date/time</dt><dd class="mt-1 font-medium">{{ $payout->confirmedAtLabel() ?? 'Not confirmed yet' }}</dd></div>
                             <div class="min-w-0"><dt class="text-xs text-gray-500">Parcel</dt><dd class="mt-1 break-all font-medium">{{ $payout->delivery?->tracking_number ?? 'Not available' }}</dd></div>
                             <div class="min-w-0"><dt class="text-xs text-gray-500">Allocation</dt><dd class="mt-1 break-words">{{ $payout->rule_applied ?: $payout->roleLabel() }}</dd></div>
-                            @if($payout->notes)<div class="min-w-0 sm:col-span-2"><dt class="text-xs text-gray-500">Payment notes</dt><dd class="mt-1 whitespace-pre-line break-words">{{ $payout->notes }}</dd></div>@endif
+                            @if($payout->notes)<div class="min-w-0 sm:col-span-2"><dt class="text-xs text-gray-500">Payment notes &amp; confirmation log</dt><dd class="mt-1 whitespace-pre-line break-words">{{ $payout->notes }}</dd></div>@endif
                         </dl>
                     </details>
 

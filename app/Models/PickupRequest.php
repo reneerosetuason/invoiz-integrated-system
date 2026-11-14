@@ -95,26 +95,21 @@ class PickupRequest extends Model
     /**
      * Requests the given account is allowed to see in the Logistics UI.
      *
-     * Platform Administrators and the designated global Logistics Admin see
-     * every center. Company managers see their company; center-scoped staff
-     * see only their assigned center. Accounts without a logistics scope see
-     * nothing. This is the single source of truth shared by the index and the
-     * sidebar badge so the two can never drift apart.
+     * Pickup requests are exclusively handled by center-scoped logistics
+     * staff. Management and non-staff accounts see nothing. This is the
+     * single source of truth shared by the index and the sidebar badge so
+     * the two can never drift apart.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
-        if (LogisticsAccess::isGlobal($user)) {
-            return $query;
-        }
-
-        if (! $user->isLogisticsStaff()) {
+        if (! LogisticsAccess::canProcessParcels($user)) {
             return $query->whereRaw('1 = 0');
         }
 
         $companyId = LogisticsAccess::companyId($user);
         $centerId = LogisticsAccess::centerId($user);
 
-        if ($centerId === 0) {
+        if ($centerId === null || $centerId <= 0) {
             return $query->whereRaw('1 = 0');
         }
 
@@ -123,12 +118,6 @@ class PickupRequest extends Model
                 'center_id',
                 LogisticsCenter::query()->select('id')->where('logistics_company_id', $companyId)
             );
-        }
-
-        if ($centerId === null) {
-            // Company manager: every hub inside the company. A manager
-            // without a company has no scope at all.
-            return $companyId !== null && $companyId > 0 ? $query : $query->whereRaw('1 = 0');
         }
 
         // Center-scoped staff, including staff at a legacy hub that has no

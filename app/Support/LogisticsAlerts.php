@@ -54,48 +54,50 @@ class LogisticsAlerts
             $unassigned->count(),
             (clone $unassigned)->min('created_at'));
 
-        $incomingAfter = now()->subMinutes((int) config('logistics.alerts.incoming_after_minutes', 120));
-        $incoming = (clone $base)
-            ->where('parcel_status', 'pending_arrival')
-            ->where('created_at', '<=', $incomingAfter)
-            ->whereNotIn('status', ['cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'delivered']);
+        if (LogisticsAccess::canProcessParcels($user)) {
+            $incomingAfter = now()->subMinutes((int) config('logistics.alerts.incoming_after_minutes', 120));
+            $incoming = (clone $base)
+                ->where('parcel_status', 'pending_arrival')
+                ->where('created_at', '<=', $incomingAfter)
+                ->whereNotIn('status', ['cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'delivered']);
 
-        self::push($alerts, 'incoming', 'warning', 'Incoming parcels not received',
-            'Parcels are still marked pending arrival at a center.',
-            'Receive the parcel at the correct logistics center.',
-            route('sorting-center.index', ['tab' => 'incoming']),
-            $incoming->count(),
-            (clone $incoming)->min('created_at'));
+            self::push($alerts, 'incoming', 'warning', 'Incoming parcels not received',
+                'Parcels are still marked pending arrival at a center.',
+                'Receive the parcel at the correct logistics center.',
+                route('sorting-center.index', ['tab' => 'incoming']),
+                $incoming->count(),
+                (clone $incoming)->min('created_at'));
 
-        $pickupAfter = now()->subMinutes((int) config('logistics.alerts.pickup_review_after_minutes', 120));
-        $pickups = PickupRequest::query()
-            ->pendingReview($user)
-            ->where('requested_at', '<=', $pickupAfter);
+            $pickupAfter = now()->subMinutes((int) config('logistics.alerts.pickup_review_after_minutes', 120));
+            $pickups = PickupRequest::query()
+                ->pendingReview($user)
+                ->where('requested_at', '<=', $pickupAfter);
 
-        self::push($alerts, 'pickups', 'warning', 'Pickup reviews overdue',
-            'Pickup requests are waiting for a review decision.',
-            'Approve or reject the pickup request.',
-            route('pickup-requests.index', ['status' => 'pending']),
-            $pickups->count(),
-            (clone $pickups)->min('requested_at'));
+            self::push($alerts, 'pickups', 'warning', 'Pickup reviews overdue',
+                'Pickup requests are waiting for a review decision.',
+                'Approve or reject the pickup request.',
+                route('pickup-requests.index', ['status' => 'pending']),
+                $pickups->count(),
+                (clone $pickups)->min('requested_at'));
 
-        $sortingAfter = now()->subMinutes((int) config('logistics.alerts.sorting_after_minutes', 240));
-        $sorting = (clone $base)
-            ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
-            ->whereNotIn('status', ['cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'delivered'])
-            ->where(function (Builder $q) use ($sortingAfter) {
-                $q->where('received_at', '<=', $sortingAfter)
-                    ->orWhere(function (Builder $inner) use ($sortingAfter) {
-                        $inner->whereNull('received_at')->where('created_at', '<=', $sortingAfter);
-                    });
-            });
+            $sortingAfter = now()->subMinutes((int) config('logistics.alerts.sorting_after_minutes', 240));
+            $sorting = (clone $base)
+                ->whereIn('parcel_status', ['received', 'scanned', 'sorted'])
+                ->whereNotIn('status', ['cancelled', 'delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'delivered'])
+                ->where(function (Builder $q) use ($sortingAfter) {
+                    $q->where('received_at', '<=', $sortingAfter)
+                        ->orWhere(function (Builder $inner) use ($sortingAfter) {
+                            $inner->whereNull('received_at')->where('created_at', '<=', $sortingAfter);
+                        });
+                });
 
-        self::push($alerts, 'sorting', 'info', 'Sorting backlog',
-            'Parcels have been at a center without being dispatched.',
-            'Scan, sort, and dispatch the parcel.',
-            route('sorting-center.index', ['tab' => 'received']),
-            $sorting->count(),
-            (clone $sorting)->min('received_at'));
+            self::push($alerts, 'sorting', 'info', 'Sorting backlog',
+                'Parcels have been at a center without being dispatched.',
+                'Scan, sort, and dispatch the parcel.',
+                route('sorting-center.index', ['tab' => 'received']),
+                $sorting->count(),
+                (clone $sorting)->min('received_at'));
+        }
 
         $failedAfter = now()->subMinutes((int) config('logistics.alerts.failed_review_after_minutes', 60));
         $failed = (clone $base)

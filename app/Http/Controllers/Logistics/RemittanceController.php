@@ -23,13 +23,51 @@ class RemittanceController extends Controller
 {
     public function hubPayouts(Request $request): View
     {
-        $request->validate(['status' => ['nullable', 'in:held_in_escrow,pending_remittance,remitted,accepted,voided']]);
-        $base = $this->hubPayoutQuery($request->user());
-        $all=\App\Support\RemittanceFeed::combine($base->with(['order','delivery','logisticsCenter','hubTransfer'])->get(),
-            \App\Support\RemittanceFeed::returns($request->user(),LogisticsAccess::isGlobal($request->user())));
-        $totals=\App\Support\RemittanceFeed::totals($all);
-        $filtered=$request->filled('status')?$all->where('status',$request->input('status'))->values():$all;
-        $payouts=\App\Support\RemittanceFeed::paginate($filtered);
+        $request->validate([
+            'status' => ['nullable', 'in:held_in_escrow,pending_remittance,remitted,accepted,voided'],
+            'search' => ['nullable', 'string', 'max:150'],
+            'center_id' => ['nullable', 'integer'],
+        ]);
+
+        $user = $request->user();
+        if ($request->filled('center_id') && (int) $request->query('center_id') > 0) {
+            $requestedCenterId = (int) $request->query('center_id');
+            if (! LogisticsAccess::canAccessCenter($user, $requestedCenterId)) {
+                abort(403, 'You can only access hub remittances for your assigned hub.');
+            }
+        }
+
+        $base = $this->hubPayoutQuery($user);
+        if ($request->filled('center_id') && (int) $request->query('center_id') > 0) {
+            $base->where('logistics_center_id', (int) $request->query('center_id'));
+        }
+
+        $all = \App\Support\RemittanceFeed::combine(
+            $base->with(['order', 'delivery', 'logisticsCenter', 'hubTransfer'])->get(),
+            \App\Support\RemittanceFeed::returns($user, LogisticsAccess::isGlobal($user))
+        );
+        $totals = \App\Support\RemittanceFeed::totals($all);
+        $filtered = $request->filled('status') ? $all->where('status', $request->input('status'))->values() : $all;
+
+        $search = trim((string) $request->query('search', ''));
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $filtered = $filtered->filter(function ($item) use ($needle): bool {
+                $haystack = implode(' ', array_filter([
+                    (string) ($item->bank_reference ?? ''),
+                    (string) ($item->order?->order_number ?? ''),
+                    (string) ($item->order_id ?? ''),
+                    (string) ($item->return_id ?? ''),
+                    (string) ($item->delivery?->tracking_number ?? ''),
+                    (string) ($item->logisticsCenter?->name ?? ''),
+                    (string) ($item->notes ?? ''),
+                ]));
+
+                return str_contains(mb_strtolower($haystack), $needle);
+            })->values();
+        }
+
+        $payouts = \App\Support\RemittanceFeed::paginate($filtered);
 
         return view('logistics.remittances.hub-payouts', compact('payouts', 'totals'));
     }
@@ -139,6 +177,39 @@ class RemittanceController extends Controller
         $base = $this->baseQuery($user);
 
         $status = $request->query('status');
+        $payoutStatus = trim((string) $request->query('payout_status', ''));
+        $filterCenterId = (int) $request->query('center_id', 0);
+        $dateFrom = trim((string) $request->query('date_from', ''));
+        $dateTo = trim((string) $request->query('date_to', ''));
+        $search = trim((string) $request->query('search', ''));
+
+        if ($filterCenterId > 0) {
+            if (! LogisticsAccess::canAccessCenter($user, $filterCenterId)) {
+                abort(403, 'You can only filter remittances for an authorized logistics hub.');
+            }
+            $base->whereHas('delivery', function ($q) use ($filterCenterId) {
+                $q->where('center_id', $filterCenterId)
+                    ->orWhere('destination_center_id', $filterCenterId);
+            });
+        }
+
+        if ($dateFrom !== '' && strtotime($dateFrom)) {
+            $base->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo !== '' && strtotime($dateTo)) {
+            $base->whereDate('created_at', '<=', $dateTo);
+        }
+
+        if ($search !== '') {
+            $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
+            $base->where(function ($q) use ($like) {
+                $q->where('reference', 'like', $like)
+                    ->orWhereHas('delivery', fn ($d) => $d->where('tracking_number', 'like', $like))
+                    ->orWhereHas('order', fn ($o) => $o->where('order_number', 'like', $like))
+                    ->orWhereHas('rider', fn ($r) => $r->where('name', 'like', $like));
+            });
+        }
 
         if (in_array($status, ['pending', 'sent', 'confirmed'], true)) {
             $base->where('status', $status);
@@ -162,22 +233,72 @@ class RemittanceController extends Controller
                 $remittance->id => Cod::reconcile($remittance),
             ]);
 
-        $centerId = (int) ($user->center_id ?? 0);
         $orderIds = $remittances->getCollection()->pluck('order_id')->filter()->unique()->values();
 
-        $hubEscrowQuery = $this->hubPayoutQuery($user);
+        $hubAcceptedTotal = 0.0;
+        $hubAwaitingAcceptTotal = 0.0;
+        $hubPendingAdminTotal = 0.0;
+        $hubEarningsTotal = 0.0;
+        $hubEscrows = collect();
+        $hubPayoutsList = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 15);
 
-        $hubAcceptedTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_ACCEPTED)->sum('amount');
-        $hubAwaitingAcceptTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_REMITTED)->sum('amount');
-        $hubPendingAdminTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_PENDING_REMITTANCE)->sum('amount');
-        $hubEarningsTotal = $hubAcceptedTotal; // Officially recorded in hub accounts once accepted
-        $hubEscrows = (clone $hubEscrowQuery)->whereIn('order_id', $orderIds)->get()->groupBy('order_id');
-        $hubPayoutsList = (clone $hubEscrowQuery)->with(['order', 'delivery'])->latest()->paginate(15, ['*'], 'payout_page')->withQueryString();
+        if (\Illuminate\Support\Facades\Schema::hasTable('escrow_remittances')) {
+            $hubEscrowQuery = $this->hubPayoutQuery($user);
+
+            if ($filterCenterId > 0) {
+                $hubEscrowQuery->where('logistics_center_id', $filterCenterId);
+            }
+            if ($dateFrom !== '' && strtotime($dateFrom)) {
+                $hubEscrowQuery->whereDate('created_at', '>=', $dateFrom);
+            }
+            if ($dateTo !== '' && strtotime($dateTo)) {
+                $hubEscrowQuery->whereDate('created_at', '<=', $dateTo);
+            }
+            if ($search !== '') {
+                $like = '%' . str_replace(['%', '_'], ['\%', '\_'], $search) . '%';
+                $hubEscrowQuery->where(function ($q) use ($like) {
+                    $q->where('bank_reference', 'like', $like)
+                        ->orWhere('notes', 'like', $like)
+                        ->orWhereHas('delivery', fn ($d) => $d->where('tracking_number', 'like', $like))
+                        ->orWhereHas('order', fn ($o) => $o->where('order_number', 'like', $like));
+                });
+            }
+
+            $hubAcceptedTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_ACCEPTED)->sum('amount');
+            $hubAwaitingAcceptTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_REMITTED)->sum('amount');
+            $hubPendingAdminTotal = (float) (clone $hubEscrowQuery)->where('status', EscrowRemittance::STATUS_PENDING_REMITTANCE)->sum('amount');
+            $hubEarningsTotal = $hubAcceptedTotal;
+            $hubEscrows = (clone $hubEscrowQuery)->whereIn('order_id', $orderIds)->get()->groupBy('order_id');
+
+            $filteredHubEscrowQuery = clone $hubEscrowQuery;
+            if (in_array($payoutStatus, ['held_in_escrow', 'pending_remittance', 'remitted', 'accepted', 'voided'], true)) {
+                $filteredHubEscrowQuery->where('status', $payoutStatus);
+            }
+
+            $hubPayoutsList = $filteredHubEscrowQuery
+                ->with(['order', 'delivery', 'logisticsCenter'])
+                ->latest()
+                ->paginate(15, ['*'], 'payout_page')
+                ->withQueryString();
+        }
+
+        $centers = collect();
+        if (\Illuminate\Support\Facades\Schema::hasTable('logistics_centers')) {
+            $centersQuery = LogisticsCenter::query()->where('is_active', true);
+            LogisticsAccess::scopeCenters($centersQuery, $user);
+            $centers = $centersQuery->orderBy('name')->get();
+        }
 
         return view('logistics.remittances.index', [
             'remittances' => $remittances,
             'totals' => $totals,
             'status' => $status,
+            'payoutStatus' => $payoutStatus,
+            'filterCenterId' => $filterCenterId,
+            'dateFrom' => $dateFrom,
+            'dateTo' => $dateTo,
+            'search' => $search,
+            'centers' => $centers,
             'reconciliation' => $reconciliation,
             'hubEarningsTotal' => $hubEarningsTotal,
             'hubAcceptedTotal' => $hubAcceptedTotal,
@@ -193,28 +314,42 @@ class RemittanceController extends Controller
     {
         $user = $request->user();
 
-        // Check center scope: admin can confirm any, staff can confirm their center's remittances
-        if (! $user->isLogisticsAdmin()) {
-            if (! $user->isLogisticsStaff()) {
-                abort(403, 'Unauthorized to confirm remittances.');
-            }
-            $centerId = (int) ($user->center_id ?? 0);
-            $delivery = $remittance->delivery;
-            $riderCenterId = (int) ($remittance->rider?->center_id ?? 0);
-            $deliveryCenterId = (int) ($delivery?->center_id ?? 0);
-            $destCenterId = (int) ($delivery?->destination_center_id ?? 0);
+        if (! $user || LogisticsAccess::isGlobal($user)) {
+            abort(403, 'Global oversight accounts cannot confirm hub remittance receipts.');
+        }
 
-            if ($centerId <= 0 || ($riderCenterId !== $centerId && $deliveryCenterId !== $centerId && $destCenterId !== $centerId)) {
-                abort(403, 'You can only confirm remittances associated with your assigned logistics center.');
-            }
+        if (! $user->isLogisticsStaff()) {
+            abort(403, 'Unauthorized to confirm remittances.');
+        }
+
+        $centerId = (int) ($user->center_id ?? 0);
+        $delivery = $remittance->delivery;
+        $riderCenterId = (int) ($remittance->rider?->center_id ?? 0);
+        $deliveryCenterId = (int) ($delivery?->center_id ?? 0);
+        $destCenterId = (int) ($delivery?->destination_center_id ?? 0);
+
+        if ($centerId <= 0 || ($riderCenterId !== $centerId && $deliveryCenterId !== $centerId && $destCenterId !== $centerId)) {
+            abort(403, 'You can only confirm remittances associated with your assigned logistics center.');
         }
 
         if ($remittance->status === 'confirmed') {
             return back()->with('info', 'This remittance is already confirmed.');
         }
 
+        $oldStatus = $remittance->status;
         $reference = $request->input('reference');
         Remittances::confirmByLogistics($remittance, $user, $reference);
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('audit_logs')) {
+            (new \App\Support\AuditLogger)->record(
+                $user,
+                'cod_remittance.confirmed',
+                'remittance',
+                $remittance->id,
+                ['status' => $oldStatus],
+                ['status' => 'confirmed', 'reference' => $reference, 'confirmed_at' => now()->toDateTimeString()]
+            );
+        }
 
         return back()->with('status', 'COD cash remittance of ₱'.number_format((float) $remittance->amount, 2).' confirmed received at hub.');
     }

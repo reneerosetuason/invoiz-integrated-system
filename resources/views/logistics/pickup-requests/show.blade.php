@@ -112,7 +112,7 @@
         @endif
     </div>
 
-    {{-- Routing (admin only, before review) --}}
+    {{-- Routing (hub staff only, before review) --}}
     @if($canRoute)
         <div class="bg-white rounded-2xl shadow-sm border border-amber-200 p-6 mb-6">
             <h3 class="text-base font-bold text-gray-900 mb-1">Route to a Logistics Hub</h3>
@@ -127,7 +127,7 @@
                             class="w-full rounded-xl border-gray-300 focus:border-teal focus:ring-teal text-sm @error('center_id') border-red-500 @enderror">
                         <option value="">Select a Logistics Hub</option>
                         @foreach($centers as $center)
-                            <option value="{{ $center->id }}" @selected(old('center_id') == $center->id)>{{ $center->name }}</option>
+                            <option value="{{ $center->id }}" @selected(old('center_id', auth()->user()?->center_id) == $center->id)>{{ $center->name }}</option>
                         @endforeach
                     </select>
                     @error('center_id')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
@@ -136,6 +136,10 @@
                     Assign Center
                 </button>
             </form>
+        </div>
+    @elseif(! \App\Support\LogisticsAccess::canProcessParcels(auth()->user()) && $pickupRequest->status === 'pending')
+        <div class="bg-gray-50 rounded-2xl border border-gray-200 p-5 mb-6 text-sm text-gray-600">
+            Management accounts have read-only monitoring access. Pickup routing, acceptance, and rejection are performed by logistics staff at the assigned hub.
         </div>
     @endif
 

@@ -88,11 +88,11 @@
                             <td class="text-xs text-[#6E6E73]">{{ $delivery->archived_at?->format('M d, Y h:i A') ?? '—' }}</td>
                             <td class="text-right">
                                 <div class="inline-flex items-center justify-end gap-1.5">
-                                    <button type="button" class="btn btn-soft btn-xs" data-view-record='@json($modalPayload)'>View</button>
+                                    <button type="button" class="btn btn-soft btn-xs" data-view-record='@json($modalPayload)'>View</button>@if(\App\Support\LogisticsAccess::canProcessParcels(auth()->user()))
                                     <button type="button"
                                             data-restore-url="{{ route('deliveries.restore', $delivery) }}"
                                             @click="restoreUrl = $el.dataset.restoreUrl; restoreOpen = true"
-                                            class="btn btn-outline btn-xs">Restore</button>
+                                            class="btn btn-outline btn-xs">Restore</button>@endif
                                     @can('permanentlyDelete')
                                         <button type="button"
                                                 data-delete-url="{{ route('deliveries.destroy', $delivery) }}"

@@ -1,5 +1,5 @@
 @php
-    $dateQuery = array_filter(['date_from' => $dateFrom ?: null, 'date_to' => $dateTo ?: null]);
+    $dateQuery = array_filter(['date_from' => $dateFrom ?: null, 'date_to' => $dateTo ?: null, 'center_id' => $selectedCenterId ?? null, 'status' => ($selectedStatus ?? '') !== '' ? $selectedStatus : null]);
     $statusMap = array_flip($status_labels);
     $hasTrendData = array_sum($trendsChart['created']) + array_sum($trendsChart['delivered']) + array_sum($trendsChart['failed']) > 0;
 @endphp
@@ -61,6 +61,26 @@
             </div>
             <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-end gap-2">
                 <input type="hidden" name="trends_range" value="{{ $trendsRange }}">
+                @if($staffCenterId === null && isset($filterCenters) && $filterCenters->isNotEmpty())
+                <div>
+                    <label class="field-label" for="dashboard_center_id">Hub</label>
+                    <select id="dashboard_center_id" name="center_id" class="select !w-auto">
+                        <option value="">All Authorized Hubs</option>
+                        @foreach($filterCenters as $fc)
+                            <option value="{{ $fc->id }}" @selected((int) ($selectedCenterId ?? 0) === (int) $fc->id)>{{ $fc->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @endif
+                <div>
+                    <label class="field-label" for="dashboard_status">Status</label>
+                    <select id="dashboard_status" name="status" class="select !w-auto">
+                        <option value="">All Statuses</option>
+                        @foreach($status_labels as $sKey => $sLabel)
+                            <option value="{{ $sKey }}" @selected(($selectedStatus ?? '') === $sKey)>{{ $sLabel }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <div>
                     <label class="field-label" for="date_from">From</label>
                     <input id="date_from" type="date" name="date_from" value="{{ $dateFrom }}" max="{{ $dateTo }}" class="input !w-auto">
@@ -76,6 +96,42 @@
             </form>
         </div>
 
+        @if(isset($parcelStageCounts) && isset($exceptionCounts))
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5 text-xs pb-2">
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Received</div>
+                <div class="text-base font-extrabold text-[#1B1B1E] mt-0.5">{{ number_format($parcelStageCounts['received'] ?? 0) }}</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Scanned</div>
+                <div class="text-base font-extrabold text-[#1B1B1E] mt-0.5">{{ number_format($parcelStageCounts['scanned'] ?? 0) }}</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Sorted</div>
+                <div class="text-base font-extrabold text-[#1B1B1E] mt-0.5">{{ number_format($parcelStageCounts['sorted'] ?? 0) }}</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Dispatched</div>
+                <div class="text-base font-extrabold text-[#16697A] mt-0.5">{{ number_format($parcelStageCounts['dispatched'] ?? 0) }}</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Hub Transfers</div>
+                <div class="text-base font-extrabold text-[#16697A] mt-0.5">{{ number_format($activeHubTransfersCount ?? 0) }}</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Cancelled</div>
+                <div class="text-base font-extrabold text-gray-700 mt-0.5">{{ number_format($exceptionCounts['cancelled'] ?? 0) }}</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Damaged</div>
+                <div class="text-base font-extrabold text-amber-700 mt-0.5">{{ number_format($exceptionCounts['damaged'] ?? 0) }}</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-[#FAF9F6] border border-[#E8E6E0]">
+                <div class="text-[10px] font-bold uppercase text-[#6E6E73]">Lost</div>
+                <div class="text-base font-extrabold text-red-700 mt-0.5">{{ number_format($exceptionCounts['lost'] ?? 0) }}</div>
+            </div>
+        </div>
+        @endif
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
             @foreach([
                 ['key' => 'pending', 'label' => 'Pending', 'detail' => 'Waiting for a rider', 'bg' => 'bg-amber-50 text-amber-700', 'icon' => 'clock'],
@@ -146,7 +202,6 @@
                     </div>
                     <span class="text-lg font-extrabold text-[#16697A]">{{ number_format($needsAttention['processing']) }} &rarr;</span>
                 </a>
-                @endif
                 <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('pickup-requests.index', ['status' => 'pending']) }}">
                     <div>
                         <div class="text-xs font-semibold text-[#1B1B1E]">Pickup Requests to Review</div>
@@ -154,6 +209,7 @@
                     </div>
                     <span class="text-lg font-extrabold text-[#16697A]">{{ number_format($needsAttention['pickups']) }} &rarr;</span>
                 </a>
+                @endif
                 <a class="p-3.5 rounded-xl border border-[#E8E6E0] hover:border-[#16697A] bg-[#FAF9F6] hover:bg-white transition flex items-center justify-between" href="{{ route('deliveries.index', ['status' => 'exceptions']) }}">
                     <div>
                         <div class="text-xs font-semibold text-[#1B1B1E]">Failed, Lost or Damaged</div>
@@ -544,7 +600,7 @@
             <div class="card overflow-hidden">
                 <div class="p-4 border-b border-[#E8E6E0] flex items-center justify-between">
                     <h2 class="text-sm font-bold text-[#1B1B1E]">Service Areas Coverage</h2>
-                    <a class="btn btn-ghost btn-xs" href="{{ route('service-areas.index') }}">Manage &rarr;</a>
+                    @if(auth()->user()->isAdmin() || auth()->user()->isLogisticsAdmin())<a class="btn btn-ghost btn-xs" href="{{ route('service-areas.index') }}">Manage &rarr;</a>@endif
                 </div>
                 <table class="table">
                     <thead>

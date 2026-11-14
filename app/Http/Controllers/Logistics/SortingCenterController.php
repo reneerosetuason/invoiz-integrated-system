@@ -34,6 +34,13 @@ class SortingCenterController extends Controller
 
     public function index(Request $request): View
     {
+        $user = $request->user();
+        abort_unless(
+            $user && LogisticsAccess::canProcessParcels($user),
+            403,
+            'Sorting Center operations are reserved for logistics staff assigned to an active hub.'
+        );
+
         $context = $this->requestContext($request);
         $incomingCenterId = $context['staffCenterId'] !== null && $context['staffCenterId'] > 0
             ? $context['staffCenterId']
@@ -134,6 +141,13 @@ class SortingCenterController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
+        $user = $request->user();
+        abort_unless(
+            $user && LogisticsAccess::canProcessParcels($user),
+            403,
+            'Sorting Center exports are reserved for logistics staff assigned to an active hub.'
+        );
+
         $context = $this->requestContext($request);
         $incomingCenterId = $context['staffCenterId'] !== null && $context['staffCenterId'] > 0
             ? $context['staffCenterId']

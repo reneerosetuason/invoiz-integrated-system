@@ -183,7 +183,8 @@ class EscrowRemittance extends Model
                 GcashEscrowService::assertFunded($order);
             }
 
-            $noteText = "Confirmed received by {$user->name} (#{$user->id}) on ".now()->format('Y-m-d H:i:s');
+            $confirmedAt = now()->format('Y-m-d H:i:s');
+            $noteText = "Confirmed received by {$user->name} (#{$user->id}) on {$confirmedAt}";
             if ($note) {
                 $noteText .= ' — Note: '.trim($note);
             }
@@ -192,6 +193,18 @@ class EscrowRemittance extends Model
                 'status' => self::STATUS_ACCEPTED,
                 'notes' => $this->notes ? ($this->notes."\n".$noteText) : $noteText,
             ]);
+
+            if ($user instanceof User && \Illuminate\Support\Facades\Schema::hasTable('audit_logs')) {
+                (new \App\Support\AuditLogger)->record(
+                    $user,
+                    'hub_remittance.confirmed',
+                    'escrow_remittance',
+                    $this->id,
+                    ['status' => self::STATUS_REMITTED],
+                    ['status' => self::STATUS_ACCEPTED, 'confirmed_by' => $user->name, 'confirmed_at' => $confirmedAt],
+                    $note
+                );
+            }
 
             if ($order && GcashEscrowService::isGcash($order) && $this->rider_id && $this->delivery_id) {
                 $type = match ($this->recipient_role) {

@@ -19,6 +19,9 @@
         ];
         $tabUrl = fn ($status) => route('deliveries.index', collect(request()->query())->except('page')->merge(['status' => $status])->filter(fn ($v) => $v !== null && $v !== '')->all());
         $hasFilters = trim((string) request('search')) !== '' || $currentStatus || request('date_from') || request('date_to') || request('rider_id') || request('vehicle_type') || request('center_id') || request('service_area_id') || request('priority');
+        $canProcessParcels = \App\Support\LogisticsAccess::canProcessParcels(Auth::user());
+        $canBulkAssign = $canProcessParcels && Auth::user()->canManageRiders() && $filterRiders->isNotEmpty();
+        $canViewArchived = Auth::user()->isAdmin() || Auth::user()->isLogisticsAdmin();
     @endphp
 
     <div x-data="{ archiveOpen: false, archiveUrl: '' }" class="space-y-4">
@@ -26,21 +29,25 @@
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
                 <h1 class="text-2xl font-bold text-[#1B1B1E]">Deliveries</h1>
-                <p class="text-xs text-[#6E6E73] mt-0.5">Manage shipments, assign riders, and monitor delivery progress.</p>
+                <p class="text-xs text-[#6E6E73] mt-0.5">{{ $canProcessParcels ? 'Manage shipments, assign riders, and monitor delivery progress.' : 'Monitor shipments, tracking history, and delivery status across authorized hubs.' }}</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <a href="{{ route('deliveries.archived') }}" class="btn btn-outline">
-                    <x-icon name="archive" class="w-4 h-4" />
-                    Archived ({{ $archivedCount }})
-                </a>
+                @if($canViewArchived)
+                    <a href="{{ route('deliveries.archived') }}" class="btn btn-outline">
+                        <x-icon name="archive" class="w-4 h-4" />
+                        Archived ({{ $archivedCount }})
+                    </a>
+                @endif
                 <a href="{{ route('deliveries.export', collect(request()->query())->except(['page', 'per_page'])->all()) }}" class="btn btn-outline">
                     <x-icon name="download" class="w-4 h-4" />
                     Export CSV
                 </a>
-                <a href="{{ route('deliveries.create') }}" class="btn btn-primary">
-                    <x-icon name="plus" class="w-4 h-4" />
-                    New Delivery
-                </a>
+                @if($canProcessParcels)
+                    <a href="{{ route('deliveries.create') }}" class="btn btn-primary">
+                        <x-icon name="plus" class="w-4 h-4" />
+                        New Delivery
+                    </a>
+                @endif
             </div>
         </div>
 
@@ -66,7 +73,7 @@
         </div>
 
         {{-- Bulk Assign Form --}}
-        @if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
+        @if($canBulkAssign)
             <form id="bulk-assign-form" method="POST" action="{{ route('deliveries.bulk-assign') }}" class="card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 @csrf
                 <div>
@@ -114,7 +121,7 @@
             <table class="table">
                 <thead>
                     <tr>
-                        @if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
+                        @if($canBulkAssign)
                             <th class="w-10"><input id="bulk-select-all" type="checkbox" aria-label="Select all assignable deliveries"></th>
                         @endif
                         <th>Tracking #</th>
@@ -127,7 +134,7 @@
                 <tbody>
                     @forelse($deliveries as $delivery)
                         <tr>
-                            @if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
+                            @if($canBulkAssign)
                                 <td>
                                     @if(in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
                                         <input form="bulk-assign-form" type="checkbox" name="delivery_ids[]" value="{{ $delivery->id }}" aria-label="Select {{ $delivery->tracking_number }}" class="bulk-delivery-checkbox">
@@ -165,16 +172,18 @@
                             <td class="text-right">
                                 <div class="inline-flex items-center justify-end gap-1.5">
                                     <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-soft btn-xs">View</a>
-                                    <a href="{{ route('deliveries.edit', $delivery) }}" class="btn btn-outline btn-xs">Edit</a>
-                                    <button type="button" data-archive-url="{{ route('deliveries.archive', $delivery) }}"
-                                            @click="archiveUrl = $el.dataset.archiveUrl; archiveOpen = true"
-                                            class="btn btn-ghost btn-xs">Archive</button>
+                                    @if($canProcessParcels)
+                                        <a href="{{ route('deliveries.edit', $delivery) }}" class="btn btn-outline btn-xs">Edit</a>
+                                        <button type="button" data-archive-url="{{ route('deliveries.archive', $delivery) }}"
+                                                @click="archiveUrl = $el.dataset.archiveUrl; archiveOpen = true"
+                                                class="btn btn-ghost btn-xs">Archive</button>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="{{ Auth::user()->canManageRiders() && $filterRiders->isNotEmpty() ? 6 : 5 }}" class="text-center py-12">
+                            <td colspan="{{ $canBulkAssign ? 6 : 5 }}" class="text-center py-12">
                                 <div class="text-sm font-bold text-[#1B1B1E]">No deliveries found</div>
                                 <p class="text-xs text-[#6E6E73] mt-1">{{ $hasFilters ? 'Try a different search or clear your filters.' : 'New deliveries will appear here.' }}</p>
                             </td>
@@ -192,21 +201,23 @@
         </div>
 
         {{-- Archive Confirmation Modal --}}
-        <div x-show="archiveOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
-            <div class="absolute inset-0 bg-black/40" @click="archiveOpen = false; archiveUrl = ''"></div>
-            <form :action="archiveUrl" method="POST" class="relative card p-6 w-full max-w-md shadow-xl" x-transition>
-                @csrf
-                <h4 class="text-base font-bold text-[#1B1B1E]">Archive Delivery?</h4>
-                <p class="text-xs text-[#6E6E73] mt-1">This delivery will be moved from active deliveries to the archive for records and auditing.</p>
-                <div class="mt-5 flex justify-end gap-2">
-                    <button type="button" @click="archiveOpen = false; archiveUrl = ''" class="btn btn-outline">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Archive Delivery</button>
-                </div>
-            </form>
-        </div>
+        @if($canProcessParcels)
+            <div x-show="archiveOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-transition.opacity>
+                <div class="absolute inset-0 bg-black/40" @click="archiveOpen = false; archiveUrl = ''"></div>
+                <form :action="archiveUrl" method="POST" class="relative card p-6 w-full max-w-md shadow-xl" x-transition>
+                    @csrf
+                    <h4 class="text-base font-bold text-[#1B1B1E]">Archive Delivery?</h4>
+                    <p class="text-xs text-[#6E6E73] mt-1">This delivery will be moved from active deliveries to the archive for records and auditing.</p>
+                    <div class="mt-5 flex justify-end gap-2">
+                        <button type="button" @click="archiveOpen = false; archiveUrl = ''" class="btn btn-outline">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Archive Delivery</button>
+                    </div>
+                </form>
+            </div>
+        @endif
     </div>
 
-    @if(Auth::user()->canManageRiders() && $filterRiders->isNotEmpty())
+    @if($canBulkAssign)
         <script src="{{ asset('assets/logistics/js/deliveries/index.js') }}"></script>
     @endif
     </div>

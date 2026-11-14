@@ -1,0 +1,1452 @@
+{
+    "generated_at": "2026-11-02 12:10:09",
+    "legacy_review": [
+        {
+            "delivery": {
+                "id": 3,
+                "tracking_number": "TRK-20260819-0002",
+                "order_id": 3,
+                "seller_id": 1,
+                "status": "out_for_delivery",
+                "parcel_status": "dispatched",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 2,
+                "rider_id": 4,
+                "rider": {
+                    "id": 4,
+                    "name": "Rider Two",
+                    "user_id": 21,
+                    "user_email": "rider2@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": null
+                },
+                "payment_method": "Prepaid",
+                "amount_to_collect": "0.00",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:09:59",
+                "updated_at": "2026-10-20 07:31:12"
+            },
+            "custody": {
+                "picked_up_at": "2026-10-19 10:40:00",
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-19 10:20:00",
+                "scanned_at": "2026-10-19 10:25:00",
+                "sorted_at": "2026-10-19 10:30:00",
+                "dispatched_at": "2026-10-19 10:35:00",
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-19 10:05:00",
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 3,
+                "order_number": "ORD-00003",
+                "status": "shipped",
+                "payment_status": "refunded",
+                "buyer_id": 5,
+                "seller_id_column": 1,
+                "created_at": "2026-09-14 09:29:00",
+                "updated_at": "2026-09-14 09:29:00"
+            },
+            "order_histories": [
+                {
+                    "id": 5,
+                    "from": null,
+                    "to": "new",
+                    "notes": "Order created.",
+                    "created_at": "2026-09-14 09:29:00"
+                },
+                {
+                    "id": 6,
+                    "from": "new",
+                    "to": "shipped",
+                    "notes": "Order moved to shipped.",
+                    "created_at": "2026-09-14 09:29:00"
+                }
+            ],
+            "pickup_request": {
+                "id": 1,
+                "center_id": 1,
+                "status": "completed",
+                "requested_at": "2026-10-19 10:10:00",
+                "reviewed_at": "2026-10-19 10:20:00",
+                "reviewed_by": 18,
+                "reviewed_by_name": "Logistics Admin",
+                "rejection_reason": null
+            },
+            "logs": [
+                {
+                    "id": 11,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-19 10:00:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 12,
+                    "status": "assigned",
+                    "created_at": "2026-10-19 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                },
+                {
+                    "id": 13,
+                    "status": "accepted",
+                    "created_at": "2026-10-19 10:30:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to accepted."
+                },
+                {
+                    "id": 14,
+                    "status": "going_to_pickup",
+                    "created_at": "2026-10-19 10:45:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to going to pickup."
+                },
+                {
+                    "id": 15,
+                    "status": "arrived_at_shop",
+                    "created_at": "2026-10-19 11:00:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to arrived at shop."
+                },
+                {
+                    "id": 16,
+                    "status": "picked_up",
+                    "created_at": "2026-10-19 11:15:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to picked up."
+                },
+                {
+                    "id": 17,
+                    "status": "out_for_delivery",
+                    "created_at": "2026-10-19 11:30:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to out for delivery."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": {
+                    "id": 16,
+                    "status": "picked_up",
+                    "created_at": "2026-10-19 11:15:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to picked up."
+                },
+                "received_logs": 0,
+                "scanned_logs": 0,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 4,
+                "tracking_number": "TRK-20260819-0003",
+                "order_id": 4,
+                "seller_id": 7,
+                "status": "assigned",
+                "parcel_status": "received",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 1,
+                "rider_id": 3,
+                "rider": {
+                    "id": 3,
+                    "name": "Rider One",
+                    "user_id": 20,
+                    "user_email": "rider1@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": "2026-10-10 07:31:06"
+                },
+                "payment_method": "COD",
+                "amount_to_collect": "2733.64",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:00",
+                "updated_at": "2026-10-20 07:31:12"
+            },
+            "custody": {
+                "picked_up_at": null,
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-19 10:20:00",
+                "scanned_at": null,
+                "sorted_at": null,
+                "dispatched_at": null,
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-19 10:05:00",
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 4,
+                "order_number": "ORD-00004",
+                "status": "processing",
+                "payment_status": "paid",
+                "buyer_id": 5,
+                "seller_id_column": 7,
+                "created_at": "2026-07-12 14:16:00",
+                "updated_at": "2026-10-19 10:58:53"
+            },
+            "order_histories": [
+                {
+                    "id": 7,
+                    "from": null,
+                    "to": "new",
+                    "notes": "Order created.",
+                    "created_at": "2026-07-12 14:16:00"
+                },
+                {
+                    "id": 8,
+                    "from": "new",
+                    "to": "processing",
+                    "notes": "Order moved to processing.",
+                    "created_at": "2026-10-19 10:58:53"
+                }
+            ],
+            "pickup_request": {
+                "id": 5,
+                "center_id": 1,
+                "status": "approved",
+                "requested_at": "2026-10-19 10:10:00",
+                "reviewed_at": "2026-10-20 07:41:03",
+                "reviewed_by": 18,
+                "reviewed_by_name": "Logistics Admin",
+                "rejection_reason": null
+            },
+            "logs": [
+                {
+                    "id": 18,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-19 10:00:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 19,
+                    "status": "assigned",
+                    "created_at": "2026-10-19 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": null,
+                "received_logs": 0,
+                "scanned_logs": 0,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 5,
+                "tracking_number": "TRK-20260819-0004",
+                "order_id": 5,
+                "seller_id": 7,
+                "status": "accepted",
+                "parcel_status": "received",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 2,
+                "rider_id": 4,
+                "rider": {
+                    "id": 4,
+                    "name": "Rider Two",
+                    "user_id": 21,
+                    "user_email": "rider2@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": null
+                },
+                "payment_method": "COD",
+                "amount_to_collect": "607.88",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:00",
+                "updated_at": "2026-10-20 07:31:12"
+            },
+            "custody": {
+                "picked_up_at": null,
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-20 10:20:00",
+                "scanned_at": null,
+                "sorted_at": null,
+                "dispatched_at": null,
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-20 10:05:00",
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 5,
+                "order_number": "ORD-00005",
+                "status": "shipped",
+                "payment_status": "failed",
+                "buyer_id": 5,
+                "seller_id_column": 7,
+                "created_at": "2026-04-15 10:50:00",
+                "updated_at": "2026-04-15 10:50:00"
+            },
+            "order_histories": [
+                {
+                    "id": 9,
+                    "from": null,
+                    "to": "new",
+                    "notes": "Order created.",
+                    "created_at": "2026-04-15 10:50:00"
+                },
+                {
+                    "id": 10,
+                    "from": "new",
+                    "to": "shipped",
+                    "notes": "Order moved to shipped.",
+                    "created_at": "2026-04-15 10:50:00"
+                }
+            ],
+            "pickup_request": null,
+            "logs": [
+                {
+                    "id": 20,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-20 10:00:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 21,
+                    "status": "assigned",
+                    "created_at": "2026-10-20 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                },
+                {
+                    "id": 22,
+                    "status": "accepted",
+                    "created_at": "2026-10-20 10:30:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to accepted."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": null,
+                "received_logs": 0,
+                "scanned_logs": 0,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 6,
+                "tracking_number": "TRK-20260819-0005",
+                "order_id": 10,
+                "seller_id": 3,
+                "status": "going_to_pickup",
+                "parcel_status": "received",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 1,
+                "rider_id": 3,
+                "rider": {
+                    "id": 3,
+                    "name": "Rider One",
+                    "user_id": 20,
+                    "user_email": "rider1@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": "2026-10-10 07:31:06"
+                },
+                "payment_method": "Prepaid",
+                "amount_to_collect": "0.00",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:00",
+                "updated_at": "2026-10-20 07:31:12"
+            },
+            "custody": {
+                "picked_up_at": null,
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-20 10:20:00",
+                "scanned_at": null,
+                "sorted_at": null,
+                "dispatched_at": null,
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-20 10:05:00",
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 10,
+                "order_number": "ORD-00010",
+                "status": "new",
+                "payment_status": "paid",
+                "buyer_id": 3,
+                "seller_id_column": 3,
+                "created_at": "2026-06-30 18:18:00",
+                "updated_at": "2026-10-19 10:58:53"
+            },
+            "order_histories": [
+                {
+                    "id": 19,
+                    "from": null,
+                    "to": "new",
+                    "notes": "Order created.",
+                    "created_at": "2026-06-30 18:18:00"
+                }
+            ],
+            "pickup_request": {
+                "id": 2,
+                "center_id": 1,
+                "status": "approved",
+                "requested_at": "2026-10-20 10:10:00",
+                "reviewed_at": "2026-10-20 10:20:00",
+                "reviewed_by": 18,
+                "reviewed_by_name": "Logistics Admin",
+                "rejection_reason": null
+            },
+            "logs": [
+                {
+                    "id": 23,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-20 10:00:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 24,
+                    "status": "assigned",
+                    "created_at": "2026-10-20 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                },
+                {
+                    "id": 25,
+                    "status": "accepted",
+                    "created_at": "2026-10-20 10:30:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to accepted."
+                },
+                {
+                    "id": 26,
+                    "status": "going_to_pickup",
+                    "created_at": "2026-10-20 10:45:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to going to pickup."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": null,
+                "received_logs": 0,
+                "scanned_logs": 0,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 7,
+                "tracking_number": "TRK-20260819-0006",
+                "order_id": 18,
+                "seller_id": 1,
+                "status": "arrived_at_shop",
+                "parcel_status": "scanned",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 3,
+                "rider_id": 4,
+                "rider": {
+                    "id": 4,
+                    "name": "Rider Two",
+                    "user_id": 21,
+                    "user_email": "rider2@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": null
+                },
+                "payment_method": "COD",
+                "amount_to_collect": "663.88",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:00",
+                "updated_at": "2026-10-28 16:25:29"
+            },
+            "custody": {
+                "picked_up_at": null,
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-20 10:20:00",
+                "scanned_at": "2026-10-28 16:25:29",
+                "sorted_at": null,
+                "dispatched_at": null,
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-20 10:05:00",
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 18,
+                "order_number": "ORD-00018",
+                "status": "processing",
+                "payment_status": "pending",
+                "buyer_id": 3,
+                "seller_id_column": 1,
+                "created_at": "2026-03-30 09:39:00",
+                "updated_at": "2026-03-30 09:39:00"
+            },
+            "order_histories": [],
+            "pickup_request": {
+                "id": 3,
+                "center_id": 1,
+                "status": "rejected",
+                "requested_at": "2026-10-20 10:10:00",
+                "reviewed_at": "2026-10-20 10:20:00",
+                "reviewed_by": 18,
+                "reviewed_by_name": "Logistics Admin",
+                "rejection_reason": "Pickup slot unavailable."
+            },
+            "logs": [
+                {
+                    "id": 27,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-20 10:00:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 28,
+                    "status": "assigned",
+                    "created_at": "2026-10-20 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                },
+                {
+                    "id": 29,
+                    "status": "accepted",
+                    "created_at": "2026-10-20 10:30:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to accepted."
+                },
+                {
+                    "id": 30,
+                    "status": "going_to_pickup",
+                    "created_at": "2026-10-20 10:45:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to going to pickup."
+                },
+                {
+                    "id": 31,
+                    "status": "arrived_at_shop",
+                    "created_at": "2026-10-20 11:00:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to arrived at shop."
+                },
+                {
+                    "id": 131,
+                    "status": "scanned",
+                    "created_at": "2026-10-28 16:25:29",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Parcel scanned and verified via QR."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": null,
+                "received_logs": 0,
+                "scanned_logs": 1,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 8,
+                "tracking_number": "TRK-20260819-0007",
+                "order_id": 19,
+                "seller_id": 3,
+                "status": "picked_up",
+                "parcel_status": "sorted",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 1,
+                "rider_id": 3,
+                "rider": {
+                    "id": 3,
+                    "name": "Rider One",
+                    "user_id": 20,
+                    "user_email": "rider1@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": "2026-10-10 07:31:06"
+                },
+                "payment_method": "COD",
+                "amount_to_collect": "1053.64",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:00",
+                "updated_at": "2026-10-20 07:31:12"
+            },
+            "custody": {
+                "picked_up_at": "2026-10-20 10:40:00",
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-20 10:20:00",
+                "scanned_at": "2026-10-20 10:25:00",
+                "sorted_at": "2026-10-20 10:30:00",
+                "dispatched_at": null,
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-20 10:05:00",
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 19,
+                "order_number": "ORD-00019",
+                "status": "new",
+                "payment_status": "pending",
+                "buyer_id": 2,
+                "seller_id_column": 3,
+                "created_at": "2026-03-15 10:31:00",
+                "updated_at": "2026-03-15 10:31:00"
+            },
+            "order_histories": [],
+            "pickup_request": null,
+            "logs": [
+                {
+                    "id": 32,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-20 10:00:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 33,
+                    "status": "assigned",
+                    "created_at": "2026-10-20 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                },
+                {
+                    "id": 34,
+                    "status": "accepted",
+                    "created_at": "2026-10-20 10:30:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to accepted."
+                },
+                {
+                    "id": 35,
+                    "status": "going_to_pickup",
+                    "created_at": "2026-10-20 10:45:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to going to pickup."
+                },
+                {
+                    "id": 36,
+                    "status": "arrived_at_shop",
+                    "created_at": "2026-10-20 11:00:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to arrived at shop."
+                },
+                {
+                    "id": 37,
+                    "status": "picked_up",
+                    "created_at": "2026-10-20 11:15:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to picked up."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": {
+                    "id": 37,
+                    "status": "picked_up",
+                    "created_at": "2026-10-20 11:15:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to picked up."
+                },
+                "received_logs": 0,
+                "scanned_logs": 0,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 9,
+                "tracking_number": "TRK-20260819-0008",
+                "order_id": 27,
+                "seller_id": 7,
+                "status": "arrived_at_customer",
+                "parcel_status": "dispatched",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 2,
+                "rider_id": 4,
+                "rider": {
+                    "id": 4,
+                    "name": "Rider Two",
+                    "user_id": 21,
+                    "user_email": "rider2@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": null
+                },
+                "payment_method": "COD",
+                "amount_to_collect": "439.88",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:00",
+                "updated_at": "2026-10-20 07:31:12"
+            },
+            "custody": {
+                "picked_up_at": "2026-10-20 10:40:00",
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-20 10:20:00",
+                "scanned_at": "2026-10-20 10:25:00",
+                "sorted_at": "2026-10-20 10:30:00",
+                "dispatched_at": "2026-10-20 10:35:00",
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-20 10:05:00",
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 27,
+                "order_number": "ORD-00027",
+                "status": "processing",
+                "payment_status": "paid",
+                "buyer_id": 2,
+                "seller_id_column": 7,
+                "created_at": "2026-02-17 17:29:00",
+                "updated_at": "2026-10-19 10:58:53"
+            },
+            "order_histories": [],
+            "pickup_request": null,
+            "logs": [
+                {
+                    "id": 38,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-20 10:00:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 39,
+                    "status": "assigned",
+                    "created_at": "2026-10-20 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                },
+                {
+                    "id": 40,
+                    "status": "accepted",
+                    "created_at": "2026-10-20 10:30:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to accepted."
+                },
+                {
+                    "id": 41,
+                    "status": "going_to_pickup",
+                    "created_at": "2026-10-20 10:45:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to going to pickup."
+                },
+                {
+                    "id": 42,
+                    "status": "arrived_at_shop",
+                    "created_at": "2026-10-20 11:00:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to arrived at shop."
+                },
+                {
+                    "id": 43,
+                    "status": "picked_up",
+                    "created_at": "2026-10-20 11:15:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to picked up."
+                },
+                {
+                    "id": 44,
+                    "status": "out_for_delivery",
+                    "created_at": "2026-10-20 11:30:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to out for delivery."
+                },
+                {
+                    "id": 45,
+                    "status": "arrived_at_customer",
+                    "created_at": "2026-10-20 11:45:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to arrived at customer."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": {
+                    "id": 43,
+                    "status": "picked_up",
+                    "created_at": "2026-10-20 11:15:00",
+                    "changed_by": 21,
+                    "changed_by_name": "Rider Two",
+                    "notes": "Status changed to picked up."
+                },
+                "received_logs": 0,
+                "scanned_logs": 0,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 10,
+                "tracking_number": "TRK-20260819-0009",
+                "order_id": 20,
+                "seller_id": 2,
+                "status": "assigned",
+                "parcel_status": "dispatched",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 1,
+                "rider_id": 3,
+                "rider": {
+                    "id": 3,
+                    "name": "Rider One",
+                    "user_id": 20,
+                    "user_email": "rider1@test.com",
+                    "user_status": "active",
+                    "center_id": 1,
+                    "status": "delivering",
+                    "approved_at": "2026-10-10 07:31:06"
+                },
+                "payment_method": "COD",
+                "amount_to_collect": "552.97",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:00",
+                "updated_at": "2026-10-23 13:32:23"
+            },
+            "custody": {
+                "picked_up_at": null,
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-17 10:20:00",
+                "scanned_at": "2026-10-17 10:25:00",
+                "sorted_at": "2026-10-17 10:30:00",
+                "dispatched_at": "2026-10-17 10:35:00",
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": "2026-10-17 10:05:00",
+                "delivered_at": null,
+                "failed_at": "2026-10-17 13:00:00",
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": "Recipient not available",
+            "order": {
+                "id": 20,
+                "order_number": "ORD-00020",
+                "status": "processing",
+                "payment_status": "failed",
+                "buyer_id": 2,
+                "seller_id_column": 2,
+                "created_at": "2026-07-13 13:53:00",
+                "updated_at": "2026-07-13 13:53:00"
+            },
+            "order_histories": [],
+            "pickup_request": {
+                "id": 4,
+                "center_id": 1,
+                "status": "completed",
+                "requested_at": "2026-10-17 10:10:00",
+                "reviewed_at": "2026-10-17 10:20:00",
+                "reviewed_by": 18,
+                "reviewed_by_name": "Logistics Admin",
+                "rejection_reason": null
+            },
+            "logs": [
+                {
+                    "id": 46,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-17 10:00:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 47,
+                    "status": "assigned",
+                    "created_at": "2026-10-17 10:15:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to assigned."
+                },
+                {
+                    "id": 48,
+                    "status": "accepted",
+                    "created_at": "2026-10-17 10:30:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to accepted."
+                },
+                {
+                    "id": 49,
+                    "status": "going_to_pickup",
+                    "created_at": "2026-10-17 10:45:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to going to pickup."
+                },
+                {
+                    "id": 50,
+                    "status": "arrived_at_shop",
+                    "created_at": "2026-10-17 11:00:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to arrived at shop."
+                },
+                {
+                    "id": 51,
+                    "status": "picked_up",
+                    "created_at": "2026-10-17 11:15:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to picked up."
+                },
+                {
+                    "id": 52,
+                    "status": "out_for_delivery",
+                    "created_at": "2026-10-17 11:30:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to out for delivery."
+                },
+                {
+                    "id": 53,
+                    "status": "arrived_at_customer",
+                    "created_at": "2026-10-17 11:45:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to arrived at customer."
+                },
+                {
+                    "id": 54,
+                    "status": "delivered",
+                    "created_at": "2026-10-17 12:00:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to delivered."
+                },
+                {
+                    "id": 55,
+                    "status": "delivery_failed",
+                    "created_at": "2026-10-17 12:15:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to delivery failed."
+                },
+                {
+                    "id": 130,
+                    "status": "assigned",
+                    "created_at": "2026-10-23 13:32:23",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status override: got assigned (overridden from \"delivery_failed\" by administrator)"
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": {
+                    "id": 51,
+                    "status": "picked_up",
+                    "created_at": "2026-10-17 11:15:00",
+                    "changed_by": 20,
+                    "changed_by_name": "Rider One",
+                    "notes": "Status changed to picked up."
+                },
+                "received_logs": 0,
+                "scanned_logs": 0,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 1,
+                "failed_logs": 1
+            },
+            "transfers": []
+        },
+        {
+            "delivery": {
+                "id": 12,
+                "tracking_number": "TRK-20260819-0011",
+                "order_id": 6,
+                "seller_id": 3,
+                "status": "waiting_for_rider",
+                "parcel_status": "scanned",
+                "center_id": 1,
+                "center": "Invoiz Manila Logistics Center",
+                "destination_center_id": null,
+                "destination_center": null,
+                "service_area_id": 1,
+                "rider_id": null,
+                "rider": null,
+                "payment_method": "Prepaid",
+                "amount_to_collect": "0.00",
+                "delivery_fee": "49.00",
+                "created_at": "2026-10-19 19:10:01",
+                "updated_at": "2026-10-31 13:35:56"
+            },
+            "custody": {
+                "picked_up_at": null,
+                "sorting_center_handoff_at": null,
+                "sorting_center_handoff_rider_id": null,
+                "complete": false
+            },
+            "hub_timestamps": {
+                "received_at": "2026-10-31 13:33:07",
+                "scanned_at": "2026-10-31 13:35:56",
+                "sorted_at": null,
+                "dispatched_at": null,
+                "sorting_center_pickup_at": null
+            },
+            "terminal_timestamps": {
+                "assigned_at": null,
+                "delivered_at": null,
+                "failed_at": null,
+                "cancelled_at": null,
+                "returned_at": null,
+                "archived_at": null
+            },
+            "failure_reason": null,
+            "order": {
+                "id": 6,
+                "order_number": "ORD-00006",
+                "status": "delivered",
+                "payment_status": "paid",
+                "buyer_id": 4,
+                "seller_id_column": 3,
+                "created_at": "2026-04-23 12:02:00",
+                "updated_at": "2026-10-19 10:58:52"
+            },
+            "order_histories": [
+                {
+                    "id": 11,
+                    "from": null,
+                    "to": "new",
+                    "notes": "Order created.",
+                    "created_at": "2026-04-23 12:02:00"
+                },
+                {
+                    "id": 12,
+                    "from": "new",
+                    "to": "delivered",
+                    "notes": "Order moved to delivered.",
+                    "created_at": "2026-10-19 10:58:52"
+                }
+            ],
+            "pickup_request": null,
+            "logs": [
+                {
+                    "id": 66,
+                    "status": "waiting_for_rider",
+                    "created_at": "2026-10-20 10:00:00",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Status changed to waiting for rider."
+                },
+                {
+                    "id": 129,
+                    "status": "received",
+                    "created_at": "2026-10-20 06:31:41",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Parcel received at logistics center."
+                },
+                {
+                    "id": 135,
+                    "status": "received",
+                    "created_at": "2026-10-31 13:33:07",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Center receipt confirmed; pickup custody closed."
+                },
+                {
+                    "id": 136,
+                    "status": "scanned",
+                    "created_at": "2026-10-31 13:35:56",
+                    "changed_by": 18,
+                    "changed_by_name": "Logistics Admin",
+                    "notes": "Parcel scanned and verified."
+                }
+            ],
+            "log_flags": {
+                "picked_up_log": null,
+                "received_logs": 2,
+                "scanned_logs": 1,
+                "sorted_logs": 0,
+                "dispatched_logs": 0,
+                "delivered_logs": 0,
+                "failed_logs": 0
+            },
+            "transfers": []
+        }
+    ],
+    "delivery20_e2e": {
+        "order": {
+            "id": 36,
+            "order_number": "INV-01M6DA6M3TFMPWG7DW0Q60QTQF",
+            "status": "ready_for_delivery",
+            "payment_status": "pending",
+            "total": "949.00",
+            "shipping_fee": "50.00",
+            "items": [
+                {
+                    "product_name": "Basketball Official Size",
+                    "quantity": 1
+                }
+            ],
+            "address": {
+                "id": 9,
+                "recipient_name": "ailyn ilagan",
+                "address_line": "0878",
+                "barangay": "Bagong Pook",
+                "city": "Pila",
+                "province": "Laguna",
+                "region": "CALABARZON",
+                "postal_code": "4010",
+                "phone": "09179823674"
+            },
+            "seller_user": {
+                "id": 13,
+                "name": "Diego Ramos",
+                "email": "gear@invoiz.test",
+                "role": "seller",
+                "status": "active",
+                "account_status": "active"
+            },
+            "seller_profile": {
+                "id": 7,
+                "store_name": "ActiveGear Sports",
+                "status": "approved"
+            },
+            "buyer": {
+                "id": 26,
+                "name": "ailyn ilagan",
+                "email": "ilaganailynjoy@gmail.com",
+                "role": "buyer",
+                "status": "active",
+                "account_status": "active"
+            }
+        },
+        "delivery": {
+            "id": 20,
+            "tracking_number": "TRK-20261102-2KLN",
+            "status": "waiting_for_rider",
+            "parcel_status": "pending_arrival",
+            "center_id": 5,
+            "destination_center_id": 6,
+            "service_area_id": 9,
+            "rider_id": null,
+            "payment_method": "cash_on_delivery",
+            "amount_to_collect": "949.00",
+            "delivery_fee": "50.00"
+        },
+        "pickup_request": {
+            "id": 6,
+            "status": "approved",
+            "center_id": 5,
+            "requested_at": "2026-11-02T05:25:05.000000Z",
+            "reviewed_at": "2026-11-02T05:26:10.000000Z",
+            "rejection_reason": null
+        },
+        "origin_center": {
+            "id": 5,
+            "name": "calamba hub",
+            "city": "City of Calamba",
+            "province": "Laguna",
+            "logistics_company_id": 1,
+            "is_active": true
+        },
+        "destination_center": {
+            "id": 6,
+            "name": "pila hub",
+            "city": "Pila",
+            "province": "Laguna",
+            "logistics_company_id": 1,
+            "is_active": true
+        },
+        "centers": [
+            {
+                "id": 5,
+                "name": "calamba hub",
+                "company": "INVOIZ Logistics",
+                "is_active": true
+            },
+            {
+                "id": 6,
+                "name": "pila hub",
+                "company": "INVOIZ Logistics",
+                "is_active": true
+            }
+        ],
+        "service_areas": [
+            {
+                "id": 9,
+                "name": "Pila",
+                "is_active": true,
+                "logistics_center_id": 6
+            }
+        ],
+        "staff": [
+            {
+                "id": 27,
+                "name": "Music Lover",
+                "email": "logistics_staff_calamba@test.com",
+                "role": "staff",
+                "center_id": 5,
+                "logistics_company_id": 1,
+                "status": "active",
+                "account_status": "active"
+            },
+            {
+                "id": 28,
+                "name": "boss yan",
+                "email": "logistics_staff_pila@test.com",
+                "role": "staff",
+                "center_id": 6,
+                "logistics_company_id": 1,
+                "status": "active",
+                "account_status": "active"
+            }
+        ],
+        "riders": [
+            {
+                "id": 6,
+                "name": "Jose De leon",
+                "email": "aj17abcde@gmail.com",
+                "user_id": 29,
+                "user_status": "active",
+                "center_id": 6,
+                "service_area_id": 9,
+                "status": "available",
+                "is_online": false,
+                "is_verified": true,
+                "approved_at": "2026-11-02 07:46:02",
+                "license_expiry": "2027-03-31",
+                "vehicle_type": "motorcycle",
+                "active_deliveries": 0
+            }
+        ],
+        "hub_drivers": [
+            {
+                "id": 5,
+                "name": "Justin Barber",
+                "email": "lanime05172020@gmail.com",
+                "user_id": 31,
+                "user_status": "active",
+                "status": "available",
+                "is_online": true,
+                "license_expiry": null,
+                "truck_id": 5,
+                "truck_plate": "DEV-TEST-TRK-01",
+                "owned_truck_plate": null
+            }
+        ],
+        "trucks": [
+            {
+                "id": 5,
+                "plate_number": "DEV-TEST-TRK-01",
+                "vehicle_type": "light truck",
+                "parcel_capacity": 100,
+                "capacity_kg": "2500.00",
+                "status": "assigned",
+                "driver_id": null
+            },
+            {
+                "id": 6,
+                "plate_number": "DEV-TEST-TRK-02",
+                "vehicle_type": "light truck",
+                "parcel_capacity": 150,
+                "capacity_kg": "4000.00",
+                "status": "available",
+                "driver_id": null
+            }
+        ],
+        "active_hub_transfers": [
+            {
+                "id": 4,
+                "reference": "HT-20261102-GVFHVC",
+                "status": "loading",
+                "origin": "calamba hub",
+                "destination": "pila hub",
+                "driver": "Justin Barber",
+                "truck": "DEV-TEST-TRK-01",
+                "created_at": "2026-11-02 10:52:05"
+            },
+            {
+                "id": 5,
+                "reference": "HT-20261102-C9JWRA",
+                "status": "ready_for_dispatch",
+                "origin": "calamba hub",
+                "destination": "pila hub",
+                "driver": "Justin Barber",
+                "truck": "DEV-TEST-TRK-01",
+                "created_at": "2026-11-02 10:52:57"
+            },
+            {
+                "id": 6,
+                "reference": "HT-20261102-EA2L6H",
+                "status": "ready_for_dispatch",
+                "origin": "calamba hub",
+                "destination": "pila hub",
+                "driver": "Justin Barber",
+                "truck": "DEV-TEST-TRK-01",
+                "created_at": "2026-11-02 10:54:26"
+            }
+        ]
+    }
+}
