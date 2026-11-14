@@ -25,6 +25,12 @@
 <h1 class="rv-r font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.6rem,2.4vw,1.875rem);line-height:1.1;transition-delay:70ms">Welcome back</h1>
 <p class="rv-r mt-2 text-sm text-muted" style="transition-delay:140ms">Sign in to your Logistics Hub.</p>
 
+@if(session('status') || session('success'))
+<div class="rv-r mt-5 rounded-[14px] px-4 py-3 text-sm font-semibold" role="status" style="border:1px solid rgba(15,76,92,.25);background:rgba(234,244,243,.75);color:#0E4A57;transition-delay:170ms">
+<p class="flex items-start gap-2"><svg class="mt-0.5 h-4 w-4 shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span>{{ session('status') ?? session('success') }}</span></p>
+</div>
+@endif
+
 @if($errors->has('email'))
 <div class="rv-r mt-5 rounded-[14px] bg-white px-4 py-3 text-sm font-semibold" role="alert" aria-live="assertive" style="border:1px solid rgba(180,35,24,.35);color:#B42318;transition-delay:170ms">
 <p class="flex items-start gap-2"><svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg><span>{{ $errors->first('email') }}</span></p>
@@ -61,7 +67,7 @@
 <p data-err-for="password" class="err-msg mt-1.5 hidden text-[13px] font-medium" style="color:#B42318"></p>
 </div>
 <div class="flex items-center justify-end !mt-5">
-<a href="{{ url('/forgot-password') }}" class="lnk text-sm font-medium text-teal-dark">Forgot password?</a>
+<a href="{{ url('/logistics/forgot-password') }}" class="lnk text-sm font-medium text-teal-dark">Forgot password?</a>
 </div>
 <button type="submit" class="press flex w-full items-center justify-center gap-2 rounded-xl bg-teal-dark text-sm font-bold text-white transition hover:bg-teal" style="height:44px;border-radius:12px">
 <span class="inline-flex items-center gap-2">Log in <svg data-arrow class="h-4 w-4 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6l6 6-6 6"/></svg></span>

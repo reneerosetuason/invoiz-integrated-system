@@ -27,11 +27,8 @@ Route::middleware('guest')->group(function () {
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
-    // Email-based password reset is intentionally disabled for Logistics:
-    // passwords are reset by the Logistics Manager only.
-    Route::post('forgot-password', function () {
-        return redirect()->route('password.request');
-    });
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->name('logistics.password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');

@@ -1,60 +1,60 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+@extends('shared.layouts.auth-split')
 
-    <title>Password Recovery — Logistics</title>
+@section('title', 'Forgot Password — Logistics Hub')
+@section('wordmark_extra')<span class="mt-1 block text-[10px] font-bold uppercase text-teal-dark" style="letter-spacing:.22em">Logistics Hub</span>@endsection
 
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="{{ asset('assets/logistics/js/auth/forgot-password.js') }}"></script>
-</head>
-<body class="font-sans antialiased bg-[#F7F6F2] text-gray-900">
-<div class="min-h-screen flex items-center justify-center p-6">
-    <div class="w-full max-w-md">
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 sm:p-10 text-center">
-            {{-- Brand --}}
-            <div class="flex flex-col items-center">
-                <img src="{{ asset('assets/shared/images/logo.png') }}" alt="Logo" class="h-14 w-14 rounded-2xl object-cover ring-1 ring-gray-100">
-                <p class="mt-3 text-lg font-extrabold tracking-tight text-gray-900">Logistics</p>
-                <p class="text-[11px] font-semibold tracking-[0.3em] uppercase text-gray-400 mt-0.5">Logistics Hub</p>
-            </div>
+@section('brand_lines')
+<span class="mask-line" aria-hidden="true"><span style="transition-delay:140ms">Secure access</span></span>
+<span class="mask-line" aria-hidden="true"><span style="transition-delay:230ms">to your hub.</span></span>
+@endsection
+@section('brand_plain', 'Secure access to your hub.')
+@section('brand_copy', 'Reset your Logistics Hub credentials quickly and securely to keep operations moving without interruption.')
 
-            {{-- Icon --}}
-            <div class="mt-8 mx-auto w-14 h-14 rounded-2xl bg-teal-light text-teal-dark flex items-center justify-center">
-                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-            </div>
+@section('form_eyebrow', 'Logistics password recovery')
+@section('form_head')
+<h1 class="rv-r font-display mt-2 tracking-[-0.02em]" style="font-weight:560;font-size:clamp(1.6rem,2.4vw,1.875rem);line-height:1.1;transition-delay:70ms">Forgot password?</h1>
+<p class="rv-r mt-2 text-sm text-muted" style="transition-delay:140ms">Enter the email associated with your Logistics Hub account and we'll send you a password reset link.</p>
 
-            {{-- Heading --}}
-            <h1 class="mt-5 text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900">Password Recovery</h1>
-
-            {{-- Message --}}
-            <p class="mt-3 text-sm sm:text-base text-gray-500 leading-relaxed">
-                For security reasons, Logistics passwords cannot be reset through this page.
-            </p>
-
-            <div class="mt-5 bg-teal-light/60 border border-teal/20 rounded-xl px-5 py-4 text-left">
-                <p class="text-sm text-gray-700 leading-relaxed">
-                    <span class="font-semibold text-teal-dark">Please contact the Logistics Manager</span>
-                    to have your password reset. Once the Logistics Manager has reset it, sign in with the new password.
-                </p>
-            </div>
-
-            {{-- Back to Login --}}
-            <a href="/logistics/login"
-               class="mt-7 inline-flex items-center justify-center gap-2 w-full bg-teal text-white rounded-xl py-3.5 font-semibold hover:bg-teal-dark transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-teal focus:ring-offset-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-                Back to Login
-            </a>
-        </div>
-
-        <p class="mt-6 text-center text-xs sm:text-sm text-gray-400">Logistics &middot; v1.0 &middot; Logistics</p>
-    </div>
+@if(session('status') || session('success'))
+<div class="rv-r mt-5 rounded-[14px] px-4 py-3 text-sm font-semibold" role="status" style="border:1px solid rgba(15,76,92,.25);background:rgba(234,244,243,.75);color:#0E4A57;transition-delay:170ms">
+<p class="flex items-start gap-2"><svg class="mt-0.5 h-4 w-4 shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg><span>{{ session('status') ?? session('success') }}</span></p>
 </div>
-@include('logistics.layouts.partials.form-controls')
-</body>
-</html>
+@endif
+
+@if($errors->has('email'))
+<div class="rv-r mt-5 rounded-[14px] bg-white px-4 py-3 text-sm font-semibold" role="alert" aria-live="assertive" style="border:1px solid rgba(180,35,24,.35);color:#B42318;transition-delay:170ms">
+<p class="flex items-start gap-2"><svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg><span>{{ $errors->first('email') }}</span></p>
+</div>
+@endif
+@endsection
+
+@section('form')
+<form method="POST" action="/logistics/forgot-password" class="rv-r mt-6 space-y-5" style="transition-delay:210ms" novalidate>
+@csrf
+<div class="ufield">
+<label class="mb-1 block text-[13px] font-medium text-teal-dark" for="email">Account email</label>
+<div class="relative">
+<svg class="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.9 5.3a2 2 0 002.2 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+<input id="email" type="email" name="email" value="{{ old('email') }}" required placeholder="you@company.com" autocomplete="email" inputmode="email" autofocus @if($errors->has('email')) aria-describedby="email-error" aria-invalid="true" @endif class="@if($errors->has('email')) field-error @endif">
+</div>
+<span class="bar" aria-hidden="true"></span>
+@if($errors->has('email'))
+<p id="email-error" class="err-msg mt-1.5 flex items-start gap-1.5 text-[13px] font-medium" style="color:#B42318"><svg class="mt-0.5 h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><span>{{ $errors->first('email') }}</span></p>
+@endif
+</div>
+
+<button type="submit" class="press flex w-full items-center justify-center gap-2 rounded-xl bg-teal-dark text-sm font-bold text-white transition hover:bg-teal" style="height:44px;border-radius:12px">
+<span class="inline-flex items-center gap-2">Send reset link <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg></span>
+</button>
+</form>
+@endsection
+
+@section('after_form')
+<div class="rv-r my-4 flex items-center gap-3 text-xs font-bold text-muted min-[900px]:my-5" style="transition-delay:280ms" aria-hidden="true"><span class="h-px flex-1" style="background:rgba(15,76,92,.12)"></span></div>
+<div class="text-center">
+<a href="{{ url('/logistics/login') }}" class="lnk text-sm font-semibold text-teal-dark inline-flex items-center gap-1.5">
+<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+Back to Logistics login
+</a>
+</div>
+@endsection
