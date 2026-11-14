@@ -55,7 +55,7 @@
                     @endforeach
                 </select>
             </div>
-            @if(Auth::user()->isAdmin())
+            @if(Auth::user()->isAdmin() || Auth::user()->isLogisticsAdmin() || Auth::user()->isCompanyManager())
                 <div>
                     <label class="field-label" for="delivery-center">Handling Center</label>
                     <select id="delivery-center" name="center_id" class="select">

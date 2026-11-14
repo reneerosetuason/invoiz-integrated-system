@@ -20,18 +20,19 @@ class PickupRequestController extends Controller
     {
         $user = $request->user();
         $isAdmin = LogisticsAccess::isGlobal($user);
+        $canProcessParcels = $user && LogisticsAccess::canProcessParcels($user);
 
         $status = $request->input('status');
 
-        if ($status === 'routing' && ! $isAdmin) {
-            abort(403, 'Only administrators can route pickup requests.');
+        if ($status === 'routing' && ! $isAdmin && ! $canProcessParcels) {
+            abort(403, 'Only authorized logistics personnel can view unrouted pickup requests.');
         }
 
         $pickupRequests = PickupRequest::query()
             ->with(['delivery', 'center'])
             ->visibleTo($user)
             ->when($status === 'routing', function ($query) use ($user) {
-                // Dedicated admin queue: actionable pending requests that
+                // Dedicated queue: actionable pending requests that
                 // still have no handling center.
                 $query->needsRouting($user);
             })
@@ -61,7 +62,8 @@ class PickupRequestController extends Controller
         return view('logistics.pickup-requests.index', [
             'pickupRequests' => $pickupRequests,
             'isAdmin' => $isAdmin,
-            'needsRoutingCount' => $isAdmin
+            'canProcessParcels' => $canProcessParcels,
+            'needsRoutingCount' => ($isAdmin || $canProcessParcels)
                 ? PickupRequest::query()->needsRouting($user)->count()
                 : 0,
             'activeStatus' => $status,
@@ -87,9 +89,11 @@ class PickupRequestController extends Controller
     {
         $user = $request->user();
 
-        if (! $this->isGlobalAdmin($user)) {
-            abort(403, 'Only administrators can route pickup requests.');
-        }
+        abort_unless(
+            $user && LogisticsAccess::canProcessParcels($user),
+            403,
+            'Pickup request routing is reserved for logistics staff at an assigned hub. Management accounts have read-only access.'
+        );
 
         $validated = $request->validate([
             'center_id' => [
@@ -98,6 +102,11 @@ class PickupRequestController extends Controller
                 Rule::exists('logistics_centers', 'id')->where('is_active', true),
             ],
         ]);
+
+        $staffCenterId = LogisticsAccess::centerId($user);
+        if ($staffCenterId !== null && $staffCenterId > 0 && (int) $validated['center_id'] !== $staffCenterId) {
+            abort(403, 'You can only route pickup requests to your assigned logistics center.');
+        }
 
         $result = DB::transaction(function () use ($pickupRequest, $validated): string {
             $lockedPickup = PickupRequest::query()->whereKey($pickupRequest->id)->lockForUpdate()->firstOrFail();
@@ -302,7 +311,7 @@ class PickupRequestController extends Controller
 
     private function canRoute(User $user, PickupRequest $pickupRequest): bool
     {
-        if (! LogisticsAccess::isGlobal($user) || $pickupRequest->status !== 'pending') {
+        if (! LogisticsAccess::canProcessParcels($user) || $pickupRequest->status !== 'pending') {
             return false;
         }
 
@@ -351,6 +360,10 @@ class PickupRequestController extends Controller
 
     private function authorizeView(User $user, PickupRequest $pickupRequest): void
     {
+        if ($pickupRequest->center_id === null && LogisticsAccess::canProcessParcels($user)) {
+            return;
+        }
+
         $visible = PickupRequest::query()
             ->visibleTo($user)
             ->whereKey($pickupRequest->id)

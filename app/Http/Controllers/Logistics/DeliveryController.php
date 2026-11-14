@@ -668,6 +668,8 @@ class DeliveryController extends Controller
 
     public function create(): View
     {
+        $this->assertParcelOperator();
+
         if ($this->centerScopeId() === 0) {
             abort(403, 'Your staff account must be assigned to a logistics center first.');
         }
@@ -695,6 +697,8 @@ class DeliveryController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->assertParcelOperator();
+
         if ($this->centerScopeId() === 0) {
             abort(403, 'Your staff account must be assigned to a logistics center first.');
         }
@@ -743,6 +747,7 @@ class DeliveryController extends Controller
 
     public function edit(Delivery $delivery): View
     {
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         return view('logistics.deliveries.edit', [
@@ -752,6 +757,7 @@ class DeliveryController extends Controller
 
     public function update(Request $request, Delivery $delivery): RedirectResponse
     {
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         $validated = $this->validateDelivery($request);
@@ -763,6 +769,7 @@ class DeliveryController extends Controller
 
     public function autoAssign(Request $request, Delivery $delivery): RedirectResponse
     {
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         if ($delivery->status !== 'waiting_for_rider') {
@@ -785,6 +792,8 @@ class DeliveryController extends Controller
 
     public function bulkAssignRider(Request $request): RedirectResponse|JsonResponse
     {
+        $this->assertParcelOperator();
+
         // "auto" picks the recommended eligible rider per delivery and reuses
         // the same locked assignment core as the single auto-assign action.
         $autoMode = $request->input('mode') === 'auto';
@@ -913,6 +922,7 @@ class DeliveryController extends Controller
 
     public function assignRider(Request $request, Delivery $delivery): RedirectResponse
     {
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         $validated = $request->validate([
@@ -941,6 +951,7 @@ class DeliveryController extends Controller
      */
     private function assignRiderToDelivery(Delivery $delivery, int $riderId): array
     {
+        $this->assertParcelOperator();
         abort_unless(Auth::user()?->canManageRiders(), 403,
             'Rider assignments are managed by logistics personnel.');
 
@@ -1154,6 +1165,7 @@ class DeliveryController extends Controller
 
     public function updateStatus(Request $request, Delivery $delivery): RedirectResponse
     {
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         $validated = $request->validate([
@@ -1167,18 +1179,16 @@ class DeliveryController extends Controller
         $target = $validated['status'];
         $current = $delivery->status;
         $isOverride = $request->boolean('override');
-        $isManagerOverride = $isOverride
-            && Auth::user()->canManageRiders()
-            && Auth::user()->isLogisticsAdmin();
-        if (! LogisticsAccess::canProcessParcels(Auth::user()) && ! $isManagerOverride) {
-            abort(403, 'Parcel status changes are reserved for logistics staff at the hub. Management accounts may only use a documented exception override.');
-        }
         FulfillmentWorkflow::assertActiveOrder($delivery);
         if ($isOverride) {
-            abort_unless(Auth::user()->canManageRiders() && Auth::user()->isLogisticsAdmin(), 403, 'Only a logistics administrator can override a rider milestone.');
+            abort_unless(
+                LogisticsAccess::canProcessParcels(Auth::user()) && Auth::user()->canManageRiders(),
+                403,
+                'Only authorized logistics staff at the assigned hub can override a delivery status.'
+            );
         }
         if ($delivery->order_id && ! in_array($target, ['cancelled', 'delivery_failed'], true) && ! $isOverride) {
-            return back()->with('error', 'Use rider actions for collection and delivery. A logistics administrator may use a documented exception override.');
+            return back()->with('error', 'Use rider actions for collection and delivery. Authorized hub staff may use a documented exception override.');
         }
         if ($delivery->order_id && in_array($target, ['waiting_for_rider', 'assigned', 'accepted', 'going_to_pickup', 'arrived_at_shop'], true)) {
             return back()->with('error', 'Use rider assignment and acceptance actions to change this stage.');
@@ -1503,9 +1513,7 @@ class DeliveryController extends Controller
 
     public function archive(Request $request, Delivery $delivery): RedirectResponse
     {
-        if (!$this->isLogisticsManager() && !Auth::user()->isLogisticsStaff()) {
-            abort(403, 'Only logistics staff and administrators can archive deliveries.');
-        }
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         $validated = $request->validate([
@@ -1534,9 +1542,7 @@ class DeliveryController extends Controller
 
     public function restore(Request $request, Delivery $delivery): RedirectResponse
     {
-        if (!$this->isLogisticsManager() && !Auth::user()->isLogisticsStaff()) {
-            abort(403, 'Only logistics staff and administrators can restore deliveries.');
-        }
+        $this->assertParcelOperator();
         $this->ensureCenterAccess($delivery);
 
         if (!$delivery->archived_at) {
@@ -1556,7 +1562,11 @@ class DeliveryController extends Controller
             'changed_by' => Auth::id(),
         ]);
 
-        return redirect()->route('deliveries.archived')->with('success', 'Delivery restored successfully.');
+        $redirectRoute = (Auth::user()->isAdmin() || Auth::user()->isLogisticsAdmin())
+            ? 'deliveries.archived'
+            : 'deliveries.show';
+
+        return redirect()->route($redirectRoute, $redirectRoute === 'deliveries.show' ? $delivery : [])->with('success', 'Delivery restored successfully.');
     }
 
     public function destroy(Delivery $delivery): RedirectResponse

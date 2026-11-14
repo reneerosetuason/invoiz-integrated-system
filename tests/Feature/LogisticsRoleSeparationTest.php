@@ -98,10 +98,42 @@ class LogisticsRoleSeparationTest extends TestCase
         ]));
         $this->assertForbidden(fn () => $this->post(route('deliveries.return-to-seller', $delivery)));
 
-        // Seller pickup processing.
+        // Seller pickup processing and routing.
         $this->assertForbidden(fn () => $this->post(route('pickup-requests.approve', $pickup)));
         $this->assertForbidden(fn () => $this->post(route('pickup-requests.reject', $pickup), [
             'rejection_reason' => 'Cannot collect',
+        ]));
+        $this->assertForbidden(fn () => $this->post(route('pickup-requests.route', $pickup), [
+            'center_id' => $this->origin->id,
+        ]));
+
+        // Delivery creation, editing, archiving, restoring, status updates, and rider assignment.
+        $this->assertForbidden(fn () => $this->get(route('deliveries.create')));
+        $this->assertForbidden(fn () => $this->post(route('deliveries.store'), []));
+        $this->assertForbidden(fn () => $this->get(route('deliveries.edit', $delivery)));
+        $this->assertForbidden(fn () => $this->put(route('deliveries.update', $delivery), []));
+        $this->assertForbidden(fn () => $this->patch(route('deliveries.update-status', $delivery), [
+            'status' => 'cancelled',
+            'reason' => 'Customer request',
+        ]));
+        $this->assertForbidden(fn () => $this->patch(route('deliveries.update-status', $delivery), [
+            'status' => 'picked_up',
+            'override' => 1,
+            'override_reason' => 'Attempted manager override should be blocked',
+        ]));
+        $this->assertForbidden(fn () => $this->post(route('deliveries.archive', $delivery)));
+        $this->assertForbidden(fn () => $this->post(route('deliveries.restore', $delivery)));
+        $this->assertForbidden(fn () => $this->post(route('deliveries.assign-rider', $delivery), [
+            'rider_id' => Rider::query()->value('id'),
+        ]));
+        $this->assertForbidden(fn () => $this->post(route('deliveries.auto-assign', $delivery)));
+        $this->assertForbidden(fn () => $this->post(route('deliveries.bulk-assign'), [
+            'delivery_ids' => [$delivery->id],
+            'mode' => 'auto',
+        ]));
+        $this->assertForbidden(fn () => $this->post(route('operations.bulk-assign-rider'), [
+            'delivery_ids' => [$delivery->id],
+            'rider_id' => Rider::query()->value('id'),
         ]));
 
         // Hub transfer manifest operations.
@@ -121,6 +153,11 @@ class LogisticsRoleSeparationTest extends TestCase
             'condition' => 'good',
         ]));
         $this->assertForbidden(fn () => $this->post(route('hub-transfers.complete', $transfer)));
+        $this->assertForbidden(fn () => $this->post(route('hub-transfers.cancel', $transfer), ['reason' => 'Cancel']));
+        $this->assertForbidden(fn () => $this->post(route('hub-transfers.hold', $transfer), ['reason' => 'Hold']));
+        $this->assertForbidden(fn () => $this->post(route('hub-transfers.resume', $transfer)));
+        $this->assertForbidden(fn () => $this->post(route('hub-transfers.reassign', $transfer), []));
+        $this->assertForbidden(fn () => $this->post(route('hub-transfers.reroute', $transfer), []));
     }
 
     public function test_platform_administrator_and_company_manager_are_read_only_for_parcels(): void
@@ -551,6 +588,10 @@ class LogisticsRoleSeparationTest extends TestCase
     public function test_every_parcel_counter_route_is_gated_by_the_operator_middleware(): void
     {
         $counterRoutes = [
+            'operations.bulk-receive',
+            'operations.bulk-sort',
+            'operations.bulk-assign-rider',
+            'operations.bulk-transfer',
             'hub-transfers.create',
             'hub-transfers.store',
             'hub-transfers.load',
@@ -559,15 +600,31 @@ class LogisticsRoleSeparationTest extends TestCase
             'hub-transfers.arrive',
             'hub-transfers.receive',
             'hub-transfers.complete',
+            'hub-transfers.cancel',
+            'hub-transfers.hold',
+            'hub-transfers.resume',
+            'hub-transfers.reassign',
+            'hub-transfers.reroute',
             'deliveries.scan-page',
             'deliveries.scan-lookup',
             'deliveries.scan-verify',
+            'deliveries.create',
+            'deliveries.store',
+            'deliveries.edit',
+            'deliveries.update',
+            'deliveries.bulk-assign',
+            'deliveries.assign-rider',
+            'deliveries.auto-assign',
+            'deliveries.update-status',
             'deliveries.exception',
             'deliveries.return-to-seller',
             'deliveries.receive',
             'deliveries.scan',
             'deliveries.sort',
             'deliveries.dispatch',
+            'deliveries.archive',
+            'deliveries.restore',
+            'pickup-requests.route',
             'pickup-requests.approve',
             'pickup-requests.reject',
         ];
@@ -579,24 +636,18 @@ class LogisticsRoleSeparationTest extends TestCase
             );
         }
 
-        // Management/monitoring and routing routes must stay reachable.
+        // Management and monitoring routes must stay reachable without parcel.operator.
         $managementRoutes = [
             'dashboard',
+            'operations.index',
             'hub-transfers.index',
             'hub-transfers.show',
-            'hub-transfers.cancel',
-            'hub-transfers.hold',
-            'hub-transfers.resume',
-            'hub-transfers.reassign',
-            'hub-transfers.reroute',
             'sorting-center.index',
             'deliveries.index',
             'deliveries.show',
             'deliveries.export',
-            'deliveries.update-status',
             'pickup-requests.index',
             'pickup-requests.show',
-            'pickup-requests.route',
             'riders.index',
             'hub-transport-drivers.index',
             'fleet.index',
@@ -617,6 +668,89 @@ class LogisticsRoleSeparationTest extends TestCase
                 "Route {$name} must remain available for read-only monitoring or management."
             );
         }
+    }
+
+    public function test_hq_admin_deliveries_and_dashboard_monitoring_hide_operational_controls_and_support_filters(): void
+    {
+        $originDelivery = $this->standaloneDelivery($this->origin, 'dispatched');
+        $destDelivery = $this->standaloneDelivery($this->destination, 'received');
+
+        $this->actingAs($this->logisticsAdmin);
+
+        // Dashboard monitoring across all hubs + hub/status filter support.
+        $dashboard = $this->get(route('dashboard'));
+        $dashboard->assertOk();
+        $dashboard->assertSee('All Authorized Hubs');
+        $dashboard->assertDontSee('Awaiting Sorting / Dispatch');
+
+        $filteredDashboard = $this->get(route('dashboard', [
+            'center_id' => $this->origin->id,
+            'status' => 'waiting_for_rider',
+        ]));
+        $filteredDashboard->assertOk();
+        $filteredDashboard->assertSee($originDelivery->tracking_number);
+
+        // Deliveries index is view-only for HQ Admin: no New Delivery, Bulk Assign, Edit, or Archive buttons.
+        $deliveriesIndex = $this->get(route('deliveries.index'));
+        $deliveriesIndex->assertOk();
+        $deliveriesIndex->assertSee($originDelivery->tracking_number);
+        $deliveriesIndex->assertSee($destDelivery->tracking_number);
+        $deliveriesIndex->assertDontSee('New Delivery');
+        $deliveriesIndex->assertDontSee('Bulk Assign Selected Deliveries');
+        $deliveriesIndex->assertDontSee(route('deliveries.edit', $originDelivery), false);
+
+        // Delivery show page is view-only for HQ Admin: no Rider Assignment panel, Cancel, Override, or Archive buttons.
+        $deliveryShow = $this->get(route('deliveries.show', $originDelivery));
+        $deliveryShow->assertOk();
+        $deliveryShow->assertDontSee('id="rider-assignment"', false);
+        $deliveryShow->assertDontSee('Auto-assign recommended rider');
+        $deliveryShow->assertDontSee('Override Status');
+        $deliveryShow->assertSee('Management accounts have read-only monitoring access.');
+    }
+
+    public function test_staff_can_assign_riders_and_manage_hub_deliveries_but_cannot_access_admin_management_pages(): void
+    {
+        $delivery = $this->standaloneDelivery($this->origin, 'dispatched');
+        $rider = Rider::query()->where('center_id', $this->origin->id)->firstOrFail();
+        $rider->update([
+            'is_online' => true,
+            'license_plate' => 'ABC-1234',
+            'license_expiry' => now()->addYear()->toDateString(),
+        ]);
+
+        $this->actingAs($this->originStaff);
+
+        // Staff at assigned hub can view Rider Assignment UI and assign an eligible rider.
+        $this->get(route('deliveries.show', $delivery))
+            ->assertOk()
+            ->assertSee('id="rider-assignment"', false);
+
+        $this->post(route('deliveries.assign-rider', $delivery), [
+            'rider_id' => $rider->id,
+        ])->assertSessionHas('success');
+        $this->assertSame($rider->id, (int) $delivery->fresh()->rider_id);
+        $this->assertSame('assigned', $delivery->fresh()->status);
+
+        // Staff can archive and restore deliveries at their assigned hub.
+        $this->post(route('deliveries.archive', $delivery), [
+            'archive_note' => 'Completed record check',
+        ])->assertRedirect(route('deliveries.index'));
+        $this->assertNotNull($delivery->fresh()->archived_at);
+
+        $this->post(route('deliveries.restore', $delivery))
+            ->assertRedirect(route('deliveries.show', $delivery));
+        $this->assertNull($delivery->fresh()->archived_at);
+
+        // Staff cannot access HQ Admin management pages.
+        $this->assertForbidden(fn () => $this->get(route('staff.index')));
+        $this->assertForbidden(fn () => $this->get(route('centers.index')));
+        $this->assertForbidden(fn () => $this->get(route('service-areas.index')));
+        $this->assertForbidden(fn () => $this->get(route('reports.index')));
+        $this->assertForbidden(fn () => $this->get(route('deliveries.archived')));
+        $this->assertForbidden(fn () => $this->get(route('rider-applications.index')));
+        $this->assertForbidden(fn () => $this->get(route('center-applications.index')));
+        $this->assertForbidden(fn () => $this->get(route('fleet.index')));
+        $this->assertForbidden(fn () => $this->get(route('hub-transport-drivers.index')));
     }
 
     public function test_rider_and_hub_transport_driver_routes_are_untouched(): void
@@ -892,9 +1026,9 @@ class LogisticsRoleSeparationTest extends TestCase
             'order_status_histories', 'courier_pickups', 'seller_notifications',
             'delivery_failures', 'delivery_proofs', 'delivery_status_logs',
             'delivery_items', 'pickup_requests', 'payments', 'deliveries',
-            'orders', 'sellers', 'logistics_settings', 'riders', 'vehicle_types',
+            'orders', 'sellers', 'logistics_settings', 'rider_locations', 'riders', 'vehicle_types',
             'service_areas', 'logistics_centers', 'logistics_companies', 'users',
-            'logistics_trucks', 'hub_transport_drivers',
+            'logistics_trucks', 'hub_transport_drivers', 'transactions',
         ] as $table) {
             $schema->dropIfExists($table);
         }
@@ -1160,6 +1294,11 @@ class LogisticsRoleSeparationTest extends TestCase
             $table->unsignedBigInteger('user_id');
             $table->string('photo_path')->nullable();
             $table->text('preferences')->nullable();
+            $table->text('notifications')->nullable();
+            $table->boolean('email_notifications')->default(true);
+            $table->text('delivery')->nullable();
+            $table->text('appearance')->nullable();
+            $table->text('region')->nullable();
             $table->timestamps();
         });
 
@@ -1244,6 +1383,26 @@ class LogisticsRoleSeparationTest extends TestCase
             $table->date('license_expiry')->nullable();
             $table->timestamps();
             $table->softDeletes();
+        });
+
+        $schema->create('transactions', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('delivery_id')->nullable();
+            $table->unsignedBigInteger('logistics_center_id')->nullable();
+            $table->decimal('amount', 10, 2)->default(0);
+            $table->decimal('rider_fee', 10, 2)->default(0);
+            $table->decimal('admin_commission', 10, 2)->default(0);
+            $table->string('status')->default('completed');
+            $table->timestamps();
+        });
+
+        $schema->create('rider_locations', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('rider_id');
+            $table->decimal('latitude', 10, 7)->nullable();
+            $table->decimal('longitude', 10, 7)->nullable();
+            $table->timestamp('recorded_at')->nullable();
+            $table->timestamps();
         });
     }
 }

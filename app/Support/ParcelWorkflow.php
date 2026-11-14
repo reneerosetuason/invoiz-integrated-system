@@ -293,14 +293,18 @@ class ParcelWorkflow
     /** @return array{key: string, label: string, url: ?string, enabled: bool, reason: ?string} */
     private static function assignRider(Delivery $delivery, ?User $user): array
     {
-        $enabled = $user === null || ($user->canManageRiders() && LogisticsAccess::canAccessDelivery($user, $delivery, true));
+        $enabled = $user === null || (
+            self::canProcessAt($user, $delivery->center_id)
+            && $user->canManageRiders()
+            && LogisticsAccess::canAccessDelivery($user, $delivery, true)
+        );
 
         return [
             'key' => 'assign_rider',
             'label' => 'Assign rider',
             'url' => route('deliveries.show', $delivery),
             'enabled' => $enabled,
-            'reason' => $enabled ? null : 'Rider assignment is performed by an authorized logistics manager.',
+            'reason' => $enabled ? null : 'Rider assignment is performed by logistics staff at the handling hub.',
         ];
     }
 

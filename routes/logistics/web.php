@@ -65,7 +65,7 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::get('operations', [OperationsController::class, 'index'])->name('operations.index');
     Route::post('operations/bulk-receive', [OperationsController::class, 'bulkReceive'])->middleware('parcel.operator')->name('operations.bulk-receive');
     Route::post('operations/bulk-sort', [OperationsController::class, 'bulkSort'])->middleware('parcel.operator')->name('operations.bulk-sort');
-    Route::post('operations/bulk-assign-rider', [OperationsController::class, 'bulkAssignRider'])->middleware('rider.manager')->name('operations.bulk-assign-rider');
+    Route::post('operations/bulk-assign-rider', [OperationsController::class, 'bulkAssignRider'])->middleware(['parcel.operator', 'rider.manager'])->name('operations.bulk-assign-rider');
     Route::post('operations/bulk-transfer', [OperationsController::class, 'bulkTransfer'])->middleware('parcel.operator')->name('operations.bulk-transfer');
 
     Route::get('hub-transfers', [HubTransferController::class, 'index'])->name('hub-transfers.index');
@@ -78,11 +78,11 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::post('hub-transfers/{hubTransfer}/arrive', [HubTransferController::class, 'arrive'])->middleware('parcel.operator')->name('hub-transfers.arrive');
     Route::post('hub-transfers/{hubTransfer}/receive', [HubTransferController::class, 'receiveParcel'])->middleware('parcel.operator')->name('hub-transfers.receive');
     Route::post('hub-transfers/{hubTransfer}/complete', [HubTransferController::class, 'complete'])->middleware('parcel.operator')->name('hub-transfers.complete');
-    Route::post('hub-transfers/{hubTransfer}/cancel', [HubTransferController::class, 'cancel'])->name('hub-transfers.cancel');
-    Route::post('hub-transfers/{hubTransfer}/hold', [HubTransferController::class, 'hold'])->name('hub-transfers.hold');
-    Route::post('hub-transfers/{hubTransfer}/resume', [HubTransferController::class, 'resume'])->name('hub-transfers.resume');
-    Route::post('hub-transfers/{hubTransfer}/reassign', [HubTransferController::class, 'reassign'])->name('hub-transfers.reassign');
-    Route::post('hub-transfers/{hubTransfer}/reroute', [HubTransferController::class, 'reroute'])->name('hub-transfers.reroute');
+    Route::post('hub-transfers/{hubTransfer}/cancel', [HubTransferController::class, 'cancel'])->middleware('parcel.operator')->name('hub-transfers.cancel');
+    Route::post('hub-transfers/{hubTransfer}/hold', [HubTransferController::class, 'hold'])->middleware('parcel.operator')->name('hub-transfers.hold');
+    Route::post('hub-transfers/{hubTransfer}/resume', [HubTransferController::class, 'resume'])->middleware('parcel.operator')->name('hub-transfers.resume');
+    Route::post('hub-transfers/{hubTransfer}/reassign', [HubTransferController::class, 'reassign'])->middleware('parcel.operator')->name('hub-transfers.reassign');
+    Route::post('hub-transfers/{hubTransfer}/reroute', [HubTransferController::class, 'reroute'])->middleware('parcel.operator')->name('hub-transfers.reroute');
     // Sorting Center operational hub (read-only aggregation; mutations
     // post to the existing deliveries.* routes).
     Route::get('sorting-center', [SortingCenterController::class, 'index'])->name('sorting-center.index');
@@ -97,18 +97,25 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     // operator confirms. It never changes parcel status or writes a scan log.
     Route::post('deliveries/scan-lookup', [DeliveryController::class, 'lookupScanByTracking'])->middleware('parcel.operator')->name('deliveries.scan-lookup');
     Route::post('deliveries/scan-verify', [DeliveryController::class, 'scanByTracking'])->middleware('parcel.operator')->name('deliveries.scan-verify');
-    Route::post('deliveries/bulk-assign-rider', [DeliveryController::class, 'bulkAssignRider'])->middleware('rider.manager')->name('deliveries.bulk-assign');
+    Route::post('deliveries/bulk-assign-rider', [DeliveryController::class, 'bulkAssignRider'])->middleware(['parcel.operator', 'rider.manager'])->name('deliveries.bulk-assign');
     Route::get('deliveries/export', [DeliveryController::class, 'export'])->name('deliveries.export');
-    Route::resource('deliveries', DeliveryController::class)->except(['destroy']);
-    Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->middleware('rider.manager')->name('deliveries.assign-rider');
-    Route::post('deliveries/{delivery}/auto-assign', [DeliveryController::class, 'autoAssign'])->middleware('rider.manager')->name('deliveries.auto-assign');
-    Route::patch('deliveries/{delivery}/update-status', [DeliveryController::class, 'updateStatus'])->name('deliveries.update-status');
+    Route::get('deliveries', [DeliveryController::class, 'index'])->name('deliveries.index');
+    Route::get('deliveries/create', [DeliveryController::class, 'create'])->middleware('parcel.operator')->name('deliveries.create');
+    Route::post('deliveries', [DeliveryController::class, 'store'])->middleware('parcel.operator')->name('deliveries.store');
+    Route::get('deliveries/{delivery}', [DeliveryController::class, 'show'])->name('deliveries.show');
+    Route::get('deliveries/{delivery}/edit', [DeliveryController::class, 'edit'])->middleware('parcel.operator')->name('deliveries.edit');
+    Route::match(['put', 'patch'], 'deliveries/{delivery}', [DeliveryController::class, 'update'])->middleware('parcel.operator')->name('deliveries.update');
+    Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->middleware(['parcel.operator', 'rider.manager'])->name('deliveries.assign-rider');
+    Route::post('deliveries/{delivery}/auto-assign', [DeliveryController::class, 'autoAssign'])->middleware(['parcel.operator', 'rider.manager'])->name('deliveries.auto-assign');
+    Route::patch('deliveries/{delivery}/update-status', [DeliveryController::class, 'updateStatus'])->middleware('parcel.operator')->name('deliveries.update-status');
     Route::post('deliveries/{delivery}/exception', [DeliveryController::class, 'reportException'])->middleware('parcel.operator')->name('deliveries.exception');
     Route::post('deliveries/{delivery}/return-to-seller', [DeliveryController::class, 'dispatchReturnToSeller'])->middleware('parcel.operator')->name('deliveries.return-to-seller');
     Route::post('deliveries/{delivery}/receive', [DeliveryController::class, 'receive'])->middleware('parcel.operator')->name('deliveries.receive');
     Route::patch('deliveries/{delivery}/scan', [DeliveryController::class, 'scan'])->middleware('parcel.operator')->name('deliveries.scan');
     Route::post('deliveries/{delivery}/sort', [DeliveryController::class, 'sort'])->middleware('parcel.operator')->name('deliveries.sort');
     Route::post('deliveries/{delivery}/dispatch', [DeliveryController::class, 'dispatch'])->middleware('parcel.operator')->name('deliveries.dispatch');
+    Route::post('deliveries/{delivery}/archive', [DeliveryController::class, 'archive'])->middleware('parcel.operator')->name('deliveries.archive');
+    Route::post('deliveries/{delivery}/restore', [DeliveryController::class, 'restore'])->middleware('parcel.operator')->name('deliveries.restore');
 
     // Riders (Directory + Management)
     Route::get('riders', [RiderController::class, 'index'])->name('riders.index');
@@ -125,11 +132,11 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
         Route::get('hub-transport-drivers/{driver}', [HubTransportDriverController::class, 'show'])->name('hub-transport-drivers.show');
     });
 
-    // Pickup Requests (staff: approve/reject pickups at their center)
+    // Pickup Requests (staff: approve/reject/route pickups at their center; admin: monitor only)
     Route::get('pickup-requests', [PickupRequestController::class, 'index'])->name('pickup-requests.index');
     Route::get('pickup-requests/{pickupRequest}', [PickupRequestController::class, 'show'])->name('pickup-requests.show');
     Route::post('pickup-requests/{pickupRequest}/route', [PickupRequestController::class, 'route'])
-        ->middleware('admin')
+        ->middleware('parcel.operator')
         ->name('pickup-requests.route');
     Route::post('pickup-requests/{pickupRequest}/approve', [PickupRequestController::class, 'approve'])->middleware('parcel.operator')->name('pickup-requests.approve');
     Route::post('pickup-requests/{pickupRequest}/reject', [PickupRequestController::class, 'reject'])->middleware('parcel.operator')->name('pickup-requests.reject');
@@ -149,11 +156,9 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
         Route::put('fleet/maintenance/{maintenanceRecord}', [FleetController::class, 'updateMaintenanceRecord'])->name('fleet.maintenance.update');
     });
 
-    // Archived Deliveries (Admin Only)
+    // Archived Deliveries (Admin View & Permanent Delete Only)
     Route::middleware('admin')->group(function () {
         Route::get('deliveries-archived', [DeliveryController::class, 'archived'])->name('deliveries.archived');
-        Route::post('deliveries/{delivery}/archive', [DeliveryController::class, 'archive'])->name('deliveries.archive');
-        Route::post('deliveries/{delivery}/restore', [DeliveryController::class, 'restore'])->name('deliveries.restore');
         Route::delete('deliveries/{delivery}', [DeliveryController::class, 'destroy'])->name('deliveries.destroy');
     });
 
