@@ -4,28 +4,11 @@
 <div class="shopx">
 <div class="wrap">
 
-  <section class="hero rv" aria-labelledby="shop-hero-h">
-    <div>
-      <span class="chip">Cash on delivery nationwide</span>
-      <h1 id="shop-hero-h">Curated for you</h1>
-      <p class="lede">Premium essentials at honest prices. Vouchers &amp; verified sellers.</p>
-      <div class="hero-cta">
-        <a href="{{ url('/shop') }}" class="btn-p btn-solid">Shop collection
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </a>
-      </div>
-    </div>
-    <div class="vcard">
-      <img src="{{ asset('storage/logos/logo.png') }}" onerror="this.onerror=null;this.src='{{ asset('assets/shared/images/logo.png') }}'" alt="Invoiz" loading="lazy">
-      <div class="vstore">Desktop Store</div>
-      <div><span class="ticket">Welcome Save 15 COD</span></div>
-    </div>
-  </section>
-
+  @php $chipBaseUrl = request()->is('sale') ? url('/sale') : url('/shop'); @endphp
   <nav class="chips rv" aria-label="Filter by category">
-    <a href="{{ url('/shop') }}" class="chip-f {{ request('category')?'':'on' }}">All</a>
+    <a href="{{ $chipBaseUrl }}" class="chip-f {{ request('category')?'':'on' }}">All</a>
     @foreach($categories as $c)
-      <a href="{{ url('/shop?category='.$c->id) }}" class="chip-f {{ (string)request('category')===(string)$c->id ? 'on':'' }}">{{ $c->name }}</a>
+      <a href="{{ $chipBaseUrl.'?category='.$c->id }}" class="chip-f {{ (string)request('category')===(string)$c->id ? 'on':'' }}">{{ $c->name }}</a>
     @endforeach
   </nav>
 
