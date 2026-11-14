@@ -334,6 +334,7 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
     final sellerDirect =
         a['workflow_policy'] == 'buyer_fault_direct' || sellerFault;
     final keepItem = a['workflow_policy'] == 'seller_direct_keep_item';
+    final platformProtected = (a['platform_subsidy_cents'] as num? ?? 0) > 0;
     final direct = a['workflow_policy'] == 'direct' || sellerDirect || keepItem;
     final refundReceipt = Map<String, dynamic>.from(
       _data?['refund_receipt'] as Map? ?? {},
@@ -408,7 +409,9 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                       ),
                     if (sellerDirect) ...[
                       Text(
-                        sellerFault
+                        platformProtected
+                            ? 'The platform funds the displayed return support. Your agreed refund is separate; platform-paid fees are not deducted from it.'
+                            : sellerFault
                             ? 'The seller pays return delivery separately. Your full eligible paid refund has no deductions.'
                             : 'You do not pay a separate return fee. The agreed delivery deduction funds the return trip.',
                       ),
@@ -416,6 +419,8 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                       Text(
                         collectionAuthorized
                             ? 'Collection authorized. Delivery payouts still require verified funds and completed work.'
+                            : platformProtected
+                            ? 'Waiting for agreement, your receiving account and funded platform support.'
                             : 'Waiting for agreement, your receiving account and the seller’s delivery deposit receipt.',
                       ),
                     ],
@@ -449,6 +454,11 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                       'Item refund': 'merchandise_cents',
                       'Original shipping reimbursement': 'shipping_cents',
                       if (!keepItem) 'Return transport': 'transport_cents',
+                      if (platformProtected)
+                        'Platform contribution': 'platform_subsidy_cents',
+                      if ((a['seller_reimbursement_cents'] as num? ?? 0) > 0)
+                        'Separate seller fee reimbursement':
+                            'seller_reimbursement_cents',
                       if (!keepItem && !sellerFault)
                         (sellerDirect
                                 ? 'Less original seller-funded costs'
@@ -461,7 +471,9 @@ class _ReturnAgreementScreenState extends State<ReturnAgreementScreen> {
                         child: Text('${entry.key}: ${_money(a[entry.value])}'),
                       ),
                     Text(
-                      keepItem
+                      platformProtected
+                          ? 'Review the transport and platform funding split. Seller fee reimbursement is paid separately after you confirm your refund; it never reduces your agreed refund.'
+                          : keepItem
                           ? 'The seller sends the agreed refund directly to your receiving account. You keep the item. No return fee or Admin approval is required.'
                           : sellerFault
                           ? 'The seller sends your full eligible paid item amount and original paid shipping directly after receiving the returned item. The seller pays new delivery fees separately into escrow.'

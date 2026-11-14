@@ -18,7 +18,8 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         Schema::table('riders',fn(Blueprint $t)=>$t->boolean('is_online')->default(false));
         Schema::table('return_requests', function (Blueprint $t) {
             $t->text('decision_note')->nullable(); $t->timestamp('resolved_at')->nullable();
-            $t->string('evidence_path')->nullable(); $t->string('evidence_type')->nullable();
+            if (!Schema::hasColumn('return_requests','evidence_path')) $t->string('evidence_path')->nullable();
+            if (!Schema::hasColumn('return_requests','evidence_type')) $t->string('evidence_type')->nullable();
         });
         Schema::table('payment_disputes', fn (Blueprint $t) => $t->timestamp('resolved_at')->nullable());
         (require database_path('migrations/2026_11_05_180000_create_return_workflows.php'))->up();
@@ -64,6 +65,7 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         $staff = User::create(['name'=>'Return staff','email'=>uniqid().'@test.local','password'=>'test','role'=>'staff','center_id'=>1,'account_status'=>'active','status'=>'active','email_verified_at'=>now()]);
         $riderUser = User::create(['name'=>'Return rider','email'=>uniqid().'@test.local','password'=>'test','role'=>'rider','center_id'=>1,'account_status'=>'active','status'=>'active','email_verified_at'=>now()]);
         $rider = Rider::create(['user_id'=>$riderUser->id,'name'=>'Return rider','center_id'=>1,'status'=>'available','is_verified'=>true,'approved_at'=>now(),'is_online'=>true]);
+        \App\Models\PayoutAccount::create(['owner_type'=>'user','owner_id'=>$riderUser->id,'details'=>['provider'=>'Test bank','holder'=>'Return rider','account'=>'000123456789']]);
         return compact('order','seller','buyer','admin','case','staff','rider','riderUser');
     }
 
@@ -177,10 +179,14 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         $this->assertDatabaseCount('rider_earnings',0);
     }
 
-    public function test_order_style_return_release_requires_no_separate_account_or_receipt_and_uses_the_common_inbox(): void
+    public function test_return_release_requires_saved_account_without_per_return_account_or_receipt(): void
     {
         $f=$this->fixture();$this->proposal($f,'return_refund');$this->fund($f);$this->physical($f);
         $line=$f['case']->settlement->allocations()->where('role','collection_rider')->firstOrFail();
+        \App\Models\PayoutAccount::where('owner_type','user')->where('owner_id',$f['riderUser']->id)->delete();
+        $this->actingAs($f['admin'])->postJson('/return-remittances/'.$line->id,['action'=>'release','confirm'=>1])->assertUnprocessable()->assertJsonValidationErrors('payout_account');
+        $this->assertSame('eligible',$line->fresh()->status);
+        $this->saveRecipientAccount($line);
         $originalCount=\App\Models\EscrowRemittance::count();
         $this->actingAs($f['admin'])->postJson('/return-remittances/'.$line->id,['action'=>'release','confirm'=>1])->assertOk();
         $this->assertSame('remitted',$line->fresh()->status);$this->assertNull($line->fresh()->receiving_destination);$this->assertNull($line->fresh()->proof_path);
@@ -250,6 +256,7 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
             'seller_hub'=>$receivingStaff,'seller_delivery_rider'=>$lastUser];
         foreach($recipients as $role=>$recipient){
             $line=$f['case']->fresh()->settlement->allocations()->where('role',$role)->firstOrFail();
+            $this->saveRecipientAccount($line);
             \Illuminate\Support\Facades\Auth::forgetGuards();\Laravel\Sanctum\Sanctum::actingAs($f['admin']);
             $this->postJson('/api/return-remittances/'.$line->id,['action'=>'release','confirm'=>1])->assertOk();
             $this->assertNull($line->fresh()->receiving_destination);$this->assertNull($line->fresh()->proof_path);

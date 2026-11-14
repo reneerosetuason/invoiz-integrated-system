@@ -56,13 +56,20 @@ class Delivery {
   final int? id;
   final String status;
   final String? trackingNumber;
-  Delivery({this.id, required this.status, this.trackingNumber});
+  final String? chatLabel;
+  Delivery({
+    this.id,
+    required this.status,
+    this.trackingNumber,
+    this.chatLabel,
+  });
   bool get canShowOtp =>
       ['out_for_delivery', 'arrived_at_customer'].contains(status);
   factory Delivery.fromJson(Map<String, dynamic> json) => Delivery(
     id: json['id'] as int?,
     status: json['status'] as String? ?? 'pending',
     trackingNumber: json['tracking_number'] as String?,
+    chatLabel: json['chat_label'] as String?,
   );
 }
 

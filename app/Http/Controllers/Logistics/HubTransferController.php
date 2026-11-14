@@ -11,16 +11,20 @@ use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
 use App\Models\LogisticsTruck;
 use App\Services\HubTransferService;
+use App\Services\ShipmentMeasurementService;
 use App\Services\ShipmentWeightService;
+use App\Services\TripPaymentService;
 use App\Support\HubTransferProgress;
 use App\Support\LogisticsAccess;
 use App\Support\LogisticsVehicleCategory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class HubTransferController extends Controller
@@ -384,7 +388,7 @@ class HubTransferController extends Controller
                 if ($finalDestinationId === null) {
                     $finalDestinationId = $parcelFinalDestinationId;
                 } elseif ($finalDestinationId !== $parcelFinalDestinationId) {
-                    abort(422, "Parcel {$parcel->tracking_number} is routed to a different hub (" . ($parcel->destinationCenter?->name ?? $parcel->destination_center_id) .'). All parcels in a single transfer must share the destination hub.');
+                    abort(422, "Parcel {$parcel->tracking_number} is routed to a different hub (".($parcel->destinationCenter?->name ?? $parcel->destination_center_id).'). All parcels in a single transfer must share the destination hub.');
                 }
 
                 // Backend duplicate transfer prevention
@@ -518,11 +522,20 @@ class HubTransferController extends Controller
         $parcelProgress = $hubTransfer->parcels
             ->mapWithKeys(fn (HubTransferParcel $entry) => [$entry->id => HubTransferProgress::parcelStage($hubTransfer, $entry)]);
         $manifestParcels = $hubTransfer->parcels->where('loading_status', '!=', 'removed');
+        if ($canViewOriginPrivate && (int) $hubTransfer->payment_version === 1 && ! $hubTransfer->payment_confirmed_at
+            && in_array($hubTransfer->status, ['loading', 'ready_for_dispatch'], true)) {
+            foreach ($manifestParcels as $entry) {
+                if ($entry->delivery) {
+                    app(ShipmentMeasurementService::class)->fillMissing($entry->delivery);
+                }
+            }
+        }
         $manifestWeight = $manifestParcels->isNotEmpty()
             && $manifestParcels->every(fn (HubTransferParcel $entry) => $entry->delivery?->weight !== null)
             ? round($manifestParcels->sum(fn (HubTransferParcel $entry) => (float) $entry->delivery->weight), 2)
             : null;
 
+        $tripInputs = null;
         $tripPreview = null;
         $tripPaymentWarning = null;
         if ($canViewOriginPrivate && (int) $hubTransfer->payment_version === 1) {
@@ -530,14 +543,16 @@ class HubTransferController extends Controller
                 $tripPreview = $hubTransfer->payment_snapshot;
             } elseif (in_array($hubTransfer->status, ['loading', 'ready_for_dispatch'], true)) {
                 try {
-                    $tripPreview = \App\Services\TripPaymentService::preview($hubTransfer);
-                } catch (\Illuminate\Validation\ValidationException $e) {
+                    $tripInputs = TripPaymentService::inputs($hubTransfer);
+                    $tripPreview = TripPaymentService::preview($hubTransfer, null, $tripInputs);
+                } catch (ValidationException $e) {
                     $tripPaymentWarning = $e->validator->errors()->first();
                 }
             }
         }
 
         return view('logistics.hub-transfers.show', [
+            'tripInputs' => $tripInputs,
             'tripPreview' => $tripPreview,
             'tripPaymentWarning' => $tripPaymentWarning,
             'transfer' => $hubTransfer,
@@ -555,38 +570,20 @@ class HubTransferController extends Controller
     public function preparePayment(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
         $this->assertOriginAccess($request, $hubTransfer);
-        $data = $request->validate([
-            'route_distance_km' => 'required|numeric|min:0.001|max:10000|decimal:0,3',
-            'route_distance_source' => 'required|string|min:3|max:255',
-            'parcels' => 'required|array',
-            'parcels.*.weight' => 'required|numeric|min:0.01|max:999999.99|decimal:0,2',
-            'parcels.*.length_cm' => 'required|numeric|min:0.01|max:10000|decimal:0,2',
-            'parcels.*.width_cm' => 'required|numeric|min:0.01|max:10000|decimal:0,2',
-            'parcels.*.height_cm' => 'required|numeric|min:0.01|max:10000|decimal:0,2',
-        ]);
-        DB::transaction(function () use ($hubTransfer, $data, $request) {
-            $trip = HubTransferService::lockTransfer($hubTransfer->id);
-            abort_unless((int) $trip->payment_version === 1 && in_array($trip->status, ['loading', 'ready_for_dispatch'], true), 409);
-            abort_if($trip->payment_confirmed_at, 409, 'Reverse the confirmed payment before editing measurements.');
-            $ids = $trip->parcels()->where('loading_status', '!=', 'removed')->pluck('delivery_id')->map(fn ($id) => (int) $id)->sort()->values()->all();
-            $provided = array_map('intval', array_keys($data['parcels']));
-            sort($provided);
-            abort_unless($ids === $provided, 422, 'Submit measurements for exactly the active manifest.');
-            foreach ($data['parcels'] as $id => $measurements) {
-                Delivery::whereKey($id)->lockForUpdate()->firstOrFail()->update(collect($measurements)->only(['weight', 'length_cm', 'width_cm', 'height_cm'])->all());
-            }
-            $trip->update(collect($data)->only(['route_distance_km', 'route_distance_source'])->all() + ['route_recorded_by' => $request->user()->id]);
-            HubTransferService::event($trip, 'payment_measurements', null, null, 'Road distance: '.$data['route_distance_km'].' km; source: '.$data['route_distance_source'].'. Parcel measurements recorded.', $request->user());
-        });
+        // Inputs come exclusively from the saved hub locations and seller inventory.
+        // A recalculation never accepts client-supplied distance or parcel measurements.
+        abort_unless((int) $hubTransfer->payment_version === 1 && in_array($hubTransfer->status, ['loading', 'ready_for_dispatch'], true), 409);
+        abort_if($hubTransfer->payment_confirmed_at, 409, 'Reverse the confirmed payment before recalculating.');
+        TripPaymentService::preview($hubTransfer);
 
-        return back()->with('success', 'Measurements recorded. Review the calculation before confirming.');
+        return back()->with('success', 'Trip payment calculated from hub locations and product measurements. Review before confirming.');
     }
 
     public function confirmPayment(Request $request, HubTransfer $hubTransfer): RedirectResponse
     {
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate(['preview_hash' => 'required|string|size:64']);
-        \App\Services\TripPaymentService::confirm($hubTransfer, $request->user(), $data['preview_hash']);
+        TripPaymentService::confirm($hubTransfer, $request->user(), $data['preview_hash']);
 
         return back()->with('success', 'Trip payment reserved. Release requires successful destination receipt and settled orders.');
     }
@@ -596,7 +593,7 @@ class HubTransferController extends Controller
         $this->assertOriginAccess($request, $hubTransfer);
         $data = $request->validate(['reason' => 'required|string|min:3|max:1000']);
         DB::transaction(function () use ($hubTransfer, $request, $data) {
-            \App\Services\TripPaymentService::reverse(HubTransferService::lockTransfer($hubTransfer->id), $request->user(), $data['reason']);
+            TripPaymentService::reverse(HubTransferService::lockTransfer($hubTransfer->id), $request->user(), $data['reason']);
         });
 
         return back()->with('success', 'Reservation reversed. Review and confirm a new payment before dispatch.');
@@ -655,7 +652,7 @@ class HubTransferController extends Controller
             abort_unless(in_array($transfer->status, ['loading', 'ready_for_dispatch'], true), 409, 'Parcels can only be removed before dispatch.');
             $entry = HubTransferParcel::where('hub_transfer_id', $transfer->id)->whereKey($parcel->id)->lockForUpdate()->firstOrFail();
             abort_if($entry->loading_status === 'removed', 409, 'This parcel is already removed from the manifest.');
-            \App\Services\TripPaymentService::reverse($transfer, $request->user(), 'Manifest parcel removed: '.$data['reason']);
+            TripPaymentService::reverse($transfer, $request->user(), 'Manifest parcel removed: '.$data['reason']);
             $entry->update(['loading_status' => 'removed', 'receiving_status' => 'removed']);
             $remainingToLoad = $transfer->parcels()->whereNotIn('loading_status', ['loaded', 'removed'])->exists();
             $transfer->update(['status' => $remainingToLoad ? 'loading' : 'ready_for_dispatch']);
@@ -806,7 +803,7 @@ class HubTransferController extends Controller
         return $company->centers()->where('is_active', true)->orderBy('name')->get();
     }
 
-    private function fleetBlockSummary(\Illuminate\Support\Collection $eligibleTrucks, \Illuminate\Support\Collection $pairedTrucks, \Illuminate\Support\Collection $licensedTrucks): string
+    private function fleetBlockSummary(Collection $eligibleTrucks, Collection $pairedTrucks, Collection $licensedTrucks): string
     {
         $noDriver = $eligibleTrucks->count() - $pairedTrucks->count();
         $invalidLicense = $pairedTrucks->count() - $licensedTrucks->count();

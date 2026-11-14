@@ -39,9 +39,8 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     Route::get('/remittances', [\App\Http\Controllers\Seller\RemittanceController::class, 'index'])->name('seller.remittances.index');
     Route::post('/remittances/{remittance}/confirm', [\App\Http\Controllers\Seller\RemittanceController::class, 'confirm'])->name('seller.remittances.confirm');
 
-    // Payouts: withdraw settled, available earnings.
-    Route::get('/payouts', [\App\Http\Controllers\Seller\PayoutController::class, 'index'])->name('seller.payouts.index');
-    Route::post('/payouts/request', [\App\Http\Controllers\Seller\PayoutController::class, 'request'])->name('seller.payouts.request');
+    // Payouts page was removed: the demo settles seller earnings through
+    // logistics remittances, so there is no separate withdrawal wallet.
 
     // Returns / refunds
     Route::get('/returns', [\App\Http\Controllers\Seller\ReturnController::class, 'index'])->name('seller.returns.index');

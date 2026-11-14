@@ -124,7 +124,8 @@ class MessageService {
     return (data['unread_count'] as num?)?.toInt() ?? 0;
   }
 
-  Future<List<RiderMessage>> poll({int? after}) async {    final data = await _api.get(
+  Future<List<RiderMessage>> poll({int? after}) async {
+    final data = await _api.get(
       '/rider/messages/poll',
       query: after != null ? {'after': after.toString()} : null,
     );
@@ -211,6 +212,7 @@ class MessageService {
     final list = data['messages'] as List? ?? [];
     final pagination = data['pagination'] as Map<String, dynamic>?;
     return ThreadMessages(
+      canSend: data['can_send'] as bool? ?? true,
       messages: list.whereType<Map<String, dynamic>>().toList(),
       currentPage: (pagination?['current_page'] as num?)?.toInt() ?? 1,
       lastPage: (pagination?['last_page'] as num?)?.toInt() ?? 1,

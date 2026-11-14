@@ -29,6 +29,26 @@ class PaymentActionController extends Controller
         return back()->with('status', 'Admin commission accepted and recorded in confirmed platform earnings.');
     }
 
+    public function confirmCodRemittance(Request $request, int $id)
+    {
+        abort_unless($request->user()?->isPlatformAdministrator() && $request->user()->isActive(), 403);
+        $escrow = EscrowRemittance::findOrFail($id);
+        $order = Order::findOrFail($escrow->order_id);
+        $codRemittance = \App\Models\Remittance::where('order_id', $order->id)->where('status', '!=', 'confirmed')->first();
+        if (! $codRemittance) {
+            $exists = \App\Models\Remittance::where('order_id', $order->id)->where('status', 'confirmed')->exists();
+            if ($exists) {
+                return back()->with('info', 'This COD remittance is already confirmed and settled.');
+            }
+            return back()->with('error', 'No active COD remittance found for this order.');
+        }
+
+        $reference = $request->input('reference', 'Admin-Verified-COD');
+        \App\Support\Remittances::confirmByAdmin($codRemittance, $request->user(), $reference);
+
+        return back()->with('status', 'COD cash remittance confirmed. Order #' . ($order->order_number ?? $order->id) . ' is now settled and paid.');
+    }
+
     public function markPayoutPaid($id)
     {
         $payout = SellerPayout::findOrFail($id);
@@ -107,6 +127,7 @@ class PaymentActionController extends Controller
                 }
             }
 
+            \App\Support\PayoutAccounts::assertReady($remittance);
             $reference = $request->input('bank_reference') ?: ('REMIT-' . strtoupper(Str::random(8)));
             $remittance->update([
                 'status'         => 'remitted',
@@ -176,9 +197,11 @@ class PaymentActionController extends Controller
                 ->lockForUpdate()
                 ->get();
 
+            $releasedOrderIds = [];
             $count = 0;
             $total = 0.0;
             foreach ($rows as $row) {
+                if (!\App\Support\PayoutAccounts::ready($row)) continue;
                 $row->update([
                     'status'         => 'remitted',
                     'bank_reference' => $batch,
@@ -196,12 +219,13 @@ class PaymentActionController extends Controller
                     'Batch escrow bank remittance released'
                 );
 
+                $releasedOrderIds[] = $row->order_id;
                 $count++;
                 $total += (float) $row->amount;
             }
 
             // Auto-approve and collect platform commission for all orders in this batch
-            $orderIds = $rows->pluck('order_id')->filter()->unique();
+            $orderIds = collect($releasedOrderIds)->filter()->unique();
             if ($orderIds->isNotEmpty()) {
                 EscrowRemittance::whereIn('order_id', $orderIds)
                     ->where('recipient_role', EscrowRemittance::ROLE_ADMIN)

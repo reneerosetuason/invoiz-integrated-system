@@ -10,16 +10,28 @@ class ComplaintController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Complaint::with(['buyer', 'seller', 'order']);
+        $query = Complaint::with(['buyer', 'seller', 'order.items.product', 'orderItem.product', 'product']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
+            $search = trim((string) $request->search);
             $query->where(function ($q) use ($search) {
                 $q->where('subject', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%")
                   ->orWhere('type', 'like', "%{$search}%")
                   ->orWhere('status', 'like', "%{$search}%")
                   ->orWhereHas('buyer', function ($b) use ($search) {
-                      $b->where('name', 'like', "%{$search}%");
+                      $b->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('seller', function ($s) use ($search) {
+                      $s->where('store_name', 'like', "%{$search}%")
+                        ->orWhere('business_name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('order', function ($o) use ($search) {
+                      $o->where('order_number', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('order.items', function ($it) use ($search) {
+                      $it->where('product_name', 'like', "%{$search}%");
                   });
             });
         }
@@ -40,7 +52,7 @@ class ComplaintController extends Controller
 
     public function show(Complaint $complaint)
     {
-        $complaint->load(['buyer', 'seller.user', 'order']);
+        $complaint->load(['buyer', 'seller.user', 'order.items.product', 'orderItem.product', 'product']);
         return view('admin.complaint-detail', compact('complaint'));
     }
 

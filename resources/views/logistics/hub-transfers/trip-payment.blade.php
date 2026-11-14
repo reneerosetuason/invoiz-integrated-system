@@ -2,7 +2,7 @@
 <section class="card p-4 space-y-4" aria-label="Trip payment">
     <div>
         <h2 class="font-bold text-sm">Driver trip payment</h2>
-        <p class="text-xs text-[#6E6E73]">One payment for this truck trip. {{ $transfer->payment_confirmed_at ? 'Reserved using the confirmed rates.' : 'Record measurements and road distance, then review and confirm.' }}</p>
+        <p class="text-xs text-[#6E6E73]">One payment for this truck trip. {{ $transfer->payment_confirmed_at ? 'Reserved using the confirmed rates.' : 'Calculated automatically from hub addresses and seller product measurements. Review and confirm.' }}</p>
     </div>
     @if($tripPaymentWarning)
         <p role="alert" class="p-3 bg-amber-50 text-amber-900 text-sm">{{ $tripPaymentWarning }}</p>
@@ -10,28 +10,26 @@
     @if($canManageOrigin && in_array($transfer->status, ['loading', 'ready_for_dispatch']) && !$transfer->payment_confirmed_at)
     <form method="POST" action="{{ route('hub-transfers.payment.prepare', $transfer) }}" class="space-y-3">
         @csrf
-        <div class="grid gap-3 sm:grid-cols-2">
-            <label class="text-xs">Recorded road distance (km)
-                <input name="route_distance_km" value="{{ old('route_distance_km', $transfer->route_distance_km) }}" type="number" step="0.001" min="0.001" max="10000" required class="input w-full">
-            </label>
-            <label class="text-xs">Road-distance source / route reference
-                <input name="route_distance_source" value="{{ old('route_distance_source', $transfer->route_distance_source) }}" maxlength="255" required class="input w-full" placeholder="Approved route record or routing report">
-            </label>
+        @if($tripInputs ?? null)
+        <div class="text-sm"><strong>Automatic road distance: {{ number_format($tripInputs['distance'], 3) }} km</strong>
+            <p class="text-xs text-[#6E6E73]">{{ $tripInputs['source'] }}</p>
         </div>
-        <p class="text-xs text-[#6E6E73]">Use actual road distance. Saving records your account as the source authorizer. Record usable cargo dimensions in Fleet Management. Measure the packed parcel; product dimensions alone may differ.</p>
+        @endif
+        <p class="text-xs text-[#6E6E73]">Road distance is retrieved automatically from the origin and destination hub addresses. Parcel weight and dimensions come from seller products and ordered quantities. Existing recorded parcel measurements take priority. Multiple units use a stacked parcel estimate (maximum length and width, summed heights); packaging may change the final size. Truck capacity comes from Fleet Management.</p>
+        <p class="text-xs text-[#6E6E73]">Map data: OpenStreetMap contributors. Address lookup: Photon. Road routing: OSRM.</p>
         @foreach($manifestParcels as $entry)
         <fieldset class="border rounded-lg p-3">
             <legend class="text-xs font-semibold">{{ $entry->delivery?->tracking_number }}</legend>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 @foreach(['weight' => 'Actual weight (kg)', 'length_cm' => 'Length (cm)', 'width_cm' => 'Width (cm)', 'height_cm' => 'Height (cm)'] as $field => $label)
                 <label class="text-xs">{{ $label }}
-                    <input name="parcels[{{ $entry->delivery_id }}][{{ $field }}]" value="{{ old('parcels.'.$entry->delivery_id.'.'.$field, $entry->delivery?->$field) }}" type="number" step="0.01" min="0.01" max="{{ $field === 'weight' ? '999999.99' : '10000' }}" required class="input w-full">
+                    <input value="{{ $entry->delivery?->$field }}" placeholder="Missing seller data" readonly class="input w-full">
                 </label>
                 @endforeach
             </div>
         </fieldset>
         @endforeach
-        <button class="btn btn-outline btn-sm">Save measurements &amp; calculate</button>
+        <button class="btn btn-outline btn-sm">Recalculate automatically</button>
     </form>
     @endif
     @if($tripPreview)
@@ -49,6 +47,7 @@
                 'Base payment' => 'PHP '.number_format($tripPreview['base'] / 100, 2),
                 'Distance payment' => 'PHP '.number_format($tripPreview['distancePayment'] / 100, 2),
                 'Load bonus' => 'PHP '.number_format($tripPreview['bonus'] / 100, 2),
+                'Calculated trip cost before cap' => 'PHP '.number_format(($tripPreview['uncapped_total'] ?? $tripPreview['total']) / 100, 2),
                 'Total driver earnings' => 'PHP '.number_format($tripPreview['total'] / 100, 2),
             ] as $label => $value)
             <div><dt class="text-[#6E6E73]">{{ $label }}</dt><dd class="mt-1 font-bold">{{ $value }}</dd></div>
@@ -59,11 +58,11 @@
             <summary class="cursor-pointer font-semibold">Shipment allocations</summary>
             <ul class="mt-2 space-y-1">
             @foreach($tripPreview['allocations'] as $deliveryId => $cents)
-                <li>Parcel #{{ $deliveryId }}: PHP {{ number_format($cents / 100, 2) }}</li>
+                <li>Parcel #{{ $deliveryId }}: transport allocation PHP {{ number_format($cents / 100, 2) }} (included once in the seller’s inter-hub deduction).</li>
             @endforeach
             </ul>
         </details>
-        <p class="text-xs text-[#6E6E73]">Allocation uses chargeable weight with divisor {{ $tripPreview['rates']['trip_volumetric_divisor'] }}. Seller deductions retain the existing shipment budget; the difference is recorded for platform reconciliation. Receipt alone does not release funds.</p>
+        <p class="text-xs text-[#6E6E73]">Allocation uses chargeable weight with divisor {{ $tripPreview['rates']['trip_volumetric_divisor'] }}. The driver payment is capped by each parcel’s product-value budget and available recorded margin. No subsidy is required. Receipt alone does not release funds.</p>
         @if($canManageOrigin && !$transfer->payment_confirmed_at && in_array($transfer->status, ['loading', 'ready_for_dispatch']))
         <form method="POST" action="{{ route('hub-transfers.payment.confirm', $transfer) }}">
             @csrf

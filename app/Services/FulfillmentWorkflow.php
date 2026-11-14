@@ -15,6 +15,27 @@ use Illuminate\Support\Facades\Schema;
 
 class FulfillmentWorkflow
 {
+    /** Caller holds the order/delivery locks and has authorized the handling staff. */
+    public static function reviewDestination(Delivery $delivery, int $actorId): void
+    {
+        self::assertActiveOrder($delivery);
+        abort_unless($delivery->received_at && !$delivery->sorting_center_pickup_at
+            && in_array($delivery->status, ['waiting_for_rider', 'assigned'], true)
+            && !self::hasActiveHubTransfer($delivery), 409, 'Only an uncollected parcel at the hub can have its delivery assignment corrected.');
+        abort_unless($delivery->lastMileRouteBlockReason(), 409, 'This parcel already has a local delivery route.');
+        $suggested = $delivery->suggestedDestination();
+        if ($delivery->destination_center_id && (int) $delivery->destination_center_id !== (int) $delivery->center_id) {
+            $suggested = ['center_id' => (int) $delivery->destination_center_id, 'service_area_id' => $delivery->service_area_id];
+        }
+        abort_unless($suggested['center_id'] && (int) $suggested['center_id'] !== (int) $delivery->center_id, 422, 'Confirm a destination hub and service area through sorting; the address does not identify one hub reliably.');
+        $riderId = $delivery->rider_id;
+        $delivery->update(['destination_center_id' => $suggested['center_id'], 'service_area_id' => $suggested['service_area_id'],
+            'rider_id' => null, 'assigned_at' => null, 'accepted_at' => null, 'status' => 'waiting_for_rider']);
+        self::releaseRider($riderId);
+        DeliveryStatusLog::create(['delivery_id' => $delivery->id, 'status' => 'destination_reviewed', 'changed_by' => $actorId,
+            'notes' => 'Uncollected last-mile assignment cleared; route reviewed for inter-hub transport to hub #'.$suggested['center_id'].'.']);
+    }
+
     /** Every workflow writer takes locks in the same order as cancellation. */
     public static function lock(Delivery $delivery): Delivery
     {
@@ -65,6 +86,7 @@ class FulfillmentWorkflow
     {
         self::assertActiveOrder($delivery);
         abort_if(self::hasActiveHubTransfer($delivery), 409, 'This parcel is in an active hub transfer and cannot be assigned for last-mile delivery.');
+        abort_if($delivery->lastMileRouteBlockReason() !== null, 409, $delivery->lastMileRouteBlockReason() ?? 'Review the destination hub.');
         if (! $delivery->order_id) {
             return; // Standalone logistics shipments retain their existing workflow.
         }
@@ -150,6 +172,9 @@ class FulfillmentWorkflow
         self::assertReceivable($delivery);
         $riderId = $delivery->rider_id;
         $updates = ['parcel_status' => 'received', 'received_at' => now()];
+        if (!$delivery->destination_center_id && ($destination = $delivery->suggestedDestination()['center_id'])) {
+            $updates['destination_center_id'] = $destination;
+        }
         if ($delivery->sorting_center_handoff_at) {
             $updates += ['rider_id' => null, 'status' => 'waiting_for_rider', 'assigned_at' => null, 'accepted_at' => null];
         }

@@ -65,6 +65,7 @@ class ProductController extends Controller
             'item_sale_enabled' => ['sometimes', 'boolean'],
             'discounted_price' => ['exclude_unless:item_sale_enabled,1', 'required', 'numeric', 'min:1', 'decimal:0,2', 'lt:price'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
+            'packaging_cost' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
             'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'weight'       => ['nullable', function ($attribute, $value, $fail) {
@@ -81,6 +82,8 @@ class ProductController extends Controller
         'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
         'status'       => ['required', 'in:' . implode(',', $this->allowedStatuses())],
         ]);
+
+        $validated['packaging_cost'] = $validated['packaging_cost'] ?? 0;
 
         if ($request->filled('length') && $request->filled('width') && $request->filled('height')) {
             $l = trim((string) $request->input('length'));
@@ -164,6 +167,7 @@ class ProductController extends Controller
             'item_sale_enabled' => ['sometimes', 'boolean'],
             'discounted_price' => ['exclude_unless:item_sale_enabled,1', 'required', 'numeric', 'min:1', 'decimal:0,2', 'lt:price'],
             'cost_price'   => ['nullable', 'numeric', 'min:0'],
+            'packaging_cost' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
             'stock'        => ['required', 'integer', 'min:0', 'max:99999'],
             'low_stock_threshold' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'weight'       => ['nullable', function ($attribute, $value, $fail) {
@@ -180,6 +184,8 @@ class ProductController extends Controller
         'images.*'     => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
         'status'       => ['required', 'in:' . implode(',', $this->allowedStatuses())],
         ]);
+
+        $validated['packaging_cost'] = $validated['packaging_cost'] ?? ($product->packaging_cost ?? 0);
 
         if ($request->filled('length') && $request->filled('width') && $request->filled('height')) {
             $l = trim((string) $request->input('length'));

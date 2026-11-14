@@ -24,7 +24,7 @@ class ReturnFundingService
     {
         if($agreement->keepItemDirect())return ['seller_direct_refund'=>true,'funding'=>['shortfall'=>0,'funded'=>0,'available'=>0],
             'budget_outstanding_cents'=>0,'buyer_reserved_cents'=>0,'seller_reserved_cents'=>0,'refund_reserved_cents'=>0,
-            'automatic'=>false,'prospective_reservation_cents'=>0,'payment_due_cents'=>0];
+            'automatic'=>false,'prospective_reservation_cents'=>0,'payment_due_cents'=>0, 'platform_subsidy_cents'=>(int)$agreement->platform_subsidy_cents, 'seller_reimbursement_cents'=>(int)$agreement->seller_reimbursement_cents];
         $prospective = $agreement->payer === 'buyer' && $agreement->funding_method === 'deduct_refund'
             ? max(0, $agreement->budgetCents() - (int) $agreement->reserved_cents) : 0;
         $funding = $agreement->sellerFaultDirect() ? ['shortfall'=>0,'funded'=>0,'available'=>0]
@@ -34,6 +34,8 @@ class ReturnFundingService
         $reservable = self::reservableCents($case->order, $case, $agreement);
         return [
             'seller_direct_refund'=>$agreement->physicalDirectRefund(),
+            'platform_subsidy_cents'=>(int)$agreement->platform_subsidy_cents,
+            'seller_reimbursement_cents'=>(int)$agreement->seller_reimbursement_cents,
             'funding' => $funding,
             'budget_outstanding_cents' => $outstanding,
             'buyer_reserved_cents' => (int) $agreement->reserved_cents,
@@ -87,6 +89,7 @@ class ReturnFundingService
     /** Reserve once, only after all parties approved the exact financial terms. */
     public static function reserve(Order $order, ReturnRequest $case, ReturnSettlement $agreement): void
     {
+        ReturnProtectionService::reserve($agreement);
         $amount = self::reservableCents($order, $case, $agreement);
         if ($amount > 0) {
             $field = $agreement->payer === 'buyer' ? 'reserved_cents' : 'seller_reserved_cents';

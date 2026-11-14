@@ -6,7 +6,7 @@
 <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
         <h2 class="text-xl font-extrabold tracking-tight">Sales &amp; Performance Reports</h2>
-        <p class="mt-0.5 text-sm text-ink-light">Financial and profit summary for your store.</p>
+        <p class="mt-0.5 text-sm text-ink-light">Financial and profit summary for your store, including recorded earnings, product costs and refunds.</p>
     </div>
     <a href="{{ route('seller.reports', ['from' => $from, 'to' => $to, 'export' => 1]) }}"
        class="btn btn-outline">

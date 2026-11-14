@@ -231,7 +231,7 @@ class PickupRequestController extends Controller
             return back()->with('error', 'This pickup request is no longer actionable because the parcel has already moved past pickup.');
         }
 
-        return back()->with('success', 'Pickup request approved. Assigning a rider is a separate step on the delivery page.');
+        return back()->with('success', 'Pickup request approved. You can now assign a pickup rider.');
     }
 
     public function reject(Request $request, PickupRequest $pickupRequest): RedirectResponse

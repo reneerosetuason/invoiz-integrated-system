@@ -338,6 +338,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
   late final ApiService _api;
   final _inputCtrl = TextEditingController();
   List<ChatMessage> _messages = [];
+  late bool _canSend;
   bool _loading = true;
   String? _error, _sendError;
   final _scroll = ScrollController();
@@ -349,6 +350,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
   @override
   void initState() {
     super.initState();
+    _canSend = widget.canSend;
     _api = widget.api ?? ApiService();
     WidgetsBinding.instance.addObserver(this);
     _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -406,6 +408,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
         (m) => m.id > newestId && !receivedIds.contains(m.id),
       );
       setState(() {
+        _canSend = data['can_send'] as bool? ?? _canSend;
         _messages = [...incoming, ...newer];
         if (widget.threadKey != null) {
           _hasOlder = (data['pagination']?['last_page'] as int? ?? 1) > 1;
@@ -464,7 +467,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
   }
 
   Future<void> _send() async {
-    if (!widget.canSend) return;
+    if (!_canSend) return;
     final text = _inputCtrl.text.trim();
     if (text.isEmpty || _sending || _loading) return;
     if (text.length > 2000) {
@@ -572,12 +575,12 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
                   Expanded(
                     child: BuyerField(
                       controller: _inputCtrl,
-                      readOnly: _sending || !widget.canSend,
+                      readOnly: _sending || !_canSend,
                       maxLength: 2000,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
                       decoration: InputDecoration(
-                        hintText: widget.canSend
+                        hintText: _canSend
                             ? 'Type a message...'
                             : 'Conversation is read only',
                         counterText: '',
@@ -590,9 +593,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen>
                   ),
                   const SizedBox(width: 8),
                   BuyerButton.primary(
-                    onPressed: _sending || _loading || !widget.canSend
-                        ? null
-                        : _send,
+                    onPressed: _sending || _loading || !_canSend ? null : _send,
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(46, 46),
                       padding: EdgeInsets.zero,

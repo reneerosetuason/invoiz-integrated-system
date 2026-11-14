@@ -11,6 +11,9 @@
     $customerOrderLabel = \App\Support\CustomerTracking::orderLabel($order);
     $customerDeliveryLabel = \App\Support\CustomerTracking::label($order, $order->delivery);
 @endphp
+@if($order->delivery)
+    @include('shared.messages.parcel-contact', ['parcel' => $order->delivery])
+@endif
 <div class="flex flex-wrap items-center justify-between gap-4">
     <div>
         <a href="{{ route('seller.orders.index') }}" class="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-ink-light hover:text-primary">

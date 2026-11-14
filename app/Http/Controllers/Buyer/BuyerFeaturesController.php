@@ -95,11 +95,26 @@ class BuyerFeaturesController extends Controller
             'comment' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $order = Order::where('buyer_id', $buyerId)->with('items')->findOrFail($orderId);
-        if ($order->status !== 'delivered') {
+        $order = Order::where('buyer_id', $buyerId)->with(['items', 'deliveries'])->findOrFail($orderId);
+        $isDelivered = $order->status === 'delivered'
+            || $order->deliveries->contains('status', 'delivered')
+            || \App\Support\CustomerTracking::progressStage($order, $order->deliveries->first()) === 'delivered';
+
+        if (! $isDelivered) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => 'You can rate products after the order is delivered.'], 422);
+            }
             return back()->with('error', 'You can rate products after the order is delivered.');
         }
+
+        if ($order->status !== 'delivered') {
+            $order->update(['status' => 'delivered']);
+        }
+
         if (! $order->items->contains('product_id', $productId)) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => 'That product is not part of this order.'], 422);
+            }
             return back()->with('error', 'That product is not part of this order.');
         }
 
@@ -111,6 +126,15 @@ class BuyerFeaturesController extends Controller
             $average = Review::where('product_id', $productId)->where('status', 'visible')->avg('rating');
             Product::whereKey($productId)->update(['rating' => $average === null ? null : round((float) $average, 1)]);
         });
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Thank you for sharing your rating!',
+                'rating' => $data['rating'],
+                'comment' => $data['comment'] ?? '',
+            ]);
+        }
 
         return back()->with('success', 'Thanks for sharing your rating.');
     }

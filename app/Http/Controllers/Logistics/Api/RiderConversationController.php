@@ -33,38 +33,12 @@ class RiderConversationController extends Controller
             ]
         );
 
-        // Per-delivery seller/buyer threads. Data is read-only from the shared
-        // orders / order_items tables; missing or orphaned rows are skipped so
-        // a partial shared database never breaks the conversation list.
-        $deliveries = Delivery::where('rider_id', $riderId)->whereNotNull('order_id')->get();
-        foreach ($deliveries as $delivery) {
-            $order = Order::find($delivery->order_id);
-            if (! $order) {
-                continue;
-            }
-
-            // Buyer
-            $buyer = $order->buyer;
-            if ($buyer) {
-                Conversation::firstOrCreate(
-                    ['order_id' => $order->id, 'rider_id' => $riderId, 'participant_type' => 'buyer', 'participant_id' => $buyer->id],
-                    ['participant_name' => $buyer->name, 'subject' => 'Delivery ' . $delivery->tracking_number, 'last_message_at' => now()]
-                );
-            }
-
-            // Seller(s) ??? one per distinct seller in the shared order_items.
-            $sellerIds = collect([$delivery->seller_id])->filter();
-            foreach ($sellerIds as $sid) {
-                $seller = \App\Models\User::find($sid);
-                if (! $seller) {
-                    continue;
-                }
-                $sellerName = $seller->seller->business_name ?? $seller->name;
-                Conversation::firstOrCreate(
-                    ['order_id' => $order->id, 'rider_id' => $riderId, 'participant_type' => 'seller', 'participant_id' => $sid],
-                    ['participant_name' => $sellerName, 'subject' => 'Delivery ' . $delivery->tracking_number, 'last_message_at' => now()]
-                );
-            }
+        // Each customer gets a private thread with the current handler only.
+        foreach (Delivery::where('rider_id', $riderId)->whereNotNull('order_id')->get() as $delivery) {
+            $holder = \App\Support\ParcelChat::holder($delivery);
+            if (! $holder || $holder['kind'] !== 'r' || $holder['id'] !== $riderId) continue;
+            $parties = collect([$delivery->order?->buyer, \App\Models\User::find($delivery->seller_id)])->filter()->unique('id');
+            foreach ($parties as $customer) \App\Support\ParcelChat::open($customer, $delivery);
         }
     }
 
@@ -73,6 +47,10 @@ class RiderConversationController extends Controller
         abort_unless(\App\Support\MessagingAccess::canReadLogistics($request->user(), $conv), 403);
         $userId = (int) $request->user()->id;
         $riderId = $this->riderId($request);
+        if ($identity = \App\Support\ParcelChat::parse($conv->direct_thread_key)) {
+            abort_unless($identity['kind'] === 'r' && $identity['id'] === $riderId, 403);
+            return;
+        }
         // Logistics: participant_type rider with participant_id = userId and rider_id = riderId
         // Seller/Buyer: rider_id = riderId
         if ($conv->participant_type === 'rider' && (int) $conv->participant_id === $userId && (int) $conv->rider_id === $riderId) return;
@@ -95,7 +73,7 @@ class RiderConversationController extends Controller
             'type' => $c->participant_type,
             'type_label' => $typeLabel,
             'order_id' => $c->order_id,
-            'tracking' => $c->delivery?->tracking_number,
+            'tracking' => ($identity = \App\Support\ParcelChat::parse($c->direct_thread_key)) ? Delivery::find($identity['delivery_id'])?->tracking_number : $c->delivery?->tracking_number,
             'preview' => $c->last_message_preview,
             'unread' => (int) $c->unread_count,
             'last_message_at' => $c->last_message_at?->toISOString(),
@@ -152,6 +130,7 @@ class RiderConversationController extends Controller
         $conversation->messages()->where('is_read', false)->where('sender_type', '!=', 'rider')->update(['is_read' => true, 'read_at' => now()]);
 
         return response()->json([
+            'can_send' => \App\Support\MessagingAccess::canSendLogistics($request->user(), $conversation),
             'conversation' => $this->payload($conversation),
             'messages' => $paginator->getCollection()->reverse()->map(fn ($m) => $this->messagePayload($m, $request->user()))->values(),
             'pagination' => [
@@ -174,6 +153,7 @@ class RiderConversationController extends Controller
 
         $message = null;
         DB::transaction(function () use ($validated, $request, $conversation, &$message) {
+            \App\Support\ParcelChat::lockAndAuthorize($request->user(), $conversation);
             $message = Message::create([
                 'conversation_id' => $conversation->id,
                 'sender_type' => 'rider',

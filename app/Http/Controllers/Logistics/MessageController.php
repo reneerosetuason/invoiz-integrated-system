@@ -530,6 +530,7 @@ class MessageController extends Controller
         abort_unless(\App\Support\MessagingAccess::canSendLogistics($request->user(), $conversation), 403);
 
         DB::transaction(function () use ($validated, $request, $conversation) {
+            \App\Support\ParcelChat::lockAndAuthorize($request->user(), $conversation);
             $message = Message::create([
                 'conversation_id' => $conversation->id,
                 'sender_type' => 'logistics',

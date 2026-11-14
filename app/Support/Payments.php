@@ -103,6 +103,8 @@ class Payments
                 'buyer_total_payable'    => $calc['buyer_total_payable'],
                 'cod_escrow_remittance'  => $calc['cod_escrow_remittance'],
                 'seller_deficit'         => $calc['seller_deficit'],
+                'platform_logistics_subsidy' => $calc['platform_logistics_subsidy'] ?? 0,
+                'platform_protection_subsidy' => $calc['platform_protection_subsidy'] ?? 0,
             ];
         }
 
@@ -129,6 +131,7 @@ class Payments
                 }
             }
             $order->loadMissing(['items', 'orderVouchers.voucher']);
+            \App\Services\SellerProtectionService::reconcile($order, 0, true);
             $split = self::splitForSellers($order);
             $sum = fn (string $key): float => round(array_sum(array_map(
                 fn (array $share): float => (float) ($share[$key] ?? 0),
@@ -177,6 +180,7 @@ class Payments
                 'destination_hub_fee'  => $sum('destination_hub_fee'),
                 'last_mile_rider_fee'  => $riderFee,
                 'seller_deficit'       => $sellerDeficit,
+                'platform_logistics_subsidy' => $sum('platform_logistics_subsidy'),
             ] as $column => $value) {
                 if (Schema::hasColumn('payment_transactions', $column)) {
                     $payload[$column] = $value;
@@ -200,6 +204,7 @@ class Payments
     public static function voidForCancel(Order $order, bool $strict = false): void
     {
         try {
+            \App\Services\SellerProtectionService::releaseUnstarted($order);
             $tx = self::transactionFor($order);
             // Prepaid cancellation creates an outstanding refund obligation, not a failed payment.
             if (\Illuminate\Support\Facades\Schema::hasTable('return_workflows')
@@ -299,11 +304,9 @@ class Payments
                 }
             }
         }
-        if (\Illuminate\Support\Facades\Schema::hasTable('parcel_liabilities')) {
-            $earned += (float) \App\Models\ParcelLiability::whereIn('seller_id', $catalogIds)
-                ->where('status', 'settled')
-                ->sum('merchandise_amount');
-        }
+        // Parcel-liability damage compensation is NOT credited to the payout
+        // wallet: the demo settles liability costs through logistics
+        // remittances instead, so this balance must reflect real wallet money only.
         $sellerRows = Seller::where('user_id', $userId)->pluck('id')->all();
         $committed = 0.0;
         if ($sellerRows) {

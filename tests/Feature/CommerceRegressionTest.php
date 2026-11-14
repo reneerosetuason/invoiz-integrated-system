@@ -394,11 +394,13 @@ class CommerceRegressionTest extends TestCase
         [, $order] = $this->purchase();
         PaymentTransaction::create(['order_id' => $order->id, 'transaction_ref' => 'TXN-ORDER-'.$order->id, 'amount' => 500, 'status' => 'successful']);
         $this->actingAs($user)->withSession(['active_role' => 'seller']);
-        $this->postJson('/seller/payouts/request', ['amount' => 1000, 'method' => 'GCash'])->assertStatus(422);
-        $this->postJson('/seller/payouts/request', ['amount' => 100, 'method' => 'GCash'])->assertRedirect();
-        $this->postJson('/seller/payouts/request', ['amount' => 100, 'method' => 'GCash'])->assertStatus(422);
-        $this->assertSame(1, WithdrawalRequest::count());
-        (new PaymentActionController)->approveWithdrawal(WithdrawalRequest::first()->id);
+        // The seller payout page was removed (earnings settle via remittances);
+        // its routes must no longer exist.
+        $this->getJson('/seller/payouts')->assertNotFound();
+        $this->postJson('/seller/payouts/request', ['amount' => 100, 'method' => 'GCash'])->assertNotFound();
+        $withdrawal = WithdrawalRequest::create(['seller_id' => $seller->id, 'amount' => 100, 'status' => 'pending', 'method' => 'GCash']);
+        (new PaymentActionController)->approveWithdrawal($withdrawal->id);
+        $this->assertSame('approved', $withdrawal->fresh()->status);
         // Net merchandise 500 - commission 50 - origin hub 30 - pickup (5 x 30), minus this 100 payout.
         $this->assertSame(170.0, Payments::availableBalanceForUser($user->id));
         $this->assertDatabaseHas('seller_payouts', ['seller_id' => $seller->id, 'amount' => 100]);

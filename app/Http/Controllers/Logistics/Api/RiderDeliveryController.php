@@ -213,6 +213,7 @@ class RiderDeliveryController extends Controller
                     FulfillmentWorkflow::assertReady($delivery);
                 }
                 if (in_array($next, ['out_for_delivery', 'arrived_at_customer'], true)) {
+                    abort_if($delivery->lastMileRouteBlockReason() !== null, 409, $delivery->lastMileRouteBlockReason() ?? 'Review the destination hub.');
                     abort_unless($delivery->sorting_center_pickup_at && (int) $delivery->sorting_center_pickup_rider_id === (int) $delivery->rider_id, 409, 'Staff must dispatch the parcel and the assigned delivery rider must confirm center collection first.');
                 }
             }
@@ -353,6 +354,8 @@ class RiderDeliveryController extends Controller
                 $locked = FulfillmentWorkflow::lock($delivery);
 
                 $this->authorizeDelivery($request, $locked);
+
+                abort_if($locked->lastMileRouteBlockReason() !== null, 409, $locked->lastMileRouteBlockReason() ?? 'Review the destination hub.');
 
                 if (! in_array($locked->status, ['out_for_delivery', 'arrived_at_customer'], true)) {
                     return ['conflict' => $this->invalidTransition($locked)];

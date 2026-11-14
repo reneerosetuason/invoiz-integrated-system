@@ -45,12 +45,14 @@
     <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; gap:12px; flex-wrap:wrap;">
       <div>
         <h2 style="font-size:16px; font-weight:800; color:#0E4A57; margin:0;">Configurable Escrow & Stakeholder Earnings Distribution</h2>
-        <p style="color:#56696B; font-size:12.5px; margin:4px 0 0;">Fixed rate schedule applied to every shipment. Free-shipping and vouchers never reduce logistics or rider earnings.</p>
+        <p style="color:#56696B; font-size:12.5px; margin:4px 0 0;">Configure worker rates and the inter-hub payment limit.</p>
       </div>
     </div>
 
     <form method="POST" action="{{ route('admin.commission.rates.earnings') }}">
       @csrf
+      <p class="text-sm">Inter-hub driver payment is calculated from road distance, weight and dimensions, capped at the affordable product-value budget. No subsidy funding is required.</p>
+      <label>Maximum inter-hub charge (% of net product value)<input class="input" type="number" name="seller_logistics_cap_percent" min="0" max="100" step="0.01" value="{{ old('seller_logistics_cap_percent', $escrowRates['seller_logistics_cap_percent']) }}"></label>
       <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin-bottom:16px;">
         <div style="background:#fff; border:1px solid #E8E6E0; border-radius:10px; padding:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -111,6 +113,8 @@
       <button type="submit" class="btn btn-primary" style="font-weight:700;">Save Escrow Distribution Rates</button>
     </form>
   </div>
+
+
 
   {{-- Commission Rates per Category --}}
   <h2 style="font-size:15px; font-weight:700; margin:0 0 8px;">Platform Commission Rates per Category</h2>

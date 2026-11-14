@@ -79,11 +79,13 @@ class ThreadMessages {
     required this.messages,
     required this.currentPage,
     required this.lastPage,
+    this.canSend = true,
   });
 
   final List<Map<String, dynamic>> messages;
   final int currentPage;
   final int lastPage;
+  final bool canSend;
 
   bool get hasMore => currentPage < lastPage;
 }

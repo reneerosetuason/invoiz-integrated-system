@@ -36,6 +36,8 @@ use Illuminate\Support\Facades\Schema;
 class EscrowEarnings
 {
     public const SETTING_KEYS = [
+        'seller_logistics_cap_percent' => 'earnings_seller_logistics_cap_percent',
+        'seller_min_profit_percent' => 'earnings_seller_min_profit_percent',
         'trip_base_payment' => 'earnings_trip_base_payment',
         'trip_rate_per_km' => 'earnings_trip_rate_per_km',
         'trip_bonus_50' => 'earnings_trip_bonus_50',
@@ -54,6 +56,8 @@ class EscrowEarnings
     public static function rates(): array
     {
         $rates = [
+            'seller_logistics_cap_percent' => (float) config('earnings.seller_logistics_cap_percent', 5),
+            'seller_min_profit_percent' => (float) config('earnings.seller_min_profit_percent', 5),
             'trip_base_payment' => (float) config('earnings.trip_base_payment', 100),
             'trip_rate_per_km' => (float) config('earnings.trip_rate_per_km', 5),
             'trip_bonus_50' => (float) config('earnings.trip_bonus_50', 50),
@@ -288,6 +292,8 @@ class EscrowEarnings
     {
         $order->loadMissing(['items', 'orderVouchers.voucher']);
         $rates = self::rates();
+        $protection = \App\Services\SellerProtectionService::policy($order, $sellerId);
+        if ($protection) $rates = $protection['rates'];
 
         $hasGroup = $order->items->where('seller_id', $sellerId)->isNotEmpty();
         if (! $hasGroup) {
@@ -332,14 +338,16 @@ class EscrowEarnings
         $netMerch = round(max(0.0, $grossMerch - $merchDiscount), 2);
         // Reverse merchandise and its commission, while preserving completed logistics work.
         // Older refunded cases have no workflow; new cases count as soon as money is sent.
+        $completedReturns = collect();
         if (Schema::hasTable('return_requests')) {
-            $refunds = \App\Models\ReturnRequest::where('order_id', $order->id)->where('seller_id', $sellerId)
+            $completedReturns = \App\Models\ReturnRequest::where('order_id', $order->id)->where('seller_id', $sellerId)
                 ->where(function ($q) {
                     $q->where('status', 'refunded');
                     if (Schema::hasTable('return_workflows')) {
                         $q->orWhereHas('workflow', fn ($w) => $w->whereNotNull('refund_sent_at'));
                     }
-                })->get()->sum(fn ($r) => $r->merchandiseRefundAmount());
+                })->with($protection ? ['workflow', 'settlement'] : [])->get();
+            $refunds = $completedReturns->sum(fn ($r) => $r->merchandiseRefundAmount());
             $netMerch = round(max(0.0, $netMerch - (float) $refunds), 2);
         }
 
@@ -353,6 +361,9 @@ class EscrowEarnings
         $buyerShippingBase = round((float) Order::SHIPPING_FEE_PER_SELLER, 2);
         $shippingWaived = round($order->shippingWaivedForSeller($sellerId), 2);
         $buyerShippingPaid = round(max(0.0, $buyerShippingBase - $shippingWaived), 2);
+        $protectedFacts = $protection ? \App\Services\SellerProtectionService::remainingCosts($order, $protection, $completedReturns) : null;
+        $shippingRefunded = $protectedFacts['shipping_refunded_cents'] ?? 0;
+        $buyerShippingPaid = round(max(0, $buyerShippingPaid - $shippingRefunded / 100), 2);
         $buyerTotalPayable = round($netMerch + $buyerShippingPaid, 2);
 
         $originHubFee = round($rates['origin_hub_fee'], 2);
@@ -380,7 +391,8 @@ class EscrowEarnings
             ? round((float) $customDeliveryFee, 2)
             : round($rates['last_mile_rider_fee'], 2);
 
-        $commission = self::commissionForSellerItems($order, $sellerId, $netMerch, $commissionRate);
+        $commission = self::commissionForSellerItems($order, $sellerId, $netMerch, $protection ? $protection['commission_rate'] : $commissionRate);
+        if ($protection) $commission['amount'] = round($protection['commission_cents'] * min(1, max(0, $netMerch * 100 / max(1, $protection['revenue_cents']))) / 100, 2);
         $adminCommission = round($commission['amount'], 2);
 
         $codRiderRetains = round(min($buyerTotalPayable, $lastMileRiderFee), 2);
@@ -389,6 +401,19 @@ class EscrowEarnings
         $hubFeesTotal = round($originHubFee + $destinationHubFee, 2);
         $riderFeesTotal = round($pickupRiderFee + $interHubDriverFee + $lastMileRiderFee, 2);
         $merchLogisticsDeducted = round($originHubFee + $pickupRiderFee + $sellerInterHubBudget + $destinationHubFee, 2);
+
+        $platformProtectionSubsidy = 0.0;
+        $protectedCost = $protectedMinimum = null;
+        if ($protection) {
+            $remainingRevenueCents = min($protection['revenue_cents'], \App\Services\SellerProtectionService::cents($netMerch));
+            $protectedCost = $protectedFacts['cost_cents'] / 100;
+            $protectedMinimum = intdiv($remainingRevenueCents * (int) round($protection['minimum_profit_percent'] * 100) + 9999, 10000) / 100;
+            $cap = min(intdiv($protection['seller_cap_cents'] * $remainingRevenueCents, max(1, $protection['revenue_cents'])) / 100, max(0, round($netMerch - $protectedCost - $adminCommission - $protectedMinimum, 2)));
+            $legacyDeduction = round($lastMileRiderFee + $originHubFee + $pickupRiderFee + $sellerInterHubBudget + $destinationHubFee - $buyerShippingPaid, 2);
+            $sellerContribution = max(0, min($legacyDeduction, $cap));
+            $platformProtectionSubsidy = max(0, round($legacyDeduction - $sellerContribution, 2));
+            $merchLogisticsDeducted = $sellerContribution;
+        }
 
         $rawSellerRemaining = round(
             $buyerTotalPayable
@@ -406,9 +431,14 @@ class EscrowEarnings
                 ->whereHas('returnRequest', fn ($q) => $q->where('seller_id', $sellerId))
                 ->sum('seller_reserved_cents') / 100;
         }
-        $rawSellerRemaining = round($rawSellerRemaining - $returnFunding, 2);
+        $rawSellerRemaining = round($rawSellerRemaining + $platformProtectionSubsidy - $returnFunding, 2);
         $sellerEarning = round(max(0.0, $rawSellerRemaining), 2);
         $sellerDeficit = $rawSellerRemaining < 0 ? round(abs($rawSellerRemaining), 2) : 0.0;
+
+        $reimbursements = $protection ? \App\Models\ReturnAllocation::whereHas('settlement.returnRequest', fn ($q) => $q->where('order_id', $order->id)->where('seller_id', $sellerId))
+            ->where('role', 'seller_protection_reimbursement')->where('status', '!=', 'voided')->get() : collect();
+        $fundedReimbursement = $reimbursements->filter(fn ($row) => $row->settlement->fundedSubsidyCents() > 0)->sum('amount_cents') / 100;
+        $economicProfit = $protection ? round($rawSellerRemaining - $protectedCost - ($protectedFacts['external_refund_cents'] ?? 0) / 100 + $fundedReimbursement, 2) : null;
 
         $calc = [
             'has_group' => true,
@@ -423,6 +453,7 @@ class EscrowEarnings
             'merchandise_refunded' => round(max(0.0, $grossMerch - $merchDiscount - $netMerch), 2),
             'buyer_shipping_base' => $buyerShippingBase,
             'shipping_waived' => $shippingWaived,
+            'shipping_refunded' => $shippingRefunded / 100,
             'buyer_shipping_paid' => $buyerShippingPaid,
             'buyer_total_payable' => $buyerTotalPayable,
             'origin_hub_fee' => $originHubFee,
@@ -430,6 +461,15 @@ class EscrowEarnings
             'pickup_rider_rate' => $pickupRiderRate,
             'inter_hub_driver_fee' => $interHubDriverFee,
             'platform_trip_adjustment' => $platformTripAdjustment,
+            'platform_protection_subsidy' => $platformProtectionSubsidy,
+            'platform_logistics_subsidy' => round($platformTripAdjustment + $platformProtectionSubsidy, 2),
+            'seller_protection' => $protection !== null,
+            'protected_product_cost' => $protectedCost,
+            'protected_minimum_profit' => $protectedMinimum,
+            'seller_profit' => $economicProfit,
+            'seller_refund_reimbursement' => $fundedReimbursement,
+            'seller_reporting_net' => $protection ? round($rawSellerRemaining - ($protectedFacts['external_refund_cents'] ?? 0) / 100 + $reimbursements->where('status', 'accepted')->sum('amount_cents') / 100, 2) : $sellerEarning,
+            'protected_line_costs' => $protectedFacts['line_costs_cents'] ?? [],
             'destination_hub_fee' => $destinationHubFee,
             'last_mile_rider_fee' => $lastMileRiderFee,
             'hub_fees_total' => $hubFeesTotal,
@@ -472,9 +512,9 @@ class EscrowEarnings
 
         $allocations = round($seller + $lastMile + $origin + $pickup + $interHub + $destination + $admin
             + (float) ($calc['return_funding'] ?? 0), 2);
-        $allocationDifference = round($buyerPaid + $deficit + (float) ($calc['platform_trip_adjustment'] ?? 0) - $allocations, 2);
+        $allocationDifference = round($buyerPaid + $deficit + (float) ($calc['platform_trip_adjustment'] ?? 0) + (float) ($calc['platform_protection_subsidy'] ?? 0) - $allocations, 2);
         $voucherDifference = round($grossMerch + $shippingBase
-            - ($buyerPaid + $absorbed + (float) ($calc['merchandise_refunded'] ?? 0)), 2);
+            - ($buyerPaid + $absorbed + (float) ($calc['merchandise_refunded'] ?? 0) + (float) ($calc['shipping_refunded'] ?? 0)), 2);
 
         return [
             'allocations_total' => $allocations,
@@ -570,7 +610,8 @@ class EscrowEarnings
                 ? self::itemQuantityForSeller($order, $sellerId, $delivery)
                 : max(1, (int) $delivery->items()->sum('quantity'));
 
-            $perItem = self::pickupRiderPerItemFee();
+            $policy = $delivery->order ? \App\Services\SellerProtectionService::policy($delivery->order, (int) $delivery->seller_id) : null;
+            $perItem = $policy['rates']['pickup_rider_per_item'] ?? self::pickupRiderPerItemFee();
             $amount = round($perItem * $quantity, 2);
 
             $earning = RiderEarning::updateOrCreate(

@@ -14,6 +14,8 @@ return [
     | the Seller absorbs all voucher and logistics deductions.
     |
     */
+    'seller_logistics_cap_percent' => 5,
+    'seller_min_profit_percent' => 5,
     'trip_base_payment' => 100,
     'trip_rate_per_km' => 5,
     'trip_bonus_50' => 50,

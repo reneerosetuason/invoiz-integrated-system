@@ -344,6 +344,11 @@ class OrderController extends Controller
             ->findOrFail($id);
         $this->hideBuyerVoucherCodes(collect([$order]));
 
+        foreach ($order->deliveries as $parcel) {
+            $holder = \App\Support\ParcelChat::holder($parcel);
+            $parcel->setAttribute('chat_label', $holder['label'] ?? null);
+            $parcel->setAttribute('chat_name', $holder['name'] ?? null);
+        }
         return response()->json(['order' => $order]);
     }
 
@@ -374,9 +379,17 @@ class OrderController extends Controller
             'comment' => ['nullable', 'string', 'max:500'],
         ]);
 
-        $order = Order::where('buyer_id', $request->user()->id)->findOrFail($id);
-        if ($order->status !== 'delivered') {
+        $order = Order::where('buyer_id', $request->user()->id)->with('deliveries')->findOrFail($id);
+        $isDelivered = $order->status === 'delivered'
+            || $order->deliveries->contains('status', 'delivered')
+            || \App\Support\CustomerTracking::progressStage($order, $order->deliveries->first()) === 'delivered';
+
+        if (! $isDelivered) {
             return response()->json(['message' => 'You can rate products after the order is delivered.'], 422);
+        }
+
+        if ($order->status !== 'delivered') {
+            $order->update(['status' => 'delivered']);
         }
 
         $belongsToOrder = $order->items()->where('product_id', $validated['product_id'])->exists();

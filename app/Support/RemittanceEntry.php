@@ -53,9 +53,12 @@ final class RemittanceEntry extends Fluent
             'collection_rider'=>'Return pickup rider','collection_hub'=>'Return origin hub',
             'inter_hub_driver'=>'Return inter-hub driver','seller_hub'=>'Return destination hub',
             'seller_delivery_rider'=>'Return delivery rider','replacement_delivery_rider'=>'Replacement delivery rider',
+            'seller_protection_reimbursement'=>'Seller fee reimbursement',
             default=>'Return service',
         };
     }
+    public function payoutAccountReady(): bool
+    { return PayoutAccounts::ready($this->record); }
     public function settlementModeLabel(): string
     { return $this->source==='order'?$this->record->settlementModeLabel():'Escrow release · recipient confirms receipt'; }
     public function canAcceptHubPayout($user): bool

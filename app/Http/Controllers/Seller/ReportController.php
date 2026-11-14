@@ -26,34 +26,30 @@ class ReportController extends Controller
         $scopedOrders = Order::with(['items', 'orderVouchers'])
             ->whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
             ->where('status', 'delivered')
-            ->where('payment_status', 'paid')
+            ->where(fn ($q) => $q->where('payment_status', 'paid')->when(\Illuminate\Support\Facades\Schema::hasColumn('orders', 'logistics_policy_snapshot'), fn ($q) => $q->orWhere(fn ($q) => $q->whereNotNull('logistics_policy_snapshot')->whereIn('payment_status', ['partially_refunded', 'refunded']))))
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->get();
 
-        $revenue = round($scopedOrders->sum(fn ($o) => $o->sellerNetForSeller($sellerId)), 2);
+        $calculations = $scopedOrders->mapWithKeys(fn ($order) => [$order->id => \App\Support\EscrowEarnings::calculateForSeller($order, $sellerId)]);
+        $revenue = round($scopedOrders->sum(fn ($o) => $calculations[$o->id]['seller_reporting_net'] ?? $o->sellerNetForSeller($sellerId)), 2);
         $voucherAbsorbed = round($scopedOrders->sum(fn ($o) => $o->voucherDiscountForSeller($sellerId)), 2);
 
-        // Cost of goods sold = current product cost_price x quantity sold.
+        // Protected orders use the frozen product/packaging cost basis, including actual restocks.
         $costs = Product::where('seller_id', $sellerId)->pluck('cost_price', 'id');
         $cogs = 0.0;
         $unitsSold = 0;
         foreach ($scopedOrders as $order) {
             foreach ($order->items->where('seller_id', $sellerId) as $item) {
                 $unitsSold += (int) $item->quantity;
-                $cogs += (int) $item->quantity * (float) ($costs[$item->product_id] ?? 0);
+                $cogs += ($calculations[$order->id]['seller_protection'] ?? false) ? ($calculations[$order->id]['protected_line_costs'][$item->id] ?? 0) / 100 : (int) $item->quantity * (float) ($costs[$item->product_id] ?? 0);
             }
         }
         $cogs = round($cogs, 2);
 
         $profit = round($revenue - $cogs, 2);
 
-        $orderCount = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId))
-            ->where('status', 'delivered')
-            ->where('payment_status', 'paid')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->count();
+        $orderCount = $scopedOrders->count();
 
         $avgOrderValue = $orderCount > 0 ? round($revenue / $orderCount, 2) : 0;
 
@@ -74,15 +70,25 @@ class ReportController extends Controller
             $extra = $sellerSub > 0
                 ? ($order->shippingWaivedForSeller($sellerId) + $order->logisticsFeeForSeller($sellerId)) / $sellerSub
                 : 0;
-            foreach ($order->items->where('seller_id', $sellerId) as $item) {
+            $protected = $calculations[$order->id]['seller_protection'] ?? false;
+            $remainingNet = $calculations[$order->id]['seller_reporting_net'] ?? 0;
+            $sellerItems = $order->items->where('seller_id', $sellerId)->values();
+            foreach ($sellerItems as $index => $item) {
                 $line = $item->lineTotal ?? ((float) ($item->unit_price ?? $item->price ?? 0)) * ((int) ($item->quantity ?? 0));
                 $key = (int) $item->product_id;
                 if (! isset($byProduct[$key])) {
                     $byProduct[$key] = ['product_id' => $key, 'product_name' => $item->product_name, 'units' => 0, 'sales' => 0.0, 'cogs' => 0.0];
                 }
                 $byProduct[$key]['units'] += (int) $item->quantity;
-                $byProduct[$key]['sales'] += max(0, $line * (1 - $share) - $line * $extra);
-                $byProduct[$key]['cogs'] += (int) $item->quantity * (float) ($costs[$item->product_id] ?? 0);
+                if ($protected) {
+                    $allocated = $index === $sellerItems->count() - 1 ? $remainingNet : round($calculations[$order->id]['seller_reporting_net'] * $line / max(0.01, $sellerSub), 2);
+                    $remainingNet = round($remainingNet - $allocated, 2);
+                    $byProduct[$key]['sales'] += $allocated;
+                    $byProduct[$key]['cogs'] += ($calculations[$order->id]['protected_line_costs'][$item->id] ?? 0) / 100;
+                } else {
+                    $byProduct[$key]['sales'] += max(0, $line * (1 - $share) - $line * $extra);
+                    $byProduct[$key]['cogs'] += (int) $item->quantity * (float) ($costs[$item->product_id] ?? 0);
+                }
             }
         }
         $productRows = collect($byProduct)->sortByDesc('sales')->values()
@@ -99,7 +105,7 @@ class ReportController extends Controller
         $dailyNet = [];
         foreach ($scopedOrders as $order) {
             $day = $order->created_at->toDateString();
-            $dailyNet[$day] = ($dailyNet[$day] ?? 0) + $order->sellerNetForSeller($sellerId);
+            $dailyNet[$day] = ($dailyNet[$day] ?? 0) + ($calculations[$order->id]['seller_reporting_net'] ?? $order->sellerNetForSeller($sellerId));
         }
 
         $labels = [];

@@ -23,7 +23,12 @@ class ReturnSettlement extends Model
     public function allocations() { return $this->hasMany(ReturnAllocation::class); }
     public function order() { return $this->belongsTo(Order::class); }
     public function physicalReturn(): bool { return in_array($this->resolution, ['return_refund', 'exchange'], true); }
-    public function budgetCents(): int { return (int) $this->transport_cents + ($this->buyerFaultDirect()?0:(int) $this->compensation_cents); }
+    public function budgetCents(): int { return (int) $this->transport_cents + (int) $this->seller_reimbursement_cents + ($this->buyerFaultDirect()?0:(int) $this->compensation_cents); }
+    public function payerBudgetCents(): int { return max(0, $this->budgetCents() - (int) $this->platform_subsidy_cents); }
+    public function fundedSubsidyCents(): int
+    {
+        return $this->platform_subsidy_cents ? \App\Services\LogisticsFundingService::committed('RETURN:'.$this->id) : 0;
+    }
     public function buyerFaultDirect(): bool { return $this->workflow_policy === 'buyer_fault_direct'; }
     public function sellerFaultDirect(): bool { return $this->workflow_policy === 'seller_fault_direct'; }
     public function physicalDirectRefund(): bool { return $this->buyerFaultDirect() || $this->sellerFaultDirect(); }
@@ -34,7 +39,7 @@ class ReturnSettlement extends Model
     {
         if(!$this->physicalDirectRefund())return (bool)$this->funded_at && $this->agreed();
         return (bool)$this->collection_authorized_at && $this->agreed()
-            && (int)$this->payments()->where('purpose','return_budget')->whereIn('status',['submitted','verified'])->sum('amount_cents') >= $this->budgetCents();
+            && (int)$this->payments()->where('purpose','return_budget')->whereIn('status',['submitted','verified'])->sum('amount_cents') + $this->fundedSubsidyCents() >= $this->budgetCents();
     }
     public function agreed(): bool { return $this->buyer_accepted_at && $this->seller_accepted_at && ($this->directAgreement() || $this->admin_decided_at) && ! $this->dispute_note; }
 }

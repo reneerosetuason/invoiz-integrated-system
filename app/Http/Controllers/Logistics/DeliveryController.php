@@ -609,7 +609,7 @@ class DeliveryController extends Controller
                     $reason = "Driver's license expired";
                 } elseif ($activeDeliveries >= Rider::MAX_ACTIVE_DELIVERIES) {
                     $reason = 'At delivery capacity ('.Rider::MAX_ACTIVE_DELIVERIES.' active)';
-                } elseif ($stage === 'hub_processing') {
+                } elseif ($hubBlockReason !== null) {
                     $reason = $hubBlockReason;
                 } elseif (!$rider->matchesDestinationCenter($delivery)) {
                     $reason = $stage === 'pickup' ? 'Different pickup hub' : 'Different destination hub';
@@ -942,6 +942,17 @@ class DeliveryController extends Controller
         $this->notifyRiderAssigned($assignment['delivery'], $assignment['rider']);
 
         return redirect()->back()->with('success', "Rider {$assignment['rider']->name} assigned successfully.");
+    }
+
+    public function reviewDestination(Delivery $delivery): RedirectResponse
+    {
+        $this->assertParcelOperator();
+        DB::transaction(function () use ($delivery): void {
+            $locked = FulfillmentWorkflow::lock($delivery);
+            abort_unless(LogisticsAccess::canAccessDelivery(Auth::user(), $locked), 403);
+            FulfillmentWorkflow::reviewDestination($locked, (int) Auth::id());
+        });
+        return back()->with('success', 'Destination hub reviewed. Complete hub processing and create the inter-hub transfer before last-mile assignment.');
     }
 
     /**
@@ -2074,6 +2085,11 @@ class DeliveryController extends Controller
                 return null;
             }
 
+            if ((int) $validated['destination_center_id'] === (int) $lockedDelivery->center_id) {
+                $candidate = clone $lockedDelivery;
+                $candidate->destination_center_id = $validated['destination_center_id'];
+                abort_if($candidate->lastMileRouteBlockReason() !== null, 422, $candidate->lastMileRouteBlockReason() ?? 'Choose a hub serving the buyer.');
+            }
             $lockedDelivery->update([
                 'destination_center_id' => $validated['destination_center_id'],
                 'service_area_id' => $validated['service_area_id'],

@@ -33,6 +33,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   final _scroll = ScrollController();
   List<RiderMessage> _messages = [];
   ConversationHeader? _header;
+  bool _canSend = true;
   bool _loading = true;
   bool _sending = false;
   Timer? _poll;
@@ -48,6 +49,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void initState() {
     super.initState();
+    _canSend = widget.thread?.canSend ?? true;
     if (widget.thread != null) {
       _loadThread();
     } else {
@@ -105,7 +107,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
       final res = await _svc().getThread(thread.messageKey);
       if (!mounted) return;
       final fresh = res.messages.reversed.map(RiderMessage.fromJson).toList();
-      if (fresh.isEmpty) return;
+      if (fresh.isEmpty) {
+        setState(() => _canSend = res.canSend);
+        return;
+      }
       final known = _messages.map((m) => m.id).toSet();
       final incoming = fresh.where((m) => !known.contains(m.id)).toList();
       final byId = {for (final message in fresh) message.id: message};
@@ -113,6 +118,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           _scroll.hasClients &&
           (_scroll.position.maxScrollExtent - _scroll.position.pixels) < 120;
       setState(() {
+        _canSend = res.canSend;
         _messages = [
           for (final message in _messages) byId[message.id] ?? message,
           ...incoming,
@@ -139,6 +145,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
               ? 'Conversation'
               : thread.contextLine,
         );
+        _canSend = res.canSend;
         _messages = res.messages.reversed.map(RiderMessage.fromJson).toList();
         _threadPage = res.currentPage;
         _threadHasMore = res.hasMore;
@@ -179,7 +186,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   });
 
   Future<void> _send() async {
-    if (widget.thread?.canSend == false) return;
+    if (!_canSend) return;
     if (_sending) return;
     final text = _input.text.trim();
     final bytes = _pendingBytes;
@@ -864,7 +871,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     IconButton(
                       onPressed:
                           _sending ||
-                              widget.thread?.canSend == false ||
+                              !_canSend ||
                               widget.thread?.threadKey?.startsWith(
                                     'marketplace:',
                                   ) ==
@@ -877,9 +884,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     Expanded(
                       child: TextField(
                         controller: _input,
-                        enabled: widget.thread?.canSend != false,
+                        enabled: _canSend,
                         decoration: InputDecoration(
-                          hintText: widget.thread?.canSend == false
+                          hintText: !_canSend
                               ? 'Conversation is read only'
                               : 'Type a message...',
                           border: OutlineInputBorder(
@@ -911,9 +918,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 color: Colors.white,
                                 size: 18,
                               ),
-                        onPressed: _sending || widget.thread?.canSend == false
-                            ? null
-                            : () => _send(),
+                        onPressed: _sending || !_canSend ? null : () => _send(),
                       ),
                     ),
                   ],

@@ -9,9 +9,14 @@
     <div class="mc-compose" data-contacts-panel hidden>
         <label for="mc-contact-search">Find a contact</label>
         <input id="mc-contact-search" type="search" placeholder="Search by name" maxlength="100" data-contact-search>
-        <p>Contacts are based on your role, company, and delivery assignments.</p>
+        <p>Parcel contacts follow the current handler. Sellers can also contact logistics separately about partnerships.</p>
         <div data-contact-list></div>
         <button type="button" data-close-contacts>Close contacts</button>
+    </div>
+    <div class="mc-compose" data-parcel-contacts hidden>
+        <h2>Your parcel contacts</h2>
+        <p>Private chats with the rider or logistics hub currently handling each parcel.</p>
+        <div data-parcel-contact-list></div>
     </div>
     <div class="mc-workspace">
         <aside class="mc-inbox-pane"><header class="mc-inbox-heading"><h2>Conversations</h2><p>All your messages in one place</p></header><nav class="mc-inbox" aria-label="Conversations" data-thread-list><p>Loading conversations…</p></nav></aside>

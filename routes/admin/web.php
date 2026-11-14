@@ -109,6 +109,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
         Route::post('payments/gcash-escrow/{deposit}/review', [\App\Http\Controllers\GcashEscrowController::class, 'review'])->name('admin.gcash.review');
         Route::get('payments/gcash-escrow/{deposit}/proof', [\App\Http\Controllers\GcashEscrowController::class, 'proof'])->name('admin.gcash.proof');
         Route::post('payments/escrow-remittances/{id}/remit', [\App\Http\Controllers\Admin\PaymentActionController::class, 'remitEscrow'])->name('admin.escrow.remit');
+        Route::post('payments/escrow-remittances/{id}/confirm-cod', [\App\Http\Controllers\Admin\PaymentActionController::class, 'confirmCodRemittance'])->name('admin.remittances.confirm-cod');
         Route::post('payments/escrow-remittances/remit-all', [\App\Http\Controllers\Admin\PaymentActionController::class, 'remitAllPendingEscrow'])->name('admin.escrow.remit-all');
         Route::post('payments/payouts/{id}/mark-paid', [\App\Http\Controllers\Admin\PaymentActionController::class, 'markPayoutPaid'])->name('admin.payouts.mark-paid');
         Route::post('payments/withdrawals/{id}/approve', [\App\Http\Controllers\Admin\PaymentActionController::class, 'approveWithdrawal'])->name('admin.withdrawals.approve');
@@ -122,6 +123,7 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
     Route::get('complaints/{complaint}', [ComplaintController::class, 'show'])->name('admin.complaint.show');
     Route::post('complaints/{complaint}/resolve', [ComplaintController::class, 'resolve'])->name('admin.complaint.resolve');
     Route::get('commission', [CommissionController::class, 'index'])->name('admin.commission');
+    Route::get('commission/earnings-flow', fn () => response()->file(base_path('docs/flows/order-return-escrow.html'), ['Content-Type' => 'text/html; charset=UTF-8']))->name('admin.commission.earnings-flow');
     Route::post('commission/rates', [CommissionController::class, 'updateRate'])->name('admin.commission.rates.update');
     Route::post('commission/earnings', [CommissionController::class, 'updateEarnings'])->name('admin.commission.rates.earnings');
     Route::post('commission/rates/add', [CommissionController::class, 'storeRate'])->name('admin.commission.rates.store');

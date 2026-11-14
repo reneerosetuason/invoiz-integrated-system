@@ -14,7 +14,7 @@
 
     @if(session('success'))<div class="help-feedback help-feedback-success" role="status">{{ session('success') }}</div>@endif
     @if(session('error'))<div class="help-feedback help-feedback-error" role="alert">{{ session('error') }}</div>@endif
-    @if($errors->any())
+    @if(!empty($errors) && $errors->any())
       <div class="help-feedback help-feedback-error" role="alert">
         @foreach($errors->all() as $e)<div>{{ $e }}</div>@endforeach
       </div>
@@ -90,31 +90,48 @@
       </header>
       <div class="help-form-area">
         @if($buyer)
-          <form method="POST" action="{{ url('/help/complaint') }}" class="help-form">
+          <form method="POST" action="{{ url('/help/complaint') }}" class="help-form" id="helpForm">
             @csrf
+            <input type="hidden" id="helpSubject" name="subject" value="">
+            <input type="hidden" id="helpSellerId" name="seller_id" value="">
+
             <div class="help-form-row">
               <div class="help-field">
-                <label for="helpSubject">Subject</label>
-                <input id="helpSubject" type="text" name="subject" maxlength="150" required placeholder="e.g. Damaged item in order #123">
-              </div>
-              <div class="help-field">
-                <label for="helpOrder">Related order <span>(optional)</span></label>
+                <label for="helpOrder">Subject <span style="font-weight:normal;color:#6B7280;font-size:12px;">(Select order to report)</span></label>
                 <span class="help-select-wrap">
-                  <select id="helpOrder" name="order_id">
-                    <option value="">No specific order</option>
-                    @foreach($orders as $o)
-                      <option value="{{ $o->id }}">#{{ $o->id }} — {{ $o->status }} ({{ $o->created_at->format('M j, Y') }})</option>
-                    @endforeach
+                  <select id="helpOrder" name="order_id" required>
+                    @if($orders->isEmpty())
+                      <option value="" disabled selected>No orders found on your account</option>
+                    @else
+                      <option value="">Select an order to report...</option>
+                      @foreach($orders as $o)
+                        <option value="{{ $o->id }}" data-store="{{ $o->store_name_display }}" data-ordernum="{{ $o->order_number ?? $o->id }}">
+                          Order #{{ $o->order_number ?? $o->id }} — Store: {{ $o->store_name_display }} ({{ ucfirst($o->status) }})
+                        </option>
+                      @endforeach
+                    @endif
+                  </select>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
+                @if($orders->isEmpty())
+                  <small style="color:#6E6E73;font-size:12px;margin-top:4px;display:block;">You have no orders yet to report.</small>
+                @endif
+              </div>
+              <div class="help-field" id="helpItemField">
+                <label for="helpItem">Item with problem <span style="font-weight:normal;color:#6B7280;font-size:12px;">(optional)</span></label>
+                <span class="help-select-wrap">
+                  <select id="helpItem" name="order_item_id" disabled>
+                    <option value="">Select an order first</option>
                   </select>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
                 </span>
               </div>
             </div>
-            <div class="help-field help-description-field">
+            <div class="help-field help-description-field" style="margin-top:14px;">
               <label for="helpDescription">What happened?</label>
-              <textarea id="helpDescription" name="description" rows="4" maxlength="2000" required placeholder="Describe the problem, including item names and what you received…"></textarea>
+              <textarea id="helpDescription" name="description" rows="4" maxlength="2000" required placeholder="Describe the problem, including item names, damage, or what was received…"></textarea>
             </div>
-            <button type="submit" class="btn-p btn-solid help-submit">Send complaint</button>
+            <button type="submit" class="btn-p btn-solid help-submit" {{ $orders->isEmpty() ? 'disabled' : '' }}>Send complaint</button>
           </form>
         @else
           <a href="{{ url('/login') }}" class="btn-p btn-line help-login">Login to file a complaint</a>
@@ -142,8 +159,17 @@
                   @if($reportResolved)<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m3 8 3 3 7-7"/></svg>@endif
                   {{ str_replace('_', ' ', $c->status) }}
                 </span>
-                <span class="help-report-meta">{{ $c->created_at->format('M j, Y') }}@if($c->order_id) · Order #{{ $c->order_id }}@endif</span>
+                <span class="help-report-meta">
+                  {{ $c->created_at->format('M j, Y') }}
+                  &bull; Store: <strong>{{ $c->store_name }}</strong>
+                  @if($c->order_id) &bull; Order #{{ $c->order->order_number ?? $c->order_id }}@endif
+                </span>
               </div>
+              @if($c->reported_product_name)
+                <div style="font-size:12.5px;color:#0E4A57;margin-top:4px;">
+                  <strong>Reported Item:</strong> {{ $c->reported_product_name }}
+                </div>
+              @endif
               @if($c->resolution)
                 <div class="help-response">
                   <div class="help-response-label">Response from support{{ $c->resolved_at ? ' · '.$c->resolved_at->format('M j, Y g:i A') : '' }}</div>
@@ -164,5 +190,113 @@
   </div>
 </div>
 
+@php
+  $ordersPayload = ($orders ?? collect())->mapWithKeys(function($o) {
+      return [
+          (string)$o->id => [
+              'order_number' => $o->order_number ?? (string)$o->id,
+              'seller_id' => $o->seller_id,
+              'store_name' => $o->store_name_display,
+              'items' => $o->items->map(function($it) {
+                  return [
+                      'id' => $it->id,
+                      'product_name' => $it->product_name,
+                      'seller_id' => $it->seller_id,
+                      'store_name' => $it->store_name,
+                      'price' => $it->unit_price ?? $it->price,
+                      'quantity' => $it->quantity,
+                  ];
+              })->values()->all(),
+          ]
+      ];
+  })->all();
+@endphp
+
+<script>
+(function() {
+  var ordersData = @json($ordersPayload);
+
+  var orderSelect = document.getElementById('helpOrder');
+  var itemSelect = document.getElementById('helpItem');
+  var subjectInput = document.getElementById('helpSubject');
+  var sellerInput = document.getElementById('helpSellerId');
+
+  function updateSubject() {
+    if (!orderSelect || !subjectInput) return;
+    var orderId = String(orderSelect.value || '');
+    if (!orderId || !ordersData[orderId]) {
+      subjectInput.value = '';
+      return;
+    }
+    var data = ordersData[orderId];
+    var storeName = data.store_name || 'Store';
+    var orderNum = data.order_number || orderId;
+
+    var itemId = itemSelect ? itemSelect.value : '';
+    if (itemId && data.items) {
+      var itemObj = data.items.find(function(i) { return String(i.id) === String(itemId); });
+      if (itemObj) {
+        storeName = itemObj.store_name || storeName;
+        subjectInput.value = 'Order #' + orderNum + ' (' + itemObj.product_name + ') — Store: ' + storeName;
+        return;
+      }
+    }
+
+    subjectInput.value = 'Order #' + orderNum + ' — Store: ' + storeName;
+  }
+
+  if (orderSelect && itemSelect) {
+    orderSelect.addEventListener('change', function() {
+      var orderId = String(this.value || '');
+      itemSelect.innerHTML = '<option value="">All items / Entire order</option>';
+      if (sellerInput) sellerInput.value = '';
+
+      if (!orderId || !ordersData[orderId]) {
+        itemSelect.innerHTML = '<option value="">Select an order first</option>';
+        itemSelect.disabled = true;
+        updateSubject();
+        return;
+      }
+
+      itemSelect.disabled = false;
+      var data = ordersData[orderId];
+      if (sellerInput && data.seller_id) {
+        sellerInput.value = data.seller_id;
+      }
+
+      var items = data.items || [];
+      if (items.length > 0) {
+        items.forEach(function(it) {
+          var opt = document.createElement('option');
+          opt.value = it.id;
+          opt.dataset.sellerId = it.seller_id || '';
+          opt.dataset.storeName = it.store_name || '';
+          opt.textContent = it.product_name + ' — Store: ' + it.store_name + (it.quantity ? ' (Qty: ' + it.quantity + ')' : '');
+          itemSelect.appendChild(opt);
+        });
+
+        if (items.length === 1) {
+          itemSelect.value = items[0].id;
+          if (sellerInput && items[0].seller_id) {
+            sellerInput.value = items[0].seller_id;
+          }
+        }
+      }
+
+      updateSubject();
+    });
+
+    itemSelect.addEventListener('change', function() {
+      var selectedOpt = this.options[this.selectedIndex];
+      if (selectedOpt && selectedOpt.dataset.sellerId && sellerInput) {
+        sellerInput.value = selectedOpt.dataset.sellerId;
+      } else if (orderSelect.value && ordersData[orderSelect.value] && sellerInput) {
+        sellerInput.value = ordersData[orderSelect.value].seller_id || '';
+      }
+      updateSubject();
+    });
+  }
+})();
+</script>
 <script src="{{ asset('assets/buyer/js/help.js') }}"></script>
 @endsection

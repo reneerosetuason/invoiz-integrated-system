@@ -35,3 +35,5 @@
 .mc-history{min-height:0}
 .mc-thread-heading,.mc-inbox-heading,.mc-thread form,.mc-thread>[data-chat-readonly],.mc-thread>[data-older]{flex-shrink:0}
 @media(max-width:760px){.mc-workspace{grid-template-rows:auto auto}.mc-history{min-height:200px}}
+
+[data-parcel-contact-list]{display:flex;flex-wrap:wrap;gap:8px}[data-parcel-contact-list] button{white-space:normal;overflow-wrap:anywhere;text-align:left}

@@ -136,7 +136,9 @@
 </div>
 
 @foreach(collect($escrowRemittancesList?->items() ?? [])->merge($adminRemittances?->items() ?? []) as $remit)
-@php($payoutKey=$remit->key??'order-'.$remit->id)
+@php
+    $payoutKey = $remit->key ?? 'order-'.$remit->id;
+@endphp
 <dialog class="po-dialog" id="payout-detail-{{ $payoutKey }}" aria-labelledby="payout-title-{{ $payoutKey }}">
     <header><div><p class="po-eyebrow">{{ $remit->source==='return'?'Return #'.$remit->return_id.' · ':'' }}Allocation #{{ $remit->id }}</p><h2 id="payout-title-{{ $payoutKey }}">Payout details</h2></div><button type="button" class="po-close" data-payment-close aria-label="Close payout details">&times;</button></header>
     <dl class="po-detail-list">
@@ -159,7 +161,9 @@
         <button type="button" class="po-button" data-refresh-payout-account>Refresh bank details</button>
     </section>
     @endif
-    @if($remit->status === 'pending_remittance')
+    @if($remit->status === 'pending_remittance' && !$remit->payoutAccountReady())
+        <p class="alert alert-warning">Release unavailable: the recipient must save complete banking or e-wallet details first. Refresh this page after the details are saved.</p>
+    @elseif($remit->status === 'pending_remittance')
         <form class="po-release-form" method="POST" action="{{ $remit->source==='return'?route('returns.payout',$remit->id):route('admin.escrow.remit',$remit->id) }}" @if($remit->source!=='return') data-payout-confirm="Release payout of &#8369;{{ number_format((float) $remit->amount, 2) }} to {{ $remit->recipient_name }}?" @endif>
             @csrf
             @if($remit->source==='return')
@@ -179,8 +183,41 @@
             <label><input type="checkbox" name="confirm_received" value="1" required> I confirm the platform received or retained this amount.</label>
             <button class="po-button po-button-primary" type="submit">Accept admin remittance</button>
         </form>
+    @elseif($remit->status === 'held_in_escrow' && ($remit->order?->payment?->method === 'cash_on_delivery' || $remit->order?->payment?->method === 'cod') && in_array($remit->order?->status, ['delivered', 'completed'], true))
+        <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 14px;margin:12px 0;">
+            <div style="font-size:12px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.5px;">Cash on Delivery (COD) Order</div>
+            <p style="font-size:12.5px;color:#78350F;margin:4px 0 8px;">
+                This order was delivered via COD. The rider collected <strong>&#8369;{{ number_format((float)($remit->order?->total_amount ?? $remit->amount), 2) }}</strong> cash from the buyer.
+                Once confirmed that the rider has remitted the cash, you can settle the COD transaction below.
+            </p>
+            <form method="POST" action="{{ route('admin.remittances.confirm-cod', $remit->id) }}" onsubmit="return confirm('Confirm COD cash remittance and settle this order?');">
+                @csrf
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input type="text" name="reference" placeholder="Settlement reference (optional)" style="flex:1;min-width:160px;padding:6px 10px;border:1px solid #D1D5DB;border-radius:6px;font-size:12px;">
+                    <button class="po-button po-button-primary" type="submit" style="background:#D97706;border-color:#D97706;padding:6px 14px;font-size:12px;">
+                        Confirm COD Settlement
+                    </button>
+                </div>
+            </form>
+        </div>
     @else
-        <p class="po-dialog-note">{{ match($remit->status) { 'remitted' => 'Payout sent. Awaiting recipient confirmation.', 'accepted' => 'The recipient has confirmed this payout.', 'held_in_escrow' => 'Held in escrow. Release becomes available when settlement requirements are met.', default => 'No release action is available for this status.' } }}</p>
+        @php
+            $holdExplanation = match($remit->status) {
+                'remitted' => 'Payout sent. Awaiting recipient confirmation.',
+                'accepted' => 'The recipient has confirmed this payout.',
+                'held_in_escrow' => match(true) {
+                    $remit->order?->payment?->method === 'cash_on_delivery' || $remit->order?->payment?->method === 'cod' =>
+                        'Held in escrow. This is a Cash on Delivery (COD) order — the rider collects physical cash directly from the buyer. Once the seller or hub confirms receipt of the COD cash remittance from the rider, the order settles.',
+                    $remit->order?->payment?->method === 'gcash' && (! $remit->order?->payment?->verified_at) =>
+                        'Held in escrow. The buyer\'s GCash payment receipt has not been verified yet.',
+                    ! in_array($remit->order?->status, ['delivered', 'completed'], true) =>
+                        'Held in escrow. The parcel is still in transit and has not been delivered to the customer yet.',
+                    default => 'Held in escrow. Release becomes available when settlement requirements are met.',
+                },
+                default => 'No release action is available for this status.',
+            };
+        @endphp
+        <p class="po-dialog-note">{{ $holdExplanation }}</p>
     @endif
     <footer><button type="button" class="po-button" data-payment-close>Close</button><a href="{{ ($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" class="po-button">{{ $remit->settlement_reference ? 'Open truck trip' : 'Open order' }} &rarr;</a></footer>
 </dialog>

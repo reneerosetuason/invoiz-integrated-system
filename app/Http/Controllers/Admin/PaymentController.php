@@ -85,7 +85,9 @@ class PaymentController extends Controller
         ] : ['accepted' => 0, 'remitted' => 0, 'awaiting_release' => 0];
 
         $pendingEscrowRemittances = $hasEscrowTable ? \App\Models\EscrowRemittance::where('status', 'pending_remittance')
-            ->whereDoesntHave('order.payment', fn ($query) => $query->where('method', 'gcash'))->get() : collect();
+            ->whereNull('settlement_reference')->whereNotNull('order_id')
+            ->whereDoesntHave('order.payment', fn ($query) => $query->where('method', 'gcash'))->get()
+            ->filter(fn ($row) => \App\Support\PayoutAccounts::ready($row)) : collect();
 
         return view('admin.payments', compact('stats', 'transactions', 'status', 'escrowRemittances', 'escrowTotals', 'adminRemittances', 'adminRemittanceTotals', 'pendingEscrowRemittances','returnFundingReceipts','escrowAdjustments'));
     }

@@ -26,6 +26,7 @@ class ReturnAllocation extends Model
                 && (int)$this->rider?->user_id===(int)$this->recipient_user_id,
             'inter_hub_driver' => $this->driver_id && $this->driver,
             'collection_hub','seller_hub' => $this->center_id && $this->center,
+            'seller_protection_reimbursement' => $this->recipient_user_id && (int) $this->recipient_user_id === (int) $this->settlement?->returnRequest?->seller_id,
             default => false,
         };
     }

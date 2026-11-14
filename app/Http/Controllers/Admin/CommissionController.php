@@ -141,7 +141,9 @@ class CommissionController extends Controller
 
     public function updateEarnings(Request $request)
     {
+        abort_unless($request->user()->isAdmin(), 403);
         $validated = $request->validate([
+            'seller_logistics_cap_percent' => 'sometimes|required|numeric|min:0|max:100|decimal:0,2',
             'origin_hub_fee'        => 'required|numeric|min:0|max:5000',
             'pickup_rider_per_item' => 'required|numeric|min:0|max:5000',
             'trip_base_payment' => 'required|numeric|min:0|max:5000|decimal:0,2',

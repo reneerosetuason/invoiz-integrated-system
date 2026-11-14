@@ -32,7 +32,10 @@ class Order extends Model
         'cancellation_reason',
     ];
 
+    protected $hidden = ['logistics_policy_snapshot'];
+
     protected $casts = [
+        'logistics_policy_snapshot' => 'array',
         'shipping_address' => 'array',
     ];
 

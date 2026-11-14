@@ -66,7 +66,7 @@
     @if(request('status'))<input type="hidden" name="status" value="{{ request('status') }}">@endif
     <div style="position:relative; flex:1; min-width:220px;">
       <svg style="position:absolute; left:12px; top:50%; transform:translateY(-50%); width:16px; height:16px; stroke:#9CA3AF; fill:none; stroke-width:1.8;" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-      <input type="search" name="search" value="{{ request('search') }}" placeholder="Search by subject, type or buyer..." style="padding:9px 14px 9px 36px;border:1px solid #d1d5db;border-radius:10px;width:100%;background:#fff;" />
+      <input type="search" name="search" value="{{ request('search') }}" placeholder="Search by subject, store, product, or buyer..." style="padding:9px 14px 9px 36px;border:1px solid #d1d5db;border-radius:10px;width:100%;background:#fff;" />
     </div>
     <button type="submit" style="padding:9px 18px;background:#16697A;color:white;border:none;border-radius:10px;cursor:pointer;font-weight:700;">Search</button>
     @if(request('search') || request('status'))<a href="{{ url('/admin/complaints') }}" style="align-self:center;color:#6E6E73;font-size:13px;font-weight:600;">Clear filters</a>@endif
@@ -86,6 +86,7 @@
           <th>Case / Subject</th>
           <th>Type</th>
           <th>Buyer</th>
+          <th>Store / Seller</th>
           <th>Status</th>
           <th>Date</th>
           <th style="text-align:right;">Action</th>
@@ -97,13 +98,37 @@
         <tr>
           <td>
             <strong style="color:#111827;">#{{ $complaint->id }}</strong>
-            <span style="color:#374151; margin-left:6px; font-weight:600;">{{ \Illuminate\Support\Str::limit($complaint->subject, 40) }}</span>
+            <div style="color:#111827; margin-top:2px; font-weight:700; font-size:13px;">
+              {{ $complaint->subject }}
+            </div>
+            @if($complaint->order)
+              <div style="font-size:11.5px;color:#16697A;font-weight:600;margin-top:2px;">
+                Order #{{ $complaint->order->order_number ?? $complaint->order->id }} &bull; Store: {{ $complaint->store_name }}
+              </div>
+            @endif
           </td>
           <td>
             <span class="type-badge">{{ ucfirst($complaint->type) }}</span>
           </td>
           <td style="color:#374151; font-weight:600;">
             {{ $complaint->buyer->name ?? 'N/A' }}
+            <div style="font-size:11px;color:#6B7280;font-weight:normal;">{{ $complaint->buyer->email ?? '' }}</div>
+          </td>
+          <td>
+            <div style="display:inline-flex;align-items:center;gap:5px;padding:3px 9px;background:#EAF4F3;color:#0E4A57;border-radius:6px;font-weight:700;font-size:12.5px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              {{ $complaint->store_name }}
+            </div>
+            @if($complaint->order)
+              <div style="font-size:11.5px;font-weight:600;color:#374151;margin-top:3px;">
+                Ordered at: <strong style="color:#0E4A57;">{{ $complaint->store_name }}</strong>
+              </div>
+            @endif
+            @if($complaint->reported_product_name)
+              <div style="font-size:11px;font-weight:500;color:#92400E;margin-top:2px;">
+                Item: {{ \Illuminate\Support\Str::limit($complaint->reported_product_name, 26) }}
+              </div>
+            @endif
           </td>
           <td>
             <span class="status-badge status-{{ $st }}"><span class="dot"></span> {{ ucfirst(str_replace('_',' ', $st)) }}</span>
@@ -119,7 +144,7 @@
         </tr>
         @empty
         <tr>
-          <td colspan="6" style="padding:32px;text-align:center;color:#6E6E73;">
+          <td colspan="7" style="padding:32px;text-align:center;color:#6E6E73;">
             <div style="width:44px;height:44px;border-radius:50%;background:#F3F4F6;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="1.6"><path d="M12 9v4"/><circle cx="12" cy="12" r="9"/></svg>
             </div>

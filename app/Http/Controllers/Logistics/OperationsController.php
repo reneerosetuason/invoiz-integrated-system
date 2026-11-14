@@ -8,6 +8,7 @@ use App\Models\HubTransfer;
 use App\Models\HubTransferParcel;
 use App\Models\LogisticsCenter;
 use App\Models\LogisticsCompany;
+use App\Models\PickupRequest;
 use App\Models\Rider;
 use App\Models\ServiceArea;
 use App\Models\User;
@@ -27,8 +28,8 @@ use Illuminate\View\View;
  * Unified hub operations workspace.
  *
  * Read-only aggregation over the existing parcel pipeline and hub transfers.
- * Every primary action links to the canonical page that performs the mutation,
- * so authorization and validation stay in the existing controllers/services.
+ * Actions submit to the canonical controllers from this workspace, keeping
+ * authorization and validation in the existing controllers/services.
  * The assigned hub always comes from the authenticated account; query strings
  * can never widen a staff member's facility scope.
  */
@@ -58,11 +59,19 @@ class OperationsController extends Controller
         $center = $centerId ? LogisticsCenter::whereKey($centerId)->first() : null;
         $canProcess = LogisticsAccess::canProcessParcels($user);
 
-        $deliveries = Delivery::query()->notArchived();
+        $deliveries = Delivery::query()->notArchived()->whereNull('delivered_at')
+            ->whereNotIn('status', ['delivered', 'cancelled', 'returned_to_seller']);
         $this->scopeDeliveries($deliveries, $companyId, $centerId);
 
         $transfers = HubTransfer::query();
         $this->scopeTransfers($transfers, $companyId, $centerId);
+
+        $pickupReviewQuery = (clone $deliveries)->whereIn('id', PickupRequest::query()->pendingReview($user)->select('delivery_id'));
+        $pickupAssignmentQuery = (clone $deliveries)
+            ->whereNull('picked_up_at')->whereNull('received_at')->whereNull('sorting_center_handoff_at')
+            ->whereNull('rider_id')->where('status', 'waiting_for_rider')
+            ->whereHas('order', fn (Builder $query) => $query->where('status', 'ready_for_delivery'))
+            ->whereHas('pickupRequest', fn (Builder $query) => $query->visibleTo($user)->where('status', 'approved'));
 
         $awaitingReceiptQuery = (clone $deliveries)
             ->where('parcel_status', 'pending_arrival')
@@ -116,14 +125,14 @@ class OperationsController extends Controller
             })
             ->whereIn('hub_transfer_id', (clone $transfers)->select('id'));
 
-        // The KPI contract stays the required seven counts; sorted parcels whose
-        // next hop is another hub are folded into the action total because their
-        // next step is manifest creation, not last-mile assignment.
+        $actionableParcels = (clone $deliveries)->where(function (Builder $query) use ($awaitingReceiptQuery, $readySortingQuery, $readyRiderQuery, $preparingTransferQuery, $pickupReviewQuery, $pickupAssignmentQuery): void {
+            foreach ([$awaitingReceiptQuery, $readySortingQuery, $readyRiderQuery, $preparingTransferQuery, $pickupReviewQuery, $pickupAssignmentQuery] as $stage) {
+                $query->orWhereIn('deliveries.id', (clone $stage)->select('deliveries.id'));
+            }
+        });
+        // One parcel counts once, including work before physical hub receipt.
         $counts = [
-            'action_parcels' => (clone $awaitingReceiptQuery)->count()
-                + (clone $readySortingQuery)->count()
-                + (clone $readyRiderQuery)->count()
-                + (clone $preparingTransferQuery)->count(),
+            'action_parcels' => $actionableParcels->count(),
             'incoming_transfers' => (clone $incomingTransfersQuery)->count(),
             'in_transit' => (clone $incomingTransfersQuery)->where('status', 'in_transit')->count(),
             'awaiting_receiving' => (clone $incomingTransfersQuery)
@@ -167,6 +176,8 @@ class OperationsController extends Controller
             ->get();
 
         $parcelRelations = [
+            'pickupRequest',
+            'order:id,status',
             'rider',
             'logisticsCenter',
             'originCenter',
@@ -184,34 +195,20 @@ class OperationsController extends Controller
             || $filters['condition'] !== '';
         $hasCustomSort = $filters['sort'] !== '' && $filters['sort'] !== 'default';
 
+        // Pickup work belongs to the hub's workload before physical handoff.
+        // Keep waiting/rejected requests visible with their actual blocker;
+        // visibility never grants receipt or assignment eligibility.
+        $filteredQuery = (clone $deliveries)->with($parcelRelations);
+        $this->applySearchAndFilters($filteredQuery, $filters);
         if (! $hasSearchOrFilter && ! $hasCustomSort) {
-            $rawParcels = collect()
-                ->concat((clone $awaitingReceiptQuery)->with($parcelRelations)->orderByDesc('received_at')->limit(8)->get())
-                ->concat((clone $readySortingQuery)->with($parcelRelations)->orderByDesc('received_at')->limit(8)->get())
-                ->concat((clone $readyRiderQuery)->with($parcelRelations)->orderByDesc('sorted_at')->limit(8)->get())
-                ->concat((clone $preparingTransferQuery)->with($parcelRelations)->orderByDesc('sorted_at')->limit(8)->get())
-                ->unique('id')
-                ->take(15);
+            $filteredQuery->orderByRaw("CASE WHEN id IN (".(clone $pickupReviewQuery)->select('id')->toSql().") THEN 0 WHEN id IN (".(clone $pickupAssignmentQuery)->select('id')->toSql().") THEN 1 WHEN parcel_status IN ('received', 'scanned') THEN 2 WHEN parcel_status = 'sorted' THEN 3 ELSE 4 END", [
+                ...(clone $pickupReviewQuery)->getBindings(), ...(clone $pickupAssignmentQuery)->getBindings(),
+            ])->orderBy('id');
         } else {
-            $filteredQuery = (clone $deliveries)
-                ->with($parcelRelations)
-                // Order-linked parcels that are still pending_arrival must have
-                // pickup handoff recorded before appearing in hub operations.
-                ->where(function ($query): void {
-                    $query->where('parcel_status', '!=', 'pending_arrival')
-                        ->orWhereNull('parcel_status')
-                        ->orWhereNull('order_id')
-                        ->orWhere(function ($handoff): void {
-                            $handoff->whereNotNull('picked_up_at')
-                                ->whereNotNull('sorting_center_handoff_at');
-                        });
-                });
-
-            $this->applySearchAndFilters($filteredQuery, $filters);
             $this->applyParcelSorting($filteredQuery, $filters['sort'] ?: 'newest');
-
-            $rawParcels = $filteredQuery->limit(50)->get();
         }
+        $parcelPaginator = $filteredQuery->paginate(25, ['*'], 'parcels_page', max(1, $request->integer('parcels_page', 1)))->withQueryString();
+        $rawParcels = collect($parcelPaginator->items());
 
         $actionParcels = $rawParcels->map(function (Delivery $delivery) use ($user, $canProcess, $centerId): array {
             $entry = $delivery->latestHubTransferParcel ?? $delivery->incomingTransferParcel;
@@ -290,6 +287,8 @@ class OperationsController extends Controller
             'canManageRiders' => $user->canManageRiders(),
             'counts' => $counts,
             'actionParcels' => $actionParcels,
+            'parcelPaginator' => $parcelPaginator,
+            'pickupCounts' => ['review' => (clone $pickupReviewQuery)->count(), 'assign' => (clone $pickupAssignmentQuery)->count()],
             'incomingTransfers' => $incomingTransfers,
             'outgoingTransfers' => $outgoingTransfers,
             'exceptionEntries' => $exceptionEntries,
@@ -348,6 +347,9 @@ class OperationsController extends Controller
             'ready_sorting',
             'ready_rider',
             'ready_transfer',
+            'pickup_review',
+            'pickup_assignment',
+            'pickup_in_progress',
         ];
         $allowedConditions = ['good', 'damaged', 'missing'];
         $allowedSorts = ['newest', 'oldest', 'tracking', 'tracking_asc', 'tracking_desc'];
@@ -409,7 +411,13 @@ class OperationsController extends Controller
 
         if ($filters['parcel_status'] !== '') {
             match ($filters['parcel_status']) {
-                'awaiting_receiving' => $query->where('parcel_status', 'pending_arrival'),
+                'pickup_review' => $query->whereNull('picked_up_at')->whereHas('pickupRequest', fn (Builder $pickup) => $pickup->where('status', 'pending'))
+                    ->whereHas('order', fn (Builder $order) => $order->where('status', 'ready_for_delivery')),
+                'pickup_assignment' => $query->whereNull('picked_up_at')->whereNull('received_at')->whereNull('sorting_center_handoff_at')->whereNull('rider_id')
+                    ->where('status', 'waiting_for_rider')->whereHas('pickupRequest', fn (Builder $pickup) => $pickup->where('status', 'approved'))
+                    ->whereHas('order', fn (Builder $order) => $order->where('status', 'ready_for_delivery')),
+                'pickup_in_progress' => $query->whereNotNull('rider_id')->whereNull('received_at')->whereNull('sorting_center_handoff_at'),
+                'awaiting_receiving' => $query->where('parcel_status', 'pending_arrival')->where(fn (Builder $handoff) => $handoff->whereNull('order_id')->orWhere(fn (Builder $recorded) => $recorded->whereNotNull('picked_up_at')->whereNotNull('sorting_center_handoff_at'))),
                 'ready_sorting' => $query->whereIn('parcel_status', ['received', 'scanned']),
                 'ready_rider' => $query->where('parcel_status', 'sorted')
                     ->whereNull('rider_id')

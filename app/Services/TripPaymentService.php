@@ -19,13 +19,42 @@ use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class TripPaymentService
 {
-    public static function preview(HubTransfer $trip, ?array $rates = null): array
+    public static function inputs(HubTransfer $trip): array
+    {
+        $parcels = $trip->parcels()->where('loading_status', '!=', 'removed')->orderBy('delivery_id')->with('delivery')->get();
+        foreach ($parcels as $parcel) {
+            if ($parcel->delivery && ! $trip->payment_confirmed_at) {
+                app(ShipmentMeasurementService::class)->fillMissing($parcel->delivery);
+            }
+        }
+        $route = (float) $trip->route_distance_km > 0 && filled($trip->route_distance_source)
+            ? ['distance' => (float) $trip->route_distance_km, 'source' => $trip->route_distance_source]
+            : app(HubRoadDistanceService::class)->between($trip->origin, $trip->destination);
+
+        return $route + ['parcels' => $parcels->map(fn ($p) => $p->delivery?->only(['id', 'weight', 'length_cm', 'width_cm', 'height_cm']) ?? ['id' => $p->delivery_id])->all()];
+    }
+
+    public static function preview(HubTransfer $trip, ?array $rates = null, ?array $inputs = null): array
     {
         $truck = LogisticsTruck::findOrFail($trip->truck_id);
-        $parcels = $trip->parcels()->where('loading_status', '!=', 'removed')->orderBy('delivery_id')->with('delivery')->get();
-        $snapshot = app(TripPaymentCalculator::class)->calculate($truck->only(['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']), $parcels->map(fn ($p) => $p->delivery?->only(['id', 'weight', 'length_cm', 'width_cm', 'height_cm']) ?? ['id' => $p->delivery_id])->all(), (float) $trip->route_distance_km, $rates ?? EscrowEarnings::rates());
+        $inputs ??= self::inputs($trip);
+        $snapshot = app(TripPaymentCalculator::class)->calculate($truck->only(['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']), $inputs['parcels'], $inputs['distance'], $rates ?? EscrowEarnings::rates());
 
-        return $snapshot + ['driver_id' => $trip->driver_id, 'truck_id' => $trip->truck_id, 'origin_center_id' => $trip->origin_center_id, 'destination_center_id' => $trip->destination_center_id, 'route_distance_source' => $trip->route_distance_source];
+        if (!$trip->payment_confirmed_at || ($trip->payment_snapshot['pricing_version'] ?? 1) >= 2) {
+            $budgets = [];
+            foreach (Delivery::whereIn('id', array_column($inputs['parcels'], 'id'))->with('order')->get() as $delivery) {
+                $budget = InterHubPaymentPolicy::budget($delivery->order, (int) $delivery->seller_id, $snapshot['rates']);
+                $used = HubTransfer::whereHas('parcels', fn ($q) => $q->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed'))->whereKeyNot($trip->id)->whereNotNull('payment_confirmed_at')->where('status', '!=', 'cancelled')->get()
+                    ->sum(fn ($leg) => (int) ($leg->payment_snapshot['seller_budgets'][$delivery->id] ?? 0));
+                $legacyCompleted = HubTransfer::whereHas('parcels', fn ($q) => $q->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed'))
+                    ->where('status', 'received')->where(fn ($q) => $q->whereNull('payment_version')->orWhere('payment_version', '!=', 1))->exists();
+                if ($legacyCompleted) $used += (int) round(($snapshot['rates']['inter_hub_driver_fee'] ?? 20) * 100);
+                $budgets[$delivery->id] = max(0, $budget - $used);
+            }
+            $snapshot = InterHubPaymentPolicy::apply($snapshot, $budgets);
+        }
+
+        return $snapshot + ['driver_id' => $trip->driver_id, 'truck_id' => $trip->truck_id, 'origin_center_id' => $trip->origin_center_id, 'destination_center_id' => $trip->destination_center_id, 'route_distance_source' => $inputs['source']];
     }
 
     public static function confirm(HubTransfer $trip, User $actor, string $previewHash): void
@@ -36,21 +65,18 @@ class TripPaymentService
             if ($trip->payment_confirmed_at) {
                 return;
             }
-            abort_unless($trip->driver_id && $trip->route_recorded_by && trim((string) $trip->route_distance_source) !== '', 422, 'Record an authorized road distance and source first.');
+            abort_unless($trip->driver_id, 422, 'Assign a driver first.');
             LogisticsTruck::whereKey($trip->truck_id)->lockForUpdate()->firstOrFail();
             $entries = $trip->parcels()->where('loading_status', '!=', 'removed')->lockForUpdate()->get();
             Delivery::whereIn('id', $entries->pluck('delivery_id'))->orderBy('id')->lockForUpdate()->get();
             $snapshot = self::preview($trip);
             abort_unless(hash_equals(hash('sha256', json_encode($snapshot)), $previewHash), 409, 'The manifest, measurements, or rates changed. Review the updated calculation before confirming.');
-            // Snapshot the existing seller budget; platform absorbs/reconciles the difference.
-            $snapshot['seller_budget_cents'] = (int) round(EscrowEarnings::interHubDriverFee() * 100);
-            $snapshot['seller_budgets'] = [];
-            foreach ($entries as $entry) {
-                $prior = HubTransfer::whereKeyNot($trip->id)->where('status', 'received')
-                    ->whereHas('parcels', fn ($q) => $q->where('delivery_id', $entry->delivery_id)->where('loading_status', '!=', 'removed'))->exists();
-                $snapshot['seller_budgets'][$entry->delivery_id] = $prior ? 0 : $snapshot['seller_budget_cents'];
+            // Freeze the automatic inputs only after the reviewed preview has been verified.
+            foreach ($snapshot['parcels'] as $parcel) {
+                Delivery::whereKey($parcel['id'])->update(collect($parcel)->only(['weight', 'length_cm', 'width_cm', 'height_cm'])->all());
             }
-            $snapshot['platform_adjustment_cents'] = $snapshot['total'] - array_sum($snapshot['seller_budgets']);
+            $trip->update(['route_distance_km' => $snapshot['distance'], 'route_distance_source' => $snapshot['route_distance_source'], 'route_recorded_by' => $actor->id]);
+            abort_unless($snapshot['total'] > 0, 422, 'This manifest has no affordable inter-hub payment. Review its product prices and consolidate suitable parcels before confirming.');
             foreach ($snapshot['allocations'] as $deliveryId => $cents) {
                 $trip->parcels()->where('delivery_id', $deliveryId)->update(['driver_allocation_cents' => $cents]);
             }
@@ -59,7 +85,7 @@ class TripPaymentService
             abort_if($payout->exists && in_array($payout->status, ['remitted', 'accepted'], true), 409, 'This trip payment has already been released.');
             $payout->fill(['hub_transfer_id' => $trip->id, 'hub_transport_driver_id' => $trip->driver_id, 'recipient_role' => 'inter_hub_driver', 'recipient_user_id' => $trip->driver?->user_id,
                 'recipient_name' => $trip->driver?->name, 'amount' => number_format($snapshot['total'] / 100, 2, '.', ''), 'settlement_mode' => 'escrow_bank_remittance',
-                'status' => 'held_in_escrow', 'rule_applied' => 'One dynamic payment per truck trip', 'notes' => 'Reserved; platform reconciliation: '.$snapshot['platform_adjustment_cents'].' centavos.'])->save();
+                'status' => 'held_in_escrow', 'rule_applied' => 'One dynamic payment per truck trip', 'notes' => 'Reserved at the reviewed inter-hub payment; no additional funding required.'])->save();
             HubTransferService::event($trip, 'payment_reserved', null, null, json_encode($snapshot), $actor);
         });
     }
@@ -74,6 +100,7 @@ class TripPaymentService
         $payout = EscrowRemittance::where('settlement_reference', 'TRIP-'.$trip->id)->lockForUpdate()->firstOrFail();
         abort_if(in_array($payout->status, ['remitted', 'accepted'], true), 409, 'Released trip payments require financial adjustment.');
         $payout->update(['status' => 'voided', 'notes' => $reason]);
+        if (isset($trip->payment_snapshot['funding_reference'])) LogisticsFundingService::finish($trip->payment_snapshot['funding_reference'], false);
         HubTransferService::event($trip, 'payment_reversed', null, null, $reason.' Snapshot: '.json_encode($trip->payment_snapshot), $actor);
         $trip->parcels()->update(['driver_allocation_cents' => null]);
         $trip->update(['payment_snapshot' => null, 'payment_confirmed_at' => null, 'payment_confirmed_by' => null]);
@@ -104,10 +131,11 @@ class TripPaymentService
         abort_unless($trip->status === 'received' && $trip->payment_snapshot, 409, 'Trip payment was not reserved.');
         $s = $trip->payment_snapshot;
         self::refreshEligibility($trip);
+        if (isset($s['funding_reference'])) LogisticsFundingService::finish($s['funding_reference'], true);
 
         return HubTransferEarning::firstOrCreate(['hub_transfer_id' => $trip->id, 'recipient_role' => 'inter_hub_driver'], [
             'logistics_company_id' => $trip->logistics_company_id, 'hub_transport_driver_id' => $s['driver_id'], 'delivery_id' => null,
-            'base_amount' => $s['base'] / 100, 'vehicle_allowance' => 0, 'amount' => $s['total'] / 100,
+            'base_amount' => min($s['base'], $s['total']) / 100, 'vehicle_allowance' => 0, 'amount' => $s['total'] / 100,
             'vehicle_ownership' => $trip->truck?->ownership_type ?? 'company', 'earned_on' => now()->toDateString(),
             'description' => 'Dynamic trip '.$trip->reference.'; distance '.($s['distancePayment'] / 100).'; load bonus '.($s['bonus'] / 100),
         ]);
@@ -136,6 +164,9 @@ class TripPaymentService
     public static function assertReleasable(HubTransfer $trip): void
     {
         abort_unless($trip->status === 'received' && $trip->payment_confirmed_at, 422, 'Destination receipt is required.');
+        if (isset($trip->payment_snapshot['funding_reference'])) {
+            abort_unless(LogisticsFundingService::committed($trip->payment_snapshot['funding_reference']) >= max(0, $trip->payment_snapshot['platform_adjustment_cents']), 422, 'The trip subsidy is not funded.');
+        }
         abort_unless(($trip->payment_snapshot['total'] ?? 0) > 0, 422, 'There is no positive trip payment to release.');
         $entries = $trip->parcels()->where('loading_status', '!=', 'removed')->with('delivery')->get();
         abort_if($entries->isEmpty() || $entries->contains(fn ($e) => $e->receiving_status !== 'received' || $e->condition !== 'good' || ! $e->delivery?->order_id), 422, 'Resolve missing, damaged, or unlinked parcels before releasing the trip payment.');

@@ -22,7 +22,13 @@
     'ready_for_delivery' => '#1D4ED8', 'shipped' => '#7C3AED', 'out_for_delivery' => '#7C3AED',
     'delivered' => '#10b981', 'cancelled' => '#ef4444',
   ][$o->status] ?? '#1a1a1a';
+  $isDelivered = $o->status === 'delivered'
+    || optional($del)->status === 'delivered'
+    || $progressStage === 'delivered';
 @endphp
+@foreach($o->deliveries as $chatParcel)
+    @include('shared.messages.parcel-contact', ['parcel' => $chatParcel])
+@endforeach
 @php
   $oRef = $o->order_number ?? ('INV-'.$o->id);
   $oStore = '';
@@ -126,7 +132,7 @@
     <div style="font-weight:800;font-size:14px;margin-bottom:14px">Order Progress</div>
     <div style="display:flex;align-items:flex-start">
       @foreach($steps as $i => $s)
-        @php $done = $i < $idx || $o->status === 'delivered'; $current = $i === $idx && $o->status !== 'delivered'; @endphp
+        @php $done = $i < $idx || $isDelivered; $current = $i === $idx && ! $isDelivered; @endphp
         <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px">
           <div style="width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;
             {{ $done ? 'background:var(--green);color:#fff;' : ($current ? 'background:#fff;border:2px solid var(--green);color:var(--green);' : 'background:#e5e5e5;color:#fff;') }}">
@@ -135,8 +141,87 @@
           <div style="font-size:11px;font-weight:{{ $done || $current ? '700' : '400' }};color:{{ $done || $current ? 'var(--green)' : 'var(--text3)' }}">{{ $s['label'] }}</div>
         </div>
         @if(!$loop->last)
-          <div style="flex:1;height:3px;border-radius:2px;margin-top:12px;background:{{ $i < $idx || $o->status === 'delivered' ? 'var(--green)' : '#e5e5e5' }}"></div>
+          <div style="flex:1;height:3px;border-radius:2px;margin-top:12px;background:{{ $i < $idx || $isDelivered ? 'var(--green)' : '#e5e5e5' }}"></div>
         @endif
+      @endforeach
+    </div>
+  </div>
+@endif
+
+@if($isDelivered)
+  <div id="rate" style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,0.03);">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border-light);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:36px;height:36px;border-radius:50%;background:#FEF3C7;display:flex;align-items:center;justify-content:center;color:#D97706;flex-shrink:0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#D97706" stroke="#D97706"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        </div>
+        <div>
+          <h3 style="margin:0;font-size:15px;font-weight:800;color:var(--text1,#111827);">Rate Your Items</h3>
+          <p style="margin:2px 0 0;font-size:12px;color:var(--text2,#6B7280);">Your order has arrived! How was your experience? Leave a rating and review for your items.</p>
+        </div>
+      </div>
+      @php
+        $totalItems = $o->items->count();
+        $ratedItemsCount = $o->items->filter(fn($it) => ($reviews ?? collect())->has($it->product_id))->count();
+      @endphp
+      <span style="font-size:11.5px;font-weight:700;padding:4px 10px;border-radius:999px;background:{{ $ratedItemsCount === $totalItems ? '#E8F5EE' : '#FEF3C7' }};color:{{ $ratedItemsCount === $totalItems ? '#166534' : '#92400E' }};">
+        {{ $ratedItemsCount }}/{{ $totalItems }} Rated
+      </span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      @foreach($o->items as $it)
+        @php
+          $prod = $it->product;
+          $hasImg = $prod && $prod->image && file_exists(storage_path('app/public/'.$prod->image));
+          $existingReview = ($reviews ?? collect())->get($it->product_id);
+        @endphp
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px;border:1px solid var(--border-light,#F1F0EC);border-radius:10px;background:#FAFAF8;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:12px;min-width:200px;flex:1;">
+            @if($hasImg)
+              <img src="{{ asset('storage/'.$prod->image) }}" alt="{{ $it->product_name }}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid #E5E7EB;">
+            @else
+              <div style="width:48px;height:48px;border-radius:8px;background:#E5E7EB;display:flex;align-items:center;justify-content:center;font-weight:800;color:#6B7280;font-size:14px;">
+                {{ strtoupper(substr($it->product_name,0,2)) }}
+              </div>
+            @endif
+            <div>
+              <div style="font-weight:700;font-size:13.5px;color:var(--text1,#111827);">{{ $it->product_name }}</div>
+              @if($it->variant_label)
+                <div style="font-size:11.5px;color:var(--text2,#6B7280);margin-top:2px;">{{ $it->variant_label }}</div>
+              @endif
+              <div style="font-size:12px;color:var(--text3,#9CA3AF);margin-top:1px;">Qty {{ $it->quantity }} &bull; ₱{{ number_format($it->price, 2) }}</div>
+            </div>
+          </div>
+
+          <div style="display:flex;align-items:center;gap:10px;">
+            @if($existingReview)
+              <div style="text-align:right;">
+                <div style="display:inline-flex;align-items:center;gap:2px;">
+                  @for($star=1;$star<=5;$star++)
+                    @if($star <= (int)$existingReview->rating)
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="#D97706" stroke="#D97706"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    @else
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    @endif
+                  @endfor
+                  <span style="font-size:12px;font-weight:700;color:#92400E;margin-left:4px;">{{ $existingReview->rating }}/5</span>
+                </div>
+                @if($existingReview->comment)
+                  <div style="font-size:11.5px;color:#4B5563;margin-top:2px;max-width:240px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">&ldquo;{{ $existingReview->comment }}&rdquo;</div>
+                @endif
+              </div>
+              <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', {{ $existingReview->rating }}, '{{ addslashes($existingReview->comment ?? '') }}')" class="btn-p btn-line btn-sm" style="font-size:12px;padding:6px 12px;cursor:pointer;border-radius:8px;">
+                Edit
+              </button>
+            @else
+              <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', 5, '')" class="btn-p btn-solid btn-sm" style="background:#16697A;color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;padding:6px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Rate Now
+              </button>
+            @endif
+          </div>
+        </div>
       @endforeach
     </div>
   </div>
@@ -151,7 +236,7 @@
         <span style="white-space:nowrap">{{ $it->quantity }} × ₱{{ number_format($it->price,2) }}</span>
       </div>
       @if($it->variant_label)<div style="font-size:11px;color:var(--text3);margin-top:2px">{{ $it->variant_label }}</div>@endif
-      @if($o->status === 'delivered')
+      @if($isDelivered)
         @php
           $existingReview = ($reviews ?? collect())->get($it->product_id);
           $itemReturns = ($returns ?? collect())->get($it->id, collect());
@@ -161,32 +246,31 @@
           $remainingQty = max(0, (int)$it->quantity - $refundedQty);
         @endphp
 
-        @if($existingReview)
-          <div style="margin-top:8px;font-size:12px;color:#A16207;font-weight:700;display:flex;align-items:center;gap:4px;">
-            <span>Your rating:</span>
-            <span style="display:inline-flex;align-items:center;gap:2px;">
-              @for($star=1;$star<=5;$star++)
-                @if($star <= (int)$existingReview->rating)
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="#A16207" stroke="#A16207"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                @else
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#D8D5CC" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                @endif
-              @endfor
-            </span>
-            @if($existingReview->comment)<span style="color:var(--text2);font-weight:400"> · {{ $existingReview->comment }}</span>@endif
-          </div>
-        @else
-          <form method="POST" action="{{ url('/orders/'.$o->id.'/rate/'.$it->product_id) }}" style="margin-top:8px;display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-            @csrf
-            <label for="rating-{{ $it->product_id }}" style="font-size:11px;color:var(--text2);font-weight:700">Rate this product</label>
-            <select id="rating-{{ $it->product_id }}" name="rating" required style="padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:#fff;font-size:11px">
-              <option value="">Choose stars</option>
-              @for($star=5;$star>=1;$star--)<option value="{{ $star }}">{{ $star }} {{ $star === 1 ? 'star' : 'stars' }}</option>@endfor
-            </select>
-            <input type="text" name="comment" maxlength="2000" placeholder="Write a review (optional)" style="flex:1;min-width:150px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;font-size:11px">
-            <button type="submit" style="padding:7px 11px;border:0;border-radius:7px;background:var(--green);color:#fff;font-size:11px;font-weight:700;cursor:pointer">Submit rating</button>
-          </form>
-        @endif
+        <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          @if($existingReview)
+            <div style="font-size:12px;color:#A16207;font-weight:700;display:inline-flex;align-items:center;gap:4px;">
+              <span>Your rating:</span>
+              <span style="display:inline-flex;align-items:center;gap:2px;">
+                @for($star=1;$star<=5;$star++)
+                  @if($star <= (int)$existingReview->rating)
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#D97706" stroke="#D97706"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  @else
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  @endif
+                @endfor
+              </span>
+              @if($existingReview->comment)<span style="color:var(--text2);font-weight:400"> &bull; {{ $existingReview->comment }}</span>@endif
+            </div>
+            <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', {{ $existingReview->rating }}, '{{ addslashes($existingReview->comment ?? '') }}')" class="btn-p btn-line btn-sm" style="font-size:11px;padding:3px 8px;cursor:pointer;border-radius:6px;">
+              Edit Rating
+            </button>
+          @else
+            <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', 5, '')" class="btn-p btn-solid btn-sm" style="background:#16697A;color:#fff;border-radius:6px;font-size:11.5px;font-weight:700;padding:4px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Rate
+            </button>
+          @endif
+        </div>
 
         @if($openReturn)
           <div style="margin-top:8px;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af">
@@ -404,6 +488,108 @@
       }
       return true;
     }
+  </script>
+@endif
+
+@if($isDelivered)
+  <!-- Rate Product Modal (matching mobile application) -->
+  <div id="rateModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:9999;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:#fff;border-radius:14px;max-width:440px;width:100%;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04);overflow:hidden;">
+      <div style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between;">
+        <h3 style="margin:0;font-size:16px;font-weight:800;color:#111827;">Rate this item</h3>
+        <button type="button" onclick="closeRateModal()" style="border:none;background:transparent;cursor:pointer;color:#9CA3AF;font-size:22px;line-height:1;padding:0;">&times;</button>
+      </div>
+      <form id="rateModalForm" method="POST" action="" style="padding:20px;">
+        @csrf
+        <div id="rateModalProductName" style="font-size:14.5px;font-weight:700;color:#1F2937;margin-bottom:14px;text-align:center;"></div>
+        
+        <div style="display:flex;justify-content:center;align-items:center;gap:6px;margin-bottom:16px;">
+          @for($s=1;$s<=5;$s++)
+            <button type="button" class="rate-star-btn" data-star="{{ $s }}" style="border:none;background:transparent;cursor:pointer;padding:4px;outline:none;" title="{{ $s }} star{{ $s > 1 ? 's' : '' }}">
+              <svg class="rate-star-icon" width="34" height="34" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+            </button>
+          @endfor
+        </div>
+        <input type="hidden" id="rateModalRating" name="rating" value="5">
+
+        <div style="margin-bottom:18px;">
+          <label for="rateModalComment" style="display:block;font-size:12px;font-weight:700;color:#4B5563;margin-bottom:6px;">Feedback (optional)</label>
+          <textarea id="rateModalComment" name="comment" rows="3" maxlength="500" placeholder="Tell us what you liked about this item or where it could improve..." style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #D1D5DB;border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button type="button" onclick="closeRateModal()" class="btn-p btn-line" style="border-radius:8px;font-size:13px;padding:8px 16px;cursor:pointer;">Cancel</button>
+          <button type="submit" class="btn-p btn-solid" style="background:#16697A;border-radius:8px;font-size:13px;font-weight:700;padding:8px 20px;cursor:pointer;">Submit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    var currentSelectedRating = 5;
+    function setModalRating(val) {
+      currentSelectedRating = val;
+      var ratingInput = document.getElementById('rateModalRating');
+      if (ratingInput) ratingInput.value = val;
+      updateStarDisplay(val);
+    }
+    function updateStarDisplay(val) {
+      var starBtns = document.querySelectorAll('.rate-star-btn');
+      starBtns.forEach(function(btn) {
+        var s = parseInt(btn.getAttribute('data-star') || '1', 10);
+        var icon = btn.querySelector('.rate-star-icon');
+        if (icon) {
+          if (s <= val) {
+            icon.setAttribute('fill', '#FBBF24');
+            icon.setAttribute('stroke', '#FBBF24');
+          } else {
+            icon.setAttribute('fill', 'none');
+            icon.setAttribute('stroke', '#D1D5DB');
+          }
+        }
+      });
+    }
+    function openRateModal(productId, productName, currentRating, currentComment) {
+      var modal = document.getElementById('rateModal');
+      var form = document.getElementById('rateModalForm');
+      var nameEl = document.getElementById('rateModalProductName');
+      var commentEl = document.getElementById('rateModalComment');
+
+      if (form) form.action = '{{ url("/orders/".$o->id."/rate") }}/' + productId;
+      if (nameEl) nameEl.textContent = productName;
+      if (commentEl) commentEl.value = currentComment || '';
+      setModalRating(currentRating || 5);
+
+      if (modal) modal.style.display = 'flex';
+    }
+    function closeRateModal() {
+      var modal = document.getElementById('rateModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var starBtns = document.querySelectorAll('.rate-star-btn');
+      starBtns.forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var starVal = parseInt(this.getAttribute('data-star') || '5', 10);
+          setModalRating(starVal);
+        });
+        btn.addEventListener('mouseenter', function() {
+          var starVal = parseInt(this.getAttribute('data-star') || '5', 10);
+          updateStarDisplay(starVal);
+        });
+        btn.addEventListener('mouseleave', function() {
+          updateStarDisplay(currentSelectedRating);
+        });
+      });
+
+      if (window.location.hash === '#rate') {
+        var rateSec = document.getElementById('rate');
+        if (rateSec) {
+          rateSec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    });
   </script>
 @endif
 @endsection

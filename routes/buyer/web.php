@@ -503,11 +503,16 @@ Route::get('/orders', function(Request $request){
   if(!$buyer) return redirect('/login')->with('error','Please login to view orders');
   $tab = $request->input('tab','all');
   $groups = ['pending'=>['pending','confirmed','processing','ready_for_delivery'],'out_for_delivery'=>['out_for_delivery','shipped'],'delivered'=>['delivered'],'cancelled'=>['cancelled']];
-  $q = \App\Models\Order::with(['items.product', 'returnRequests'])->where('buyer_id',$buyer['id']);
+  $q = \App\Models\Order::with(['items.product', 'returnRequests', 'deliveries'])->where('buyer_id',$buyer['id']);
   if($tab === 'return'){
     $q->where(function($sq){
       $sq->whereIn('status', ['return_requested', 'returned', 'refunded'])
          ->orWhereHas('returnRequests');
+    });
+  } elseif($tab === 'delivered') {
+    $q->where(function($sq){
+      $sq->where('status', 'delivered')
+         ->orWhereHas('deliveries', fn($dq) => $dq->where('status', 'delivered'));
     });
   } elseif($tab!=='all' && isset($groups[$tab])) $q->whereIn('status',$groups[$tab]);
   if($request->filled('q')){
@@ -786,8 +791,16 @@ Route::get('/help', function(Request $request){
   $orders = collect();
   $complaints = collect();
   if ($buyer) {
-    $orders = \App\Models\Order::where('buyer_id', $buyer['id'])->latest()->take(20)->get(['id', 'status', 'created_at']);
-    $complaints = \App\Models\Complaint::where('buyer_id', $buyer['id'])->latest()->take(10)->get();
+    $orders = \App\Models\Order::with(['items.product', 'seller'])
+      ->where('buyer_id', $buyer['id'])
+      ->latest()
+      ->take(30)
+      ->get();
+    $complaints = \App\Models\Complaint::with(['order.items', 'seller', 'orderItem', 'product'])
+      ->where('buyer_id', $buyer['id'])
+      ->latest()
+      ->take(15)
+      ->get();
   }
   return view('buyer.help', [
     'support' => config('support'),
@@ -801,23 +814,73 @@ Route::post('/help/complaint', function(Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to file a complaint');
   $data = $request->validate([
-    'subject'     => 'required|string|max:150',
-    'description' => 'required|string|max:2000',
-    'order_id'    => 'nullable|integer|exists:orders,id',
+    'subject'       => 'nullable|string|max:150',
+    'description'   => 'required|string|max:2000',
+    'order_id'      => 'required|integer|exists:orders,id',
+    'order_item_id' => 'nullable|integer|exists:order_items,id',
+    'seller_id'     => 'nullable|integer',
   ]);
-  $orderId = $data['order_id'] ?? null;
-  if ($orderId && ! \App\Models\Order::where('id', $orderId)->where('buyer_id', $buyer['id'])->exists()) {
+  $orderId = (int) $data['order_id'];
+  $order = \App\Models\Order::with(['items.product', 'seller'])->where('id', $orderId)->where('buyer_id', $buyer['id'])->first();
+  if (! $order) {
     return back()->with('error','That order does not belong to your account.');
   }
+
+  $orderItemId = $data['order_item_id'] ?? null;
+  $orderItem = null;
+  if ($orderItemId) {
+    $orderItem = $order->items->firstWhere('id', (int) $orderItemId);
+    if (! $orderItem) {
+      $orderItemId = null;
+    }
+  }
+
+  $productId = $orderItem?->product_id;
+
+  // Resolve canonical Seller ID
+  $sellerId = null;
+  if (! empty($data['seller_id'])) {
+    $sCandidate = \App\Models\Seller::where('id', (int) $data['seller_id'])->orWhere('user_id', (int) $data['seller_id'])->first();
+    if ($sCandidate) $sellerId = $sCandidate->id;
+  }
+  if (! $sellerId && $orderItem && $orderItem->seller_id) {
+    $sCandidate = \App\Models\Seller::where('user_id', (int) $orderItem->seller_id)->orWhere('id', (int) $orderItem->seller_id)->first();
+    if ($sCandidate) $sellerId = $sCandidate->id;
+  }
+  if (! $sellerId) {
+    if ($order->seller_id) {
+      $sCandidate = \App\Models\Seller::where('id', (int) $order->seller_id)->orWhere('user_id', (int) $order->seller_id)->first();
+      if ($sCandidate) $sellerId = $sCandidate->id;
+    } elseif ($order->items->isNotEmpty()) {
+      $firstSellerId = (int) $order->items->first()->seller_id;
+      $sCandidate = \App\Models\Seller::where('user_id', $firstSellerId)->orWhere('id', $firstSellerId)->first();
+      if ($sCandidate) $sellerId = $sCandidate->id;
+    }
+  }
+
+  $seller = $sellerId ? \App\Models\Seller::find($sellerId) : null;
+  $storeName = $seller?->store_name ?? $order->store_name_display;
+  $orderNum = $order->order_number ?? $order->id;
+
+  if ($orderItem) {
+    $subject = "Order #{$orderNum} ({$orderItem->product_name}) — Store: {$storeName}";
+  } else {
+    $subject = "Order #{$orderNum} — Store: {$storeName}";
+  }
+  $subject = \Illuminate\Support\Str::limit($subject, 150, '...');
+
   \App\Models\Complaint::create([
-    'buyer_id'    => $buyer['id'],
-    'order_id'    => $orderId,
-    'subject'     => $data['subject'],
-    'description' => $data['description'],
-    'type'        => $orderId ? 'order' : 'other',
-    'status'      => 'open',
+    'buyer_id'      => $buyer['id'],
+    'order_id'      => $orderId,
+    'order_item_id' => $orderItemId,
+    'product_id'    => $productId,
+    'seller_id'     => $sellerId,
+    'subject'       => $subject,
+    'description'   => $data['description'],
+    'type'          => 'order',
+    'status'        => 'open',
   ]);
-  return back()->with('success','Complaint received. Our team will review it and reply by email within 24 hours on business days.');
+  return redirect('/help#reports')->with('success','Your report for Order #'.$orderNum.' (Store: '.$storeName.') has been sent to our support queue.');
 })->name('help.complaint');
 
 });

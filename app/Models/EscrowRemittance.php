@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 class EscrowRemittance extends Model
 {
+    public function payoutAccountReady(): bool
+    {
+        return \App\Support\PayoutAccounts::ready($this);
+    }
     public const ROLE_ORIGIN_HUB = 'origin_hub';
 
     public const ROLE_PICKUP_RIDER = 'pickup_rider';

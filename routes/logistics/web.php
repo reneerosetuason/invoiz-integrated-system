@@ -108,6 +108,7 @@ Route::middleware(['auth', 'verified', 'staff'])->group(function () {
     Route::get('deliveries/{delivery}/edit', [DeliveryController::class, 'edit'])->middleware('parcel.operator')->name('deliveries.edit');
     Route::match(['put', 'patch'], 'deliveries/{delivery}', [DeliveryController::class, 'update'])->middleware('parcel.operator')->name('deliveries.update');
     Route::post('deliveries/{delivery}/assign-rider', [DeliveryController::class, 'assignRider'])->middleware(['parcel.operator', 'rider.manager'])->name('deliveries.assign-rider');
+    Route::post('deliveries/{delivery}/review-destination', [DeliveryController::class, 'reviewDestination'])->middleware('parcel.operator')->name('deliveries.review-destination');
     Route::post('deliveries/{delivery}/auto-assign', [DeliveryController::class, 'autoAssign'])->middleware(['parcel.operator', 'rider.manager'])->name('deliveries.auto-assign');
     Route::patch('deliveries/{delivery}/update-status', [DeliveryController::class, 'updateStatus'])->middleware('parcel.operator')->name('deliveries.update-status');
     Route::post('deliveries/{delivery}/exception', [DeliveryController::class, 'reportException'])->middleware('parcel.operator')->name('deliveries.exception');

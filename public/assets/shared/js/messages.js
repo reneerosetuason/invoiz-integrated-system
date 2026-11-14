@@ -35,7 +35,7 @@
     });
     if (active) {
       const current = data.conversations.find(t => t.thread_key === active.thread_key);
-      if (current) { active = current; find('chat-form').hidden = !current.can_send; find('chat-readonly').hidden = current.can_send; }
+      if (current) { active = current; find('chat-form').hidden = !current.can_send; find('chat-readonly').hidden = current.can_send; find('chat-readonly').textContent = current.readonly_reason || 'This contact is no longer available for messaging. Your history is still here.'; }
     }
     return data.conversations;
   }
@@ -66,6 +66,10 @@
     const nearBottom = history.scrollHeight - history.scrollTop - history.clientHeight < 100;
     const data = await request(`threads/${encodeURIComponent(key)}?page=${older ? page + 1 : 1}`);
     if (active?.thread_key !== key) return;
+    if (typeof data.can_send === 'boolean') {
+      active.can_send = data.can_send;
+      find('chat-form').hidden = !data.can_send; find('chat-readonly').hidden = data.can_send;
+    }
     render(data.messages, older); page = data.pagination.current_page; lastPage = data.pagination.last_page;
     find('older').hidden = page >= lastPage;
     if (!older && nearBottom) history.scrollTop = history.scrollHeight;
@@ -109,7 +113,27 @@
     finally { busy = false; form.querySelector('button').disabled = false; }
     await load().catch(e => error(e.message)); await inbox().catch(e => error(e.message));
   });
-  inbox().catch(e => error(e.message));
+  async function parcelContacts() {
+    const data = await request('contacts');
+    const panel = find('parcel-contacts'), list = find('parcel-contact-list'); list.replaceChildren();
+    const parcels = data.contacts.filter(contact => contact.key.startsWith('parcel:'));
+    panel.hidden = parcels.length === 0;
+    parcels.forEach(contact => {
+      const button = element('button', `${contact.action_label} · ${contact.name} · ${contact.tracking}`); button.type = 'button';
+      button.addEventListener('click', async () => {
+        try { const result = await request('start', {recipient: contact.key}); const threads = await inbox(); await open(threads.find(t => t.thread_key === result.thread_key)); }
+        catch (e) { error(e.message); }
+      }); list.append(button);
+    });
+  }
+  (async () => {
+    await inbox(); await parcelContacts();
+    const parcel = new URLSearchParams(window.location.search).get('parcel');
+    if (/^[1-9][0-9]*$/.test(parcel || '')) {
+      const result = await request('start', {recipient: `parcel:${parcel}`});
+      const threads = await inbox(); await open(threads.find(t => t.thread_key === result.thread_key));
+    }
+  })().catch(e => error(e.message));
   // Preserve loaded history while reading earlier messages.
-  setInterval(() => { if (!document.hidden && !busy) { inbox().catch(() => {}); if (page === 1) load().catch(() => {}); } }, 6000);
+  setInterval(() => { if (!document.hidden && !busy) { inbox().catch(() => {}); if (page === 1) load().catch(() => {}); parcelContacts().catch(() => {}); } }, 6000);
 })();

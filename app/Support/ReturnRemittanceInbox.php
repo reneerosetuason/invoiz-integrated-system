@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 
 final class ReturnRemittanceInbox
 {
-    public const ROLES = [...ReturnAllocation::DELIVERY_ROLES, 'replacement_delivery_rider'];
+    public const ROLES = [...ReturnAllocation::DELIVERY_ROLES, 'replacement_delivery_rider', 'seller_protection_reimbursement'];
 
     /** Read the existing return ledger; never create a second delivery payout. */
     public static function query($recipient, bool $includePending=false): Builder

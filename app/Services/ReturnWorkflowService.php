@@ -108,6 +108,7 @@ class ReturnWorkflowService
                 self::require($target > 0 && $target !== (int) $flow->center_id && LogisticsAccess::canAccessCenter($actor, $target)
                     || ($target > 0 && $target !== (int) $flow->center_id && self::sameCompany((int) $flow->center_id, $target))
                     || $originalReverse || $agreedDestination, 'Choose an active receiving hub for this return.');
+                if ($quote = $agreement?->fee_snapshot['return_trip'] ?? null) $data['reference'] = $quote['reference'];
                 $ref = ! empty($data['reference']) ? trim($data['reference']) : ('RET-TRF-'.$return->id.'-'.now()->format('ymd').'-'.strtoupper(\Illuminate\Support\Str::random(4)));
                 $updates = ['stage' => 'in_transfer', 'destination_center_id' => $target, 'transport_reference' => $ref];
                 if($agreement && !empty($data['driver_id']))$updates+=['driver_id'=>(int)$data['driver_id'],'driver_accepted_at'=>null,'driver_arrived_at'=>null];
@@ -172,6 +173,7 @@ class ReturnWorkflowService
                 self::require(($return->status === 'item_received' || $waived) && ! $flow->refund_sent_at, 'This refund is not awaiting payment.');
                 self::require(! empty($data['proof_path']), 'Record the actual transfer proof before sending the refund.');
                 if($sellerDirect)self::require(\Illuminate\Support\Facades\Storage::disk('private')->exists($data['proof_path']),'Upload the actual direct-refund receipt before recording payment.');
+                SellerProtectionService::reconcile($order, isset($agreement) && $agreement ? $agreement->merchandise_cents / 100 : (float) $return->refund_amount, false, $return);
                 $amount = (float) $return->refund_amount;
                 $tx = Payments::transactionFor($order);
                 $funding = $sellerDirect ? ['funded'=>$amount,'shortfall'=>0] : self::fundingSummary($order, $amount, isset($agreement) ? $agreement?->id : null);
@@ -214,8 +216,9 @@ class ReturnWorkflowService
                 'from' => $stage, 'to' => $updates['stage'] ?? $stage, 'restocked' => $updates['stock_restored'] ?? false,
                 'proof_path' => $data['proof_path'] ?? null];
             $flow->update($updates + ['events' => $events]);
-            if ($action === 'refund') {
+            if (in_array($action, ['refund', 'confirm_refund'], true)) {
                 $fresh = $order->fresh();
+                SellerProtectionService::refreshLedger($fresh);
                 $split = Payments::splitForSellers($fresh);
                 $sum = fn ($key) => round(array_sum(array_column($split, $key)), 2);
                 Payments::transactionFor($fresh)?->update(['seller_earning' => $sum('earning'), 'platform_commission' => $sum('commission')]);
@@ -262,6 +265,11 @@ class ReturnWorkflowService
         $tripBudget = TripPaymentService::orderBudget($order);
         $released += $tripBudget['released'];
         $reservedLogistics += $tripBudget['reserved'];
+        $protectionSubsidy = SellerProtectionService::originalSubsidy($order);
+        $releasedLogistics = (float) EscrowRemittance::where('order_id', $order->id)->whereNotIn('recipient_role', ['seller', 'admin'])->whereIn('status', ['remitted', 'accepted'])->sum('amount') + $tripBudget['released'];
+        $offsetReleased = min($releasedLogistics, $protectionSubsidy);
+        $released -= $offsetReleased;
+        $reservedLogistics = max(0, $reservedLogistics - ($protectionSubsidy - $offsetReleased));
         $platformRefunds=max(0,(float)($tx?->refunded_amount??0)-$externalRefunds);
         $shortfall = round(max(0, $amount + $released + $reservedLogistics + $returnReserves + $platformRefunds - $funded - $previousRecovery), 2);
         $available = round(max(0, $funded + $previousRecovery - $released - $reservedLogistics - $returnReserves - $platformRefunds), 2);
@@ -275,6 +283,7 @@ class ReturnWorkflowService
             $ownLogistics = (clone $sellerRows)->whereNotIn('recipient_role', ['seller','admin'])->where('status','!=','voided')->sum('amount');
             $ownTripBudget = TripPaymentService::orderBudget($order, $sellerId);
             $ownLogistics += $ownTripBudget['reserved'] + $ownTripBudget['released'];
+            $ownLogistics = max(0, $ownLogistics - SellerProtectionService::originalSubsidy($order, $sellerId));
             $ownReleased = (clone $sellerRows)->whereIn('recipient_role', ['seller','admin'])->whereIn('status',['remitted','accepted'])->sum('amount');
             $ownRefunds = ReturnRequest::where('order_id',$order->id)->where('seller_id',$sellerId)
                 ->when(\Illuminate\Support\Facades\Schema::hasColumn('return_workflows','refund_source'),fn($q)=>$q->whereDoesntHave('workflow',fn($w)=>$w->where('refund_source','seller_direct')))

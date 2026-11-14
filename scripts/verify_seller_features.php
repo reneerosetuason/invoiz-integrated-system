@@ -366,9 +366,9 @@ try {
     // =============================================================
     echo "\n--- Section 7: Payouts & Financial Remittances ---\n";
 
-    // GET /seller/payouts
+    // GET /seller/payouts — page was removed; the route must return 404
     $res = callSeller($app, 'GET', '/seller/payouts', [], $session, $sellerUser);
-    check('Financials', 'GET /seller/payouts (Payouts & balance history loads)', $res->getStatusCode() === 200);
+    check('Financials', 'GET /seller/payouts (removed: returns 404)', $res->getStatusCode() === 404);
 
     // GET /seller/remittances
     $res = callSeller($app, 'GET', '/seller/remittances', [], $session, $sellerUser);

@@ -201,6 +201,15 @@
     </div>
 
     {{-- Rider Assignment (kept near the top so assigning is quick for hub staff) --}}
+    @if($canProcessParcels && !$delivery->archived_at && !$hasActiveHubTransfer && $delivery->received_at && !$delivery->sorting_center_pickup_at && in_array($delivery->status, ['waiting_for_rider', 'assigned'], true) && $delivery->lastMileRouteBlockReason())
+        <div class="delivery-panel">
+            <p>{{ $delivery->lastMileRouteBlockReason() }}</p>
+            <form method="POST" action="{{ route('deliveries.review-destination', $delivery) }}">
+                @csrf
+                <button type="submit" class="btn btn-outline">Review destination hub</button>
+            </form>
+        </div>
+    @endif
     @if($canProcessParcels && ! $delivery->archived_at && ! $hasActiveHubTransfer && Auth::user()->canManageRiders() && in_array($delivery->status, ['waiting_for_rider', 'assigned', 'delivery_failed'], true))
         <div class="delivery-panel" id="rider-assignment">
             <div class="flex flex-wrap items-center gap-2 mb-4">
@@ -213,7 +222,9 @@
                 @endif
             </div>
 
-            @if($delivery->status === 'waiting_for_rider')
+            @if($assignmentBlockReason)
+                <p class="text-sm text-amber-700">{{ $assignmentBlockReason }}</p>
+            @elseif($delivery->status === 'waiting_for_rider')
                 <form action="{{ route('deliveries.assign-rider', $delivery) }}" method="POST" class="w-full">
                     @csrf
                     <div class="flex flex-col sm:flex-row sm:items-end gap-2">

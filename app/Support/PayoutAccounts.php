@@ -9,6 +9,31 @@ use Illuminate\Support\Facades\Schema;
 /** A reusable receiving account, separate from payment amounts and statuses. */
 final class PayoutAccounts
 {
+    public static function ready(EscrowRemittance|ReturnAllocation $row): bool
+    {
+        $role = $row instanceof ReturnAllocation ? $row->role : $row->recipient_role;
+        // Platform commission is retained internally, not sent to an external payee.
+        if (in_array($role, ['admin', 'admin_service'], true)) return true;
+        $details = self::forRemittance($row)['details'] ?? null;
+        if (!self::complete($details) && $row instanceof ReturnAllocation) {
+            $details = $row->receiving_destination;
+        }
+        return self::complete($details);
+    }
+
+    private static function complete(?array $details): bool
+    {
+        return filled(trim((string) ($details['provider'] ?? '')))
+            && filled(trim((string) ($details['holder'] ?? '')))
+            && mb_strlen(trim((string) ($details['account'] ?? ''))) >= 4;
+    }
+
+    public static function assertReady(EscrowRemittance|ReturnAllocation $row): void
+    {
+        if (!self::ready($row)) throw \Illuminate\Validation\ValidationException::withMessages([
+            'payout_account' => 'The recipient must save complete banking or e-wallet details before this remittance can be released.',
+        ]);
+    }
     public static function targets($actor): Collection
     {
         if ($actor instanceof HubTransportDriver) {
@@ -70,7 +95,7 @@ final class PayoutAccounts
             if ($driver) return self::payload(self::target('driver', $driver->id, $driver->name));
             // Older order records may use a rider for the inter-hub leg.
         }
-        if (in_array($role, ['seller', 'pickup_rider', 'last_mile_rider', 'inter_hub_driver',
+        if (in_array($role, ['seller', 'seller_protection_reimbursement', 'pickup_rider', 'last_mile_rider', 'inter_hub_driver',
             'collection_rider', 'seller_delivery_rider', 'replacement_delivery_rider'], true)) {
             $user = $row->recipientUser ?? $row->rider?->user;
             return $user ? self::payload(self::target('user', $user->id, $user->name)) : null;

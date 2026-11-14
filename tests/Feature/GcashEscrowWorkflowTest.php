@@ -42,6 +42,7 @@ class GcashEscrowWorkflowTest extends TestCase
     {
         parent::setUp();
         $this->createMobileDatabase();
+        (require database_path('migrations/2026_11_09_080000_create_payout_accounts.php'))->up();
         (require database_path('migrations/2026_11_04_120000_add_proof_path_to_payments_table.php'))->up();
         (require database_path('migrations/2026_11_04_140000_add_gcash_escrow_workflow.php'))->up();
         (require database_path('migrations/2026_10_31_110000_create_earnings_and_escrow_allocations.php'))->up();
@@ -121,10 +122,22 @@ class GcashEscrowWorkflowTest extends TestCase
         $this->withSession(['active_role' => 'seller']);
     }
 
+    protected function saveRecipientAccount(\App\Models\EscrowRemittance|\App\Models\ReturnAllocation $line): void
+    {
+        $target = \App\Support\PayoutAccounts::forRemittance($line);
+        if (!$target) return;
+        [$type, $id] = explode('-', $target['key'], 2);
+        \App\Models\PayoutAccount::updateOrCreate(['owner_type' => $type, 'owner_id' => (int) $id],
+            ['details' => ['provider' => 'Test bank', 'holder' => 'Test recipient', 'account' => '000123456789']]);
+    }
+
     private function user(string $role, bool $admin = false): User
     {
-        return User::create(['name' => 'Test '.$role, 'email' => uniqid().'@example.test', 'password' => 'Password123!',
+        $user = User::create(['name' => 'Test '.$role, 'email' => uniqid().'@example.test', 'password' => 'Password123!',
             'role' => $role, 'is_admin' => $admin, 'status' => 'active', 'account_status' => 'active', 'approval_status' => 'approved', 'email_verified_at' => now()]);
+        \App\Models\PayoutAccount::create(['owner_type' => 'user', 'owner_id' => $user->id,
+            'details' => ['provider' => 'Test bank', 'holder' => $user->name, 'account' => '000123456789']]);
+        return $user;
     }
 
     private function image(): UploadedFile

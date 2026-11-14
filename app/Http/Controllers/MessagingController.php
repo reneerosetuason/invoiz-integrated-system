@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ChatBlock;
 use App\Models\Conversation;
+use App\Models\Delivery;
 use App\Models\HubTransportDriver;
 use App\Models\Logistics\Conversation as LogisticsConversation;
 use App\Models\Logistics\Message as LogisticsMessage;
@@ -11,6 +12,7 @@ use App\Models\Message;
 use App\Models\MessageAttachment;
 use App\Models\User;
 use App\Support\MessagingAccess;
+use App\Support\ParcelChat;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -46,7 +48,12 @@ class MessagingController extends Controller
         $search = $request->validate(['search' => 'nullable|string|max:100'])['search'] ?? '';
         $users = User::query()->when($search !== '', fn ($q) => $q->where(fn ($q) =>
             $q->where('name', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')))
-            ->orderByDesc('is_admin')->orderBy('name')->get()->filter(fn ($other) => MessagingAccess::canContact($actor, $other))
+            ->orderByDesc('is_admin')->orderBy('name')->get()->filter(function ($other) use ($actor) {
+                if ($actor instanceof User && ($actor->isBuyer() || $actor->canSell()) && ! $other->isAdmin()) {
+                    if ($other->role === 'rider' || ($actor->isBuyer() && ! $actor->canSell() && $other->isLogisticsStaff())) return false;
+                }
+                return MessagingAccess::canContact($actor, $other);
+            })
             ->take(60)->map(fn ($other) => [
                 'key' => 'user:'.$other->id, 'name' => $other->displayName() ?: $other->email,
                 'role' => $other->isAdmin() ? 'Platform support' : $other->roleLabel(),
@@ -57,16 +64,40 @@ class MessagingController extends Controller
                 ->map(fn ($other) => ['key' => 'driver:'.$other->id, 'name' => $other->name, 'role' => 'Hub Transport Driver']);
             $users = $users->concat($drivers);
         }
+        if ($actor instanceof User && ($actor->isBuyer() || $actor->canSell())) {
+            $parcels = ParcelChat::deliveries($actor)->map(function ($parcel) {
+                $holder = ParcelChat::holder($parcel);
+                return $holder ? ['key' => 'parcel:'.$parcel->id, 'name' => $holder['name'], 'role' => $holder['label'].' · '.$parcel->tracking_number,
+                    'delivery_id' => $parcel->id, 'tracking' => $parcel->tracking_number, 'action_label' => $holder['label']] : null;
+            })->filter()->filter(fn ($row) => $search === '' || str_contains(mb_strtolower($row['name'].' '.$row['role']), mb_strtolower($search)));
+            $users = $parcels->concat($users);
+        }
         return response()->json(['contacts' => $users->values()]);
     }
 
     public function start(Request $request)
     {
         $actor = $this->actor($request);
-        $data = $request->validate(['recipient' => ['required', 'regex:/^(user|driver):[1-9][0-9]*$/']]);
+        $data = $request->validate(['recipient' => ['required', 'regex:/^(user|driver|parcel):[1-9][0-9]*$/']]);
         [$type, $id] = explode(':', $data['recipient']);
+        if ($type === 'parcel') {
+            abort_unless($actor instanceof User, 403);
+            $thread = DB::transaction(function () use ($actor, $id) {
+                $parcel = Delivery::whereKey($id)->lockForUpdate()->firstOrFail();
+                return ParcelChat::open($actor, $parcel);
+            });
+            return response()->json(['thread_key' => 'logistics:'.$thread->id], 201);
+        }
         $other = $type === 'driver' ? HubTransportDriver::findOrFail($id) : User::findOrFail($id);
         abort_unless(MessagingAccess::canContact($actor, $other), 403, 'This contact is not available for your role or assignment.');
+        foreach ([[$actor, $other], [$other, $actor]] as [$customer, $handler]) {
+            if ($customer instanceof User && ($customer->isBuyer() || $customer->canSell())
+                && ! ($customer->canSell() && $handler instanceof User && $handler->isLogisticsStaff())
+                && ($parcel = ParcelChat::related($customer, $handler))) {
+                $thread = ParcelChat::open($customer, $parcel);
+                return response()->json(['thread_key' => 'logistics:'.$thread->id], 201);
+            }
+        }
         // Blocked users cannot open new marketplace threads (admins exempt).
         if ($actor instanceof User && $other instanceof User && ChatBlock::blocksBetween($actor, $other)) {
             abort(403, 'You can no longer exchange messages with this user.');
@@ -126,14 +157,7 @@ class MessagingController extends Controller
                 ->ensureConversationsForRider((int) $actor->rider->id, (int) $actor->id);
         }
         if ($actor instanceof User && ($actor->isBuyer() || $actor->canSell())) {
-            $deliveries = \App\Models\Delivery::where(fn ($q) => $q->where('seller_id', $actor->id)
-                ->orWhereHas('order', fn ($q) => $q->where('buyer_id', $actor->id)))->get();
-            foreach ($deliveries as $delivery) {
-                if ($delivery->rider_id && $delivery->rider?->user) {
-                    app(\App\Http\Controllers\Logistics\Api\RiderConversationController::class)
-                        ->ensureConversationsForRider((int) $delivery->rider_id, (int) $delivery->rider->user_id);
-                }
-            }
+            ParcelChat::sync($actor);
         }
         $threads = collect();
         if ($actor instanceof User) {
@@ -158,8 +182,13 @@ class MessagingController extends Controller
                     $name = User::find($thread->logistics_user_id)?->displayName() ?: 'Logistics';
                 } elseif ($thread->participant_type === 'rider' && (int) $thread->participant_id === (int) $actor->id) {
                     $name = 'Logistics support';
-                } elseif (in_array($thread->participant_type, ['buyer', 'seller'], true) && (int) $thread->participant_id === (int) $actor->id) {
-                    $name = \App\Models\Rider::find($thread->rider_id)?->name ?: 'Delivery rider';
+                } elseif (in_array($thread->participant_type, ['buyer', 'seller'], true) && $actor instanceof User && (int) $thread->participant_id === (int) $actor->id) {
+                    $identity = ParcelChat::parse($thread->direct_thread_key);
+                    $name = match ($identity['kind'] ?? 'r') {
+                        'h' => \App\Models\LogisticsCenter::find($identity['id'])?->name ?? 'Logistics hub',
+                        'd' => HubTransportDriver::find($identity['id'])?->name ?? 'Transport driver',
+                        default => \App\Models\Rider::find($thread->rider_id)?->name ?? 'Previous delivery rider',
+                    };
                 }
                 $unread = $thread->messages()->where('is_read', false)->where(fn ($q) =>
                     $q->where('sender_type', '!=', $mineType)->orWhere('sender_id', '!=', $actor->id))->count();
@@ -176,9 +205,18 @@ class MessagingController extends Controller
     {
         $last = $source === 'marketplace' ? $thread->lastMessage : $thread->latestMessage;
         $preview = $source === 'logistics' && $last?->isDeleted() ? 'Message deleted' : ($last?->body ?? '');
-        return ['id' => $thread->id, 'thread_key' => $source.':'.$thread->id, 'name' => $name,
+        $identity = $source === 'logistics' ? ParcelChat::parse($thread->direct_thread_key) : null;
+        $parcel = $identity ? Delivery::find($identity['delivery_id']) : null;
+        $previousShared = $source === 'logistics' && ! $identity && in_array($thread->participant_type, ['buyer', 'seller'], true)
+            && $thread->messages()->where('sender_type', 'logistics')->exists();
+        if ($previousShared) $name = 'Previous shared conversation';
+        return ['delivery_id' => $parcel?->id, 'tracking' => $parcel?->tracking_number,
+            'action_label' => $identity ? match ($identity['kind']) { 'h' => 'Chat logistics hub', 'd' => 'Chat transport driver', default => 'Chat rider' } : null,
+            'id' => $thread->id, 'thread_key' => $source.':'.$thread->id, 'name' => $name,
             'subject' => $thread->subject, 'type' => $source === 'marketplace' ? 'direct' : $thread->participant_type,
-            'type_label' => 'MESSAGE', 'preview' => $preview, 'unread' => $unread, 'can_send' => $canSend,
+            'readonly_reason' => $previousShared ? 'This previous shared conversation is closed. Use the parcel contact for a private chat with its current handler.'
+                : ($identity && ! $canSend ? 'This parcel has moved to another handler. Use its current parcel chat; this conversation is now read-only.' : null),
+            'type_label' => $identity ? 'Private parcel chat' : 'MESSAGE', 'preview' => $preview, 'unread' => $unread, 'can_send' => $canSend,
             'last_message_at' => ($last?->created_at ?? $thread->updated_at)?->toISOString()];
     }
 
@@ -205,7 +243,8 @@ class MessagingController extends Controller
             $thread->update(['unread_count' => 0]);
         }
         $page = $thread->messages()->reorder()->orderByDesc('id')->paginate(30);
-        return response()->json(['messages' => $page->getCollection()->map(fn ($message) => $this->messagePayload($message, $actor, $source, $thread)),
+        return response()->json(['can_send' => $source === 'logistics' ? MessagingAccess::canSendLogistics($actor, $thread) : (($other = User::find((int) $thread->buyer_id === (int) $actor->id ? $thread->seller_id : $thread->buyer_id)) && MessagingAccess::canContact($actor, $other)),
+            'messages' => $page->getCollection()->map(fn ($message) => $this->messagePayload($message, $actor, $source, $thread)),
             'pagination' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage()]]);
     }
 
@@ -229,8 +268,9 @@ class MessagingController extends Controller
                 $message = Message::create(['conversation_id' => $thread->id, 'sender_id' => $actor->id, 'receiver_id' => $otherId, 'body' => $data['body'], 'is_read' => false]);
                 $thread->touch();
             } else {
+                ParcelChat::lockAndAuthorize($actor, $thread);
                 $message = LogisticsMessage::create(['conversation_id' => $thread->id, 'sender_id' => $actor->id,
-                    'sender_type' => MessagingAccess::senderType($actor, $thread), 'body' => $data['body']]);
+                    'sender_type' => MessagingAccess::senderType($actor, $thread), 'body' => $data['body'], 'is_read' => false]);
                 $thread->update(['last_message_preview' => mb_substr($data['body'], 0, 80), 'last_message_at' => now()]);
                 if ($request->hasFile('attachment')) {
                     $file = $request->file('attachment');

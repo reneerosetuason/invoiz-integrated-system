@@ -12,6 +12,8 @@ class Product extends Model
 
     protected $appends = ['discount_percent'];
 
+    protected $hidden = ['cost_price', 'packaging_cost'];
+
     protected $fillable = [
         // Unified: real invoizdb cols + admin cols. All sides stay in sync.
         'seller_id',
@@ -32,6 +34,7 @@ class Product extends Model
         'price',
         'compare_at_price',
         'cost_price',
+        'packaging_cost',
         'stock',
         'low_stock_threshold',
         'image',
@@ -44,6 +47,7 @@ class Product extends Model
         'price' => 'float',
         'compare_at_price' => 'float',
         'cost_price' => 'float',
+        'packaging_cost' => 'float',
         'stock' => 'integer',
         'low_stock_threshold' => 'integer',
         'rating' => 'float',

@@ -20,6 +20,11 @@ use App\Services\FulfillmentWorkflow;
 class ParcelWorkflow
 {
     public const LABELS = [
+        'pickup_review' => 'Pickup Request Needs Review',
+        'ready_for_pickup_rider' => 'Ready for Pickup Rider Assignment',
+        'pickup_in_progress' => 'Seller Pickup in Progress',
+        'awaiting_seller' => 'Awaiting Seller Readiness',
+        'pickup_rejected' => 'Pickup Request Rejected',
         'awaiting_handoff' => 'Awaiting Pickup Handoff',
         'awaiting_receipt' => 'Handed Off — Awaiting Hub Receipt',
         'preparing_transfer' => 'Preparing Transfer',
@@ -92,6 +97,40 @@ class ParcelWorkflow
 
         if (in_array($delivery->parcel_status, ['pending_arrival', null, ''], true)) {
             if ($delivery->order_id && ! FulfillmentWorkflow::hasPickupHandoff($delivery)) {
+                $pickup = $delivery->pickupRequest;
+                $canReview = self::canProcessAt($user, $delivery->center_id)
+                    && $pickup && (int) $pickup->center_id === (int) $delivery->center_id;
+                if ($pickup && $pickup->status === 'rejected') {
+                    return self::result('pickup_rejected', 'amber', self::label('pickup_rejected'), [
+                        'key' => 'blocked', 'label' => 'Pickup review rejected', 'url' => null, 'enabled' => false,
+                        'reason' => $pickup->rejection_reason ?: 'Resolve the rejected pickup request before assigning a rider.',
+                    ], $transfer);
+                }
+                if ($delivery->picked_up_at) {
+                    return self::result('awaiting_handoff', 'amber', self::label('awaiting_handoff'), self::blocked('Pickup completed; the rider still needs to record the hub handoff.'), $transfer);
+                }
+                if ($delivery->rider_id) {
+                    return self::result('pickup_in_progress', 'indigo', self::label('pickup_in_progress'), self::blocked('The assigned rider must collect the parcel and record the hub handoff.'), $transfer);
+                }
+                if ($pickup && $delivery->order?->status !== 'ready_for_delivery') {
+                    return self::result('awaiting_seller', 'amber', self::label('awaiting_seller'), [
+                        'key' => 'blocked', 'label' => 'Waiting on seller', 'url' => null, 'enabled' => false,
+                        'reason' => 'The seller must mark the order ready for delivery before pickup review or rider assignment.',
+                    ], $transfer);
+                }
+                if ($pickup && $pickup->status === 'pending') {
+                    return self::result('pickup_review', 'amber', self::label('pickup_review'), [
+                        'key' => 'review_pickup', 'label' => 'Review pickup request', 'url' => route('pickup-requests.show', $pickup),
+                        'enabled' => (bool) $canReview, 'reason' => $canReview ? null : 'Pickup review belongs to staff at the pickup hub.',
+                    ], $transfer);
+                }
+                if ($pickup && $pickup->status === 'approved') {
+                    $canAssign = $canReview && $user?->canManageRiders();
+                    return self::result('ready_for_pickup_rider', 'teal', self::label('ready_for_pickup_rider'), [
+                        'key' => 'assign_pickup_rider', 'label' => 'Assign pickup rider', 'url' => route('deliveries.show', $delivery),
+                        'enabled' => (bool) $canAssign, 'reason' => $canAssign ? null : 'Rider assignment belongs to authorized staff at the pickup hub.',
+                    ], $transfer);
+                }
                 return self::result(
                     'awaiting_handoff',
                     'amber',
@@ -122,6 +161,10 @@ class ParcelWorkflow
 
         if ($delivery->status === 'out_for_delivery') {
             return self::result('out_for_delivery', 'indigo', self::label('out_for_delivery'), self::openParcel($delivery, $user, 'Open delivery'), $transfer);
+        }
+
+        if ($delivery->parcel_status === 'sorted' && $delivery->lastMileRouteBlockReason()) {
+            return self::result('preparing_transfer', 'amber', self::label('preparing_transfer'), self::openParcel($delivery, $user, 'Review destination hub'), $transfer);
         }
 
         if ($delivery->rider_id
@@ -162,8 +205,9 @@ class ParcelWorkflow
         return match ($label) {
             self::LABELS['missing'], self::LABELS['received_damaged'] => 'red',
             self::LABELS['arrived_awaiting_receiving'], self::LABELS['preparing_transfer'],
-            self::LABELS['awaiting_handoff'], self::LABELS['awaiting_receipt'] => 'amber',
-            self::LABELS['in_transit'], self::LABELS['rider_assigned'], self::LABELS['out_for_delivery'] => 'indigo',
+            self::LABELS['awaiting_handoff'], self::LABELS['awaiting_receipt'], self::LABELS['pickup_review'],
+            self::LABELS['awaiting_seller'], self::LABELS['pickup_rejected'] => 'amber',
+            self::LABELS['in_transit'], self::LABELS['rider_assigned'], self::LABELS['out_for_delivery'], self::LABELS['pickup_in_progress'] => 'indigo',
             self::LABELS['delivered'] => 'green',
             self::LABELS['cancelled'], self::LABELS['archived'] => 'gray',
             default => 'teal',
@@ -185,9 +229,12 @@ class ParcelWorkflow
             'key' => $key,
             'label' => $label,
             'tone' => $tone,
-            'custody' => $transfer
-                ? 'Fleet transfer '.$transfer->reference.' — '.HubTransferProgress::transferLabel($transfer->status)
-                : 'Hub custody',
+            'custody' => match (true) {
+                in_array($key, ['pickup_review', 'ready_for_pickup_rider', 'pickup_in_progress', 'awaiting_seller', 'pickup_rejected'], true) => 'At seller; pickup not completed',
+                $key === 'awaiting_handoff' => 'Pickup handoff not recorded',
+                $transfer !== null => 'Fleet transfer '.$transfer->reference.' — '.HubTransferProgress::transferLabel($transfer->status),
+                default => 'Hub custody',
+            },
             'next' => $next,
             'transfer' => $transfer,
         ];

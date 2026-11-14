@@ -461,15 +461,45 @@ class Delivery extends Model
 
     public function suggestedDestination(?\Illuminate\Support\Collection $areas = null): array
     {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('service_areas') || !\Illuminate\Support\Facades\Schema::hasTable('logistics_centers')) {
+            return ['center_id' => null, 'service_area_id' => null];
+        }
         $address = mb_strtolower((string) $this->recipient_address);
         if ($address === '') {
             return ['center_id' => null, 'service_area_id' => null];
         }
-        $areas ??= ServiceArea::where('is_active', true)->get();
+        $areas ??= ServiceArea::where('is_active', true)->whereHas('logisticsCenter', function ($q) {
+            $q->where('is_active', true);
+            if (\Illuminate\Support\Facades\Schema::hasTable('logistics_companies')) $q->whereHas('company', fn ($company) => $company->where('status', 'active'));
+        })->get();
         $match = self::matchServiceArea($areas, $address);
 
+        // A hub's registered city is also a destination match. A missing
+        // service-area record must not turn Makati-to-Lumban into a local job.
+        $center = null;
+        if (!$match) {
+            $shipping = $this->order?->shipping_address;
+            $city = is_array($shipping) ? ($shipping['city'] ?? null) : null;
+            $province = is_array($shipping) ? ($shipping['province'] ?? null) : null;
+            if (!$city && $this->order?->address) {
+                $city = $this->order->address->city;
+                $province = $this->order->address->province;
+            }
+            $normalize = fn ($s) => trim(preg_replace('/\b(city of|city|municipality of)\b/u', '', mb_strtolower(trim((string) $s))));
+            $centerQuery = LogisticsCenter::where('is_active', true);
+            if (\Illuminate\Support\Facades\Schema::hasTable('logistics_companies')) $centerQuery->whereHas('company', fn ($q) => $q->where('status', 'active'));
+            $centers = $centerQuery->get()->filter(function ($hub) use ($city, $province, $address, $normalize) {
+                if (!$hub->city) return false;
+                if ($city) return $normalize($hub->city) === $normalize($city)
+                    && (!$province || !$hub->province || $normalize($hub->province) === $normalize($province));
+                return preg_match('/(?<!\pL)'.preg_quote(mb_strtolower($hub->city), '/').'(?!\pL)/u', $address) === 1;
+            });
+            // Multiple hubs need staff routing; never silently choose one.
+            if ($centers->count() === 1) $center = $centers->first();
+        }
+
         return [
-            'center_id' => $match?->logistics_center_id ? (int) $match->logistics_center_id : null,
+            'center_id' => $match?->logistics_center_id ? (int) $match->logistics_center_id : $center?->id,
             'service_area_id' => $match ? (int) $match->id : null,
         ];
     }
@@ -499,6 +529,8 @@ class Delivery extends Model
             return 'pickup';
         }
 
+        if ($this->lastMileRouteBlockReason()) return 'hub_processing';
+
         $finalCenterId = $this->finalDestinationScope()['center_id'];
         if ($finalCenterId !== null
             && $this->center_id !== null
@@ -519,6 +551,7 @@ class Delivery extends Model
     /** Explain the outstanding hub step without changing assignment eligibility. */
     public function riderAssignmentBlockReason(): ?string
     {
+        if ($reason = $this->lastMileRouteBlockReason()) return $reason;
         $scope = $this->riderAssignmentScope();
         if ($scope['stage'] !== 'hub_processing') {
             return null;
@@ -532,6 +565,27 @@ class Delivery extends Model
         return $this->parcel_status === 'scanned'
             ? 'Parcel must be sorted at its destination hub before last-mile assignment.'
             : 'Parcel must be scanned and sorted at its destination hub before last-mile assignment.';
+    }
+
+    /** Pickup riders still collect for the origin; this guards the buyer leg. */
+    public function lastMileRouteBlockReason(): ?string
+    {
+        if ($this->order_id && !$this->received_at && !$this->sorting_center_handoff_at) return null;
+        $suggested = $this->suggestedDestination()['center_id'];
+        $destination = $this->destination_center_id ?: $suggested;
+        if ($destination && (int) $destination !== (int) $this->center_id) {
+            return 'Inter-hub transport is required. Receive, scan and sort this parcel at its destination hub before assigning a last-mile rider.';
+        }
+        $shipping = $this->order?->shipping_address;
+        $city = is_array($shipping) ? ($shipping['city'] ?? null) : null;
+        $city ??= $this->order?->address?->city;
+        $hub = $this->logisticsCenter;
+        $cityKey = fn ($s) => trim(preg_replace('/\b(city of|city|municipality of)\b/u', '', mb_strtolower(trim((string) $s))));
+        if ($city && $hub?->city && $cityKey($city) !== $cityKey($hub->city)) {
+            $area = self::matchServiceArea($hub->serviceAreas()->where('is_active', true)->get(), mb_strtolower((string) $this->recipient_address));
+            if (!$area) return 'The buyer is outside this hub’s local service area. Route the parcel to a destination hub serving the buyer before last-mile assignment.';
+        }
+        return null;
     }
 
     /**

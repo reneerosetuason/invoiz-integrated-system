@@ -6,6 +6,7 @@ use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\PickupRequest;
 use App\Models\Seller;
+use App\Support\EscrowEarnings;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -44,7 +45,7 @@ class OrderShipmentService
                 'status' => 'waiting_for_rider', 'parcel_status' => 'pending_arrival',
                 'payment_method' => $order->payment?->method === 'cod' ? 'cash_on_delivery' : ($order->payment?->method ?? 'cash_on_delivery'),
                 'amount_to_collect' => $order->cashToCollectForSeller($sellerId),
-                'delivery_fee' => \App\Support\EscrowEarnings::lastMileRiderFee(),
+                'delivery_fee' => EscrowEarnings::lastMileRiderFee(),
             ]);
             // Never replace a courier's existing snapshot during a repair.
             foreach ([
@@ -62,6 +63,11 @@ class OrderShipmentService
             }
             if ($delivery->weight === null) {
                 $delivery->weight = app(ShipmentWeightService::class)->fromOrder($order);
+            }
+            $delivery->setRelation('order', $order);
+            app(ShipmentMeasurementService::class)->fillMissing($delivery);
+            if (!$delivery->destination_center_id && ($destination = $delivery->suggestedDestination()['center_id'])) {
+                $delivery->destination_center_id = $destination;
             }
             $delivery->save();
             if (! $delivery->items()->exists()) {

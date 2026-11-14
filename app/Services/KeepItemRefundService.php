@@ -38,11 +38,15 @@ final class KeepItemRefundService
     public static function activate(ReturnRequest $case, ReturnSettlement $s): void
     {
         if (!$s->keepItemDirect() || !$s->agreed() || !$s->destination_verified_at || $s->closed_at || $case->workflow?->refund_sent_at) return;
-        self::check($s->net_refund_cents>0 && $s->budgetCents()===0 && !$s->allocations()->exists(), 'A keep-item refund cannot include delivery work or fees.');
+        self::check($s->net_refund_cents>0 && $s->payerBudgetCents()===0 && !$s->allocations()->where('role', '!=', 'seller_protection_reimbursement')->exists(), 'A keep-item refund cannot include delivery work or fees.');
         $other=(int)ReturnRequest::where('order_item_id',$case->order_item_id)->whereKeyNot($case->id)
             ->whereIn('status',['approved','item_received','refunded'])->sum('quantity');
         self::check($case->item && $case->item->seller_id==$case->seller_id && $case->quantity>0 && $other+$case->quantity<=$case->item->quantity,
             'This purchased quantity already belongs to another agreed or completed refund.');
+        if ($s->platform_subsidy_cents) {
+            self::check(ReturnSettlementService::budgetFunded($s), 'Fund the approved platform reimbursement before activating this refund.');
+            $s->funded_at = now();
+        }
         $s->status='refund_pending';$s->save();
         $case->update(['status'=>'approved','refund_amount'=>$s->net_refund_cents/100]);
         $case->workflow()->update(['stage'=>'refund_pending']);
@@ -103,12 +107,14 @@ final class KeepItemRefundService
             self::check(!$transfer || (int)$transfer->return_request_id===$case->id,'That reference was used for another refund.');
             self::check($s->net_refund_cents+ReturnSettlementService::cents(Payments::transactionFor($order)?->refunded_amount??0)
                 <=ReturnSettlementService::cents($order->total_amount),'This refund would exceed the original buyer payment.');
+            SellerProtectionService::reconcile($order, $s->merchandise_cents / 100, false, $case);
             $versions=$transfer?->receipt_versions??[];
             $versions[]=['proof_path'=>$data['proof_path'],'destination'=>$s->refund_destination,'at'=>now()->toIso8601String()];
             if (!$transfer) $transfer=new DirectRefundTransfer(['return_request_id'=>$case->id,'reference'=>$ref,'amount_cents'=>$s->net_refund_cents]);
             $transfer->fill(['receipt_versions'=>$versions,'revision'=>count($versions),'status'=>'pending','buyer_note'=>null])->save();
             $flow->update(['stage'=>'refund_sent','refund_source'=>'seller_direct','refund_sender_user_id'=>$actor->id,
                 'refund_reference'=>$ref,'refund_proof_path'=>$data['proof_path'],'refund_sent_at'=>now()]);
+            SellerProtectionService::refreshLedger($order->fresh());
             $s->status='refund_sent';$s->dispute_note=null;
             self::event($s,$actor,$current?'refund_receipt_corrected':'seller_refund_sent','Seller recorded '.number_format($s->net_refund_cents/100,2).' sent directly to the buyer; awaiting buyer confirmation.');
             $s->save();
@@ -129,7 +135,10 @@ final class KeepItemRefundService
         if(!$order->returnRequests()->whereIn('status',['requested','approved','item_received'])->exists()){
             $order->paymentDisputes()->where('status','awaiting_refund')->update(['status'=>'resolved','resolved_at'=>now()]);
         }
+        $s->allocations()->where('role','seller_protection_reimbursement')->where('status','reserved')->update(['status'=>'eligible','eligible_at'=>now()]);
         Payments::refund($order,$s->net_refund_cents/100,'Buyer confirmed seller-direct keep-item refund; return #'.$case->id);
+        SellerProtectionService::refreshLedger($order->fresh());
+        \App\Support\EscrowEarnings::syncRemittancesForOrder($order->fresh());
     }
 
     public static function receipt(ReturnRequest $case): ?array

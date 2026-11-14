@@ -11,6 +11,67 @@ import 'package:invoiz/widgets/return_fee_receipt_dialog.dart';
 void main() {
   tearDown(() => ApiService.setToken(null));
   testWidgets(
+    'platform-funded return preserves the buyer refund and shows separate seller reimbursement',
+    (tester) async {
+      final api = ApiService(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode({
+              'agreement': {
+                'id': 7,
+                'version': 1,
+                'workflow_policy': 'seller_fault_direct',
+                'status': 'collection_ready',
+                'resolution': 'return_refund',
+                'fault': 'seller',
+                'payer': 'seller',
+                'funding_method': 'deposit',
+                'merchandise_cents': 43000,
+                'shipping_cents': 5000,
+                'transport_cents': 44000,
+                'platform_subsidy_cents': 55450,
+                'seller_reimbursement_cents': 11450,
+                'net_refund_cents': 48000,
+                'quoted_at': '2026-11-15',
+                'seller_accepted_at': '2026-11-15',
+                'buyer_accepted_at': '2026-11-15',
+                'funded_at': '2026-11-15',
+                'collection_authorized_at': '2026-11-15',
+                'payments': [],
+                'allocations': [],
+              },
+              'progress': {},
+              'budget_outstanding_cents': 0,
+            }),
+            200,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(home: ReturnAgreementScreen(returnId: 7, api: api)),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('The platform funds the displayed return support'),
+        findsOneWidget,
+      );
+      await tester.scrollUntilVisible(
+        find.textContaining('Platform contribution:'),
+        200,
+      );
+      expect(
+        find.textContaining('Separate seller fee reimbursement:'),
+        findsOneWidget,
+      );
+      expect(find.text('Upload return-fee receipt'), findsNothing);
+      expect(
+        find.textContaining('never reduces your agreed refund'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+  testWidgets(
     'buyer fault displays deductions and never requests a separate buyer fee',
     (tester) async {
       final api = ApiService(

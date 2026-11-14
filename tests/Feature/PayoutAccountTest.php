@@ -192,4 +192,20 @@ class PayoutAccountTest extends TestCase
         ])->assertRedirect('/seller/remittances')->assertSessionHas('payout_account_saved');
         $this->assertSame('000WEBUPDATED', PayoutAccounts::saved('user', $actor->id)->details['account']);
     }
+
+    public function test_incomplete_profiles_block_both_ledgers_until_a_complete_profile_is_saved(): void
+    {
+        $actor = $this->worker('rider');
+        $order = EscrowRemittance::create(['recipient_role' => 'last_mile_rider', 'recipient_user_id' => $actor->id, 'status' => 'pending_remittance']);
+        $return = $this->allocation(['role' => 'collection_rider', 'recipient_user_id' => $actor->id]);
+        $this->assertFalse(PayoutAccounts::ready($order));
+        $this->assertFalse(PayoutAccounts::ready($return));
+        PayoutAccount::create(['owner_type' => 'user', 'owner_id' => $actor->id, 'details' => ['provider' => 'Bank', 'holder' => '   ', 'account' => '1234']]);
+        $this->assertFalse(PayoutAccounts::ready($order));
+        $this->save($actor, 'user-'.$actor->id)->assertOk();
+        PayoutAccounts::assertReady($order);
+        PayoutAccounts::assertReady($return);
+        $this->assertTrue(PayoutAccounts::ready($order));
+        $this->assertTrue(PayoutAccounts::ready($return));
+    }
 }

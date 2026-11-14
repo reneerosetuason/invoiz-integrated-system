@@ -1372,6 +1372,110 @@ class LogisticsOperationsWorkspaceTest extends TestCase
     // Fixtures
     // ------------------------------------------------------------------
 
+    public function test_operations_includes_pickup_review_assignment_and_waiting_parcels_without_granting_hub_custody(): void
+    {
+        $approved = [];
+        for ($i = 0; $i < 3; $i++) {
+            $approved[] = $this->pickupParcel('approved');
+        }
+        $review = $this->pickupParcel('pending');
+        $waiting = $this->pickupParcel('pending', 'pending');
+        $rejected = $this->pickupParcel('rejected');
+        $sorted = $this->delivery(['center_id' => $this->hubA->id, 'destination_center_id' => $this->hubA->id, 'parcel_status' => 'sorted']);
+        $foreign = $this->pickupParcel('approved', 'ready_for_delivery', $this->hubB);
+        $data = $this->operationsView($this->hubStaff)->getData();
+        $rows = $data['actionParcels']->keyBy('delivery.id');
+        $this->assertSame(5, $data['counts']['action_parcels']);
+        $this->assertSame(7, $data['parcelPaginator']->total());
+        foreach ($approved as $parcel) {
+            $this->assertSame('assign_pickup_rider', $rows[$parcel->id]['workflow']['next']['key']);
+            $this->assertTrue($rows[$parcel->id]['workflow']['next']['enabled']);
+            $this->assertFalse($rows[$parcel->id]['eligibility']['receive']);
+            $this->assertFalse($rows[$parcel->id]['eligibility']['assign_rider']);
+            $this->assertSame('At seller; pickup not completed', $rows[$parcel->id]['workflow']['custody']);
+        }
+        $this->assertSame('review_pickup', $rows[$review->id]['workflow']['next']['key']);
+        $this->assertSame('awaiting_seller', $rows[$waiting->id]['workflow']['key']);
+        $this->assertSame('pickup_rejected', $rows[$rejected->id]['workflow']['key']);
+        $this->assertFalse($rows[$waiting->id]['workflow']['next']['enabled']);
+        $this->assertFalse($rows[$rejected->id]['workflow']['next']['enabled']);
+        $this->assertArrayNotHasKey($foreign->id, $rows->all());
+        $this->assertSame(3, $this->operationsView($this->hubStaff, ['parcel_status' => 'pickup_assignment'])->getData()['actionParcels']->count());
+        $this->assertSame([$review->id], $this->operationsView($this->hubStaff, ['parcel_status' => 'pickup_review'])->getData()['actionParcels']->pluck('delivery.id')->all());
+    }
+
+    public function test_operations_paginates_all_work_instead_of_dropping_parcels_after_fifteen(): void
+    {
+        $ids = [];
+        for ($i = 0; $i < 32; $i++) {
+            $ids[] = $this->delivery(['center_id' => $this->hubA->id, 'parcel_status' => 'received'])->id;
+        }
+        $first = $this->operationsView($this->hubStaff)->getData();
+        $second = $this->operationsView($this->hubStaff, ['parcels_page' => 2])->getData();
+        $this->assertSame(32, $first['counts']['action_parcels']);
+        $this->assertSame(32, $first['parcelPaginator']->total());
+        $this->assertCount(25, $first['actionParcels']);
+        $this->assertCount(7, $second['actionParcels']);
+        $this->assertSame($ids, $first['actionParcels']->concat($second['actionParcels'])->pluck('delivery.id')->all());
+    }
+
+    public function test_pickup_review_can_be_processed_from_operations_and_returns_to_the_workspace(): void
+    {
+        $parcel = $this->pickupParcel('pending');
+        $this->actingAs($this->hubStaff)->get(route('operations.index'))->assertOk()
+            ->assertSee('Approve pickup')->assertSee(route('pickup-requests.approve', $parcel->pickupRequest), false);
+        $this->actingAs($this->hubStaff)->from(route('operations.index'))
+            ->post(route('pickup-requests.approve', $parcel->pickupRequest))->assertRedirect(route('operations.index'));
+        $this->assertSame('approved', $parcel->pickupRequest()->first()->status);
+        $this->actingAs($this->hubStaff)->get(route('operations.index'))->assertOk()->assertSee('Auto-assign pickup rider');
+        $this->assertNull($parcel->fresh()->received_at);
+        $this->assertSame('pending_arrival', $parcel->fresh()->parcel_status);
+        $this->assertSame(0, $this->operationsView($this->hubStaff, ['parcel_status' => 'awaiting_receiving'])->getData()['actionParcels']->count());
+    }
+
+    public function test_pickup_rider_assignment_from_workspace_preserves_review_and_hub_guards(): void
+    {
+        Schema::create('payments', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('order_id');
+            $table->string('method')->nullable();
+            $table->string('status')->nullable();
+            $table->timestamps();
+        });
+        $approved = $this->pickupParcel('approved');
+        $pending = $this->pickupParcel('pending');
+        $foreign = $this->pickupParcel('approved', 'ready_for_delivery', $this->hubB);
+        $rider = Rider::create([
+            'center_id' => $this->hubA->id, 'name' => 'Pickup Rider', 'vehicle_type' => 'Motorcycle',
+            'vehicle_verification' => 'verified', 'status' => 'active', 'is_online' => true,
+            'is_verified' => true, 'approved_at' => now()->subDay(), 'license_expiry' => now()->addYear()->toDateString(),
+        ]);
+        $this->actingAs($this->hubStaff)->get(route('operations.index'))->assertOk()->assertSee('Assign selected rider');
+        $this->actingAs($this->hubStaff)->from(route('operations.index'))
+            ->post(route('deliveries.assign-rider', $pending), ['rider_id' => $rider->id])->assertStatus(409);
+        $this->assertNull($pending->fresh()->rider_id);
+        $this->actingAs($this->hubStaff)->from(route('operations.index'))
+            ->post(route('deliveries.assign-rider', $foreign), ['rider_id' => $rider->id])->assertForbidden();
+        $this->actingAs($this->hubStaff)->from(route('operations.index'))
+            ->post(route('deliveries.assign-rider', $approved), ['rider_id' => $rider->id])
+            ->assertSessionHasNoErrors()->assertRedirect(route('operations.index'));
+        $this->assertSame($rider->id, $approved->fresh()->rider_id);
+        $this->assertSame('assigned', $approved->fresh()->status);
+        $this->assertNull($approved->fresh()->received_at);
+        $rows = $this->operationsView($this->hubStaff)->getData()['actionParcels']->keyBy('delivery.id');
+        $this->assertSame('pickup_in_progress', $rows[$approved->id]['workflow']['key']);
+        $this->assertFalse($rows[$approved->id]['eligibility']['receive']);
+    }
+
+    private function pickupParcel(string $status, string $orderStatus = 'ready_for_delivery', ?LogisticsCenter $hub = null): Delivery
+    {
+        $hub ??= $this->hubA;
+        $orderId = DB::table('orders')->insertGetId(['status' => $orderStatus, 'created_at' => now(), 'updated_at' => now()]);
+        $delivery = $this->delivery(['center_id' => $hub->id, 'order_id' => $orderId, 'weight' => 2]);
+        \App\Models\PickupRequest::create(['delivery_id' => $delivery->id, 'center_id' => $hub->id, 'status' => $status, 'requested_at' => now(), 'rejection_reason' => $status === 'rejected' ? 'Pickup details need correction' : null]);
+        return $delivery;
+    }
+
     private function operationsView(User $user, array $query = [])
     {
         $request = Request::create('/logistics/operations', 'GET', $query);

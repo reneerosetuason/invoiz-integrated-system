@@ -3,6 +3,8 @@
 @section('content')
 @php($editable = !$agreement->funded_at && !$agreement->closed_at && !$agreement->payments->whereIn('status',['submitted','verified'])->count())
 <div class="return-center return-agreement return-flow-ui">
+@include('shared.returns.protected-transport')
+
     <header class="review-head"><div><p class="review-eyebrow">Return #{{ $returnRequest->id }} · Order #{{ $returnRequest->order_id }}</p>
         <h1>Return proposal &amp; payment</h1></div></header>
 <details class="return-disclosure return-introduction"><summary>How this works</summary><div class="return-disclosure-body"><p>@if((int)$agreement->policy_version>=2)Agree on responsibility and the remedy. Buyer-fault returns deduct original seller-funded costs and new delivery; the seller sends the net refund directly. Seller-fault remedies keep their existing funding process.@else Agree on the resolution. This earlier agreement keeps its recorded separate-payment terms; it is not converted into new deductions.@endif</p></div></details>
@@ -47,7 +49,7 @@
     @include('shared.returns.partials.propose')
 
     @if($buyer && $editable && $agreement->status==='proposed' && !$agreement->buyer_accepted_at && !$agreement->dispute_note)
-    <details class="return-task" name="return-current-task" open><summary><h2>Review the seller’s proposal</h2></summary><div class="return-disclosure-body"><p>Check responsibility, refund and the full service breakdown. @if($agreement->payer==='buyer')If you agree, you will pay <strong class="return-action-amount">{{ peso($agreement->budgetCents()/100) }}</strong> separately for the return.@else The seller pays the return fees.@endif</p>
+    <details class="return-task" name="return-current-task" open><summary><h2>Review the seller’s proposal</h2></summary><div class="return-disclosure-body"><p>Check responsibility, refund and the full service breakdown. @if($agreement->payer==='buyer')If you agree, you will pay <strong class="return-action-amount">{{ peso($agreement->payerBudgetCents()/100) }}</strong> separately for the return.@else The seller pays the return fees.@endif</p>
         <form method="post" action="{{ route('returns.agreement.update',$returnRequest) }}">@include('shared.returns.partials.form-identity',['action'=>'accept'])
             @include('shared.returns.partials.confirm',['confirmation'=>'I agree to this proposal, who pays the fees, and the complete fee breakdown.'])<button type="submit">Accept agreement</button>
         </form>
@@ -63,7 +65,7 @@
     </details>@endif
 
     @if($agreement->agreed() && !$agreement->funded_at && !$agreement->closed_at)
-    <details class="return-task" name="return-current-task" {{ (($buyer && $agreement->payer==='buyer') || ($seller && $agreement->payer==='seller')) && $budgetOutstanding>0 && !$agreement->payments->contains(fn($p)=>$p->purpose==='return_budget' && $p->status==='submitted') ? 'open' : '' }}><summary><h2>Return transport fee — paid by {{ $agreement->payer }}</h2></summary><div class="return-disclosure-body"><p><b>Total return transport:</b> {{ peso($agreement->budgetCents()/100) }}, covering the listed riders and logistics services. Payment status is shown below.</p>
+    <details class="return-task" name="return-current-task" {{ (($buyer && $agreement->payer==='buyer') || ($seller && $agreement->payer==='seller')) && $budgetOutstanding>0 && !$agreement->payments->contains(fn($p)=>$p->purpose==='return_budget' && $p->status==='submitted') ? 'open' : '' }}><summary><h2>Return transport fee — paid by {{ $agreement->payer }}</h2></summary><div class="return-disclosure-body"><p><b>Total return transport:</b> {{ peso($agreement->payerBudgetCents()/100) }}, covering the listed riders and logistics services. Payment status is shown below.</p>
         @php($payer = ($buyer && $agreement->payer==='buyer') || ($seller && $agreement->payer==='seller'))
         @php($pendingFee = $agreement->payments->first(fn($p)=>$p->purpose==='return_budget' && $p->status==='submitted'))
         @if($pendingFee)<p class="review-status">Return-fee receipt submitted — awaiting admin verification. Do not transfer or upload the same payment again.</p>
@@ -76,7 +78,7 @@
     @if(($seller || $admin) && $funding['shortfall']>0)
     <details class="return-task" name="return-current-task" {{ $seller && !$agreement->payments->contains(fn($p)=>$p->purpose==='refund_recovery' && $p->status==='submitted') ? 'open' : '' }}><summary><h2>Seller funds for the buyer’s item refund</h2></summary><div class="return-disclosure-body">
         <p><b>Seller needs to restore {{ peso($funding['shortfall']) }}.</b> The original order proceeds have already been released or are unavailable. This payment puts the money needed for the buyer’s refund back into the platform account.</p>
-        <p>This is separate from the {{ peso($agreement->budgetCents()/100) }} return transport fee. The buyer does not pay this item-refund amount again.</p>
+        <p>This is separate from the {{ peso($agreement->payerBudgetCents()/100) }} return transport fee. The buyer does not pay this item-refund amount again.</p>
         @php($pendingRecovery = $agreement->payments->first(fn($p)=>$p->purpose==='refund_recovery' && $p->status==='submitted'))
         @if($pendingRecovery)<p class="review-status">Seller refund-funding receipt submitted — awaiting admin verification.</p>
         @elseif($seller)

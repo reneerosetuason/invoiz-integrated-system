@@ -288,7 +288,7 @@ class MessagingAccessTest extends TestCase
         $this->assertFalse(MessagingAccess::canContact($this->store(), $this->store()));
     }
 
-    public function test_return_assignment_allows_contact_without_mutating_the_return(): void
+    public function test_historical_return_allocation_alone_does_not_grant_chat_access(): void
     {
         $buyer = $this->user(); $seller = $this->store(); $rider = $this->rider();
         $return = \App\Models\ReturnRequest::create(['buyer_id' => $buyer->id, 'seller_id' => $seller->id, 'status' => 'approved']);
@@ -296,8 +296,8 @@ class MessagingAccessTest extends TestCase
         $this->assertFalse(MessagingAccess::canContact($rider, $buyer));
         $allocation = \App\Models\ReturnAllocation::create(['return_settlement_id' => $settlement->id,
             'rider_id' => $rider->rider->id, 'recipient_user_id' => $rider->id]);
-        $this->assertTrue(MessagingAccess::canContact($rider, $buyer));
-        $this->assertTrue(MessagingAccess::canContact($seller, $rider));
+        $this->assertFalse(MessagingAccess::canContact($rider, $buyer));
+        $this->assertFalse(MessagingAccess::canContact($seller, $rider));
         $allocation->update(['recipient_user_id' => null]);
         $this->assertFalse(MessagingAccess::canContact($rider, $buyer));
         $this->assertSame('approved', $return->fresh()->status);
@@ -314,9 +314,9 @@ class MessagingAccessTest extends TestCase
         Message::create(['conversation_id' => $enquiry->id, 'sender_id' => $buyer->id, 'receiver_id' => $seller->id, 'body' => 'An actual store enquiry']);
         $roles = compact('buyer', 'seller', 'admin', 'rider', 'staff', 'driver');
         $allowed = [
-            'buyer' => ['seller', 'admin', 'rider'], 'seller' => ['buyer', 'admin', 'rider'],
+            'buyer' => ['seller', 'admin', 'rider'], 'seller' => ['buyer', 'admin', 'rider', 'staff'],
             'admin' => ['buyer', 'seller', 'rider', 'staff', 'driver'], 'rider' => ['buyer', 'seller', 'admin', 'staff'],
-            'staff' => ['admin', 'rider', 'driver'], 'driver' => ['admin', 'staff'],
+            'staff' => ['admin', 'rider', 'driver', 'seller'], 'driver' => ['admin', 'staff'],
         ];
         foreach ($roles as $from => $actor) {
             foreach ($roles as $to => $other) {
@@ -337,36 +337,186 @@ class MessagingAccessTest extends TestCase
         }
     }
 
-    public function test_scoped_staff_can_reply_in_delivery_threads_but_cannot_start_customer_dms(): void
+    public function test_staff_cannot_join_customer_rider_threads_and_seller_partnerships_are_separate(): void
     {
         $buyer = $this->user(); $seller = $this->store(); $rider = $this->rider(); $staff = $this->staff();
-        $otherStaff = $this->staff(2);
-        $order = \App\Models\Order::create(['buyer_id' => $buyer->id, 'status' => 'pending']);
+        $order = \App\Models\Order::create(['buyer_id' => $buyer->id, 'status' => 'ready_for_delivery']);
         Delivery::create(['order_id' => $order->id, 'seller_id' => $seller->id, 'rider_id' => $rider->rider->id, 'center_id' => 1]);
         foreach (['buyer' => $buyer, 'seller' => $seller] as $type => $customer) {
             $thread = LogisticsConversation::create(['participant_type' => $type, 'participant_id' => $customer->id,
                 'participant_name' => $customer->name, 'rider_id' => $rider->rider->id, 'order_id' => $order->id]);
-            $key = 'logistics:'.$thread->id;
-            Sanctum::actingAs($staff);
-            $this->postJson('/api/messaging/start', ['recipient' => 'user:'.$customer->id])->assertForbidden();
-            $this->postJson('/api/messaging/threads/'.$key, ['body' => 'No conversation yet'])->assertForbidden();
             LogisticsMessage::create(['conversation_id' => $thread->id, 'sender_type' => $type,
-                'sender_id' => $customer->id, 'body' => 'Delivery question', 'is_read' => false]);
-            $this->getJson('/api/messaging/threads/'.$key)->assertOk();
-            $row = collect($this->getJson('/api/messaging/inbox')->json('conversations'))->firstWhere('thread_key', $key);
-            $this->assertTrue($row['can_send']);
-            $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Hub coordination reply'])
-                ->assertCreated()->assertJsonPath('data.sender_type', 'logistics')->assertJsonPath('data.mine', true);
-            Sanctum::actingAs($customer);
-            $this->getJson('/api/messaging/threads/'.$key)->assertOk()->assertJsonPath('messages.0.body', 'Hub coordination reply');
-            Sanctum::actingAs($otherStaff);
-            $this->getJson('/api/messaging/threads/'.$key)->assertForbidden();
-            $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Cross-company reply'])->assertForbidden();
-            $customer->update(['account_status' => 'suspended']);
+                'sender_id' => $customer->id, 'body' => 'Private delivery question', 'is_read' => false]);
             Sanctum::actingAs($staff);
-            $this->getJson('/api/messaging/threads/'.$key)->assertOk();
-            $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Inactive customer'])->assertForbidden();
+            $this->getJson('/api/messaging/threads/logistics:'.$thread->id)->assertForbidden();
+            $this->postJson('/api/messaging/threads/logistics:'.$thread->id, ['body' => 'Cannot join'])->assertForbidden();
+            $this->assertNotContains('logistics:'.$thread->id, collect($this->getJson('/api/messaging/inbox')->json('conversations'))->pluck('thread_key'));
         }
+        Sanctum::actingAs($buyer);
+        $this->postJson('/api/messaging/start', ['recipient' => 'user:'.$staff->id])->assertForbidden();
+        Sanctum::actingAs($seller);
+        $key = $this->postJson('/api/messaging/start', ['recipient' => 'user:'.$staff->id])->assertCreated()->json('thread_key');
+        $this->assertStringStartsWith('marketplace:', $key);
+        $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Partnership enquiry'])->assertCreated();
+        Sanctum::actingAs($buyer);
+        $this->getJson('/api/messaging/threads/'.$key)->assertForbidden();
+        Sanctum::actingAs($rider);
+        $this->getJson('/api/messaging/threads/'.$key)->assertForbidden();
+    }
+
+    public function test_parcel_chat_follows_handoff_and_keeps_customer_and_handler_histories_private(): void
+    {
+        Schema::table('deliveries', function (Blueprint $t) {
+            foreach (['center_id', 'picked_up_at', 'received_at', 'sorting_center_handoff_at', 'sorting_center_pickup_at', 'parcel_status'] as $field) {
+                if (! Schema::hasColumn('deliveries', $field)) $t->text($field)->nullable();
+            }
+        });
+        $buyer = $this->user(); $seller = $this->store(); $pickup = $this->rider(); $lastMile = $this->rider();
+        $staff = $this->staff(); $otherHub = $this->staff(2);
+        $order = \App\Models\Order::create(['buyer_id' => $buyer->id, 'status' => 'ready_for_delivery']);
+        $parcel = Delivery::create(['order_id' => $order->id, 'seller_id' => $seller->id, 'rider_id' => $pickup->rider->id,
+            'center_id' => 1, 'parcel_status' => 'pending_arrival', 'status' => 'assigned', 'tracking_number' => 'PRIVATE-PARCEL']);
+        Sanctum::actingAs($buyer);
+        $contacts = $this->getJson('/api/messaging/contacts')->assertOk()->json('contacts');
+        $this->assertContains('parcel:'.$parcel->id, array_column($contacts, 'key'));
+        $this->assertNotContains('user:'.$pickup->id, array_column($contacts, 'key'));
+        $buyerThread = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        $this->postJson('/api/messaging/threads/'.$buyerThread, ['body' => 'Buyer private pickup chat'])->assertCreated();
+        Sanctum::actingAs($seller);
+        $sellerThread = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        $this->assertNotSame($buyerThread, $sellerThread);
+        $this->getJson('/api/messaging/threads/'.$buyerThread)->assertForbidden();
+        $this->postJson('/api/messaging/threads/'.$sellerThread, ['body' => 'Seller private pickup chat'])->assertCreated();
+        Sanctum::actingAs($staff);
+        $this->getJson('/api/messaging/threads/'.$buyerThread)->assertForbidden();
+        $this->getJson('/api/messaging/threads/'.$sellerThread)->assertForbidden();
+        Sanctum::actingAs($lastMile);
+        $this->postJson('/api/messaging/start', ['recipient' => 'user:'.$buyer->id])->assertForbidden();
+
+        // Preserve the old pickup rider reference: it must not grant contact.
+        \Illuminate\Support\Facades\DB::table('deliveries')->where('id', $parcel->id)->update([
+            'received_at' => now(), 'picked_up_at' => now(), 'sorting_center_handoff_at' => now(),
+            'sorting_center_handoff_rider_id' => $pickup->rider->id, 'parcel_status' => 'received', 'status' => 'picked_up',
+        ]);
+        Sanctum::actingAs($buyer);
+        $this->postJson('/api/messaging/threads/'.$buyerThread, ['body' => 'Old rider cannot receive this'])->assertForbidden();
+        $this->getJson('/api/messaging/threads/'.$buyerThread)->assertOk()->assertJsonPath('can_send', false);
+        $hubThread = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        $this->assertNotSame($buyerThread, $hubThread);
+        $this->postJson('/api/messaging/threads/'.$hubThread, ['body' => 'Hub only chat'])->assertCreated();
+        $this->assertSame(1, LogisticsConversation::unreadForLogisticsUser($staff->id));
+        $this->assertSame(0, LogisticsConversation::unreadForLogisticsUser($otherHub->id));
+        Sanctum::actingAs($pickup);
+        $this->getJson('/api/messaging/threads/'.$hubThread)->assertForbidden();
+        $this->postJson('/api/messaging/threads/'.$buyerThread, ['body' => 'Former rider'])->assertForbidden();
+        Sanctum::actingAs($staff);
+        $this->getJson('/api/messaging/threads/'.$hubThread)->assertJsonCount(1, 'messages')->assertJsonPath('messages.0.body', 'Hub only chat');
+        $this->postJson('/api/messaging/threads/'.$hubThread, ['body' => 'Current hub reply'])->assertCreated()->assertJsonPath('data.sender_type', 'logistics');
+        Sanctum::actingAs($otherHub);
+        $this->getJson('/api/messaging/threads/'.$hubThread)->assertForbidden();
+
+        \Illuminate\Support\Facades\DB::table('deliveries')->where('id', $parcel->id)->update(['rider_id' => $lastMile->rider->id, 'status' => 'assigned']);
+        $this->assertSame('h', \App\Support\ParcelChat::holder($parcel->fresh())['kind']);
+        \Illuminate\Support\Facades\DB::table('deliveries')->where('id', $parcel->id)->update(['sorting_center_pickup_at' => now(), 'status' => 'out_for_delivery']);
+        Sanctum::actingAs($buyer);
+        $lastThread = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        $this->assertNotSame($hubThread, $lastThread);
+        $this->postJson('/api/messaging/threads/'.$hubThread, ['body' => 'Old hub'])->assertForbidden();
+        Sanctum::actingAs($lastMile);
+        $this->getJson('/api/messaging/threads/'.$lastThread)->assertJsonCount(0, 'messages');
+        $this->getJson('/api/messaging/threads/'.$buyerThread)->assertForbidden();
+        $this->getJson('/api/messaging/threads/'.$hubThread)->assertForbidden();
+        $this->postJson('/api/messaging/threads/'.$lastThread, ['body' => 'Delivering now'])->assertCreated();
+        \Illuminate\Support\Facades\DB::table('deliveries')->where('id', $parcel->id)->update(['status' => 'delivered']);
+        $this->postJson('/api/messaging/threads/'.$lastThread, ['body' => 'Delivery is over'])->assertForbidden();
+    }
+
+    public function test_multi_seller_shipments_and_mixed_legacy_history_are_not_merged(): void
+    {
+        $buyer = $this->user(); $sellerA = $this->store(); $sellerB = $this->store(); $rider = $this->rider(); $staff = $this->staff();
+        $order = \App\Models\Order::create(['buyer_id' => $buyer->id, 'status' => 'ready_for_delivery']);
+        $a = Delivery::create(['order_id' => $order->id, 'seller_id' => $sellerA->id, 'rider_id' => $rider->rider->id]);
+        $b = Delivery::create(['order_id' => $order->id, 'seller_id' => $sellerB->id, 'rider_id' => $rider->rider->id]);
+        $legacy = LogisticsConversation::create(['order_id' => $order->id, 'rider_id' => $rider->rider->id, 'participant_type' => 'buyer', 'participant_id' => $buyer->id]);
+        LogisticsMessage::create(['conversation_id' => $legacy->id, 'sender_type' => 'logistics', 'sender_id' => $staff->id, 'body' => 'Old shared support history']);
+        Sanctum::actingAs($buyer);
+        $first = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$a->id])->assertCreated()->json('thread_key');
+        $second = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$b->id])->assertCreated()->json('thread_key');
+        $this->assertNotSame($first, $second);
+        $this->assertNotSame('logistics:'.$legacy->id, $first);
+        $this->getJson('/api/messaging/threads/'.$first)->assertJsonCount(0, 'messages');
+        $this->postJson('/api/messaging/threads/logistics:'.$legacy->id, ['body' => 'Cannot resume shared chat'])->assertForbidden();
+        $this->getJson('/api/messaging/threads/logistics:'.$legacy->id)->assertJsonPath('messages.0.body', 'Old shared support history');
+        Sanctum::actingAs($sellerA);
+        $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$b->id])->assertForbidden();
+        $this->getJson('/api/messaging/threads/'.$second)->assertForbidden();
+        $this->assertSame(1, LogisticsMessage::where('conversation_id', $legacy->id)->count());
+    }
+
+    public function test_return_chat_uses_current_workflow_custody_instead_of_old_allocations(): void
+    {
+        Schema::create('return_workflows', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('return_request_id'); $t->string('stage');
+            $t->unsignedBigInteger('rider_id')->nullable(); $t->unsignedBigInteger('center_id')->nullable(); $t->timestamps();
+        });
+        $buyer = $this->user(); $seller = $this->store(); $rider = $this->rider(); $staff = $this->staff();
+        $order = \App\Models\Order::create(['buyer_id' => $buyer->id, 'status' => 'delivered']);
+        $parcel = Delivery::create(['order_id' => $order->id, 'seller_id' => $seller->id]);
+        \Illuminate\Support\Facades\DB::table('deliveries')->where('id', $parcel->id)->update(['status' => 'delivered']);
+        $return = \App\Models\ReturnRequest::create(['order_id' => $order->id, 'buyer_id' => $buyer->id, 'seller_id' => $seller->id, 'status' => 'approved']);
+        $flow = \App\Models\ReturnWorkflow::create(['return_request_id' => $return->id, 'stage' => 'pickup_assigned', 'rider_id' => $rider->rider->id, 'center_id' => 1]);
+        $this->assertTrue(MessagingAccess::canContact($rider, $buyer));
+        Sanctum::actingAs($buyer);
+        $key = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Return collection'])->assertCreated();
+        $flow->update(['stage' => 'at_hub', 'rider_id' => null]);
+        $this->assertFalse(MessagingAccess::canContact($rider, $buyer));
+        $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Former return rider'])->assertForbidden();
+        $hubKey = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        Sanctum::actingAs($staff);
+        $this->postJson('/api/messaging/threads/'.$hubKey, ['body' => 'Return received at hub'])->assertCreated();
+        $this->getJson('/api/messaging/threads/'.$key)->assertForbidden();
+        $this->assertSame('at_hub', $flow->fresh()->stage);
+        $this->assertSame('approved', $return->fresh()->status);
+    }
+
+    public function test_transport_driver_is_the_contact_until_destination_hub_accepts_the_parcel(): void
+    {
+        Schema::create('hub_transfers', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('driver_id'); $t->string('status'); $t->timestamp('dispatched_at')->nullable(); $t->timestamps();
+        });
+        Schema::create('hub_transfer_parcels', function (Blueprint $t) {
+            $t->id(); $t->unsignedBigInteger('hub_transfer_id'); $t->unsignedBigInteger('delivery_id');
+            $t->string('loading_status'); $t->string('receiving_status'); $t->timestamps();
+        });
+        Schema::table('deliveries', function (Blueprint $t) {
+            if (! Schema::hasColumn('deliveries', 'center_id')) $t->unsignedBigInteger('center_id')->nullable();
+            if (! Schema::hasColumn('deliveries', 'received_at')) $t->timestamp('received_at')->nullable();
+        });
+        $buyer = $this->user(); $seller = $this->store(); $origin = $this->staff(); $destination = $this->staff(2);
+        $driver = HubTransportDriver::create(['name' => 'Current truck driver', 'status' => 'in_transit', 'logistics_company_id' => 1]);
+        $order = \App\Models\Order::create(['buyer_id' => $buyer->id, 'status' => 'shipped']);
+        $parcel = Delivery::create(['order_id' => $order->id, 'seller_id' => $seller->id, 'center_id' => 1, 'received_at' => now()]);
+        $trip = \App\Models\HubTransfer::create(['driver_id' => $driver->id, 'status' => 'arrived', 'dispatched_at' => now()->subHour()]);
+        $entry = \App\Models\HubTransferParcel::create(['hub_transfer_id' => $trip->id, 'delivery_id' => $parcel->id, 'loading_status' => 'loaded', 'receiving_status' => 'pending']);
+        Sanctum::actingAs($buyer);
+        $key = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Truck arrival question'])->assertCreated();
+        foreach ([$origin, $destination, $seller] as $outsider) {
+            Sanctum::actingAs($outsider);
+            $this->getJson('/api/messaging/threads/'.$key)->assertForbidden();
+        }
+        Sanctum::actingAs($driver);
+        $this->getJson('/api/messaging/threads/'.$key)->assertOk();
+        $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Waiting for hub receiving'])->assertCreated()->assertJsonPath('data.sender_type', 'hub_driver');
+        $entry->update(['receiving_status' => 'received']);
+        \Illuminate\Support\Facades\DB::table('deliveries')->where('id', $parcel->id)->update(['center_id' => 2]);
+        $this->postJson('/api/messaging/threads/'.$key, ['body' => 'Former truck driver'])->assertForbidden();
+        Sanctum::actingAs($buyer);
+        $hubKey = $this->postJson('/api/messaging/start', ['recipient' => 'parcel:'.$parcel->id])->assertCreated()->json('thread_key');
+        $this->assertNotSame($key, $hubKey);
+        Sanctum::actingAs($destination);
+        $this->postJson('/api/messaging/threads/'.$hubKey, ['body' => 'Destination hub reply'])->assertCreated();
     }
 
     public function test_wrong_customer_in_same_order_does_not_grant_delivery_thread_access(): void

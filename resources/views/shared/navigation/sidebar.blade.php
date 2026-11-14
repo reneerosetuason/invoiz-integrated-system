@@ -193,9 +193,6 @@ $bInitials = strtoupper(substr($buyer['first_name'] ?? '', 0, 1).substr($buyer['
             <a href="{{ route('seller.remittances.index') }}" title="Cash Remittances" class="{{ request()->routeIs('seller.remittances.*') ? 'active' : '' }}">
                 <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Remittances</span>
             </a>
-            <a href="{{ route('seller.payouts.index') }}" title="Payouts" class="{{ request()->routeIs('seller.payouts.*') ? 'active' : '' }}">
-                <x-icon name="dollar" class="h-4 w-4 shrink-0" /><span class="sb-label sb-hide-collapsed">Payouts</span>
-            </a>
 
             <div class="nav-section sb-hide-collapsed">Store</div>
             <a href="{{ route('seller.products.index') }}" title="Inventory" class="{{ request()->routeIs('seller.products.*') ? 'active' : '' }}">

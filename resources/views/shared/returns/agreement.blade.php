@@ -2,6 +2,8 @@
 @section('title', 'Return agreement & funding')
 @section('content')
 <div class="return-center return-agreement return-flow-ui">
+@include('shared.returns.protected-transport')
+
     <header class="review-head"><div><p class="review-eyebrow">Return #{{ $returnRequest->id }} · Order #{{ $returnRequest->order_id }}</p>
         <h1>Return agreement &amp; funding</h1></div></header>
 <details class="return-disclosure return-introduction"><summary>How this works</summary><div class="return-disclosure-body"><p>Decide the resolution, agree on charges, then fund the refund and any new transport work.</p></div></details>

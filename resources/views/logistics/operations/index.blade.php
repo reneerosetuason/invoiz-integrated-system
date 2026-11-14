@@ -9,12 +9,12 @@
             'gray' => 'bg-[#F0EEE9] text-[#6E6E73] border-[#E8E6E0]',
         ];
         $cards = [
-            ['label' => 'Parcels needing action', 'value' => $counts['action_parcels'], 'hint' => 'Receipt, scanning, hub transfer, or last-mile assignment', 'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'],
+            ['label' => 'Parcels needing action', 'value' => $counts['action_parcels'], 'hint' => 'Pickup review, rider assignment, receipt, sorting, or transfer', 'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'],
             ['label' => 'Incoming transfers', 'value' => $counts['incoming_transfers'], 'hint' => 'Dispatched, arrived, or under receiving', 'icon' => 'M4 7h11m0 0-3-3m3 3-3 3M20 17H9m0 0 3 3m-3-3 3-3M5 12h14'],
             ['label' => 'In transit', 'value' => $counts['in_transit'], 'hint' => 'Trucks currently on the road', 'icon' => 'M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1'],
             ['label' => 'Awaiting receiving', 'value' => $counts['awaiting_receiving'], 'hint' => 'Physically arrived; custody not yet accepted', 'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
             ['label' => 'Ready for sorting', 'value' => $counts['ready_sorting'], 'hint' => 'Received or scanned at this scope', 'icon' => 'M7 7h10M7 12h10M7 17h6'],
-            ['label' => 'Ready for rider', 'value' => $counts['ready_rider'], 'hint' => 'Sorted for this hub, no rider yet', 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2a3 3 0 00-5.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2a3 3 0 015.356-1.857M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
+            ['label' => 'Ready for last-mile rider', 'value' => $counts['ready_rider'], 'hint' => 'Sorted for this hub, no rider yet', 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2a3 3 0 00-5.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2a3 3 0 015.356-1.857M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
             ['label' => 'Damaged or missing', 'value' => $counts['exceptions'], 'hint' => 'Manifest exceptions still on record', 'icon' => 'M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z'],
         ];
         $conditionTone = [
@@ -314,6 +314,9 @@
                             @change="applyFilters()"
                             class="w-full rounded-lg border border-[#D8D5CE] bg-white px-2.5 py-1.5 text-xs text-[#1B1B1E] focus:border-[#16697A] focus:outline-none">
                         <option value="">All queue stages</option>
+                        <option value="pickup_review">Pickup requests needing review</option>
+                        <option value="pickup_assignment">Needs pickup rider</option>
+                        <option value="pickup_in_progress">Pickup in progress / awaiting handoff</option>
                         <option value="pending_arrival">Pending Arrival (Awaiting Receipt)</option>
                         <option value="received">Received (Awaiting Scan)</option>
                         <option value="scanned">Scanned (Ready for Sorting)</option>
@@ -807,10 +810,14 @@
             <div id="operations-queue-container" class="card xl:col-span-2 overflow-hidden">
                 <div class="flex items-center justify-between border-b border-[#E8E6E0] px-4 py-3">
                     <div>
-                        <h2 class="text-sm font-bold uppercase tracking-wide text-[#1B1B1E]">Parcels needing action here</h2>
-                        <p class="mt-0.5 text-[11px] text-[#6E6E73]">Only the next valid step is offered; arrival alone never accepts custody.</p>
+                        <h2 class="text-sm font-bold uppercase tracking-wide text-[#1B1B1E]">Hub workload</h2>
+                        <p class="mt-0.5 text-[11px] text-[#6E6E73]">Pickup requests, rider assignments, and hub processing in one queue. Waiting parcels show what must happen next.</p>
+                        <div class="mt-1 flex flex-wrap gap-3 text-[11px] font-semibold text-[#16697A]">
+                            <a href="{{ route('operations.index', ['parcel_status' => 'pickup_review']) }}">Pickup reviews: {{ $pickupCounts['review'] }}</a>
+                            <a href="{{ route('operations.index', ['parcel_status' => 'pickup_assignment']) }}">Needs pickup rider: {{ $pickupCounts['assign'] }}</a>
+                        </div>
                     </div>
-                    <span class="badge badge-inactive">{{ $actionParcels->count() }} shown</span>
+                    <span class="badge badge-inactive">{{ $parcelPaginator->firstItem() ?? 0 }}?{{ $parcelPaginator->lastItem() ?? 0 }} of {{ $parcelPaginator->total() }}</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="table w-full">
@@ -891,6 +898,8 @@
                                         @if($next['enabled'])
                                             @if($condition !== 'good' && in_array($next['key'], ['receive', 'scan', 'sort', 'assign_rider', 'create_transfer'], true))
                                                 <a href="{{ route('deliveries.show', $delivery) }}" class="btn btn-outline btn-xs whitespace-nowrap" title="Damaged or missing parcels require individual condition verification.">Verify condition</a>
+                                            @elseif(in_array($next['key'], ['review_pickup', 'assign_pickup_rider'], true))
+                                                @include('logistics.operations.pickup-action', ['pickup' => $delivery->pickupRequest])
                                             @elseif($next['key'] === 'scan')
                                                 <button type="button" @click="quickScanParcel(@js($delivery->tracking_number))" class="btn btn-primary btn-xs whitespace-nowrap">{{ $next['label'] }}</button>
                                             @elseif($next['key'] === 'receive')
@@ -928,6 +937,9 @@
                         </tbody>
                     </table>
                 </div>
+                @if($parcelPaginator->hasPages())
+                    <div class="border-t border-[#E8E6E0] px-4 py-3">{{ $parcelPaginator->fragment('operations-queue-container')->links() }}</div>
+                @endif
             </div>
 
             {{-- Exceptions --}}

@@ -74,4 +74,16 @@ class OrderItem extends Model
     {
         return $this->belongsTo(User::class, 'seller_id');
     }
+
+    /** Resolve the Seller profile for this item's store. */
+    public function store(): ?Seller
+    {
+        return Seller::where('user_id', $this->seller_id)->first() ?? Seller::find($this->seller_id);
+    }
+
+    /** Display name of the store that sells this product. */
+    public function getStoreNameAttribute(): string
+    {
+        return Seller::nameFor((int) $this->seller_id);
+    }
 }

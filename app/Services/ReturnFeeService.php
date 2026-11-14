@@ -8,6 +8,13 @@ use Illuminate\Validation\ValidationException;
 
 class ReturnFeeService
 {
+    public static function usesDynamicTrip(ReturnRequest $case): bool
+    {
+        $delivery = EscrowEarnings::deliveryForSeller($case->order, (int) $case->seller_id);
+        return SellerProtectionService::policy($case->order, (int) $case->seller_id) !== null
+            || ($delivery && EscrowEarnings::transferLegs($delivery)->contains(fn ($leg) => ($leg->payment_snapshot['pricing_version'] ?? 1) >= 2));
+    }
+
     public static function defaultRoute(ReturnRequest $case): array
     {
         $delivery=EscrowEarnings::deliveryForSeller($case->order,(int)$case->seller_id);
@@ -50,13 +57,18 @@ class ReturnFeeService
             $add('collection_rider',$rates['pickup_rider_per_item']*max(1,(int)$case->quantity),$from->id);
             $add('collection_hub',$rates['origin_hub_fee'],$from->id);
             if($from->id!==$to->id){
-                $add('inter_hub_driver',$rates['inter_hub_driver_fee'],$from->id);
+                if (self::usesDynamicTrip($case)) {
+                    $trip = ReturnTripPricingService::quote($case, $agreement, $from, $to, $rates);
+                    $add('inter_hub_driver', $trip['total'] / 100, $from->id);
+                } else {
+                    $add('inter_hub_driver',$rates['inter_hub_driver_fee'],$from->id);
+                }
                 $add('seller_hub',$rates['destination_hub_fee'],$to->id);
             }
             $add('seller_delivery_rider',$rates['last_mile_rider_fee'],$to->id);
             if($agreement->resolution==='exchange')$add('replacement_delivery_rider',$rates['last_mile_rider_fee'],$to->id);
         }
-        return ['source'=>'commission_settings','rates'=>$rates,'quantity'=>(int)$case->quantity,
+        return ['return_trip' => $trip ?? null, 'source'=>'commission_settings','rates'=>$rates,'quantity'=>(int)$case->quantity,
             'collection_center_id'=>$fromId,'seller_center_id'=>$toId,'lines'=>$lines,
             'collection_hub_name'=>isset($from)?$from->name:null,'seller_hub_name'=>isset($to)?$to->name:null,
             'total_cents'=>array_sum(array_column($lines,'amount_cents'))];
@@ -69,5 +81,6 @@ class ReturnFeeService
         foreach($quote['lines'] as $line)$agreement->allocations()->create($line);
         $agreement->fill(['collection_center_id'=>$quote['collection_center_id'],'seller_center_id'=>$quote['seller_center_id'],
             'transport_cents'=>$quote['total_cents'],'fee_snapshot'=>$quote,'quoted_at'=>now()]);
+        ReturnProtectionService::quote($agreement);
     }
 }

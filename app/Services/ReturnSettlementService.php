@@ -306,6 +306,8 @@ class ReturnSettlementService
                 if (! $cancel) $agreement->allocations()->where('status', 'reserved')->update(['status' => 'voided', 'note' => $data['note']]);
                 $agreement->save();
                 $used = (int) $agreement->allocations()->whereNotIn('status', ['voided'])->sum('amount_cents');
+                ReturnProtectionService::reconcileUnused($agreement, $used);
+                ReturnProtectionService::finishIfPaid($agreement);
                 $unused = max(0, self::poolCents($agreement) - $used);
                 // Release unused original seller funds to their original
                 // allocation. Only unused external deposits need repayment.
@@ -357,6 +359,16 @@ class ReturnSettlementService
         $to = LogisticsCenter::findOrFail($data['seller_center_id']);
         self::require($from->is_active && $to->is_active && (int) $from->logistics_company_id === (int) $to->logistics_company_id, 'Choose active return hubs in the same logistics company.');
         abort_unless($admin || LogisticsAccess::isCenterStaff($actor, $from->id), 403);
+        if (ReturnFeeService::usesDynamicTrip($case)) {
+            self::releaseUnfundedReservations($case->order, $s);
+            $s->version++;
+            ReturnFeeService::apply($case, $s, $data);
+            $s->funding_method = ReturnFundingService::chooseMethod($case->order, $s);
+            $s->net_refund_cents = $s->merchandise_cents + $s->shipping_cents - ($s->funding_method === 'deduct_refund' ? $s->payerBudgetCents() : 0);
+            self::require($s->net_refund_cents > 0 || $s->resolution === 'exchange', 'The agreed return costs consume the refund.');
+            $s->fill(['buyer_accepted_at' => null, 'seller_accepted_at' => null, 'admin_decided_at' => null, 'status' => 'proposed']);
+            return;
+        }
         $lines = collect($data['allocations'] ?? [])->filter(fn ($line) => self::cents($line['amount'] ?? 0) > 0);
         self::require($lines->isNotEmpty() && $lines->pluck('role')->unique()->count() === $lines->count(), 'Quote each actual service once.');
         self::require(! $lines->contains(fn ($line) => ! in_array($line['role'], ReturnAllocation::ROLES, true)), 'Unsupported return service.');
@@ -426,7 +438,7 @@ class ReturnSettlementService
 
     public static function poolCents(ReturnSettlement $s): int
     {
-        return (int) $s->reserved_cents + (int) $s->seller_reserved_cents
+        return $s->fundedSubsidyCents() + (int) $s->reserved_cents + (int) $s->seller_reserved_cents
             + (int) $s->payments()->where('purpose', 'return_budget')->where('status', 'verified')->sum('amount_cents');
     }
 
@@ -454,6 +466,7 @@ class ReturnSettlementService
         self::require($s->physicalReturn(), 'Physical custody is waived for this refund-only resolution.');
         if (in_array($action, ['assign', 'pickup'], true)) self::require($s->collection_at !== null, 'The seller must schedule collection first.');
         if (in_array($action, ['pickup', 'deliver_seller'], true)) self::require(! empty($data['proof_path']) && \Illuminate\Support\Facades\Storage::disk('private')->exists($data['proof_path']), 'Attach the actual parcel handover photo.');
+        if ($action === 'transfer') ReturnTripPricingService::assertAssignment($case, $s, $data);
         if ($action === 'transfer') self::require(ReturnRouting::operational(LogisticsCenter::find((int)($data['destination_center_id']??0))), 'Choose an active return destination hub.');
         if ($action === 'dispatch_seller') self::require((int) $case->workflow->center_id === (int) $s->seller_center_id, 'The parcel must reach the agreed seller-side hub.');
     }
@@ -500,8 +513,16 @@ class ReturnSettlementService
                 && (!$driver->user || $driver->user->isActive()), 'Choose an active inter-hub driver from the return company.');
             self::require((bool)$driver->is_online,'This inter-hub driver is offline. Ask the driver to go online before assigning the return transfer.');
             if($line)$line->update(['driver_id' => $driver->id]);
+            if ($trip = $s->fee_snapshot['return_trip'] ?? null) {
+                \App\Models\LogisticsTruck::whereKey($trip['truck_id'])->update(['status' => 'in_transit']);
+                $driver->update(['status' => 'assigned']);
+            }
         }
         if ($action === 'receive_transfer') {
+            if ($trip = $s->fee_snapshot['return_trip'] ?? null) {
+                \App\Models\LogisticsTruck::whereKey($trip['truck_id'])->update(['status' => 'available']);
+                \App\Models\HubTransportDriver::whereKey($trip['driver_id'])->update(['status' => 'available']);
+            }
             self::makeEligible($s, 'inter_hub_driver');
             self::makeEligible($s, 'seller_hub');
         }
@@ -511,6 +532,7 @@ class ReturnSettlementService
             self::makeEligible($s, 'seller_compensation');
         }
         if ($action === 'confirm_refund') {
+            self::makeEligible($s, 'seller_protection_reimbursement');
             $s->update(['status' => $s->physicalReturn() ? 'completed' : 'refunded_return_waived', 'closed_at' => now()]);
             self::makeEligible($s, 'admin_service', 0, true);
         }
@@ -634,7 +656,8 @@ class ReturnSettlementService
                 $orderStyle=$action==='release';
                 self::require(!$orderStyle || $line->isDeliveryService(),'Only return-service earnings use this release action.');
                 if($orderStyle && in_array($line->status,['remitted','accepted'],true))return;
-                self::require(!$s->physicalDirectRefund() || in_array($line->role,[...ReturnAllocation::DELIVERY_ROLES,'unused_budget_refund'],true),'Only completed return-delivery services can be paid from this escrow.');
+                \App\Support\PayoutAccounts::assertReady($line);
+                self::require(!$s->physicalDirectRefund() || in_array($line->role,[...ReturnAllocation::DELIVERY_ROLES,'unused_budget_refund','seller_protection_reimbursement'],true),'Only completed return-delivery services can be paid from this escrow.');
                 $unusedRefund = $s->status === 'cancelled' && ($line->fund_payment_id || $line->role === 'unused_budget_refund');
                 self::require(($s->funded_at !== null || $unusedRefund) && $line->status === 'eligible', 'Only verified completed work or a verified unused-funds refund can be paid, once.');
                 if($orderStyle)self::require($line->hasAssignedRecipient(),'Assign the worker or hub before releasing this service payout.');
@@ -654,6 +677,7 @@ class ReturnSettlementService
                 $line->update(['status' => 'remitted', 'reference' => $ref, 'proof_path' => $data['proof_path']??null,
                     'remitted_by' => $actor->id, 'remitted_at' => now(),
                     'recipient_user_id' => $line->role === 'admin_service' ? $actor->id : $line->recipient_user_id]);
+                ReturnProtectionService::finishIfPaid($s);
                 if ($line->fund_payment_id) $incoming->increment('returned_cents', $line->amount_cents);
                 if ($line->role === 'unused_budget_refund' && $s->reserved_cents > 0) {
                     Payments::refund($order, $line->amount_cents / 100, 'Unused deducted return fees; return #'.$s->return_request_id);

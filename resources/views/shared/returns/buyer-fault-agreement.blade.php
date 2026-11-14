@@ -9,9 +9,10 @@
     $lastIssue=collect($agreement->events??[])->where('action','dispute')->last();
 @endphp
 <div class="return-center return-agreement return-flow-ui">
+    @include('shared.returns.protected-transport')
     <header class="review-head"><div><p class="review-eyebrow">Return #{{ $returnRequest->id }} · Proposal version {{ $agreement->version }}</p>
         <h1>Return &amp; direct refund</h1></div></header>
-<details class="return-disclosure return-introduction"><summary>How this works</summary><div class="return-disclosure-body"><p>@if($sellerFault)The seller pays all return-delivery costs separately and refunds your full eligible paid amount directly, with no deductions. No admin approval of the customer refund is needed.@else Buyer and seller agree on the deductions. The seller refunds the buyer directly and funds only the new return delivery through escrow.@endif</p></div></details>
+<details class="return-disclosure return-introduction"><summary>How this works</summary><div class="return-disclosure-body"><p>@if($agreement->platform_subsidy_cents)The platform funds the shown transport and eligible fee support. The seller sends your agreed refund directly; seller fee reimbursement is separate and follows buyer confirmation.@elseif($sellerFault)The seller pays all return-delivery costs separately and refunds your full eligible paid amount directly, with no deductions. No admin approval of the customer refund is needed.@else Buyer and seller agree on the deductions. The seller refunds the buyer directly and funds only the new return delivery through escrow.@endif</p></div></details>
     <nav class="return-nav"><a class="review-action" href="{{ route('returns.center') }}">Return center</a><a class="review-action" href="{{ route('returns.guide') }}">How this works</a>
         @if($admin)<a class="review-action" href="{{ url('/admin/payments#escrow-remittances') }}">Manage Payments</a>@endif</nav>
     @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
@@ -26,10 +27,10 @@
             <div><dt>Eligible item refund</dt><dd>{{ peso($agreement->merchandise_cents/100) }}</dd></div>
             @if($sellerFault)
             <div><dt>Original paid shipping reimbursement</dt><dd>{{ peso($agreement->shipping_cents/100) }}</dd></div>
-            <div><dt>Return delivery paid separately by seller</dt><dd>{{ peso($agreement->transport_cents/100) }}</dd></div>
+            <div><dt>Return delivery paid separately by seller</dt><dd>{{ peso($agreement->payerBudgetCents()/100) }}</dd></div>
             @else
             <div><dt>Less original seller-funded costs</dt><dd>− {{ peso($agreement->compensation_cents/100) }}</dd></div>
-            <div><dt>Less new return delivery</dt><dd>− {{ peso($agreement->transport_cents/100) }}</dd></div>
+            <div><dt>Less new return delivery</dt><dd>− {{ peso($agreement->payerBudgetCents()/100) }}</dd></div>
             @endif
             <div><dt>Buyer receives directly from seller</dt><dd>{{ peso($agreement->net_refund_cents/100) }}</dd></div>
         </dl>
@@ -47,7 +48,7 @@
         @endif
 
     </div></details>
-    <details class="return-disclosure"><summary><h2>New return delivery · {{ peso($agreement->transport_cents/100) }}</h2></summary><div class="return-disclosure-body">
+    <details class="return-disclosure"><summary><h2>New return delivery · {{ peso($agreement->payerBudgetCents()/100) }}</h2></summary><div class="return-disclosure-body">
         <p>{{ $feePreview['collection_hub_name']??'Buyer-side hub' }} → {{ $feePreview['seller_hub_name']??'Seller-side hub' }}. Prices are taken automatically from Commission settings when this proposal is sent.</p>
         <table class="return-fees"><thead><tr><th scope="col">Return service</th><th scope="col">Amount</th></tr></thead><tbody>
             @foreach($agreement->allocations->whereIn('role',\App\Models\ReturnAllocation::DELIVERY_ROLES) as $line)<tr><td>{{ ucwords(str_replace('_',' ',$line->role)) }}</td><td>{{ peso($line->amount_cents/100) }}</td></tr>@endforeach
@@ -55,7 +56,7 @@
     </div></details>
     @include('shared.returns.partials.propose')
     @if($buyer && $editable && $agreement->status==='proposed' && !$agreement->buyer_accepted_at && !$agreement->dispute_note)
-    <details class="return-task" name="return-current-task" open><summary><h2>Review and agree</h2></summary><div class="return-disclosure-body"><p>You will receive <strong class="return-action-amount">{{ peso($agreement->net_refund_cents/100) }}</strong> {{ $sellerFault?'in full, with no deductions':'after the agreed deductions' }}. You do not pay a separate return fee. The seller deposits {{ peso($agreement->transport_cents/100) }} for the return trip.</p>
+    <details class="return-task" name="return-current-task" open><summary><h2>Review and agree</h2></summary><div class="return-disclosure-body"><p>You will receive <strong class="return-action-amount">{{ peso($agreement->net_refund_cents/100) }}</strong> {{ $sellerFault?'in full, with no deductions':'after the agreed deductions' }}. You do not pay a separate return fee. The seller deposits {{ peso($agreement->payerBudgetCents()/100) }} for the return trip.</p>
         <form method="post" action="{{ route('returns.agreement.update',$returnRequest) }}">@include('shared.returns.partials.form-identity',['action'=>'accept'])
             @include('shared.returns.partials.confirm',['confirmation'=>$sellerFault?'I agree to the full refund, physical return and sharing my receiving details with this seller.':'I agree to these deductions, the net refund and sharing my refund receiving details with this seller.'])<button type="submit">Accept agreement</button>
         </form>
@@ -73,7 +74,7 @@
         </form>
     </div></details>@endif
     @if($agreement->agreed() && !$agreement->closed_at)
-    <details class="return-task" name="return-current-task" {{ $seller && !$pendingFee && $budgetOutstanding>0 ? 'open' : '' }}><summary><h2>Seller's delivery escrow deposit</h2></summary><div class="return-disclosure-body"><p>The seller transfers only {{ peso($agreement->transport_cents/100) }} to the platform account. The item refund is sent directly to the buyer after return receipt.</p>
+    <details class="return-task" name="return-current-task" {{ $seller && !$pendingFee && $budgetOutstanding>0 ? 'open' : '' }}><summary><h2>Seller's delivery escrow deposit</h2></summary><div class="return-disclosure-body"><p>The seller transfers only {{ peso($agreement->payerBudgetCents()/100) }} to the platform account. The item refund is sent directly to the buyer after return receipt.</p>
         @if($pendingFee)<p class="review-status">Receipt submitted. Collection is authorized once the receiving account is saved. Bank verification is still pending and payouts remain blocked until funds are confirmed.</p>
         @elseif($budgetOutstanding===0)<p class="review-status">Delivery funds verified. Service payouts still require completed work and recipient acceptance.</p>
         @elseif($seller)@include('shared.returns.partials.payment-upload',['paymentPurpose'=>'return_budget','paymentCents'=>$budgetOutstanding,'receiptLabel'=>'Return-delivery receipt screenshot','uploadButton'=>'Submit delivery deposit receipt'])

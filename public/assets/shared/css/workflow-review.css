@@ -34,3 +34,7 @@
 .escrow-reference{font-family:ui-monospace,monospace;font-size:12px}
 .escrow-empty{padding:32px;text-align:center;border:1px dashed #cddbd9;border-radius:12px;color:#64777c}
 @media(max-width:600px){.return-center,.escrow-review{padding:12px!important}.review-head{gap:14px;margin-bottom:18px}.review-head h1{font-size:23px}.return-center article,.escrow-review article,.escrow-settings{padding:16px}.review-head>.review-action{width:100%}.return-center button[type=submit],.escrow-review button[type=submit]{min-height:44px}.escrow-amount{font-size:19px}}
+
+.return-support-summary,.return-trip-summary{padding:14px 16px;margin:0 0 14px;border:1px solid #c9ded9;border-radius:12px;background:#f2f8f6;color:#284d50;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.return-support-summary strong{display:block;font-size:14px;margin-bottom:4px}
+.return-support-summary p{margin:0}

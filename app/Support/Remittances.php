@@ -162,6 +162,54 @@ class Remittances
         });
     }
 
+    /** Hub staff verifies the COD cash arrived at the logistics center. */
+    public static function confirmByLogistics(Remittance $remittance, $user, ?string $reference = null): bool
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($remittance, $user, $reference) {
+            $order = Order::whereKey($remittance->order_id)->lockForUpdate()->firstOrFail();
+            $locked = Remittance::whereKey($remittance->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status === 'confirmed') {
+                return false;
+            }
+            $locked->update([
+                'status' => 'confirmed',
+                'reference' => $reference ?? $locked->reference,
+                'confirmed_at' => now(),
+                'note' => 'Confirmed received by logistics hub (' . ($user->name ?? 'Staff') . ')',
+            ]);
+            EscrowEarnings::syncRemittancesForOrder($order);
+            if (self::allDeliveredConfirmed((int) $order->id)) {
+                Payments::settleForDelivery($order);
+                return true;
+            }
+            return false;
+        });
+    }
+
+    /** Platform admin verifies and confirms the COD cash settlement. */
+    public static function confirmByAdmin(Remittance $remittance, $user, ?string $reference = null): bool
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($remittance, $user, $reference) {
+            $order = Order::whereKey($remittance->order_id)->lockForUpdate()->firstOrFail();
+            $locked = Remittance::whereKey($remittance->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status === 'confirmed') {
+                return false;
+            }
+            $locked->update([
+                'status' => 'confirmed',
+                'reference' => $reference ?? $locked->reference,
+                'confirmed_at' => now(),
+                'note' => 'Confirmed settled by platform administrator (' . ($user->name ?? 'Admin') . ')',
+            ]);
+            EscrowEarnings::syncRemittancesForOrder($order);
+            if (self::allDeliveredConfirmed((int) $order->id)) {
+                Payments::settleForDelivery($order);
+                return true;
+            }
+            return false;
+        });
+    }
+
     /** True when every DELIVERED parcel of the order is seller-confirmed. */
     public static function allDeliveredConfirmed(int $orderId): bool
     {

@@ -84,7 +84,12 @@ class Conversation extends Model
         $sharedUnread = (int) static::query()
             ->whereIn('id', $allowed)
             ->where('participant_type', '!=', 'logistics')
+            ->where(fn ($q) => $q->whereNull('direct_thread_key')->orWhere('direct_thread_key', 'not like', 'p:%'))
             ->sum('unread_count');
+
+        $parcelUnread = Message::whereIn('conversation_id', $allowed)->where('is_read', false)
+            ->where(fn ($q) => $q->where('sender_id', '!=', $userId)->orWhere('sender_type', 'hub_driver'))
+            ->whereHas('conversation', fn ($q) => $q->where('direct_thread_key', 'like', 'p:%'))->count();
 
         $directUnread = Message::query()
             ->whereIn('conversation_id', $allowed)
@@ -100,7 +105,7 @@ class Conversation extends Model
             })
             ->count();
 
-        return $sharedUnread + $directUnread;
+        return $sharedUnread + $directUnread + $parcelUnread;
     }
 
     public function scopeSearch($query, string $term)

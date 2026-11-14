@@ -25,6 +25,7 @@ class ReturnRouting
     {
         $s=ReturnSettlement::where('return_request_id',$case->id)->lockForUpdate()->firstOrFail();
         if((int)$s->seller_center_id===$target)return;
+        if ($s->fee_snapshot['return_trip'] ?? null) throw ValidationException::withMessages(['return' => 'The protected return trip has a funded distance and payment snapshot. Agree to a revised route and funding before changing its destination.']);
         $hub=LogisticsCenter::find($target);
         if(!self::operational($hub))throw ValidationException::withMessages(['return'=>'Choose an active destination hub from an active logistics company.']);
         if(!$s->collectionReady() || !$s->physicalReturn() || $case->workflow?->stage!=='at_hub'

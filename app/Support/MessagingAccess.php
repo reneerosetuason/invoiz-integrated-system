@@ -50,8 +50,11 @@ final class MessagingAccess
                 }
             }
         }
-        // Staff/customer coordination is a delivery-thread reply, never an
-        // unsolicited direct message (including accounts with other profiles).
+        // Seller partnership enquiries are private DMs and do not require a parcel.
+        foreach ([[$actor, $other], [$other, $actor]] as [$staff, $customer]) {
+            if ($staff->isLogisticsStaff() && $customer->canSell()) return true;
+            if ($staff->isLogisticsStaff() && $customer->canUseBuyerArea() && ParcelChat::related($customer, $staff)) return true;
+        }
         if ($actor->isLogisticsStaff() || $other->isLogisticsStaff()) return false;
         if ($actor->role === 'rider' || $other->role === 'rider') {
             if ($actor->role === 'rider' && $other->role === 'rider') return false;
@@ -82,25 +85,9 @@ final class MessagingAccess
 
     private static function deliveryContact(User $riderUser, User $customer): bool
     {
-        if ($riderUser->role !== 'rider' && ! $riderUser->relationLoaded('rider')) {
-            return false;
-        }
-        $rider = $riderUser->rider;
-        if (! $rider || ! $riderUser->hasApprovedRiderProfile()) {
-            return false;
-        }
-        if (Delivery::where(fn ($q) => $q->where('rider_id', $rider->id)
-                ->orWhere('sorting_center_handoff_rider_id', $rider->id)
-                ->orWhere('sorting_center_pickup_rider_id', $rider->id))
-            ->where(fn ($q) => $q->where('seller_id', $customer->id)
-                ->orWhereHas('order', fn ($order) => $order->where('buyer_id', $customer->id)))
-            ->exists()) {
-            return true;
-        }
-        return ReturnAllocation::where('rider_id', $rider->id)
-            ->where('recipient_user_id', $riderUser->id)
-            ->whereHas('settlement.returnRequest', fn ($q) => $q->where('buyer_id', $customer->id)
-                ->orWhere('seller_id', $customer->id))->exists();
+        if ($riderUser->role !== 'rider' && ! $riderUser->relationLoaded('rider')) return false;
+        return $riderUser->rider && $riderUser->hasApprovedRiderProfile()
+            && ParcelChat::related($customer, $riderUser) !== null;
     }
 
     public static function canReadMarketplace(User $actor, Conversation $thread): bool
@@ -113,6 +100,7 @@ final class MessagingAccess
         if (! self::active($actor)) {
             return false;
         }
+        if ($identity = ParcelChat::parse($thread->direct_thread_key)) return ParcelChat::readable($actor, $thread, $identity);
         if ($actor instanceof HubTransportDriver) {
             return $thread->participant_type === 'hub_driver' && (int) $thread->participant_id === (int) $actor->id;
         }
@@ -142,8 +130,7 @@ final class MessagingAccess
             if ((int) $thread->participant_id === (int) $actor->id) {
                 return true;
             }
-            return ($actor->rider && (int) $thread->rider_id === (int) $actor->rider->id)
-                || self::canReplyToDelivery($actor, $thread);
+            return $actor->rider && (int) $thread->rider_id === (int) $actor->rider->id;
         }
         return false;
     }
@@ -153,14 +140,15 @@ final class MessagingAccess
         if (! self::canReadLogistics($actor, $thread)) {
             return false;
         }
+        if ($identity = ParcelChat::parse($thread->direct_thread_key)) return ParcelChat::writable($actor, $thread, $identity);
         if (in_array($thread->participant_type, ['buyer', 'seller'], true)) {
-            if (self::canReplyToDelivery($actor, $thread)) {
-                return User::find($thread->participant_id)?->isActive() ?? false;
-            }
+            // Mixed historical support threads stay preserved but cannot be resumed.
+            if ($thread->messages()->where('sender_type', 'logistics')->exists()) return false;
             $rider = \App\Models\Rider::find($thread->rider_id);
             $customer = User::find($thread->participant_id);
+            $parcels = self::deliveryForThread($thread)->get();
             return $rider?->user && $customer && self::canContact($rider->user, $customer)
-                && self::deliveryForThread($thread)->exists();
+                && $parcels->count() === 1 && $parcels->contains(fn ($parcel) => ($holder = ParcelChat::holder($parcel)) && $holder['kind'] === 'r' && $holder['id'] === (int) $thread->rider_id);
         }
         if ($thread->participant_type === 'logistics') {
             $otherId = (int) $thread->participant_id === (int) $actor->id ? $thread->logistics_user_id : $thread->participant_id;
@@ -187,18 +175,12 @@ final class MessagingAccess
             });
     }
 
-    /** Staff may reply only to an existing, correctly scoped delivery chat. */
-    private static function canReplyToDelivery(User $actor, LogisticsConversation $thread): bool
-    {
-        if (! $actor->isLogisticsStaff() || $actor->isAdmin() || ! $thread->order_id || ! $thread->rider_id
-            || ! in_array($thread->participant_type, ['buyer', 'seller'], true)
-            || ! $thread->messages()->whereIn('sender_type', ['buyer', 'seller', 'rider'])->exists()) return false;
-        return self::deliveryForThread($thread)->get()
-            ->contains(fn ($delivery) => LogisticsAccess::canAccessDelivery($actor, $delivery));
-    }
-
     public static function senderType(Actor $actor, LogisticsConversation $thread): string
     {
+        if ($identity = ParcelChat::parse($thread->direct_thread_key)) {
+            if ($actor instanceof User && (int) $actor->id === $identity['customer_id']) return $thread->participant_type;
+            return match ($identity['kind']) { 'r' => 'rider', 'd' => 'hub_driver', default => 'logistics' };
+        }
         if ($actor instanceof HubTransportDriver) return 'hub_driver';
         if ($thread->participant_type === 'rider' && (int) $thread->participant_id === (int) $actor->id) return 'rider';
         if (in_array($thread->participant_type, ['buyer', 'seller'], true)) {
@@ -217,7 +199,8 @@ final class MessagingAccess
     {
         $query = LogisticsConversation::query();
         if ($actor instanceof HubTransportDriver) {
-            return $query->where('participant_type', 'hub_driver')->where('participant_id', $actor->id);
+            return $query->where(fn ($q) => $q->where(fn ($support) => $support->where('participant_type', 'hub_driver')->where('participant_id', $actor->id))
+                ->orWhere('direct_thread_key', 'like', 'p:%:d:'.$actor->id));
         }
         return $query->where(function ($q) use ($actor) {
             $q->where(fn ($direct) => $direct->where('participant_type', 'logistics')
@@ -233,23 +216,9 @@ final class MessagingAccess
                 $users = $riders->pluck('user_id')->filter();
                 $q->orWhere(fn ($support) => $support->where('participant_type', 'rider')
                     ->where(fn ($members) => $members->whereIn('rider_id', $ids)->orWhereIn('participant_id', $users)));
-                // Final authorization also verifies the order's actual party,
-                // current rider assignment, and the staff's delivery scope.
-                if (! $actor->isAdmin()) {
-                    $orders = Delivery::select('order_id')->whereNotNull('order_id');
-                    if (! LogisticsAccess::isGlobal($actor)) {
-                        $centerId = LogisticsAccess::centerId($actor);
-                        if ($centerId !== null) {
-                            if ($centerId > 0) $orders->where('center_id', $centerId);
-                            else $orders->whereRaw('1 = 0');
-                        } else {
-                            $companyId = LogisticsAccess::companyId($actor);
-                            if ($companyId > 0) $orders->whereHas('logisticsCenter', fn ($hub) => $hub->where('logistics_company_id', $companyId));
-                            else $orders->whereRaw('1 = 0');
-                        }
-                    }
-                    $q->orWhere(fn ($delivery) => $delivery->whereIn('participant_type', ['buyer', 'seller'])
-                        ->whereIn('order_id', $orders)->whereNotNull('rider_id')->whereHas('messages'));
+                // Only this hub's customer chats, never rider/customer threads.
+                if (LogisticsAccess::canProcessParcels($actor) && ($center = LogisticsAccess::centerId($actor))) {
+                    $q->orWhere('direct_thread_key', 'like', 'p:%:h:'.$center);
                 }
             }
         });

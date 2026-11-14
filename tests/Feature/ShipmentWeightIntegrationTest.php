@@ -9,6 +9,7 @@ use App\Models\ProductVariant;
 use App\Models\User;
 use App\Services\OrderShipmentService;
 use App\Services\ShipmentWeightService;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\BuyerMobileDatabase;
 use Tests\TestCase;
 
@@ -32,6 +33,27 @@ class ShipmentWeightIntegrationTest extends TestCase
         }
 
         return $order;
+    }
+
+    public function test_product_dimensions_and_quantities_are_snapshotted_when_creating_a_shipment(): void
+    {
+        Schema::table('products', fn ($table) => $table->string('dimensions')->nullable());
+        Schema::table('deliveries', function ($table) {
+            $table->decimal('length_cm', 10, 2)->nullable();
+            $table->decimal('width_cm', 10, 2)->nullable();
+            $table->decimal('height_cm', 10, 2)->nullable();
+        });
+        $order = $this->order(['300 g' => 2]);
+        $product = $order->items->first()->product;
+        $product->update(['dimensions' => '6 x 6 x 16 cm']);
+        $delivery = app(OrderShipmentService::class)->ensure($order);
+        $this->assertEquals(6, $delivery->fresh()->length_cm);
+        $this->assertEquals(6, $delivery->fresh()->width_cm);
+        $this->assertEquals(32, $delivery->fresh()->height_cm);
+        $this->assertEquals(0.6, $delivery->fresh()->weight);
+        $product->update(['dimensions' => '20 x 20 x 20 cm']);
+        app(OrderShipmentService::class)->ensure($order);
+        $this->assertEquals(32, $delivery->fresh()->height_cm);
     }
 
     public function test_grams_are_converted_into_shipment_kilograms_at_creation(): void

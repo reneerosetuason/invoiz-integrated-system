@@ -59,8 +59,11 @@
 @else
   @foreach($orders as $o)
     @php
+      $isOrderDelivered = $o->status === 'delivered'
+        || optional($o->deliveries->first())->status === 'delivered'
+        || \App\Support\CustomerTracking::progressStage($o, $o->deliveries->first()) === 'delivered';
       $hasOrderReturn = ($o->returnRequests && $o->returnRequests->isNotEmpty()) || in_array($o->status, ['return_requested', 'returned', 'refunded']);
-      [$pillLabel, $pillClass, $pillCheck] = $pillFor($o->status, $hasOrderReturn);
+      [$pillLabel, $pillClass, $pillCheck] = $pillFor($isOrderDelivered ? 'delivered' : $o->status, $hasOrderReturn);
       $oNames = $o->items->take(2)->pluck('product_name')->all();
       $oRest = $o->items->count() - count($oNames);
       $oRef = $o->order_number ?? ('INV-'.$o->id);
@@ -102,7 +105,11 @@
         <div style="display:flex;align-items:center;gap:8px">
           @if($hasOrderReturn)
             <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm" style="border-color:#3b82f6;color:#1e40af;text-decoration:none">Return Details</a>
-          @elseif($o->status === 'delivered')
+          @elseif($isOrderDelivered)
+            <a href="{{ $detailUrl }}#rate" class="btn-p btn-line btn-sm" style="border-color:#16697A;color:#16697A;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="#EAB308" stroke="#EAB308"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              Rate
+            </a>
             <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm" style="border-color:#d97706;color:#b45309;text-decoration:none">Return / Refund</a>
           @endif
           <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm trackbtn" aria-label="Track order {{ $oRef }}">Track

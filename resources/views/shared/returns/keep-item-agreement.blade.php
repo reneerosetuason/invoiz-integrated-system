@@ -7,6 +7,7 @@
     $partialRefund=$agreement->resolution==='partial_refund';
 @endphp
 <div class="return-center return-agreement return-flow-ui">
+    @include('shared.returns.protected-transport')
     <header class="review-head"><div><p class="review-eyebrow">Return #{{ $returnRequest->id }} · Order #{{ $returnRequest->order_id }}</p><h1>{{ $partialRefund?'Partial refund':'Refund only' }} — buyer keeps item</h1></div></header>
 <details class="return-disclosure return-introduction"><summary>How this works</summary><div class="return-disclosure-body"><p>Agree on the refund, verify the buyer's receiving account, then send the money directly from seller to buyer. The buyer confirms actual receipt.</p></div></details>
     <nav class="return-nav"><a class="review-action" href="{{ route('returns.center') }}">Return center</a><a class="review-action" href="{{ route('returns.guide') }}">How this works</a></nav>

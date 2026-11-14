@@ -1,3 +1,4 @@
+import 'chat_screen.dart';
 import '../widgets/image_preview.dart';
 import '../widgets/buyer_picker.dart';
 import '../widgets/buyer_dialog.dart';
@@ -30,6 +31,37 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Order? _order;
   bool _loading = true;
   bool _loadingReceipt = false;
+
+  Future<void> _openDeliveryChat(Delivery delivery) async {
+    if (_actionBusy || delivery.id == null) return;
+    setState(() => _actionBusy = true);
+    try {
+      final result = await _api.post('messages-center/start', {
+        'recipient': 'parcel:${delivery.id}',
+      });
+      if (!mounted) return;
+      final key = result['thread_key'] as String;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatThreadScreen(
+            conversationId: int.parse(key.split(':').last),
+            threadKey: key,
+            subject: 'Parcel ${delivery.trackingNumber ?? delivery.id}',
+            api: _api,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _actionBusy = false);
+    }
+  }
 
   Future<void> _viewReceipt() async {
     if (_loadingReceipt) return;
@@ -375,6 +407,16 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                   ),
                   const SizedBox(height: 8),
                   BuyerStatusChip(status: delivery.status),
+                  if (delivery.chatLabel != null && delivery.id != null) ...[
+                    const SizedBox(height: 12),
+                    BuyerButton.secondary(
+                      onPressed: _actionBusy
+                          ? null
+                          : () => _openDeliveryChat(delivery),
+                      icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                      label: Text(delivery.chatLabel!),
+                    ),
+                  ],
                   if (delivery.canShowOtp && delivery.id != null) ...[
                     const SizedBox(height: 12),
                     BuyerButton.secondary(
