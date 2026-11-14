@@ -172,6 +172,25 @@ class OrderController extends Controller
         return back()->with('success', 'Returned parcel confirmed. Eligible undamaged stock is restored once; prepaid refunds await admin payment review.');
     }
 
+    public function disputeDamage(Request $request, Delivery $delivery)
+    {
+        $validated = $request->validate([
+            'reason' => 'required|string|max:255',
+            'notes' => 'nullable|string|max:1000',
+            'evidence' => 'nullable|file|mimes:jpeg,png,jpg,webp|max:5120',
+        ]);
+
+        \App\Support\ParcelLiability::dispute(
+            $delivery,
+            $request->user(),
+            $validated['reason'],
+            $validated['notes'] ?? null,
+            $request->file('evidence')
+        );
+
+        return back()->with('success', 'Damage report dispute submitted. Logistics liability settlement is paused pending admin review.');
+    }
+
     public function updateStatus(Request $request, $id)
     {
         $sellerId = auth()->id();

@@ -974,11 +974,31 @@ class EscrowEarnings
                     }
                 }
 
+                $isDamagedShipment = $delivery && (
+                    $delivery->status === 'damaged'
+                    || $delivery->status === 'returned_to_seller'
+                    || ($delivery->failure_reason && str_contains(strtolower($delivery->failure_reason), 'damage'))
+                    || (Schema::hasTable('parcel_liabilities') && \App\Models\ParcelLiability::where('delivery_id', $delivery->id)->exists())
+                );
+
                 foreach ($rows as $role => $meta) {
                     $existing = EscrowRemittance::where('order_id', $order->id)
                         ->where('seller_id', $sellerId)
                         ->where('recipient_role', $role)
                         ->first();
+
+                    $isCompletedLegForDamaged = false;
+                    if ($isCancelled && $isDamagedShipment) {
+                        if ($role === EscrowRemittance::ROLE_ORIGIN_HUB && ($delivery->received_at || $delivery->picked_up_at || ! empty($meta['earned_ready']))) {
+                            $isCompletedLegForDamaged = true;
+                        } elseif ($role === EscrowRemittance::ROLE_PICKUP_RIDER && ($delivery->picked_up_at || $delivery->received_at || ! empty($meta['earned_ready']))) {
+                            $isCompletedLegForDamaged = true;
+                        } elseif ($role === EscrowRemittance::ROLE_INTER_HUB_DRIVER && ($calc['inter_hub_completed'] || ! empty($meta['earned_ready']))) {
+                            $isCompletedLegForDamaged = true;
+                        } elseif ($role === EscrowRemittance::ROLE_DESTINATION_HUB && ($calc['inter_hub_completed'] || ! empty($meta['earned_ready']))) {
+                            $isCompletedLegForDamaged = true;
+                        }
+                    }
 
                     // Never rewrite a settled remittance; only cancellation
                     // may void it, and even then the amount is preserved.
@@ -986,7 +1006,14 @@ class EscrowEarnings
                         continue;
                     }
                     if ($existing && $isCancelled) {
-                        $existing->update(['status' => 'voided', 'notes' => 'Order cancelled or payment failed.']);
+                        if ($isCompletedLegForDamaged && (float) $meta['amount'] > 0) {
+                            $existing->update([
+                                'status' => 'pending_remittance',
+                                'notes' => 'Completed transit leg prior to shipment damage; earned and payable.',
+                            ]);
+                        } else {
+                            $existing->update(['status' => 'voided', 'notes' => 'Order cancelled or payment failed.']);
+                        }
 
                         continue;
                     }
@@ -999,7 +1026,9 @@ class EscrowEarnings
                             $meta['settlement_mode'] = 'escrow_bank_remittance';
                         }
                     } elseif ($isCancelled) {
-                        $status = 'voided';
+                        $status = ($isCompletedLegForDamaged && (float) $meta['amount'] > 0)
+                            ? 'pending_remittance'
+                            : 'voided';
                     } elseif (! empty($meta['auto_remitted'])) {
                         $status = 'remitted';
                     } elseif ((float) $meta['amount'] <= 0.0) {

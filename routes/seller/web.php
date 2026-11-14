@@ -29,6 +29,7 @@ Route::prefix('seller')->middleware('seller')->group(function () {
     Route::get('/orders/{order}', [SellerAppOrders::class, 'show'])->name('seller.orders.show');
     Route::post('/orders/{order}/status', [SellerAppOrders::class, 'updateStatus'])->name('seller.orders.status');
     Route::post('/returns/{delivery}/confirm', [SellerAppOrders::class, 'confirmReturn'])->name('seller.returns.confirm');
+    Route::post('/returns/{delivery}/dispute-damage', [SellerAppOrders::class, 'disputeDamage'])->name('seller.returns.dispute-damage');
     Route::post('/orders/{order}/pickup', [SellerAppOrders::class, 'schedulePickup'])->name('seller.orders.pickup');
     Route::get('/orders/{order}/waybill', [SellerAppOrders::class, 'waybill'])->name('seller.orders.waybill');
     Route::get('/orders/{order}/payment-proof', [\App\Http\Controllers\PaymentProofController::class, 'seller'])->whereNumber('order')->name('seller.orders.payment-proof');

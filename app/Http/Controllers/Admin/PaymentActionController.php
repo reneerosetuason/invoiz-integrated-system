@@ -317,4 +317,27 @@ class PaymentActionController extends Controller
             ? 'Refund approved. Open the Return center to record the actual transfer; the buyer must confirm receipt.'
             : 'Dispute rejected.');
     }
+
+    public function settleLiability(Request $request, $id)
+    {
+        $liability = \App\Models\ParcelLiability::findOrFail($id);
+        \App\Support\ParcelLiability::settle($liability, $request->user());
+
+        return back()->with('status', 'Logistics liability settled. Merchandise amount credited to seller balance.');
+    }
+
+    public function resolveLiabilityDispute(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'outcome' => 'required|in:uphold,overturn',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $liability = \App\Models\ParcelLiability::findOrFail($id);
+        \App\Support\ParcelLiability::resolveDispute($liability, $validated['outcome'], $validated['note'] ?? null, $request->user());
+
+        return back()->with('status', $validated['outcome'] === 'uphold'
+            ? 'Damage dispute upheld. Liability settled to seller.'
+            : 'Damage dispute overturned. Liability reversed and stock restored.');
+    }
 }

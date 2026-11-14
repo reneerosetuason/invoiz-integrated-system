@@ -299,6 +299,11 @@ class Payments
                 }
             }
         }
+        if (\Illuminate\Support\Facades\Schema::hasTable('parcel_liabilities')) {
+            $earned += (float) \App\Models\ParcelLiability::whereIn('seller_id', $catalogIds)
+                ->where('status', 'settled')
+                ->sum('merchandise_amount');
+        }
         $sellerRows = Seller::where('user_id', $userId)->pluck('id')->all();
         $committed = 0.0;
         if ($sellerRows) {

@@ -320,6 +320,48 @@
 
         @if($returnState['state'] === 'received')
             <p class="mt-3 text-sm font-semibold text-green-700">You confirmed receipt on {{ $returnState['received_at']?->format('M j, Y g:i A') }}.</p>
+            @php
+                $liability = \App\Models\ParcelLiability::where('delivery_id', $order->delivery->id)->first();
+            @endphp
+            @if($liability)
+                <div class="mt-3 rounded-2xl border border-borderline bg-soft p-4 text-sm">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="font-bold">Damaged Shipment Liability:</span>
+                            <span class="ml-1 inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold capitalize {{ $liability->status === 'settled' ? 'bg-green-100 text-green-800' : ($liability->status === 'disputed' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800') }}">
+                                {{ $liability->status }}
+                            </span>
+                            <p class="mt-1 text-xs text-ink-light">Compensation amount: <strong>₱{{ number_format($liability->merchandise_amount, 2) }}</strong></p>
+                        </div>
+                    </div>
+
+                    @if($liability->canDispute())
+                        <div class="mt-3 border-t border-borderline pt-3" x-data="{ openDispute: false }">
+                            <button type="button" @click="openDispute = !openDispute" class="btn btn-secondary text-xs">
+                                Dispute Damage Report
+                            </button>
+                            <form x-show="openDispute" x-cloak method="POST" action="{{ route('seller.returns.dispute-damage', $order->delivery) }}" enctype="multipart/form-data" class="mt-3 space-y-3">
+                                @csrf
+                                <div>
+                                    <label class="field-label">Dispute Reason</label>
+                                    <input type="text" name="reason" class="input" placeholder="e.g. Parcel was undamaged or item was improperly inspected" required maxlength="255">
+                                </div>
+                                <div>
+                                    <label class="field-label">Notes (optional)</label>
+                                    <textarea name="notes" rows="2" class="textarea" placeholder="Provide additional details regarding the dispute"></textarea>
+                                </div>
+                                <div>
+                                    <label class="field-label">Photo Evidence (optional)</label>
+                                    <input type="file" name="evidence" accept="image/*" class="input text-xs">
+                                </div>
+                                <button type="submit" class="btn btn-primary text-xs">Submit Dispute (Pauses Settlement)</button>
+                            </form>
+                        </div>
+                    @elseif($liability->status === 'disputed')
+                        <p class="mt-2 text-xs font-medium text-amber-700">Dispute is currently pending review by Admin. Liability settlement is paused.</p>
+                    @endif
+                </div>
+            @endif
         @elseif($returnState['state'] === 'dispatched')
             <div class="mt-3 rounded-2xl bg-[#FFF8E7] p-4 text-sm">
                 This parcel was sent back to you on {{ $returnState['dispatched_at']?->format('M j, Y g:i A') }}. Confirm only after you physically receive it.

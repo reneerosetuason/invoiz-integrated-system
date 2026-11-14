@@ -114,6 +114,8 @@ Route::prefix('admin')->middleware(['auth', 'marketplace.admin'])->group(functio
         Route::post('payments/withdrawals/{id}/approve', [\App\Http\Controllers\Admin\PaymentActionController::class, 'approveWithdrawal'])->name('admin.withdrawals.approve');
         Route::post('payments/withdrawals/{id}/reject', [\App\Http\Controllers\Admin\PaymentActionController::class, 'rejectWithdrawal'])->name('admin.withdrawals.reject');
         Route::post('payments/disputes/{id}/resolve', [\App\Http\Controllers\Admin\PaymentActionController::class, 'resolveDispute'])->name('admin.disputes.resolve');
+        Route::post('payments/liabilities/{id}/settle', [\App\Http\Controllers\Admin\PaymentActionController::class, 'settleLiability'])->name('admin.liabilities.settle');
+        Route::post('payments/liabilities/{id}/resolve', [\App\Http\Controllers\Admin\PaymentActionController::class, 'resolveLiabilityDispute'])->name('admin.liabilities.resolve');
     Route::get('manage-accounts', [UserManagementController::class, 'index'])->name('admin.manage-accounts');
     Route::post('manage-accounts/{user}/action', [UserManagementController::class, 'toggleStatus'])->name('admin.manage-accounts.action');
     Route::get('complaints', [ComplaintController::class, 'index'])->name('admin.complaints');

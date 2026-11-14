@@ -151,6 +151,10 @@ class ShipmentExceptionService
                     ['actor_role' => $actorRole, 'photo' => $proofPath !== null],
                 );
 
+                if ($type === 'damaged' && \Illuminate\Support\Facades\Schema::hasTable('parcel_liabilities')) {
+                    \App\Support\ParcelLiability::propose($locked, $proofPath, $actor);
+                }
+
                 return $locked->fresh();
             }, 3);
         } catch (\Throwable $e) {
@@ -160,5 +164,10 @@ class ShipmentExceptionService
 
             throw $e;
         }
+    }
+
+    public function validateReport(Delivery $delivery, ?User $actor = null): \App\Models\ParcelLiability
+    {
+        return \App\Support\ParcelLiability::validateReport($delivery, $actor);
     }
 }
