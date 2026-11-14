@@ -111,7 +111,7 @@ void main() {
         expect(find.text('Forgot password?'), findsOneWidget);
         expect(find.text('Apply as a Rider'), findsOneWidget);
         expect(find.text('Check Application Status'), findsOneWidget);
-        expect(find.byType(OutlinedButton), findsNWidgets(2));
+        expect(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_OutlinedButtonWithIcon'), findsNWidgets(2));
 
         // Vertical order on the page: Sign In, then Apply, then the
         // outside-the-card Check Application Status action.

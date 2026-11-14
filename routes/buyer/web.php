@@ -477,7 +477,7 @@ Route::post('/store/{id}/follow', function($id, Request $request){
   $buyer = session('buyer') ?? (Auth::check() ? ['id'=>Auth::id()] : null);
   if(!$buyer) return redirect('/login')->with('error','Please login to follow stores');
   if (! class_exists(\App\Models\StoreFollow::class)) return back()->with('error','Follows are unavailable.');
-  $sellerId = (int)$id;
+  $sellerId = \App\Models\Seller::userIdFor((int)$id);
   $ex = \App\Models\StoreFollow::where('buyer_id',$buyer['id'])->where('seller_id',$sellerId)->first();
   if($ex){ $ex->delete(); $msg='Store unfollowed'; } else { \App\Models\StoreFollow::create(['buyer_id'=>$buyer['id'],'seller_id'=>$sellerId]); $msg='Store followed'; }
   return back()->with('success',$msg);

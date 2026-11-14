@@ -1,87 +1,113 @@
-# INVOIZ
+# INVOIZ E-Commerce, Logistics & Escrow Platform
 
-Laravel application for the buyer marketplace, Seller Center, administration,
-and logistics/rider operations.
+An integrated multi-role e-commerce marketplace, Seller Center, logistics hub fulfillment network, and escrow platform built on Laravel 11 and Flutter.
 
-## Local development
+---
 
-Requires PHP 8.2+, Composer, Node.js/npm, and the database configured in `.env`.
-For a new checkout, copy `.env.example` to `.env`, configure the database and
-mail settings, and generate an application key with `php artisan key:generate`.
-Keep an existing installation's `.env` and application key.
+## 📚 Documentation Index
 
+Comprehensive documentation is available under [`docs/`](docs/):
+
+* **[System Architecture](docs/ARCHITECTURE.md)**: High-level system architecture, subsystem boundaries, data models, entity relationships, and security model.
+* **[Developer Guide](docs/DEVELOPER_GUIDE.md)**: Local environment setup, dependencies, running services, building mobile apps, and running test suites.
+* **[Core Business Workflows](docs/CORE_WORKFLOWS.md)**: Detailed breakdown of the order lifecycle, escrow settlement, reverse fulfillment (returns & refunds parity), volumetric shipping, and hub transit.
+* **[REST API Documentation](docs/API_DOCUMENTATION.md)**: REST API reference for mobile apps and integrations (authentication, products, cart, checkout, returns, and logistics rider APIs).
+* **[Role, Auth & Authorization Reference](README-INTEGRATED.md)**: Authoritative access rules, guard configurations, OTP flows, and role segregation.
+* **[Buyer Mobile Integration](docs/buyer-mobile-integration.md)**: Architecture and parity audit for the Flutter buyer client.
+* **[Logistics Terminology & Role Mapping](docs/logistics-terminology-and-role-mapping.md)**: Operational hierarchy for hubs, dispatchers, and riders.
+
+---
+
+## 🚀 Quick Start (Local Development)
+
+### Requirements
+* PHP 8.2+ with PDO MySQL, Composer
+* Node.js 18+ and npm
+* MySQL 8.0+
+
+### Setup Commands
 From the project root:
 
 ```powershell
+# 1. Install PHP and JS dependencies
 composer install
 npm ci
+
+# 2. Configure environment (if not already done)
+# cp .env.example .env
+# php artisan key:generate
+
+# 3. Build frontend assets
 npm run build
+
+# 4. Start local web server
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-Open `http://127.0.0.1:8000/`. The local Cloudflare tunnel command remains in
-`run.txt`. Database migrations and seeders live in `database/`; apply them only
-as required by the installation being set up.
+Open `http://127.0.0.1:8000/` in your browser. (The local Cloudflare tunnel snippet is available in `run.txt`).
 
-## Shared backend and database
+---
 
-Buyer, seller, admin, logistics and rider API requests use the same Laravel
-application and the single default database connection configured by `DB_*`
-in `.env`. Accounts share `users`; permissions still depend on the role and
-approved seller/rider/center profiles. Role folders organize the code.
+## 📱 Mobile Applications
 
-Verify the current installation without changing data:
+The platform includes two Flutter clients that connect directly to the shared Laravel REST API:
+
+1. **Buyer Mobile App** (`buyer_mobile`):
+   * 18+ screens covering search, product catalog, cart, checkout, order tracking, real-time chat, and return dispute filing.
+   * **Web Preview**: Run `powershell -ExecutionPolicy Bypass -File buyer_mobile/scripts/Build-Web.ps1` to view at `http://127.0.0.1:8000/buyer-app/`.
+   * **Build APK**: Run `powershell -ExecutionPolicy Bypass -File buyer_mobile/scripts/Build-Android.ps1`.
+2. **Rider Mobile App** (`rider_mobile`):
+   * Courier application with real-time pickup assignments, barcode scanning, proof-of-delivery capture (signature/photo), and return collections.
+
+---
+
+## 🏢 Platform Roles & Portals
+
+All users share a unified identity schema while having strictly separated role views:
+
+| Role | Portal / URL | Key Responsibilities |
+| :--- | :--- | :--- |
+| **Buyer** | `/`, `/shop`, `/buyer-app/` | Product search, purchasing, escrow payments (COD/GCash), delivery tracking, return/refund dispute submission. |
+| **Seller** | `/seller/*` | Product management (weights, cm dimensions, variants), order fulfillment, voucher creation, return request review. |
+| **Logistics** | `/logistics/*` | Hub package sorting, trip manifests, driver assignments, barcode parcel tracking. |
+| **Rider** | Flutter App (`rider_mobile`) | Package pickup, last-mile delivery, proof of delivery upload, reverse-fulfillment collection. |
+| **Admin** | `/admin/*` | Merchant approval, rider auditing, commission settings, dispute resolution, financial escrow release. |
+
+---
+
+## 🧪 Testing & Verification
+
+Verify the system installation and shared backend health:
 
 ```powershell
 php artisan invoiz:check-backend
 ```
 
-The Flutter buyer client is in [`buyer_mobile`](buyer_mobile/README.md). Its
-18 screens use this backend, with no separate server or database. The browser
-preview is served at `/buyer-app/` after running its web build script. Mobile
-devices must use the same reachable website origin's `/api`.
-See [buyer app integration](docs/buyer-mobile-integration.md) and
-[shared backend verification](docs/shared-backend.md).
-
-## Project organization
-
-Views, public assets, routes and controllers are grouped by buyer, seller,
-logistics, admin and shared ownership. Each role uses the shared navbar and
-sidebar templates under `resources/views/shared/navigation/`.
-
-| Directory | Purpose |
-| --- | --- |
-| `app/`, `routes/`, `config/` | Shared Laravel application and role-specific endpoints |
-| `resources/views/`, `public/assets/` | Role-owned templates, styles and scripts |
-| `buyer_mobile/`, `rider_mobile/` | Active Flutter applications using the shared backend |
-| `database/` | Migrations, factories, seeders and documented integration SQL |
-| `tests/`, `e2e/` | PHP feature tests and browser test source |
-| `scripts/` | Maintained repository automation |
-| `docs/` | Setup references, flow guides and audit records |
-
-Generated browser reports and screenshots are local output, not application
-source. `.tools/` contains local inspection tools, SDKs and isolated database
-fixtures; it is ignored by Git. Runtime uploads, private downloads and application
-data remain under `storage/` and must not be treated as cleanup artifacts.
-
-All database migrations live directly in `database/migrations/`, using Laravel's
-default discovery and filename ordering. See the [migration organization record](docs/refactoring/migration-structure.md)
-for the logistics migration moves.
-
-- [Role, authentication and authorization reference](README-INTEGRATED.md)
-- [Folder structure and original refactor](docs/refactoring/file-structure.md)
-- [Unused-file cleanup inventory](docs/refactoring/cleanup.md)
-- [2026-11-12 cleanup and verification](docs/refactoring/cleanup-2026-11-12.md)
-- [Historical database integration notes](docs/DATABASE_CHANGES.md)
-
-## Verification
+Run isolated unit and feature regression tests:
 
 ```powershell
-php vendor/phpunit/phpunit/phpunit --filter "ViewStructureTest|BuyerWebShoppingTest|CommerceRegressionTest|SharedBackendTest|BuyerMobileIntegrationTest"
-npm run build
+php vendor/phpunit/phpunit/phpunit --filter "ViewStructureTest|BuyerWebShoppingTest|CommerceRegressionTest|SharedBackendTest|BuyerMobileIntegrationTest|SellerProductShippingDimensionsTest"
 ```
 
-The focused tests use isolated fixtures. Most other feature tests require the
-dedicated MySQL test database configured by `phpunit.mysql.xml`; do not point
-tests at the development or production database. See the integration reference
-for the database-backed suite.
+To run the complete feature test suite against your dedicated MySQL test database:
+
+```powershell
+php artisan test -c phpunit.mysql.xml
+```
+
+---
+
+## 📁 Repository Structure
+
+```
+c:\Invoiz\
+├── app/                  # Laravel application, models, services, controllers
+├── buyer_mobile/         # Flutter Buyer mobile application
+├── rider_mobile/         # Flutter Rider mobile application
+├── database/             # Schema migrations, seeders, and factories
+├── docs/                 # System architecture, developer guides, workflow specs
+├── public/               # Public web assets and compiled Vite bundles
+├── resources/            # Blade templates and source styles
+├── routes/               # Role-segmented routing (admin, buyer, seller, logistics, shared)
+└── tests/                # Automated feature and regression test suite
+```

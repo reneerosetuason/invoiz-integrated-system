@@ -583,11 +583,13 @@ class StoreSkeleton extends StatelessWidget {
 /// Generic full-page skeleton for any simple screen.
 class GenericPageSkeleton extends StatelessWidget {
   final int cardCount;
-  const GenericPageSkeleton({super.key, this.cardCount = 3});
+  final bool shrinkWrap;
+  const GenericPageSkeleton({super.key, this.cardCount = 3, this.shrinkWrap = true});
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      shrinkWrap: shrinkWrap,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: cardCount,
