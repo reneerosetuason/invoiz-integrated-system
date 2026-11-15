@@ -2033,6 +2033,7 @@ class DeliveryController extends Controller
             'origin_hub' => $originHub ?? $currentHub ?? 'Unassigned',
             'current_hub' => $currentHub ?? 'Unassigned',
             'destination_hub' => $destinationHub ?? 'Pending Sorting',
+            'destination_recommendation' => $delivery->destinationRecommendation(),
             'destination_center_id' => $delivery->destination_center_id ? (int) $delivery->destination_center_id : null,
             'service_area_id' => $delivery->service_area_id ? (int) $delivery->service_area_id : null,
             'service_area_name' => $delivery->serviceArea?->name,

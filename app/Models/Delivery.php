@@ -459,6 +459,26 @@ class Delivery extends Model
             ->when($centerId !== null, fn ($dest) => $dest->where('deliveries.destination_center_id', $centerId))));
     }
 
+    public function destinationRecommendation(?\Illuminate\Support\Collection $areas = null, ?\Illuminate\Support\Collection $centers = null): ?array
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('service_areas') || !\Illuminate\Support\Facades\Schema::hasTable('logistics_centers')) return null;
+        if ($centers === null) {
+            $query = LogisticsCenter::where('is_active', true);
+            if (\Illuminate\Support\Facades\Schema::hasTable('logistics_companies')) $query->whereHas('company', fn ($q) => $q->where('status', 'active'));
+            $centers = $query->get();
+        }
+        $centers = $centers->where('is_active', true);
+        $areas ??= ServiceArea::where('is_active', true)->whereIn('logistics_center_id', $centers->pluck('id'))->get();
+        $areas = $areas->where('is_active', true)->whereIn('logistics_center_id', $centers->pluck('id')->all());
+        $suggested = $this->suggestedDestination($areas);
+        $hub = $centers->firstWhere('id', $suggested['center_id']);
+        if (!$hub) return null;
+        $area = $areas->firstWhere('id', $suggested['service_area_id']);
+        return ['center_id' => (int) $hub->id, 'service_area_id' => $area ? (int) $area->id : null,
+            'name' => $hub->name, 'location' => implode(', ', array_filter([$hub->city, $hub->province])),
+            'reason' => $area ? 'Serves the buyer’s address in '.$area->name.'.' : 'Matches the buyer’s city and province.'];
+    }
+
     public function suggestedDestination(?\Illuminate\Support\Collection $areas = null): array
     {
         if (!\Illuminate\Support\Facades\Schema::hasTable('service_areas') || !\Illuminate\Support\Facades\Schema::hasTable('logistics_centers')) {

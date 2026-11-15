@@ -10,9 +10,10 @@ use App\Models\ProductVariant;
 use App\Models\ReturnRequest;
 use App\Models\ReturnSettlement;
 use App\Models\ReturnWorkflow;
+use App\Support\EscrowEarnings;
 use Illuminate\Validation\ValidationException;
 
-/** One capped reverse truck payment per new agreement; retain previously agreed quotes. */
+/** One distance-and-weight reverse truck payment per new quote; retain agreed quotes. */
 class ReturnTripPricingService
 {
     public static function quote(ReturnRequest $case, ReturnSettlement $agreement, LogisticsCenter $from, LogisticsCenter $to, array $rates): array
@@ -29,10 +30,27 @@ class ReturnTripPricingService
         if (! $item || $case->quantity <= 0 || $case->quantity > $item['quantity']) {
             throw ValidationException::withMessages(['return' => 'The return must match the original purchased quantity and measurement snapshot.']);
         }
-        $product = new Product(['dimensions' => $item['dimensions']]);
-        $size = $product->parsedDimensions();
-        $parcel = ['id' => $case->id, 'weight' => (ShipmentWeightService::kilograms($item['weight']) ?? 0) * $case->quantity,
-            'length_cm' => $size['length'] ?? 0, 'width_cm' => $size['width'] ?? 0, 'height_cm' => ($size['height'] ?? 0) * $case->quantity];
+        $parcel = ['id' => $case->id, 'weight' => (ShipmentWeightService::kilograms($item['weight']) ?? 0) * $case->quantity];
+        // Older products may have no measurements or may have been edited since
+        // purchase. Reuse the recorded shipment instead of inventing a weight.
+        $delivery = EscrowEarnings::deliveryForSeller($case->order, (int) $case->seller_id);
+        $original = $delivery?->only(['weight']) ?? [];
+        if ($delivery) {
+            foreach (EscrowEarnings::transferLegs($delivery)->reverse() as $leg) {
+                if ($leg->status !== 'received') continue;
+                $recorded = collect($leg->payment_snapshot['parcels'] ?? [])->firstWhere('id', $delivery->id);
+                if ($recorded) { $original = array_replace($original, $recorded); break; }
+            }
+        }
+        $sellerQuantity = (int) $case->order->items()->where('seller_id', $case->seller_id)->sum('quantity');
+        $wholeShipment = (int) $case->quantity === $sellerQuantity;
+        $recordedWeight = ShipmentWeightService::kilograms($original['weight'] ?? null);
+        if ($recordedWeight && $wholeShipment) {
+            $parcel['weight'] = $recordedWeight;
+        }
+        if ($parcel['weight'] <= 0) {
+            throw ValidationException::withMessages(['return' => 'Return parcel weight is unavailable from the original shipment and product. Logistics must review the weight before quoting inter-hub transport.']);
+        }
         $trucks = LogisticsTruck::with('driver')->where('logistics_company_id', $from->logistics_company_id)
             ->where('verification_status', 'approved')->where('status', 'available')
             ->whereHas('driver', fn ($q) => $q->where('status', 'available'))
@@ -43,27 +61,16 @@ class ReturnTripPricingService
                 continue;
             }
             try {
-                $calculation = app(TripPaymentCalculator::class)->calculate($truck->only(['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']), [$parcel], $route['distance'], $rates);
+                $calculation = app(ParcelInterHubPricing::class)->calculate($truck->only(['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']), [$parcel], $route['distance'], $rates);
             } catch (ValidationException $e) {
                 continue;
             }
-
-            $sellerRevenue = max(0, $case->order->sellerSubtotal((int) $case->seller_id)
-                - $case->order->voucherDiscountForSeller((int) $case->seller_id));
-            $returnedValue = (int) $agreement->merchandise_cents;
-            if ($returnedValue <= 0) {
-                $line = $case->order->items()->whereKey($case->order_item_id)->firstOrFail();
-                $returnedValue = (int) round($line->effectiveUnit * $case->quantity * 100);
-            }
-            $fraction = $sellerRevenue > 0 ? min(1, $returnedValue / ($sellerRevenue * 100)) : 0;
-            $budget = InterHubPaymentPolicy::budget($case->order, (int) $case->seller_id, $rates, $fraction);
-            $calculation = InterHubPaymentPolicy::apply($calculation, [$case->id => $budget]);
 
             return $calculation + ['truck_id' => $truck->id, 'driver_id' => $truck->driver->id,
                 'origin_center_id' => $from->id, 'destination_center_id' => $to->id,
                 'reference' => 'RET-TRIP-'.$agreement->id.'-V'.$agreement->version, 'route_distance_source' => $route['source']];
         }
-        throw ValidationException::withMessages(['return' => 'Register an available approved return truck and paired driver with sufficient weight and cargo dimensions before quoting this return trip.']);
+        throw ValidationException::withMessages(['return' => 'Register an available approved return truck and paired driver with sufficient weight capacity before quoting this return trip.']);
     }
 
     public static function assertAssignment(ReturnRequest $case, ReturnSettlement $agreement, array $data): void
@@ -74,11 +81,11 @@ class ReturnTripPricingService
         }
         $truck = LogisticsTruck::whereKey($snapshot['truck_id'])->lockForUpdate()->firstOrFail();
         $driver = $truck->driver;
-        abort_unless((int) ($data['driver_id'] ?? 0) === (int) $snapshot['driver_id'] && (int) $driver?->id === (int) $snapshot['driver_id'], 422, 'Assign the truck and driver in the funded return-trip quote. Changed fleet needs a revised agreement.');
+        abort_unless((int) ($data['driver_id'] ?? 0) === (int) $snapshot['driver_id'] && (int) $driver?->id === (int) $snapshot['driver_id'], 422, 'Assign the truck and driver in the reviewed return-trip quote. Changed fleet needs a revised agreement.');
         abort_unless($truck->isAssignable() && $truck->status === 'available'
             && ! $truck->transfers()->whereIn('status', HubTransfer::ACTIVE_STATUSES)->exists(), 422, 'The quoted return truck is no longer available.');
-        $fields = ['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm'];
-        abort_unless($truck->only($fields) == $snapshot['truck'], 422, 'The quoted truck capacity changed; revise the return agreement.');
+        $fields = ($snapshot['pricing_version'] ?? 1) >= 3 ? ['capacity_kg', 'parcel_capacity'] : ['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm'];
+        abort_unless($truck->only($fields) == array_intersect_key($snapshot['truck'], array_flip($fields)), 422, 'The quoted truck capacity changed; revise the return agreement.');
         abort_if(ReturnWorkflow::where('driver_id', $driver->id)->where('stage', 'in_transfer')->where('return_request_id', '!=', $case->id)->exists(), 422, 'This driver already has a return trip in transit.');
     }
 }

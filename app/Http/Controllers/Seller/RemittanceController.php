@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Models\Remittance;
+use App\Models\EscrowRemittance;
 use App\Support\Remittances;
 use Illuminate\Http\Request;
 
@@ -28,7 +29,13 @@ class RemittanceController extends Controller
 
         $pendingTotal = round((clone $pendingQuery)->sum('amount'), 2);
 
-        return view('seller.remittances.index', compact('pending', 'history', 'pendingTotal'));
+        $escrowPayouts = EscrowRemittance::with('order.payment')
+            ->where('recipient_role', EscrowRemittance::ROLE_SELLER)
+            ->where('recipient_user_id', auth()->id())
+            ->orderByDesc('remitted_at')->orderByDesc('id')
+            ->paginate(10, ['*'], 'escrow_page');
+
+        return view('seller.remittances.index', compact('pending', 'history', 'pendingTotal', 'escrowPayouts'));
     }
 
     public function confirm(Request $request, $id)

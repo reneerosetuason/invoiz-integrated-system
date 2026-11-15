@@ -11,6 +11,13 @@ document.querySelectorAll('[data-sort-center]').forEach((centerSelect) => {
             };
 
             centerSelect.addEventListener('change', filterAreas);
+            centerSelect.closest('form')?.querySelector('[data-use-sort-recommendation]')?.addEventListener('click', (event) => {
+                const button = event.currentTarget;
+                centerSelect.value = button.dataset.center;
+                centerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                areaSelect.value = button.dataset.area || '';
+                areaSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            });
             filterAreas();
         });
 

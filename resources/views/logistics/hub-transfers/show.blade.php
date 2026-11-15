@@ -290,23 +290,6 @@
         @endif
 
         {{-- Event History Timeline --}}
-        <div class="card p-5">
-            <h2 class="text-sm font-bold text-[#1B1B1E] uppercase tracking-wide mb-1">Transfer History</h2>
-            <p class="text-xs text-[#6E6E73] mb-4">Manual staff/driver updates and automatic system events.</p>
-            <ol class="space-y-3">
-                @foreach($transfer->events->sortBy('created_at') as $event)
-                    <li class="border-l-2 border-[#16697A] pl-3">
-                        <div class="text-xs font-bold text-[#1B1B1E]">{{ str($event->event_type)->replace('_',' ')->title() }}</div>
-                        <div class="text-[11px] text-[#6E6E73] mt-0.5">
-                            {{ $event->created_at->format('M d, Y H:i') }}
-                            @if($canViewOriginPrivate)
-                                &middot; {{ $event->actor_name ?: 'System (automatic)' }}
-                                @if($event->notes) &middot; {{ $event->notes }} @endif
-                            @endif
-                        </div>
-                    </li>
-                @endforeach
-            </ol>
-        </div>
+        @include('logistics.hub-transfers.history')
     </div>
 </x-app-layout>

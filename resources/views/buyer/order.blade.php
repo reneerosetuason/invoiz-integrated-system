@@ -1,6 +1,23 @@
 @extends('buyer.layouts.website')
 @section('content')
-<p style="margin:12px 0"><a href="{{ route('returns.center') }}">Track returns &amp; confirm refund payment</a></p>
+<a href="{{ url('/orders') }}" class="btn-p btn-line btn-sm" style="margin-bottom:12px;display:inline-flex;align-items:center;gap:4px">&larr; Back to Orders</a>
+
+@if(($returns ?? collect())->isNotEmpty())
+  <div style="margin:12px 0;padding:12px 16px;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:34px;height:34px;border-radius:50%;background:#DBEAFE;display:flex;align-items:center;justify-content:center;color:#1D4ED8;flex-shrink:0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13.5px;color:#1E3A8A;">Return &amp; Refund Request Active</div>
+        <div style="font-size:12px;color:#2563EB;">Track your returns, view agreements, converse with the seller, and confirm refunds.</div>
+      </div>
+    </div>
+    <a href="{{ route('returns.center') }}" class="btn-p btn-line btn-sm" style="border-color:#2563EB;color:#1E40AF;background:#fff;font-weight:700;text-decoration:none;padding:6px 14px;border-radius:6px;font-size:12px;">
+      Open Return Center &rarr;
+    </a>
+  </div>
+@endif
 @php
   $o = $order;
   $pay = $o->payment;
@@ -34,7 +51,6 @@
   $oStore = '';
   try { $oStore = \App\Models\Seller::nameFor(optional($o->items->first())->seller_id ?? 0); } catch (\Throwable $e) {}
 @endphp
-<a href="{{ url('/orders') }}" style="color:var(--text2);text-decoration:none;font-weight:600;font-size:12px">← Back to orders</a>
 <h2 style="font-weight:800;margin:8px 0 0">{{ $oRef }}</h2>
 @if($oStore && $oStore !== 'Store')<div style="font-size:12px;color:var(--text2);margin-top:2px">Sold by <a href="{{ url('/store/'.optional($o->items->first())->seller_id) }}" style="color:var(--primary-dark);font-weight:700;text-decoration:none">{{ $oStore }}</a></div>@endif
 
@@ -211,11 +227,12 @@
                   <div style="font-size:11.5px;color:#4B5563;margin-top:2px;max-width:240px;text-overflow:ellipsis;overflow:hidden;white-space:nowrap;">&ldquo;{{ $existingReview->comment }}&rdquo;</div>
                 @endif
               </div>
-              <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', {{ $existingReview->rating }}, '{{ addslashes($existingReview->comment ?? '') }}')" class="btn-p btn-line btn-sm" style="font-size:12px;padding:6px 12px;cursor:pointer;border-radius:8px;">
-                Edit
-              </button>
+              <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:8px;background:#E8F5EE;color:#166534;font-size:12px;font-weight:700;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Rated
+              </span>
             @else
-              <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', 5, '')" class="btn-p btn-solid btn-sm" style="background:#16697A;color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;padding:6px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+              <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', 5, '')" class="btn-p btn-solid btn-sm" style="background:#16697A;color:#fff;border-radius:8px;font-size:12.5px;font-weight:700;padding:7px 18px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 Rate Now
               </button>
@@ -240,80 +257,204 @@
         @php
           $existingReview = ($reviews ?? collect())->get($it->product_id);
           $itemReturns = ($returns ?? collect())->get($it->id, collect());
-          $openReturn = $itemReturns->first(fn($r) => in_array($r->status, ['requested', 'approved', 'item_received']));
-          $refundedReturn = $itemReturns->first(fn($r) => $r->status === 'refunded');
           $refundedQty = (int) $itemReturns->where('status', 'refunded')->sum('quantity');
           $remainingQty = max(0, (int)$it->quantity - $refundedQty);
+          $hasActiveReturn = $itemReturns->contains(fn($r) => in_array($r->status, ['requested', 'approved', 'item_received']));
         @endphp
 
-        <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          @if($existingReview)
-            <div style="font-size:12px;color:#A16207;font-weight:700;display:inline-flex;align-items:center;gap:4px;">
-              <span>Your rating:</span>
-              <span style="display:inline-flex;align-items:center;gap:2px;">
-                @for($star=1;$star<=5;$star++)
-                  @if($star <= (int)$existingReview->rating)
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="#D97706" stroke="#D97706"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                  @else
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                  @endif
-                @endfor
-              </span>
-              @if($existingReview->comment)<span style="color:var(--text2);font-weight:400"> &bull; {{ $existingReview->comment }}</span>@endif
-            </div>
-            <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', {{ $existingReview->rating }}, '{{ addslashes($existingReview->comment ?? '') }}')" class="btn-p btn-line btn-sm" style="font-size:11px;padding:3px 8px;cursor:pointer;border-radius:6px;">
-              Edit Rating
-            </button>
-          @else
-            <button type="button" onclick="openRateModal({{ $it->product_id }}, '{{ addslashes($it->product_name) }}', 5, '')" class="btn-p btn-solid btn-sm" style="background:#16697A;color:#fff;border-radius:6px;font-size:11.5px;font-weight:700;padding:4px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#FBBF24" stroke="#FBBF24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              Rate
-            </button>
-          @endif
-        </div>
-
-        @if($openReturn)
-          <div style="margin-top:8px;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af">
-            <div style="font-weight:700;display:flex;align-items:center;gap:6px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
-              Return {{ ucfirst($openReturn->status) }} ({{ $openReturn->quantity }} item{{ $openReturn->quantity > 1 ? 's' : '' }})
-            </div>
-            <div style="font-size:11px;color:#3b82f6;margin-top:2px">
-              Reason: {{ ucfirst(str_replace('_', ' ', $openReturn->reason)) }}
-              @if($openReturn->reason_details) — {{ $openReturn->reason_details }}@endif
-            </div>
-            @if($openReturn->evidence_path)
-              <div style="margin-top:6px;font-size:11px;color:#1e40af;display:flex;align-items:center;gap:6px">
-                <b>Evidence:</b>
-                <a data-image-viewer="document" href="{{ asset('storage/' . $openReturn->evidence_path) }}"   style="color:#2563eb;text-decoration:underline;font-weight:600;display:inline-flex;align-items:center;gap:3px">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                  View {{ $openReturn->evidence_type === 'video' ? 'Video' : 'Photo' }}
-                </a>
-              </div>
-            @endif
-            @if($openReturn->status === 'approved')
-              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">Your return is approved. Logistics will arrange collection; follow its handoffs in the return center.</div>
-            @elseif($openReturn->status === 'item_received')
-              <div style="margin-top:4px;font-size:11px;font-weight:600;color:#1e3a8a">The seller received the item. Admin will record the refund transfer; confirm it once received.</div>
-            @endif
-            @if($openReturn->decision_note)
-              <div style="margin-top:4px;font-size:11px;color:#1e3a8a"><b>Store note:</b> {{ $openReturn->decision_note }}</div>
-            @endif
-          </div>
-        @elseif($refundedReturn)
-          <div style="margin-top:8px;padding:8px 12px;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;font-size:12px;color:#065f46">
-            <div style="font-weight:700;display:flex;align-items:center;gap:6px">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              Refunded (₱{{ number_format($refundedReturn->refund_amount, 2) }})
-            </div>
-            <div style="font-size:11px;margin-top:2px">{{ $refundedReturn->quantity }} item(s) refunded.</div>
+        @if($existingReview)
+          <div style="margin-top:6px;font-size:12px;color:#A16207;font-weight:700;display:inline-flex;align-items:center;gap:4px;">
+            <span>Your rating:</span>
+            <span style="display:inline-flex;align-items:center;gap:2px;">
+              @for($star=1;$star<=5;$star++)
+                @if($star <= (int)$existingReview->rating)
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="#D97706" stroke="#D97706"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                @else
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                @endif
+              @endfor
+            </span>
+            <span style="font-size:11.5px;color:#92400E">({{ $existingReview->rating }}/5)</span>
+            @if($existingReview->comment)<span style="color:var(--text2);font-weight:400"> &bull; {{ $existingReview->comment }}</span>@endif
           </div>
         @endif
 
-        @if(!$openReturn && $remainingQty > 0)
-          <div style="margin-top:8px">
-            <button type="button" onclick="openReturnModal({{ $it->id }})" style="display:inline-flex;align-items:center;gap:5px;padding:6px 11px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text);font-size:11px;font-weight:700;cursor:pointer">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+        {{-- Return Records matching mobile application --}}
+        @foreach($itemReturns as $ret)
+          @php
+            $agreement = $ret->settlement;
+            $workflow = $ret->workflow;
+            $statusBadge = match($ret->status) {
+              'requested' => ['bg' => '#FEF3C7', 'text' => '#92400E', 'border' => '#FCD34D', 'label' => 'Return Requested'],
+              'approved' => ['bg' => '#EFF6FF', 'text' => '#1E40AF', 'border' => '#BFDBFE', 'label' => 'Return Approved'],
+              'item_received' => ['bg' => '#EEF2FF', 'text' => '#3730A3', 'border' => '#C7D2FE', 'label' => 'Item Received by Seller'],
+              'refunded' => ['bg' => '#ECFDF5', 'text' => '#065F46', 'border' => '#A7F3D0', 'label' => 'Refund Completed'],
+              'declined', 'cancelled' => ['bg' => '#FEF2F2', 'text' => '#991B1B', 'border' => '#FECACA', 'label' => ucfirst($ret->status)],
+              default => ['bg' => '#F3F4F6', 'text' => '#374151', 'border' => '#E5E7EB', 'label' => ucfirst(str_replace('_', ' ', $ret->status))],
+            };
+          @endphp
+          <div style="margin-top:10px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:10px;">
+            {{-- Header --}}
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:800;font-size:13.5px;color:#1F2937;">Return #{{ $ret->id }}</span>
+                <span style="font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:{{ $statusBadge['bg'] }};color:{{ $statusBadge['text'] }};border:1px solid {{ $statusBadge['border'] }};">
+                  {{ $statusBadge['label'] }}
+                </span>
+              </div>
+              <span style="font-size:12.5px;font-weight:700;color:#374151;">
+                {{ $ret->quantity }} item{{ $ret->quantity > 1 ? 's' : '' }} &bull; ₱{{ number_format($ret->refund_amount, 2) }}
+              </span>
+            </div>
+
+            {{-- Reason & Evidence --}}
+            <div style="font-size:12.5px;color:#4B5563;line-height:1.5;">
+              <div><strong>Reason:</strong> {{ ucfirst(str_replace('_', ' ', $ret->reason)) }}@if($ret->reason_details) &mdash; <span style="color:#1F2937;">{{ $ret->reason_details }}</span>@endif</div>
+              @if($ret->evidence_path)
+                <div style="margin-top:4px;display:flex;align-items:center;gap:6px;">
+                  <span style="font-size:11.5px;color:#6B7280;">Evidence:</span>
+                  <a data-image-viewer="document" href="{{ asset('storage/' . $ret->evidence_path) }}" target="_blank" style="color:#2563EB;text-decoration:underline;font-weight:600;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    View {{ $ret->evidence_type === 'video' ? 'Video Evidence' : 'Photo Evidence' }}
+                  </a>
+                </div>
+              @endif
+              @if($ret->decision_note)
+                <div style="margin-top:6px;font-size:12px;background:#EFF6FF;border-left:3px solid #3B82F6;padding:6px 10px;border-radius:4px;color:#1E3A8A;">
+                  <strong>Store note:</strong> {{ $ret->decision_note }}
+                </div>
+              @endif
+              @if($ret->status === 'approved')
+                <div style="margin-top:4px;font-size:11.5px;color:#1E40AF;font-weight:500;">
+                  Logistics will arrange return collection and track the parcel back to the seller.
+                </div>
+              @endif
+            </div>
+
+            {{-- Progress Status --}}
+            @if($workflow)
+              <div style="font-size:12px;color:#4B5563;background:#fff;border:1px solid #E5E7EB;border-radius:6px;padding:8px 10px;">
+                <div><strong>Return progress:</strong> {{ ucwords(str_replace('_', ' ', $workflow->stage)) }}</div>
+                @if($workflow->refund_reference)
+                  <div style="margin-top:2px;"><strong>Refund reference:</strong> <code style="font-size:11px;background:#F3F4F6;padding:1px 4px;border-radius:4px;">{{ $workflow->refund_reference }}</code></div>
+                @endif
+              </div>
+            @endif
+
+            {{-- Agreement & Proposals Section --}}
+            @if($agreement)
+              <div style="background:#FFFFFF;border:1px solid #D1D5DB;border-radius:8px;padding:12px;">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;border-bottom:1px solid #F3F4F6;padding-bottom:8px;">
+                  <span style="font-size:12.5px;font-weight:700;color:#111827;">Resolution Agreement &bull; v{{ $agreement->version }}</span>
+                  <span style="font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:#F3F4F6;color:#374151;">
+                    {{ ucwords(str_replace('_', ' ', $agreement->status)) }}
+                  </span>
+                </div>
+
+                <div style="font-size:12px;color:#4B5563;line-height:1.6;">
+                  <div><strong>Remedy:</strong> {{ ucwords(str_replace('_', ' ', $agreement->resolution)) }} &bull; <strong>Responsibility:</strong> {{ ucfirst($agreement->fault) }} fault</div>
+                  @if($agreement->replacement_description)
+                    <div><strong>Agreed replacement:</strong> {{ $agreement->replacement_description }}</div>
+                  @endif
+                  @if(!$agreement->physicalReturn())
+                    <div style="color:#059669;font-weight:600;margin-top:2px;">You keep the item. No physical return or collection required.</div>
+                  @endif
+                </div>
+
+                {{-- Financials Summary --}}
+                <div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;background:#F9FAFB;padding:8px 10px;border-radius:6px;font-size:12px;">
+                  <div><span style="color:#6B7280;display:block;">Item refund:</span><strong>₱{{ number_format($agreement->merchandise_cents / 100, 2) }}</strong></div>
+                  @if($agreement->shipping_cents > 0)
+                    <div><span style="color:#6B7280;display:block;">Shipping refund:</span><strong>₱{{ number_format($agreement->shipping_cents / 100, 2) }}</strong></div>
+                  @endif
+                  @if($agreement->physicalReturn())
+                    <div><span style="color:#6B7280;display:block;">Return transport:</span><strong>₱{{ number_format($agreement->transport_cents / 100, 2) }}</strong></div>
+                  @endif
+                  <div><span style="color:#6B7280;display:block;">You receive:</span><strong style="color:#047857;font-size:13.5px;">₱{{ number_format($agreement->net_refund_cents / 100, 2) }}</strong></div>
+                </div>
+
+                @if($agreement->reason_note)
+                  <div style="margin-top:8px;font-size:12px;padding:8px 10px;background:#FEF3C7;border-radius:6px;color:#92400E;">
+                    <strong>Proposal:</strong> {{ $agreement->reason_note }}
+                  </div>
+                @endif
+
+                {{-- Agreement Action Buttons --}}
+                <div style="margin-top:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  @if($agreement->status === 'proposed' && !$agreement->buyer_accepted_at && !$agreement->closed_at)
+                    <form method="POST" action="{{ route('returns.agreement.update', $ret->id) }}" style="display:inline;" onsubmit="return confirm('Accept this resolution agreement?');">
+                      @csrf
+                      <input type="hidden" name="action" value="accept">
+                      <input type="hidden" name="version" value="{{ $agreement->version }}">
+                      <button type="submit" class="btn-p btn-solid btn-sm" style="background:#0E4A57;color:#fff;border-radius:6px;font-size:12px;font-weight:700;padding:6px 14px;cursor:pointer;">
+                        Accept Agreement
+                      </button>
+                    </form>
+                  @endif
+
+                  <a href="{{ route('returns.agreement', $ret->id) }}" class="btn-p btn-sm" style="border:1.5px solid #16697A;background:#fff;color:#16697A;font-weight:700;font-size:12px;padding:6px 14px;border-radius:6px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    {{ $agreement->keepItemDirect() ? 'Refund & Conversation' : 'Agreement, Fees & Funding' }} &rarr;
+                  </a>
+                </div>
+
+                {{-- Conversation / Proposals Events List --}}
+                @if(!empty($agreement->events))
+                  <details style="margin-top:10px;border-top:1px solid #F3F4F6;padding-top:8px;font-size:12px;">
+                    <summary style="font-weight:700;color:#16697A;cursor:pointer;">
+                      Proposal &amp; Refund Conversation ({{ count($agreement->events) }})
+                    </summary>
+                    <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
+                      @foreach($agreement->events as $ev)
+                        <div style="padding:6px 10px;background:#F9FAFB;border:1px solid #E5E7EB;border-radius:6px;">
+                          <div style="font-weight:700;color:#1F2937;font-size:11.5px;display:flex;justify-content:space-between;gap:6px;">
+                            <span>{{ $ev['actor_label'] ?? 'System' }} &bull; {{ ucwords(str_replace('_', ' ', $ev['action'] ?? '')) }}</span>
+                            @if(!empty($ev['at']))<span style="font-weight:400;color:#9CA3AF;">{{ $ev['at'] }}</span>@endif
+                          </div>
+                          @if(!empty($ev['note']))
+                            <div style="color:#4B5563;margin-top:3px;font-size:11.5px;line-height:1.4;">{{ $ev['note'] }}</div>
+                          @endif
+                        </div>
+                      @endforeach
+                    </div>
+                  </details>
+                @endif
+              </div>
+            @endif
+
+            {{-- Refund Sent & Confirmation Actions --}}
+            @if($workflow?->refund_sent_at)
+              <div style="padding:10px 12px;background:#ECFDF5;border:1px solid #A7F3D0;border-radius:8px;">
+                <div style="font-weight:700;font-size:12.5px;color:#065F46;display:flex;align-items:center;gap:6px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                  {{ $workflow->buyer_confirmed_at ? 'Refund Received and Confirmed' : 'Seller Recorded Refund Sent' }}
+                </div>
+                @if($workflow->refund_reference)
+                  <div style="font-size:11.5px;color:#047857;margin-top:3px;">Reference: <strong>{{ $workflow->refund_reference }}</strong></div>
+                @endif
+                <div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <a href="{{ route('returns.proof', $ret->id) }}" target="_blank" class="btn-p btn-line btn-sm" style="font-size:11.5px;padding:5px 12px;border-radius:6px;text-decoration:none;border-color:#059669;color:#065F46;background:#fff;">
+                    View Seller Refund Receipt
+                  </a>
+                  @if(!$workflow->buyer_confirmed_at)
+                    <form method="POST" action="{{ route('returns.action', $ret->id) }}" onsubmit="return confirm('Confirm that you have received the exact refund in your bank or e-wallet?');" style="display:inline;">
+                      @csrf
+                      <input type="hidden" name="action" value="confirm_refund">
+                      <button type="submit" class="btn-p btn-solid btn-sm" style="background:#059669;color:#fff;border-radius:6px;font-size:11.5px;font-weight:700;padding:5px 14px;border:none;cursor:pointer;">
+                        Confirm Refund Received
+                      </button>
+                    </form>
+                  @endif
+                </div>
+              </div>
+            @endif
+          </div>
+        @endforeach
+
+        @if(!$hasActiveReturn && $remainingQty > 0)
+          <div style="margin-top:10px">
+            <button type="button" onclick="openReturnModal({{ $it->id }})" style="display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border:1.5px solid #FCD34D;border-radius:8px;background:#FFFBEB;color:#92400E;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 1px 3px rgba(217,119,6,0.12);transition:all .15s ease;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
               Request Return / Refund
             </button>
           </div>

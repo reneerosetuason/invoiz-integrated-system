@@ -36,6 +36,7 @@ class ReturnSettlementService
             'seller_center_id' => $defaults['seller_center_id']??($delivery?->origin_center_id ?: $delivery?->center_id),
             ...($direct?['workflow_policy'=>'direct','funding_preference'=>'deposit']:[]),
             ...(Schema::hasColumn('return_settlements','policy_version')?['policy_version'=>2]:[]),
+            ...(Schema::hasColumn('return_settlements','fee_snapshot')?['fee_snapshot'=>['inter_hub_pricing_version'=>3]]:[]),
         ]);
         \App\Models\ReturnWorkflow::firstOrCreate(['return_request_id' => $case->id], [
             'center_id' => $settlement->collection_center_id, 'stage' => 'awaiting_collection',

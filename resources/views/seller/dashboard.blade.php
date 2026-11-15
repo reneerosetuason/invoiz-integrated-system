@@ -32,6 +32,9 @@
             <strong class="dash-sales-value">{{ peso($totals['revenue']) }}</strong>
             <p class="dash-sales-caption">
                 Today: <strong>{{ peso($totals['revenue_today']) }}</strong>
+                @if(($totals['escrow_payout_pending'] ?? 0) > 0)
+                    <span aria-hidden="true"> · </span><a href="{{ route('seller.remittances.index') }}">Payouts to confirm: {{ peso($totals['escrow_payout_amount']) }}</a>
+                @endif
                 @if(($totals['remittance_pending'] ?? 0) > 0)
                     <span aria-hidden="true"> · </span><a href="{{ route('seller.remittances.index') }}">Cash to confirm: {{ peso($totals['remittance_amount'] ?? 0) }}</a>
                 @else

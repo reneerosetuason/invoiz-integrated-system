@@ -325,6 +325,7 @@
                                                         // default: staff may route the parcel through any intermediate hub.
                                                         $sortServiceAreas = $allServiceAreas ?? $serviceAreas;
                                                         $suggested = $delivery->suggestedDestination($sortServiceAreas);
+                                                        $recommended = $delivery->destinationRecommendation($sortServiceAreas, $allCenters ?? $centers);
                                                         $destSelected = (int) ($delivery->destination_center_id ?: 0);
                                                         if ($destSelected === 0 || $destSelected === (int) $delivery->center_id) {
                                                             $destSelected = (int) ($suggested['center_id'] ?? 0);
@@ -336,11 +337,22 @@
                                                             $areaSelected = (int) ($suggested['service_area_id'] ?? 0);
                                                         }
                                                     @endphp
+                                                    @if($recommended)
+                                                        <div class="rounded-lg border border-teal-200 bg-teal-50 p-2 text-xs" data-sort-recommendation>
+                                                            <strong>Recommended for buyer’s area</strong>
+                                                            <p class="mt-1 font-semibold">{{ $recommended['name'] }}</p>
+                                                            <p>{{ $recommended['location'] }}</p>
+                                                            <p>{{ $recommended['reason'] }}</p>
+                                                            <button type="button" class="btn btn-outline btn-xs mt-2" data-use-sort-recommendation data-center="{{ $recommended['center_id'] }}" data-area="{{ $recommended['service_area_id'] }}">Use recommended hub</button>
+                                                        </div>
+                                                    @else
+                                                        <p class="text-xs text-amber-700">No matching local hub found. Confirm which destination hub serves the buyer’s address.</p>
+                                                    @endif
                                                     <label class="field-label text-xs">Destination Hub
                                                         <select name="destination_center_id" id="sort-center-{{ $delivery->id }}" data-sort-center data-area-target="sort-area-{{ $delivery->id }}" required class="select mt-1 text-xs">
                                                             <option value="">Select Logistics Hub</option>
                                                             @foreach(($allCenters ?? $centers) as $center)
-                                                                <option value="{{ $center->id }}" @selected($destSelected === (int) $center->id)>{{ $center->name }}</option>
+                                                                <option value="{{ $center->id }}" @selected($destSelected === (int) $center->id)>{{ $center->name }}{{ (int) ($recommended['center_id'] ?? 0) === (int) $center->id ? ' — Recommended' : '' }}</option>
                                                             @endforeach
                                                         </select>
                                                     </label>

@@ -94,10 +94,11 @@
 .checkout-grand-total>span{font-size:14px;color:var(--co-muted)}
 .checkout-grand-total strong{font-size:28px;line-height:1.2;letter-spacing:-.045em;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .checkout-page .checkout-receipt-note{font-size:13px;line-height:1.6;color:var(--co-muted);margin:10px 0 16px}
-.checkout-place-order{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:44px;padding:10px 14px;border:1px solid #3c494c;background:#fff;color:var(--co-ink);border-radius:4px;font-weight:600!important;cursor:pointer;transition:transform .18s ease}
-.checkout-place-order:hover{background:var(--co-soft)}
-.checkout-place-order:active{transform:translateY(2px)}
-.checkout-place-order:disabled{opacity:.6;cursor:not-allowed}
+.checkout-place-order{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:50px;padding:12px 20px;border:1px solid #0E4A57;background:#0E4A57;color:#fff!important;border-radius:8px;font-size:15px;font-weight:700!important;cursor:pointer;box-shadow:0 4px 14px rgba(14,74,87,0.32);transition:background-color .18s ease, transform .18s ease, box-shadow .18s ease}
+.checkout-place-order:hover{background:#0B3D48;border-color:#0B3D48;box-shadow:0 6px 18px rgba(14,74,87,0.4)}
+.checkout-place-order:active{transform:translateY(1px)}
+.checkout-place-order:disabled{background:#9CA3AF!important;border-color:#9CA3AF!important;color:#F3F4F6!important;opacity:.7;cursor:not-allowed;box-shadow:none}
+.checkout-place-order span{color:#fff!important}
 .checkout-page .checkout-submit-note{font-size:13px;line-height:1.6;color:var(--co-muted);margin-top:10px}
 @media(min-width:1200px){.checkout-methods{grid-template-columns:1fr 1fr}.checkout-method-mark{display:none}}
 @media(min-width:768px) and (max-width:1050px){.checkout-grid{grid-template-columns:minmax(0,1.25fr) minmax(260px,1fr);gap:14px}.checkout-section,.checkout-receipt{padding:16px}.checkout-gcash-layout{grid-template-columns:1fr}.checkout-qr-link{max-width:200px;margin:auto}}

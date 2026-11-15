@@ -106,11 +106,25 @@
           @if($hasOrderReturn)
             <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm" style="border-color:#3b82f6;color:#1e40af;text-decoration:none">Return Details</a>
           @elseif($isOrderDelivered)
-            <a href="{{ $detailUrl }}#rate" class="btn-p btn-line btn-sm" style="border-color:#16697A;color:#16697A;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="#EAB308" stroke="#EAB308"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              Rate
+            @php
+              $orderReviews = ($userReviews ?? collect())->get($o->id, collect());
+              $allRated = $o->items->isNotEmpty() && $o->items->every(fn($it) => $orderReviews->contains('product_id', $it->product_id));
+            @endphp
+            @if(!$allRated)
+              <a href="{{ $detailUrl }}#rate" class="btn-p btn-line btn-sm" style="border-color:#16697A;color:#16697A;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="#EAB308" stroke="#EAB308"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Rate
+              </a>
+            @else
+              <span style="font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:6px;background:#E8F5EE;color:#166534;display:inline-flex;align-items:center;gap:4px;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Rated
+              </span>
+            @endif
+            <a href="{{ $detailUrl }}" class="btn-p btn-sm" style="border:1.5px solid #FCD34D;background:#FFFBEB;color:#92400E;font-size:12px;font-weight:700;padding:5px 12px;border-radius:7px;text-decoration:none;display:inline-flex;align-items:center;gap:5px;box-shadow:0 1px 2px rgba(217,119,6,0.08);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+              Return / Refund
             </a>
-            <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm" style="border-color:#d97706;color:#b45309;text-decoration:none">Return / Refund</a>
           @endif
           <a href="{{ $detailUrl }}" class="btn-p btn-line btn-sm trackbtn" aria-label="Track order {{ $oRef }}">Track
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>

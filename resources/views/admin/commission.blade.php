@@ -51,8 +51,7 @@
 
     <form method="POST" action="{{ route('admin.commission.rates.earnings') }}">
       @csrf
-      <p class="text-sm">Inter-hub driver payment is calculated from road distance, weight and dimensions, capped at the affordable product-value budget. No subsidy funding is required.</p>
-      <label>Maximum inter-hub charge (% of net product value)<input class="input" type="number" name="seller_logistics_cap_percent" min="0" max="100" step="0.01" value="{{ old('seller_logistics_cap_percent', $escrowRates['seller_logistics_cap_percent']) }}"></label>
+      <p class="text-sm">Inter-hub fee per parcel = handling + (road kilometers &times; distance rate) + (actual kilograms &times; road kilometers &times; weight rate). A truck-trip payout is the sum of its parcel fees. Rates are frozen on confirmation; product price and production cost do not determine this fee.</p>
       <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:12px; margin-bottom:16px;">
         <div style="background:#fff; border:1px solid #E8E6E0; border-radius:10px; padding:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
@@ -78,7 +77,7 @@
           <div style="font-size:11px; color:#6E6E73; margin-top:4px;">Earned per item picked up from seller.</div>
         </div>
 
-        @foreach(['trip_base_payment' => 'Base Trip Payment (PHP)', 'trip_rate_per_km' => 'Rate Per Kilometer (PHP/km)', 'trip_bonus_50' => 'Load Bonus: 50% to below 80% (PHP)', 'trip_bonus_80' => 'Load Bonus: 80% to 100% (PHP)', 'trip_volumetric_divisor' => 'Volumetric Divisor (cm?/kg)'] as $field => $label)
+        @foreach(['inter_hub_handling_fee' => 'Handling Per Parcel (PHP)', 'inter_hub_rate_per_km' => 'Distance Per Parcel (PHP/km)', 'inter_hub_rate_per_kg_km' => 'Weight and Distance (PHP/kg/km)'] as $field => $label)
         <div style="background:#fff; border:1px solid #E8E6E0; border-radius:10px; padding:12px;">
           <label for="{{ $field }}" style="font-size:12px;font-weight:700;">{{ $label }}</label>
           <input id="{{ $field }}" name="{{ $field }}" type="number" step="0.01" min="{{ $field === 'trip_volumetric_divisor' ? 1 : 0 }}" max="{{ $field === 'trip_volumetric_divisor' ? 100000 : 5000 }}" value="{{ old($field, $escrowRates[$field]) }}" class="input w-full" required>

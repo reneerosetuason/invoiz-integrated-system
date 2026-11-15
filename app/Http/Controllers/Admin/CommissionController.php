@@ -143,14 +143,16 @@ class CommissionController extends Controller
     {
         abort_unless($request->user()->isAdmin(), 403);
         $validated = $request->validate([
-            'seller_logistics_cap_percent' => 'sometimes|required|numeric|min:0|max:100|decimal:0,2',
+            'inter_hub_handling_fee' => 'sometimes|required|numeric|min:0|max:5000|decimal:0,2',
+            'inter_hub_rate_per_km' => 'sometimes|required|numeric|min:0|max:5000|decimal:0,2',
+            'inter_hub_rate_per_kg_km' => 'sometimes|required|numeric|min:0|max:5000|decimal:0,2',
             'origin_hub_fee'        => 'required|numeric|min:0|max:5000',
             'pickup_rider_per_item' => 'required|numeric|min:0|max:5000',
-            'trip_base_payment' => 'required|numeric|min:0|max:5000|decimal:0,2',
-            'trip_rate_per_km' => 'required|numeric|min:0|max:5000|decimal:0,2',
-            'trip_bonus_50' => 'required|numeric|min:0|max:5000|decimal:0,2',
-            'trip_bonus_80' => 'required|numeric|min:0|max:5000|decimal:0,2',
-            'trip_volumetric_divisor' => 'required|numeric|min:1|max:100000|decimal:0,2',
+            'trip_base_payment' => 'sometimes|required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_rate_per_km' => 'sometimes|required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_bonus_50' => 'sometimes|required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_bonus_80' => 'sometimes|required|numeric|min:0|max:5000|decimal:0,2',
+            'trip_volumetric_divisor' => 'sometimes|required|numeric|min:1|max:100000|decimal:0,2',
             'destination_hub_fee'   => 'required|numeric|min:0|max:5000',
             'last_mile_rider_fee'   => 'required|numeric|min:0|max:5000',
         ]);

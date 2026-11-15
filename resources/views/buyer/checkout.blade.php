@@ -135,7 +135,10 @@
             </dl>
             <div class="checkout-grand-total" data-ui><span>Total to pay</span><strong data-checkout-total>₱{{ number_format($initialQuote['total'], 2) }}</strong></div>
             <p class="checkout-receipt-note" id="checkout-payment-note">Pay on delivery. Your rider collects this amount.</p>
-            <button type="submit" class="checkout-place-order" @disabled($addresses->isEmpty())>Place {{ count($checkoutGroups) > 1 ? count($checkoutGroups).' orders' : 'order' }} <span aria-hidden="true">→</span></button>
+            <button type="submit" class="checkout-place-order" style="background:#0E4A57;color:#fff;border:1px solid #0E4A57;font-weight:700;font-size:15px;min-height:50px;border-radius:8px;box-shadow:0 4px 14px rgba(14,74,87,0.32);" @disabled($addresses->isEmpty())>
+                <span>Place {{ count($checkoutGroups) > 1 ? count($checkoutGroups).' orders' : 'order' }}</span>
+                <span aria-hidden="true" style="font-size:18px;">&rarr;</span>
+            </button>
             <p class="checkout-submit-note">Check your address and payment details before placing your order.</p>
         </aside>
     </form>

@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Schema;
  * Recipients (per seller shipment):
  *   Origin Hub            flat, always
  *   Pickup Rider          rate x item quantity
- *   Inter-Hub Driver      flat, once per shipment for the whole route
+ *   Inter-Hub Driver      confirmed distance/weight fees, paid once per truck trip
  *   Destination Hub       flat, only when the route really changes hubs
  *   Last-Mile Rider       flat, on the completed last-mile delivery
  *   Platform Admin        configured commission on net merchandise
@@ -36,6 +36,9 @@ use Illuminate\Support\Facades\Schema;
 class EscrowEarnings
 {
     public const SETTING_KEYS = [
+        'inter_hub_handling_fee' => 'earnings_inter_hub_handling_fee',
+        'inter_hub_rate_per_km' => 'earnings_inter_hub_rate_per_km',
+        'inter_hub_rate_per_kg_km' => 'earnings_inter_hub_rate_per_kg_km',
         'seller_logistics_cap_percent' => 'earnings_seller_logistics_cap_percent',
         'seller_min_profit_percent' => 'earnings_seller_min_profit_percent',
         'trip_base_payment' => 'earnings_trip_base_payment',
@@ -56,6 +59,9 @@ class EscrowEarnings
     public static function rates(): array
     {
         $rates = [
+            'inter_hub_handling_fee' => (float) config('earnings.inter_hub_handling_fee', 20),
+            'inter_hub_rate_per_km' => (float) config('earnings.inter_hub_rate_per_km', 0.20),
+            'inter_hub_rate_per_kg_km' => (float) config('earnings.inter_hub_rate_per_kg_km', 0.04),
             'seller_logistics_cap_percent' => (float) config('earnings.seller_logistics_cap_percent', 5),
             'seller_min_profit_percent' => (float) config('earnings.seller_min_profit_percent', 5),
             'trip_base_payment' => (float) config('earnings.trip_base_payment', 100),
@@ -1029,6 +1035,10 @@ class EscrowEarnings
                         ->first();
 
                     $isCompletedLegForDamaged = false;
+                    if ($isCancelled && in_array($role, EscrowRemittance::WORKER_ROLES, true)
+                        && $delivery && ($delivery->status === 'delivered' || $delivery->delivered_at)) {
+                        $isCompletedLegForDamaged = true;
+                    }
                     if ($isCancelled && $isDamagedShipment) {
                         if ($role === EscrowRemittance::ROLE_ORIGIN_HUB && ($delivery->received_at || $delivery->picked_up_at || ! empty($meta['earned_ready']))) {
                             $isCompletedLegForDamaged = true;
@@ -1050,7 +1060,7 @@ class EscrowEarnings
                         if ($isCompletedLegForDamaged && (float) $meta['amount'] > 0) {
                             $existing->update([
                                 'status' => 'pending_remittance',
-                                'notes' => 'Completed transit leg prior to shipment damage; earned and payable.',
+                                'notes' => 'Completed outbound service; earned payment remains separate from return/refund costs.',
                             ]);
                         } else {
                             $existing->update(['status' => 'voided', 'notes' => 'Order cancelled or payment failed.']);

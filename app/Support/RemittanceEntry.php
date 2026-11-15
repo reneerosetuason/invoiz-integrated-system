@@ -19,6 +19,9 @@ final class RemittanceEntry extends Fluent
         ]);
         $entry->amount=(float)$row->amount;$entry->remitted_at=$row->remitted_at;$entry->created_at=$row->created_at;
         $entry->record=$row;
+        if ($row->settlement_reference && $row->hubTransfer && $row->status === 'held_in_escrow') {
+            $entry->hold_reason = \App\Services\TripPaymentService::releaseHoldReason($row->hubTransfer);
+        }
         return $entry;
     }
 

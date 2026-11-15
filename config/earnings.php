@@ -14,7 +14,10 @@ return [
     | the Seller absorbs all voucher and logistics deductions.
     |
     */
-    'seller_logistics_cap_percent' => 5,
+    'inter_hub_handling_fee' => 20,
+    'inter_hub_rate_per_km' => 0.20,
+    'inter_hub_rate_per_kg_km' => 0.04,
+    'seller_logistics_cap_percent' => 5, // Historical capped snapshots only.
     'seller_min_profit_percent' => 5,
     'trip_base_payment' => 100,
     'trip_rate_per_km' => 5,

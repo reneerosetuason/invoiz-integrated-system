@@ -61,7 +61,8 @@ class ReturnSettlementTest extends GcashEscrowWorkflowTest
         $case = ReturnRequest::create(['order_id'=>$order->id,'order_item_id'=>$item->id,'buyer_id'=>$buyer->id,'seller_id'=>$seller->id,
             'product_id'=>$item->product_id,'quantity'=>1,'reason'=>'wrong_item','status'=>'requested','refund_amount'=>100]);
         Settlements::ensure($case);
-        $case->settlement()->update(['workflow_policy'=>'legacy','policy_version'=>1]);
+        // These fixtures represent previously recorded legacy agreements. New fee quotes have a separate suite.
+        $case->settlement()->update(['workflow_policy'=>'legacy','policy_version'=>1,'fee_snapshot'=>[]]);
         $staff = User::create(['name'=>'Return staff','email'=>uniqid().'@test.local','password'=>'test','role'=>'staff','center_id'=>1,'account_status'=>'active','status'=>'active','email_verified_at'=>now()]);
         $riderUser = User::create(['name'=>'Return rider','email'=>uniqid().'@test.local','password'=>'test','role'=>'rider','center_id'=>1,'account_status'=>'active','status'=>'active','email_verified_at'=>now()]);
         $rider = Rider::create(['user_id'=>$riderUser->id,'name'=>'Return rider','center_id'=>1,'status'=>'available','is_verified'=>true,'approved_at'=>now(),'is_online'=>true]);

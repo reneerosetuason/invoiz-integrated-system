@@ -118,11 +118,26 @@ class BuyerFeaturesController extends Controller
             return back()->with('error', 'That product is not part of this order.');
         }
 
+        $alreadyRated = Review::where('buyer_id', $buyerId)
+            ->where('product_id', $productId)
+            ->where('order_id', $order->id)
+            ->exists();
+        if ($alreadyRated) {
+            if ($request->expectsJson() || $request->ajax()) {
+                return response()->json(['message' => 'You have already rated this product.'], 422);
+            }
+            return back()->with('error', 'You have already rated this product.');
+        }
+
         DB::transaction(function () use ($buyerId, $order, $productId, $data) {
-            Review::updateOrCreate(
-                ['buyer_id' => $buyerId, 'product_id' => $productId, 'order_id' => $order->id],
-                ['rating' => $data['rating'], 'comment' => $data['comment'] ?? null, 'status' => 'visible']
-            );
+            Review::create([
+                'buyer_id' => $buyerId,
+                'product_id' => $productId,
+                'order_id' => $order->id,
+                'rating' => $data['rating'],
+                'comment' => $data['comment'] ?? null,
+                'status' => 'visible',
+            ]);
             $average = Review::where('product_id', $productId)->where('status', 'visible')->avg('rating');
             Product::whereKey($productId)->update(['rating' => $average === null ? null : round((float) $average, 1)]);
         });

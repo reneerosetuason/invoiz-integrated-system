@@ -38,20 +38,16 @@ class TripPaymentService
     {
         $truck = LogisticsTruck::findOrFail($trip->truck_id);
         $inputs ??= self::inputs($trip);
-        $snapshot = app(TripPaymentCalculator::class)->calculate($truck->only(['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']), $inputs['parcels'], $inputs['distance'], $rates ?? EscrowEarnings::rates());
-
-        if (!$trip->payment_confirmed_at || ($trip->payment_snapshot['pricing_version'] ?? 1) >= 2) {
-            $budgets = [];
-            foreach (Delivery::whereIn('id', array_column($inputs['parcels'], 'id'))->with('order')->get() as $delivery) {
-                $budget = InterHubPaymentPolicy::budget($delivery->order, (int) $delivery->seller_id, $snapshot['rates']);
-                $used = HubTransfer::whereHas('parcels', fn ($q) => $q->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed'))->whereKeyNot($trip->id)->whereNotNull('payment_confirmed_at')->where('status', '!=', 'cancelled')->get()
-                    ->sum(fn ($leg) => (int) ($leg->payment_snapshot['seller_budgets'][$delivery->id] ?? 0));
-                $legacyCompleted = HubTransfer::whereHas('parcels', fn ($q) => $q->where('delivery_id', $delivery->id)->where('loading_status', '!=', 'removed'))
-                    ->where('status', 'received')->where(fn ($q) => $q->whereNull('payment_version')->orWhere('payment_version', '!=', 1))->exists();
-                if ($legacyCompleted) $used += (int) round(($snapshot['rates']['inter_hub_driver_fee'] ?? 20) * 100);
-                $budgets[$delivery->id] = max(0, $budget - $used);
-            }
-            $snapshot = InterHubPaymentPolicy::apply($snapshot, $budgets);
+        $saved = $trip->payment_confirmed_at ? $trip->payment_snapshot : null;
+        $rates ??= $saved['rates'] ?? EscrowEarnings::rates();
+        $calculator = !$saved || ($saved['pricing_version'] ?? 1) >= 3 ? ParcelInterHubPricing::class : TripPaymentCalculator::class;
+        $snapshot = app($calculator)->calculate($truck->only(['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']), $inputs['parcels'], $inputs['distance'], $rates);
+        if ($saved) {
+            // Validate current physical facts, but display the confirmed financial terms.
+            $snapshot = array_replace($snapshot, array_intersect_key($saved, array_flip([
+                'pricing_version', 'base', 'distancePayment', 'weightPayment', 'bonus', 'total', 'uncapped_total',
+                'allocations', 'seller_budgets', 'platform_adjustment_cents', 'parcel_pricing',
+            ])));
         }
 
         return $snapshot + ['driver_id' => $trip->driver_id, 'truck_id' => $trip->truck_id, 'origin_center_id' => $trip->origin_center_id, 'destination_center_id' => $trip->destination_center_id, 'route_distance_source' => $inputs['source']];
@@ -76,7 +72,7 @@ class TripPaymentService
                 Delivery::whereKey($parcel['id'])->update(collect($parcel)->only(['weight', 'length_cm', 'width_cm', 'height_cm'])->all());
             }
             $trip->update(['route_distance_km' => $snapshot['distance'], 'route_distance_source' => $snapshot['route_distance_source'], 'route_recorded_by' => $actor->id]);
-            abort_unless($snapshot['total'] > 0, 422, 'This manifest has no affordable inter-hub payment. Review its product prices and consolidate suitable parcels before confirming.');
+            abort_unless($snapshot['total'] > 0, 422, 'The trip must have a positive inter-hub payment before confirmation.');
             foreach ($snapshot['allocations'] as $deliveryId => $cents) {
                 $trip->parcels()->where('delivery_id', $deliveryId)->update(['driver_allocation_cents' => $cents]);
             }
@@ -85,7 +81,7 @@ class TripPaymentService
             abort_if($payout->exists && in_array($payout->status, ['remitted', 'accepted'], true), 409, 'This trip payment has already been released.');
             $payout->fill(['hub_transfer_id' => $trip->id, 'hub_transport_driver_id' => $trip->driver_id, 'recipient_role' => 'inter_hub_driver', 'recipient_user_id' => $trip->driver?->user_id,
                 'recipient_name' => $trip->driver?->name, 'amount' => number_format($snapshot['total'] / 100, 2, '.', ''), 'settlement_mode' => 'escrow_bank_remittance',
-                'status' => 'held_in_escrow', 'rule_applied' => 'One dynamic payment per truck trip', 'notes' => 'Reserved at the reviewed inter-hub payment; no additional funding required.'])->save();
+                'status' => 'held_in_escrow', 'rule_applied' => 'One truck-trip payment: sum of distance-and-weight parcel fees', 'notes' => 'Reserved at the reviewed inter-hub payment; no additional funding required.'])->save();
             HubTransferService::event($trip, 'payment_reserved', null, null, json_encode($snapshot), $actor);
         });
     }
@@ -114,10 +110,11 @@ class TripPaymentService
         // Rates may change after confirmation; physical facts may not.
         foreach (['parcels', 'truck', 'driver_id', 'truck_id', 'origin_center_id', 'destination_center_id', 'distance', 'route_distance_source'] as $key) {
             if ($key === 'parcels') {
-                $measurements = fn ($items) => array_map(fn ($p) => array_intersect_key($p, array_flip(['id', 'weight', 'length_cm', 'width_cm', 'height_cm'])), $items);
+                $parcelFields = ($old['pricing_version'] ?? 1) >= 3 ? ['id', 'weight'] : ['id', 'weight', 'length_cm', 'width_cm', 'height_cm'];
+                $measurements = fn ($items) => array_map(fn ($p) => array_intersect_key($p, array_flip($parcelFields)), $items);
                 $same = $measurements($old[$key]) == $measurements($current[$key]);
             } elseif ($key === 'truck') {
-                $fields = array_flip(['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']);
+                $fields = array_flip(($old['pricing_version'] ?? 1) >= 3 ? ['capacity_kg', 'parcel_capacity'] : ['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm']);
                 $same = array_intersect_key($old[$key], $fields) == array_intersect_key($current[$key], $fields);
             } else {
                 $same = $old[$key] == $current[$key];
@@ -137,7 +134,7 @@ class TripPaymentService
             'logistics_company_id' => $trip->logistics_company_id, 'hub_transport_driver_id' => $s['driver_id'], 'delivery_id' => null,
             'base_amount' => min($s['base'], $s['total']) / 100, 'vehicle_allowance' => 0, 'amount' => $s['total'] / 100,
             'vehicle_ownership' => $trip->truck?->ownership_type ?? 'company', 'earned_on' => now()->toDateString(),
-            'description' => 'Dynamic trip '.$trip->reference.'; distance '.($s['distancePayment'] / 100).'; load bonus '.($s['bonus'] / 100),
+            'description' => 'Dynamic trip '.$trip->reference.'; distance '.($s['distancePayment'] / 100).'; '.(($s['pricing_version'] ?? 1) >= 3 ? 'weight-distance '.(($s['weightPayment'] ?? 0) / 100) : 'load bonus '.($s['bonus'] / 100)),
         ]);
     }
 
@@ -161,6 +158,17 @@ class TripPaymentService
     }
 
     /** Recheck all constituent orders at release; never infer funding from a trip scan. */
+    public static function releaseHoldReason(HubTransfer $trip): ?string
+    {
+        try {
+            self::assertReleasable($trip);
+            return null;
+        } catch (HttpException $e) {
+            if ($e->getStatusCode() !== 422) throw $e;
+            return $e->getMessage();
+        }
+    }
+
     public static function assertReleasable(HubTransfer $trip): void
     {
         abort_unless($trip->status === 'received' && $trip->payment_confirmed_at, 422, 'Destination receipt is required.');
@@ -171,16 +179,23 @@ class TripPaymentService
         $entries = $trip->parcels()->where('loading_status', '!=', 'removed')->with('delivery')->get();
         abort_if($entries->isEmpty() || $entries->contains(fn ($e) => $e->receiving_status !== 'received' || $e->condition !== 'good' || ! $e->delivery?->order_id), 422, 'Resolve missing, damaged, or unlinked parcels before releasing the trip payment.');
         foreach (Order::whereIn('id', $entries->pluck('delivery.order_id'))->orderBy('id')->lockForUpdate()->get() as $order) {
-            abort_if($order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()
-                || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists(), 422, 'Resolve every trip order return or dispute before releasing payment.');
+            // A return does not undo completed, funded outbound transport work.
+            abort_if(PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists(),
+                422, 'Resolve the payment dispute for order #'.$order->id.' before releasing this trip payment.');
             if (GcashEscrowService::isGcash($order)) {
-                abort_unless(GcashEscrowService::funded($order) && ! $order->deliveries()->where('status', '!=', 'delivered')->exists(), 422, 'All GCash trip orders must be funded and delivered.');
+                abort_unless(GcashEscrowService::funded($order) && ! $order->deliveries()->where('status', '!=', 'delivered')->whereNull('delivered_at')->exists(), 422, 'Confirm GCash funding and complete delivery for order #'.$order->id.' before releasing this trip payment.');
             } else {
                 $tx = Payments::transactionFor($order);
-                abort_unless(in_array($order->payment_status, ['paid', 'partially_refunded'], true)
-                    && in_array($tx?->status, ['successful', 'partially_refunded'], true) && (float) $tx->amount > 0, 422, 'Every trip order must have confirmed escrow settlement before release.');
+                abort_unless(in_array($order->payment_status, ['paid', 'partially_refunded', 'refunded'], true)
+                    && in_array($tx?->status, ['successful', 'partially_refunded', 'refunded'], true) && (float) $tx->amount > 0, 422, 'Confirm escrow settlement for order #'.$order->id.' before releasing this trip payment.');
+                if ($order->payment_status === 'refunded' || $tx?->status === 'refunded') {
+                    abort_if(ReturnWorkflowService::fundingSummary($order, 0)['shortfall'] > 0, 422,
+                        'Confirm separate refund recovery for order #'.$order->id.' before releasing this trip payment.');
+                }
             }
-            abort_if(in_array($order->status, ['cancelled', 'refunded', 'returned'], true), 422, 'Cancelled or refunded trip orders require a financial adjustment.');
+            abort_if(in_array($order->status, ['cancelled', 'refunded', 'returned'], true)
+                && $order->deliveries()->where('status', '!=', 'delivered')->whereNull('delivered_at')->exists(),
+                422, 'Cancelled trip orders without completed delivery require a financial adjustment.');
         }
     }
 

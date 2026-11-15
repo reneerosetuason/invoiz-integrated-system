@@ -143,3 +143,37 @@
 .return-flow-ui.return-agreement > details:not(.return-task):not(.return-disclosure) { background: var(--card); border-radius: var(--radius-lg); padding: 0; }
 .return-flow-ui.return-agreement > details:not(.return-task):not(.return-disclosure) > form,
 .return-flow-ui.return-agreement > details:not(.return-task):not(.return-disclosure) > article { margin: 0; padding: 20px; border: 0; background: var(--card); box-shadow: none; }
+
+/* Compact case list; agreement and payment task layouts retain their sizing. */
+.return-flow-ui.return-list { padding:16px; font-size:13px; line-height:1.5; }
+.return-flow-ui.return-list > .review-head { margin:0 0 10px; padding:0; }
+.return-flow-ui.return-list .review-head h1 { font-size:24px; line-height:1.2; margin:4px 0 8px; }
+.return-flow-ui.return-list .review-head p { font-size:13px; line-height:1.5; margin:6px 0; max-width:82ch; }
+.return-flow-ui.return-list .review-head .review-eyebrow { font-size:11px; margin:0 0 4px; }
+.return-flow-ui.return-list > .return-nav { margin:0 0 12px; gap:6px; }
+.return-flow-ui.return-list a.review-action { min-height:36px; padding:7px 11px; font-size:12px; line-height:1.5; border-radius:7px; }
+.return-flow-ui.return-list .return-case { padding:16px 18px; margin:12px 0; border:1px solid var(--border); border-radius:12px; }
+.return-flow-ui.return-list .return-heading { gap:12px; }
+.return-flow-ui.return-list .return-heading h2 { font-size:15px; line-height:1.4; }
+.return-flow-ui.return-list .return-heading small { font-size:11px; margin-top:2px; }
+.return-flow-ui.return-list .return-heading > strong { font-size:22px; line-height:1.3; }
+.return-flow-ui.return-list .return-case p { font-size:13px; line-height:1.5; margin:7px 0; }
+.return-flow-ui.return-list .return-case > .review-status { font-size:11px !important; padding:4px 8px; margin:8px 0 4px; }
+.return-flow-ui.return-list .return-case > a.review-action { margin:5px 0; }
+.return-flow-ui.return-list details { margin-top:9px; font-size:12px; }
+.return-flow-ui.return-list details > summary { min-height:38px; padding:9px 12px; font-size:12px; border-radius:8px; }
+.return-flow-ui.return-list .return-disclosure-body { padding:3px 12px 12px; }
+.return-flow-ui.return-list .return-case > form { padding:14px; margin:12px 0; gap:10px; }
+.return-flow-ui.return-list label { font-size:12px; gap:5px; }
+.return-flow-ui.return-list :is(input:not([type=checkbox]):not([type=radio]),select) { min-height:40px; padding:8px 10px; font-size:13px; }
+.return-flow-ui.return-list :is(input[type=checkbox],input[type=radio]) { width:16px; height:16px; min-width:16px; }
+.return-flow-ui.return-list button[type=submit] { min-height:40px; padding:9px 14px; font-size:12px; }
+.return-flow-ui.return-list .return-check { min-height:36px; padding:6px 0; }
+@media(max-width:639px) {
+  .return-flow-ui.return-list { padding:10px !important; }
+  .return-flow-ui.return-list .review-head h1 { font-size:22px; }
+  .return-flow-ui.return-list .return-case { padding:14px; margin:10px 0; }
+  .return-flow-ui.return-list .return-heading { flex-wrap:nowrap; }
+  .return-flow-ui.return-list .return-heading > strong { font-size:20px; white-space:nowrap; }
+  .return-flow-ui.return-list :is(a.review-action,button[type=submit],summary) { min-height:44px; }
+}

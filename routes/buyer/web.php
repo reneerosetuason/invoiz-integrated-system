@@ -520,7 +520,8 @@ Route::get('/orders', function(Request $request){
     $q->whereHas('items', fn($iq) => $iq->where('product_name','like',$needle));
   }
   $orders = $q->latest()->paginate(10);
-  return view('buyer.orders',['orders'=>$orders,'activeTab'=>$tab,'q'=>$request->input('q','')]);
+  $userReviews = \App\Models\Review::where('buyer_id', $buyer['id'])->get()->groupBy('order_id');
+  return view('buyer.orders', ['orders' => $orders, 'activeTab' => $tab, 'q' => $request->input('q', ''), 'userReviews' => $userReviews]);
 })->name('orders');
 
 Route::get('/orders/{id}', function($id, Request $request){
@@ -536,7 +537,11 @@ Route::get('/orders/{id}', function($id, Request $request){
     'statusHistories',
   ])->where('buyer_id',$buyer['id'])->findOrFail($id);
   $reviews = \App\Models\Review::where('buyer_id',$buyer['id'])->where('order_id',$order->id)->get()->keyBy('product_id');
-  $returns = \App\Models\ReturnRequest::where('order_id', $order->id)->where('buyer_id', $buyer['id'])->get()->groupBy('order_item_id');
+  $returns = \App\Models\ReturnRequest::where('order_id', $order->id)
+    ->where('buyer_id', $buyer['id'])
+    ->with(['settlement.payments', 'settlement.allocations', 'workflow'])
+    ->get()
+    ->groupBy('order_item_id');
   $timeline = \App\Support\CustomerTracking::timeline($order, $order->deliveries->first(), \App\Support\CustomerTracking::AUDIENCE_BUYER);
   return view('buyer.order', ['order'=>$order, 'reviews'=>$reviews, 'returns'=>$returns, 'timeline'=>$timeline]);
 })->whereNumber('id');

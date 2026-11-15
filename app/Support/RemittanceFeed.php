@@ -36,7 +36,10 @@ final class RemittanceFeed
     }
     public static function combine(iterable $orders,iterable $returns): Collection
     {
-        return collect($orders)->map(fn($row)=>RemittanceEntry::order($row))
+        return collect($orders)->reject(fn ($row) => $row->recipient_role === EscrowRemittance::ROLE_INTER_HUB_DRIVER
+                && !$row->settlement_reference && (float) $row->amount === 0.0
+                && str_contains((string) $row->rule_applied, 'Paid once through trip settlement'))
+            ->map(fn($row)=>RemittanceEntry::order($row))
             ->concat(collect($returns)->map(fn($row)=>RemittanceEntry::returned($row)))
             ->sortByDesc(fn($entry)=>sprintf('%020d:%010d:%s',($entry->remitted_at??$entry->created_at)?->getTimestamp()??0,$entry->id,$entry->source))->values();
     }

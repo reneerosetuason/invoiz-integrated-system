@@ -22,7 +22,11 @@ class DashboardController extends Controller
         $orders = Order::whereHas('items', fn ($q) => $q->where('seller_id', $sellerId));
 
         $remittanceKeys = \App\Support\Remittances::sellerKeys($sellerId);
+        $releasedPayouts = \App\Models\EscrowRemittance::where('recipient_role', 'seller')
+            ->where('recipient_user_id', $sellerId)->where('status', 'remitted');
         $totals = [
+            'escrow_payout_pending' => (clone $releasedPayouts)->count(),
+            'escrow_payout_amount' => round((clone $releasedPayouts)->sum('amount'), 2),
             'remittance_pending' => (int) \App\Models\Remittance::whereIn('seller_id', $remittanceKeys)->whereIn('status', ['pending', 'sent'])->count(),
             'remittance_amount'  => round(\App\Models\Remittance::whereIn('seller_id', $remittanceKeys)->whereIn('status', ['pending', 'sent'])->sum('amount'), 2),
             'remittance_confirmed' => round(\App\Models\Remittance::whereIn('seller_id', $remittanceKeys)->where('status', 'confirmed')->sum('amount'), 2),

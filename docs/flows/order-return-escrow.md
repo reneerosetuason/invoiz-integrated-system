@@ -4,24 +4,23 @@ Updated November 9, 2026. Open `/return-center` while signed in to see the cases
 
 ## Inter-hub earnings
 
-Only inter-hub driver payment changes. Buyers keep the existing checkout and shipping fee. Sellers use their existing product weight and dimensions; packaging cost and subsidy funding are not required.
+Current policy: version 3. New inter-hub quotes use the agreed per-parcel formula:
 
 ```text
-Volume = length_cm * width_cm * height_cm / 1,000,000
-Utilization = max(total_kg / truck_payload_kg, total_volume / truck_volume)
-Calculated trip cost = base + road_km * rate_per_km + utilization_bonus
-Parcel budget = min(net product value * 5%, available recorded margin)
-Driver payment = min(calculated trip cost, sum of parcel budgets)
-Chargeable weight = max(actual_kg, length_cm * width_cm * height_cm / 5000)
+Parcel fee = round_centavo(20 + road_km * 0.20 + actual_kg * road_km * 0.04)
+Truck-trip driver payment = sum of individually rounded parcel fees
+Seller inter-hub deduction = that shipment's actual parcel fee
 ```
 
-The configurable percentage is in Admin Commission. Available margin, when existing product costs are recorded, subtracts product costs, commission, existing other logistics charges and a 5% product-value profit allowance. Missing product cost does not block checkout; the percentage limit still applies, but actual business profit cannot be guaranteed without costs. A product already priced below its other costs needs a price/cost review; an inter-hub fee cannot repair that loss.
+Rates can be configured in Admin Commission: handling per parcel, PHP/km per parcel, and PHP/kg/km. Weight is actual kilograms; parcel and truck dimensions are not required for inter-hub payment. Weight limits and parcel capacity remain checked. Road distance and product measurements remain automatic. Each Delivery is one consolidated parcel; product quantity contributes to weight, not an extra handling charge per unit.
 
-Allocate the actual driver payment by chargeable weight, capping each parcel at its budget and redistributing the remainder among parcels with room. Allocations round to exact centavos and sum to the driver payout. There is no platform-funded difference. Confirm the resulting payout before dispatch; a zero-budget manifest needs logistics review/consolidation. No buyer or seller funding form is added.
+A 1 kg parcel over 91.972 km pays PHP 42.07. Twenty identical parcels pay PHP 841.40. For a PHP 599 product with the existing PHP 50 buyer shipping, PHP 59.90 commission, PHP 30 each for pickup/origin/destination, and PHP 50 last-mile pay, the seller receives PHP 407.03. The buyer shipping offsets the last-mile fee. Product price and production cost do not cap or calculate driver payment.
 
-COD and GCash use the same allocation, seller earnings, escrow reservation and Admin Commission accounting. Existing pickup, hub, last-mile, commission and buyer shipping rates remain in place. Paid trip snapshots and accepted return contracts retain their recorded amounts.
+COD and GCash settlement use the same recorded allocations and commission ledger. GCash still needs verified full escrow funding. Banking details, work completion, disputes, outgoing references and recipient acceptance retain their existing checks. The order-level zero inter-hub accounting row is labeled as included in the truck trip; the separate TRIP payment is the actual driver payout, preventing double payment.
 
-Returns for shipments using this pricing quote the reverse road distance and returned product quantities, weight and dimensions using the same capped driver calculation. Existing return responsibility, agreement, deposit verification, refund and remittance rules apply. Seller-fault full eligible refunds remain separate from return delivery payment. Keep-item refunds have no reverse transport. Refunds cannot guarantee a profit on returned or damaged merchandise. No new subsidy or fee reimbursement is created.
+New return agreements record inter_hub_pricing_version=3, including returns for orders shipped under older policies. Physical cross-hub returns quote the reverse road distance and returned product quantity/actual weight using this same formula. Their existing pickup, handling and delivery fees remain separate. Seller-fault eligible customer refunds are not silently reduced by transport; buyer-fault deductions follow the accepted agreement. Refund-only/keep-item resolutions have no physical reverse trip.
+
+Each confirmed truck payment and accepted/funded return quote preserves its recorded amount and rates. Existing snapshots using pricing versions 1 or 2 are not retroactively repriced. A new reviewed reservation or new return contract uses version 3. Confirmed rates remain frozen when Admin changes settings. No subsidy, product-cost requirement or percentage cap is introduced by this policy.
 
 ## 1. Ordering
 
@@ -123,7 +122,7 @@ flowchart TD
     Q --> R[Rider GCash earnings credited once after acceptance]
 ```
 
-The configured allocation formula is shared by settlement and escrow. Default fees are origin hub ₱30, pickup rider ₱30 per purchased unit, inter-hub driver ₱20 when eligible, destination hub ₱30 when eligible, and last-mile rider ₱50 unless an applicable delivery fee overrides it. Default platform commission is 10% of net merchandise; category/configured rates may differ. Driver vehicle allowances have a separate existing workflow.
+The configured allocation formula is shared by settlement and escrow. Default fees are origin hub ₱30, pickup rider ₱30 per purchased unit, inter-hub driver fees of PHP 20 + km * PHP 0.20 + actual kg * km * PHP 0.04 per parcel for new quotes, destination hub ₱30 when eligible, and last-mile rider ₱50 unless an applicable delivery fee overrides it. Default platform commission is 10% of net merchandise; category/configured rates may differ. Driver vehicle allowances have a separate existing workflow.
 
 For GCash, every role is paid from escrow with its own recorded transfer reference. COD retains its existing cash and wallet/remittance process; it is excluded from GCash batch releases. Rider GCash earnings appear only after the rider accepts the incoming payout. The release ceiling accounts for actual refunds and verified recovery deposits.
 

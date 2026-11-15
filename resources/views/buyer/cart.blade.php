@@ -103,7 +103,7 @@
         <div class="sumtot">₱<span id="selectedTotal">{{ number_format($grandTotal,2) }}</span></div>
         <div class="sumcod">Pay cash on delivery</div>
       </div>
-      <button type="button" class="btn-p btn-solid" onclick="placeOrder()">Place Order</button>
+      <button type="button" class="btn-p btn-solid" onclick="placeOrder()" style="background:#0E4A57;color:#fff;border:1px solid #0E4A57;font-weight:700;font-size:15px;min-height:46px;box-shadow:0 3px 10px rgba(14,74,87,0.28);">Place Order</button>
     </aside>
   </div>
   <script src="{{ asset('assets/buyer/js/cart.js') }}" data-config="{{ json_encode([(url('/buy/selected'))], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_INVALID_UTF8_SUBSTITUTE) }}"></script>

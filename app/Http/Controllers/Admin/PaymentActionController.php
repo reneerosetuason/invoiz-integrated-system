@@ -86,10 +86,16 @@ class PaymentActionController extends Controller
                 \App\Services\TripPaymentService::assertReleasable($trip);
             }
             $remittance = EscrowRemittance::query()->lockForUpdate()->findOrFail($id);
+            // Eligibility may have changed since the list was opened.
+            if ($record->settlement_reference && !$order && $remittance->status === 'held_in_escrow') {
+                $remittance->update(['status' => 'pending_remittance']);
+            }
             if ($remittance->status !== 'pending_remittance') {
                 return null;
             }
-            if ($order && ($order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()
+            abort_unless((float) $remittance->amount > 0, 422, 'Only positive remittances can be released.');
+            $completedWorker = $remittance->isCompletedWorkerPayout();
+            if ($order && ((!$completedWorker && $order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists())
                 || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists())) {
                 throw \Illuminate\Validation\ValidationException::withMessages(['return' => 'Resolve the return or dispute before releasing this order payout.']);
             }
@@ -108,9 +114,9 @@ class PaymentActionController extends Controller
                 if ((float) $remittance->amount <= 0) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Only positive allocations can be released.']);
                 }
-                if ($order->deliveries()->where('status', '!=', 'delivered')->exists()
+                if ((!$completedWorker && ($order->deliveries()->where('status', '!=', 'delivered')->exists()
                     || ! $order->deliveries()->exists() || in_array($order->status, ['cancelled', 'refunded', 'returned'], true)
-                    || $order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()
+                    || $order->returnRequests()->whereIn('status', ['requested', 'approved', 'item_received'])->exists()))
                     || PaymentDispute::where('order_id', $order->id)->whereNotIn('status', ['resolved', 'rejected'])->exists()) {
                     throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Complete delivery and resolve returns or disputes before releasing GCash escrow.']);
                 }
@@ -184,15 +190,14 @@ class PaymentActionController extends Controller
             // Serialize the batch the same way, then read active holds under locks.
             $orderIds = EscrowRemittance::where('status', 'pending_remittance')->whereNotNull('order_id')->pluck('order_id')->unique()->sort()->values();
             Order::whereIn('id', $orderIds)->orderBy('id')->lockForUpdate()->get();
-            $heldOrders = \App\Models\ReturnRequest::whereIn('order_id', $orderIds)
+            $returnOrders = \App\Models\ReturnRequest::whereIn('order_id', $orderIds)
                 ->whereIn('status', ['requested', 'approved', 'item_received'])->lockForUpdate()->get()->pluck('order_id');
-            $heldOrders = $heldOrders->merge(PaymentDispute::whereIn('order_id', $orderIds)
-                ->whereNotIn('status', ['resolved', 'rejected'])->lockForUpdate()->get()->pluck('order_id'))->unique();
+            $heldOrders = PaymentDispute::whereIn('order_id', $orderIds)
+                ->whereNotIn('status', ['resolved', 'rejected'])->lockForUpdate()->get()->pluck('order_id')->unique();
             $rows = EscrowRemittance::query()
                 ->where('status', 'pending_remittance')
                 ->whereNotIn('order_id', $heldOrders)
                 ->whereHas('order', fn ($q) => $q->whereDoesntHave('payment', fn ($p) => $p->where('method', 'gcash')))
-                ->whereHas('order', fn ($q) => $q->whereDoesntHave('returnRequests', fn ($r) => $r->whereIn('status', ['requested', 'approved', 'item_received'])))
                 ->whereDoesntHave('order', fn ($q) => $q->whereHas('paymentDisputes', fn ($d) => $d->whereNotIn('status', ['resolved', 'rejected'])))
                 ->lockForUpdate()
                 ->get();
@@ -201,6 +206,8 @@ class PaymentActionController extends Controller
             $count = 0;
             $total = 0.0;
             foreach ($rows as $row) {
+                if ((float) $row->amount <= 0) continue;
+                if ($returnOrders->contains($row->order_id) && !$row->isCompletedWorkerPayout()) continue;
                 if (!\App\Support\PayoutAccounts::ready($row)) continue;
                 $row->update([
                     'status'         => 'remitted',

@@ -15,13 +15,13 @@
             <p class="text-xs text-[#6E6E73]">{{ $tripInputs['source'] }}</p>
         </div>
         @endif
-        <p class="text-xs text-[#6E6E73]">Road distance is retrieved automatically from the origin and destination hub addresses. Parcel weight and dimensions come from seller products and ordered quantities. Existing recorded parcel measurements take priority. Multiple units use a stacked parcel estimate (maximum length and width, summed heights); packaging may change the final size. Truck capacity comes from Fleet Management.</p>
+        <p class="text-xs text-[#6E6E73]">Road distance comes automatically from the hub addresses. Actual parcel weight comes from the recorded shipment or seller product quantities. Payment uses handling, road distance and actual weight.</p>
         <p class="text-xs text-[#6E6E73]">Map data: OpenStreetMap contributors. Address lookup: Photon. Road routing: OSRM.</p>
         @foreach($manifestParcels as $entry)
         <fieldset class="border rounded-lg p-3">
             <legend class="text-xs font-semibold">{{ $entry->delivery?->tracking_number }}</legend>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                @foreach(['weight' => 'Actual weight (kg)', 'length_cm' => 'Length (cm)', 'width_cm' => 'Width (cm)', 'height_cm' => 'Height (cm)'] as $field => $label)
+                @foreach(['weight' => 'Actual weight (kg)'] as $field => $label)
                 <label class="text-xs">{{ $label }}
                     <input value="{{ $entry->delivery?->$field }}" placeholder="Missing seller data" readonly class="input w-full">
                 </label>
@@ -38,22 +38,30 @@
                 'Road distance' => number_format($tripPreview['distance'], 3).' km',
                 'Parcels' => $tripPreview['parcel_count'],
                 'Actual cargo weight' => number_format($tripPreview['weight'], 2).' kg',
-                'Cargo volume' => number_format($tripPreview['volume'], 4).' m³',
                 'Truck payload' => number_format($tripPreview['payload'], 2).' kg',
-                'Truck cargo volume' => number_format($tripPreview['cargoVolume'], 4).' m³',
                 'Weight utilization' => number_format($tripPreview['weightUtilization'], 2).'%',
-                'Volume utilization' => number_format($tripPreview['volumeUtilization'], 2).'%',
-                'Final utilization' => number_format($tripPreview['utilization'], 2).'%',
-                'Base payment' => 'PHP '.number_format($tripPreview['base'] / 100, 2),
-                'Distance payment' => 'PHP '.number_format($tripPreview['distancePayment'] / 100, 2),
-                'Load bonus' => 'PHP '.number_format($tripPreview['bonus'] / 100, 2),
-                'Calculated trip cost before cap' => 'PHP '.number_format(($tripPreview['uncapped_total'] ?? $tripPreview['total']) / 100, 2),
+                ...(($tripPreview['pricing_version'] ?? 1) >= 3 ? [
+                    'Handling fees' => 'PHP '.number_format($tripPreview['base'] / 100, 2),
+                    'Distance fees' => 'PHP '.number_format($tripPreview['distancePayment'] / 100, 2),
+                    'Weight and distance fees' => 'PHP '.number_format($tripPreview['weightPayment'] / 100, 2),
+                ] : [
+                    'Base payment' => 'PHP '.number_format($tripPreview['base'] / 100, 2),
+                    'Distance payment' => 'PHP '.number_format($tripPreview['distancePayment'] / 100, 2),
+                    'Load bonus' => 'PHP '.number_format($tripPreview['bonus'] / 100, 2),
+                    'Historical calculation before cap' => 'PHP '.number_format(($tripPreview['uncapped_total'] ?? $tripPreview['total']) / 100, 2),
+                ]),
                 'Total driver earnings' => 'PHP '.number_format($tripPreview['total'] / 100, 2),
             ] as $label => $value)
             <div><dt class="text-[#6E6E73]">{{ $label }}</dt><dd class="mt-1 font-bold">{{ $value }}</dd></div>
             @endforeach
         </dl>
-        <p class="text-xs text-[#6E6E73]">Source: {{ $tripPreview['route_distance_source'] }}. Bonus below 50%: PHP 0.00. Rate: PHP {{ number_format($tripPreview['rates']['trip_rate_per_km'], 2) }}/km.</p>
+        <p class="text-xs text-[#6E6E73]">Source: {{ $tripPreview['route_distance_source'] }}.
+            @if(($tripPreview['pricing_version'] ?? 1) >= 3)
+                Per parcel: PHP {{ number_format($tripPreview['rates']['inter_hub_handling_fee'], 2) }} handling + km &times; PHP {{ number_format($tripPreview['rates']['inter_hub_rate_per_km'], 2) }} + actual kg &times; km &times; PHP {{ number_format($tripPreview['rates']['inter_hub_rate_per_kg_km'], 2) }}.
+            @else
+                Confirmed historical rates: PHP {{ number_format($tripPreview['rates']['trip_rate_per_km'], 2) }}/km; load bonus {{ number_format($tripPreview['bonus'] / 100, 2) }}.
+            @endif
+        </p>
         <details class="text-xs">
             <summary class="cursor-pointer font-semibold">Shipment allocations</summary>
             <ul class="mt-2 space-y-1">
@@ -62,7 +70,13 @@
             @endforeach
             </ul>
         </details>
-        <p class="text-xs text-[#6E6E73]">Allocation uses chargeable weight with divisor {{ $tripPreview['rates']['trip_volumetric_divisor'] }}. The driver payment is capped by each parcel’s product-value budget and available recorded margin. No subsidy is required. Receipt alone does not release funds.</p>
+        <p class="text-xs text-[#6E6E73]">
+            @if(($tripPreview['pricing_version'] ?? 1) >= 3)
+                Each parcel fee is rounded once to centavos. Driver earnings equal the sum of those fees, charged once to the corresponding shipments. Actual weight and road distance determine payment. Receipt alone does not release funds.
+            @else
+                This is a confirmed historical payment. Its recorded rates and allocations remain unchanged.
+            @endif
+        </p>
         @if($canManageOrigin && !$transfer->payment_confirmed_at && in_array($transfer->status, ['loading', 'ready_for_dispatch']))
         <form method="POST" action="{{ route('hub-transfers.payment.confirm', $transfer) }}">
             @csrf

@@ -37,7 +37,7 @@
         $eligibleRiders = $eligibleRiders ?? collect();
         $canManageRiders = $canManageRiders ?? false;
 
-        $parcelRowsMeta = $actionParcels->map(function ($item) {
+        $parcelRowsMeta = $actionParcels->map(function ($item) use ($serviceAreas, $destinationCenters) {
             $d = $item['delivery'];
             return [
                 'id' => (int) $d->id,
@@ -51,6 +51,7 @@
                 'origin_hub_name' => $d->originCenter?->name ?? null,
                 'destination_center_id' => $d->destination_center_id ? (int) $d->destination_center_id : null,
                 'destination_hub_name' => $d->destinationCenter?->name ?? null,
+                'destination_recommendation' => $d->destinationRecommendation($serviceAreas, $destinationCenters),
                 'service_area_id' => $d->service_area_id ? (int) $d->service_area_id : null,
                 'service_area_name' => $d->serviceArea?->name ?? null,
                 'rider_id' => $d->rider_id ? (int) $d->rider_id : null,
@@ -648,6 +649,20 @@
                                     </div>
                                 </template>
                             </div>
+                        </div>
+
+                        <div class="space-y-2" data-bulk-sort-recommendations>
+                            <p class="text-xs font-semibold">Recommended for the buyer's area</p>
+                            <template x-for="recommendation in sortingRecommendations()" :key="recommendation.center_id + ':' + (recommendation.service_area_id || 0)">
+                                <div class="rounded-lg border border-teal-200 bg-teal-50 p-3 text-xs">
+                                    <strong x-text="recommendation.name"></strong>
+                                    <p x-text="recommendation.location"></p>
+                                    <p x-text="recommendation.reason"></p>
+                                    <button type="button" class="btn btn-outline btn-xs mt-2" @click="useSortingRecommendation(recommendation)" x-text="'Use recommended hub (' + recommendation.parcel_ids.length + ' parcels)'"></button>
+                                </div>
+                            </template>
+                            <p x-show="sortingRecommendations().length === 0" class="text-xs text-amber-700">No matching local hub found. Confirm a hub serving the buyer's address.</p>
+                            <p x-show="sortingRecommendations().length > 1" class="text-xs">Buyers have different destination areas. Choose a recommendation to select and sort only its matching parcels.</p>
                         </div>
 
                         <div>
@@ -1305,6 +1320,24 @@
                         return 'Inter-Hub Transfer Routing → ' + destName + ' (Ready for Hub Transfer Manifest)';
                     },
 
+                    sortingRecommendations() {
+                        const groups = new Map();
+                        for (const parcel of this.eligibleParcels('sort')) {
+                            const recommendation = parcel.destination_recommendation;
+                            if (!recommendation?.center_id) continue;
+                            const key = recommendation.center_id + ':' + (recommendation.service_area_id || 0);
+                            if (!groups.has(key)) groups.set(key, { ...recommendation, parcel_ids: [] });
+                            groups.get(key).parcel_ids.push(Number(parcel.id));
+                        }
+                        return [...groups.values()];
+                    },
+
+                    useSortingRecommendation(recommendation) {
+                        this.selectedIds = recommendation.parcel_ids.slice();
+                        this.bulkSortDestinationId = String(recommendation.center_id);
+                        this.bulkSortServiceAreaId = recommendation.service_area_id ? String(recommendation.service_area_id) : '';
+                    },
+
                     sortingGroups() {
                         const eligible = this.eligibleParcels('sort');
                         const map = new Map();
@@ -1491,6 +1524,7 @@
                             origin_hub_name: scanMeta.origin_hub || existing.origin_hub_name || null,
                             destination_center_id: scanMeta.destination_center_id ? Number(scanMeta.destination_center_id) : null,
                             destination_hub_name: scanMeta.destination_hub || existing.destination_hub_name || null,
+                            destination_recommendation: scanMeta.destination_recommendation ?? existing.destination_recommendation ?? null,
                             service_area_id: scanMeta.service_area_id ? Number(scanMeta.service_area_id) : null,
                             service_area_name: scanMeta.service_area_name || existing.service_area_name || null,
                             next_key: nextKey,
@@ -1528,8 +1562,14 @@
                                 this.bulkSortDestinationId = String(sGroups[0].destination_center_id);
                                 this.bulkSortServiceAreaId = sGroups[0].service_area_id ? String(sGroups[0].service_area_id) : '';
                             } else {
-                                this.bulkSortDestinationId = '';
-                                this.bulkSortServiceAreaId = '';
+                                const recommendations = this.sortingRecommendations();
+                                if (recommendations.length === 1 && recommendations[0].parcel_ids.length === this.eligibleParcels('sort').length) {
+                                    this.bulkSortDestinationId = String(recommendations[0].center_id);
+                                    this.bulkSortServiceAreaId = recommendations[0].service_area_id ? String(recommendations[0].service_area_id) : '';
+                                } else {
+                                    this.bulkSortDestinationId = '';
+                                    this.bulkSortServiceAreaId = '';
+                                }
                             }
                         } else if (action === 'transfer') {
                             const tGroups = this.transferDestinationGroups();

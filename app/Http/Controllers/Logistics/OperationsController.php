@@ -394,13 +394,14 @@ class OperationsController extends Controller
             $like = '%'.$term.'%';
             $numericId = preg_match('/^#?(\d+)$/', $term, $matches) ? (int) $matches[1] : null;
 
-            $query->where(function (Builder $search) use ($like, $numericId): void {
+            $hasHubCode = Schema::hasColumn('logistics_centers', 'code');
+            $query->where(function (Builder $search) use ($like, $numericId, $hasHubCode): void {
                 $search->where('tracking_number', 'like', $like)
                     ->orWhere('sender_name', 'like', $like)
                     ->orWhere('recipient_name', 'like', $like)
-                    ->orWhereHas('logisticsCenter', fn (Builder $center) => $center->where('name', 'like', $like)->orWhere('code', 'like', $like))
-                    ->orWhereHas('originCenter', fn (Builder $origin) => $origin->where('name', 'like', $like)->orWhere('code', 'like', $like))
-                    ->orWhereHas('destinationCenter', fn (Builder $dest) => $dest->where('name', 'like', $like)->orWhere('code', 'like', $like))
+                    ->orWhereHas('logisticsCenter', fn (Builder $center) => $center->where('name', 'like', $like)->when($hasHubCode, fn ($q) => $q->orWhere('code', 'like', $like)))
+                    ->orWhereHas('originCenter', fn (Builder $origin) => $origin->where('name', 'like', $like)->when($hasHubCode, fn ($q) => $q->orWhere('code', 'like', $like)))
+                    ->orWhereHas('destinationCenter', fn (Builder $dest) => $dest->where('name', 'like', $like)->when($hasHubCode, fn ($q) => $q->orWhere('code', 'like', $like)))
                     ->orWhereHas('rider', fn (Builder $rider) => $rider->where('name', 'like', $like));
 
                 if ($numericId !== null && $numericId > 0) {

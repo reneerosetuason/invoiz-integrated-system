@@ -59,7 +59,7 @@ class LogisticsRouteAndPayoutGuardTest extends TestCase
             LogisticsFundingService::credit($admin, 1000000, 'PROFIT-'.uniqid(), 'Isolated test platform funds.');
         }
         $address = Address::create(['buyer_id' => $buyer->id, 'recipient_name' => 'Buyer', 'phone' => '09171234567', 'address_line' => 'Test street', 'barangay' => 'Test', 'city' => 'Manila', 'province' => 'Metro Manila', 'is_default' => true]);
-        $product = Product::create(['category_id' => Category::factory()->create()->id, 'seller_id' => $seller->id, 'name' => 'Protected shirt',
+        $product = Product::create(['category_id' => Category::factory()->create(['name' => 'Routing category '.uniqid()])->id, 'seller_id' => $seller->id, 'name' => 'Protected shirt',
             'slug' => 'protected-'.uniqid(), 'status' => 'active', 'price' => 430, 'cost_price' => 200, 'packaging_cost' => 0, 'stock' => 10, 'weight' => '0.30kg', 'dimensions' => '6 * 6 * 16cm']);
         $order = Order::create(['seller_id' => $seller->id, 'buyer_id' => $buyer->id, 'address_id' => $address->id, 'status' => 'pending', 'payment_status' => 'pending', 'total_amount' => 480, 'sub_total' => 430, 'shipping_fee' => 50]);
         $item = OrderItem::create(['order_id' => $order->id, 'seller_id' => $seller->id, 'product_id' => $product->id, 'product_name' => $product->name, 'quantity' => 1, 'price' => 430, 'unit_price' => 430]);
@@ -209,5 +209,47 @@ class LogisticsRouteAndPayoutGuardTest extends TestCase
         $this->assertNull($f['delivery']->fresh()->rider_id);
         $this->assertSame('waiting_for_rider', $f['delivery']->fresh()->status);
         $this->actingAs($f['admin'])->post(route('deliveries.review-destination', $f['delivery']))->assertForbidden();
+    }
+
+    public function test_sort_recommendation_matches_buyer_area_without_changing_reviewed_routing(): void
+    {
+        $f = $this->remoteFixture();
+        $area = \App\Models\ServiceArea::create(['logistics_center_id' => $f['to']->id, 'name' => $f['to']->city, 'is_active' => true]);
+        $f['delivery']->update(['destination_center_id' => $f['from']->id]);
+        $before = $f['delivery']->fresh()->getAttributes();
+        $recommendation = $f['delivery']->fresh()->destinationRecommendation();
+        $this->assertEquals($f['to']->id, $recommendation['center_id']);
+        $this->assertEquals($area->id, $recommendation['service_area_id']);
+        $this->assertSame($f['to']->name, $recommendation['name']);
+        $this->assertStringContainsString($f['to']->city, $recommendation['reason']);
+        $this->assertSame($before, $f['delivery']->fresh()->getAttributes());
+    }
+
+    public function test_sort_recommendation_uses_city_when_area_is_missing_and_excludes_inactive_hubs(): void
+    {
+        $f = $this->remoteFixture();
+        $recommendation = $f['delivery']->destinationRecommendation();
+        $this->assertEquals($f['to']->id, $recommendation['center_id']);
+        $this->assertNull($recommendation['service_area_id']);
+        $f['to']->update(['is_active' => false]);
+        $this->assertNull($f['delivery']->fresh()->destinationRecommendation());
+    }
+
+    public function test_sort_and_operations_show_the_same_buyer_area_recommendation(): void
+    {
+        $f = $this->remoteFixture();
+        \App\Models\ServiceArea::create(['logistics_center_id' => $f['to']->id, 'name' => $f['to']->city, 'is_active' => true]);
+        $staff = User::factory()->create(['role' => 'logistics_staff', 'status' => 'active', 'account_status' => 'active',
+            'center_id' => $f['from']->id, 'logistics_company_id' => $f['from']->logistics_company_id]);
+        $rider = \App\Models\Rider::create(['center_id' => $f['from']->id, 'name' => 'Pickup rider', 'email' => uniqid().'@rider.test',
+            'phone' => '09170000000', 'vehicle_type' => 'motorcycle', 'status' => 'available']);
+        $f['delivery']->update(['parcel_status' => 'scanned', 'scanned_at' => now(), 'picked_up_at' => now(),
+            'sorting_center_handoff_at' => now(), 'sorting_center_handoff_rider_id' => $rider->id]);
+        $sorting = $this->actingAs($staff)->get(route('sorting-center.index', ['search' => $f['delivery']->tracking_number]))
+            ->assertOk()->assertSee('Use recommended hub')->assertSee($f['to']->name.' — Recommended');
+        file_put_contents(base_path('.tools/sort-recommendation-preview.html'), $sorting->getContent());
+        $operations = $this->get(route('operations.index', ['search' => $f['delivery']->tracking_number]))->assertOk()
+            ->assertSee('data-bulk-sort-recommendations', false)->assertSee('destination_recommendation')->assertSee($f['to']->name);
+        file_put_contents(base_path('.tools/operations-recommendation-preview.html'), $operations->getContent());
     }
 }

@@ -89,8 +89,17 @@
                     <tr>
                         <td><a class="po-truncate po-order" href="{{ $remit->source==='return'?route('returns.agreement',$remit->return_id):($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->source==='return'?'Return #'.$remit->return_id:($remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id)) }}</a></td>
                         <td class="po-recipient"><span class="po-truncate po-recipient-name">{{ $remit->recipient_name }}</span><small class="po-truncate">{{ $remit->roleLabel() }}</small></td>
-                        <td class="po-money">&#8369;{{ number_format((float) $remit->amount, 2) }}</td>
-                        <td>@include('admin.partials.payment-status', ['paymentStatus' => $remit->status])</td>
+                        @php
+                            $paidViaTrip = $remit->recipient_role === 'inter_hub_driver' && !$remit->settlement_reference && (float) $remit->amount === 0.0 && str_contains((string) $remit->rule_applied, 'Paid once through trip settlement');
+                        @endphp
+                        <td class="po-money">@if($paidViaTrip)<small>Included in truck trip</small>@else&#8369;{{ number_format((float) $remit->amount, 2) }}@endif</td>
+                        <td>
+                            @if($paidViaTrip)
+                                <small>See trip payout</small>
+                            @else
+                                @include('admin.partials.payment-status', ['paymentStatus' => $remit->status])
+                            @endif
+                        </td>
                         <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-{{ $remit->key??'order-'.$remit->id }}" aria-haspopup="dialog" aria-label="View payout {{ $remit->id }}">View</button></td>
                     </tr>
                 @empty
@@ -150,6 +159,11 @@
         <div><dt>Payment method</dt><dd>{{ strtoupper(str_replace('_', ' ', $remit->order?->payment?->method ?? 'Unavailable')) }}</dd></div>
         <div><dt>Settlement mode</dt><dd>{{ $remit->settlementModeLabel() }}</dd></div>
         <div><dt>Allocation rule</dt><dd>{{ $remit->rule_applied ?: 'Not recorded' }}</dd></div>
+        @if($remit->recipient_role === 'inter_hub_driver' && !$remit->settlement_reference && (float) $remit->amount === 0.0 && str_contains((string) $remit->rule_applied, 'Paid once through trip settlement'))
+            <div><dt>Driver payment</dt><dd>Included in the separate truck-trip payout. This order row does not create a second driver payment.
+                @if($remit->hub_transfer_id)<a href="{{ route('hub-transfers.show', $remit->hub_transfer_id) }}">View truck trip</a>@endif
+            </dd></div>
+        @endif
         <div><dt>Transfer / release reference</dt><dd>{{ $remit->bank_reference ?: 'Not recorded' }}</dd></div>
         <div><dt>Released</dt><dd>{{ $remit->remitted_at?->format('M d, Y g:i A') ?? 'Not released' }}</dd></div>
         @if($remit->notes)<div><dt>Notes</dt><dd>{{ $remit->notes }}</dd></div>@endif
@@ -183,6 +197,12 @@
             <label><input type="checkbox" name="confirm_received" value="1" required> I confirm the platform received or retained this amount.</label>
             <button class="po-button po-button-primary" type="submit">Accept admin remittance</button>
         </form>
+    @elseif($remit->status === 'held_in_escrow' && $remit->settlement_reference)
+        <p class="po-dialog-note">{{ $remit->hold_reason ?: 'Refresh this page to check trip payment eligibility.' }}</p>
+        <p class="po-dialog-note">Review the orders in this trip to resolve payment settlement or disputes. An open return request does not block payment for completed inter-hub work.</p>
+        @foreach($remit->hubTransfer?->parcels()->with('delivery')->get()->pluck('delivery.order_id')->filter()->unique() ?? [] as $tripOrderId)
+            <a class="po-button" href="{{ url('/admin/orders/'.$tripOrderId) }}">Open order #{{ $tripOrderId }}</a>
+        @endforeach
     @elseif($remit->status === 'held_in_escrow' && ($remit->order?->payment?->method === 'cash_on_delivery' || $remit->order?->payment?->method === 'cod') && in_array($remit->order?->status, ['delivered', 'completed'], true))
         <div style="background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:12px 14px;margin:12px 0;">
             <div style="font-size:12px;font-weight:700;color:#92400E;text-transform:uppercase;letter-spacing:.5px;">Cash on Delivery (COD) Order</div>

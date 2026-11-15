@@ -11,7 +11,8 @@ class ReturnFeeService
     public static function usesDynamicTrip(ReturnRequest $case): bool
     {
         $delivery = EscrowEarnings::deliveryForSeller($case->order, (int) $case->seller_id);
-        return SellerProtectionService::policy($case->order, (int) $case->seller_id) !== null
+        return ($case->settlement?->fee_snapshot['inter_hub_pricing_version'] ?? 0) >= 3
+            || SellerProtectionService::policy($case->order, (int) $case->seller_id) !== null
             || ($delivery && EscrowEarnings::transferLegs($delivery)->contains(fn ($leg) => ($leg->payment_snapshot['pricing_version'] ?? 1) >= 2));
     }
 
@@ -68,7 +69,7 @@ class ReturnFeeService
             $add('seller_delivery_rider',$rates['last_mile_rider_fee'],$to->id);
             if($agreement->resolution==='exchange')$add('replacement_delivery_rider',$rates['last_mile_rider_fee'],$to->id);
         }
-        return ['return_trip' => $trip ?? null, 'source'=>'commission_settings','rates'=>$rates,'quantity'=>(int)$case->quantity,
+        return ['inter_hub_pricing_version' => $agreement->fee_snapshot['inter_hub_pricing_version'] ?? ($trip['pricing_version'] ?? null), 'return_trip' => $trip ?? null, 'source'=>'commission_settings','rates'=>$rates,'quantity'=>(int)$case->quantity,
             'collection_center_id'=>$fromId,'seller_center_id'=>$toId,'lines'=>$lines,
             'collection_hub_name'=>isset($from)?$from->name:null,'seller_hub_name'=>isset($to)?$to->name:null,
             'total_cents'=>array_sum(array_column($lines,'amount_cents'))];

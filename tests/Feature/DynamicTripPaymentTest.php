@@ -136,7 +136,7 @@ class DynamicTripPaymentTest extends TestCase
             $address = Address::create(['buyer_id' => $actor->id, 'recipient_name' => 'Trip buyer', 'phone' => '09171234567', 'address_line' => '2 Test St', 'barangay' => 'Test', 'city' => 'Manila', 'province' => 'Metro Manila', 'is_default' => true]);
             $order = Order::create(['address_id' => $address->id, 'buyer_id' => $actor->id, 'status' => 'processing', 'payment_status' => 'paid', 'total' => 1000, 'total_amount' => 1000]);
             PaymentTransaction::create(['order_id' => $order->id, 'transaction_ref' => 'TP-'.uniqid(), 'gateway' => 'cash_on_delivery', 'amount' => 1000, 'status' => 'successful']);
-            $product = Product::create(['category_id' => Category::factory()->create()->id, 'seller_id' => $actor->id, 'name' => 'Trip cargo', 'slug' => 'cargo-'.uniqid(), 'status' => 'active', 'price' => 10000, 'stock' => 5]);
+            $product = Product::create(['category_id' => Category::factory()->create(['name' => 'Routing category '.uniqid()])->id, 'seller_id' => $actor->id, 'name' => 'Trip cargo', 'slug' => 'cargo-'.uniqid(), 'status' => 'active', 'price' => 10000, 'stock' => 5]);
             OrderItem::create(['order_id' => $order->id, 'seller_id' => $actor->id, 'product_id' => $product->id, 'product_name' => 'Trip cargo', 'quantity' => 1, 'unit_price' => 10000]);
             $parcel = Delivery::create(array_diff_key($this->parcelData(), ['id' => true]) + ['seller_id' => $actor->id, 'tracking_number' => 'TP-'.uniqid(), 'order_id' => $order->id, 'center_id' => $origin->id, 'destination_center_id' => $destination->id, 'recipient_name' => 'Test recipient', 'recipient_address' => 'Test road', 'status' => 'waiting_for_rider', 'parcel_status' => 'sorted']);
             HubTransferParcel::create(['hub_transfer_id' => $trip->id, 'delivery_id' => $parcel->id, 'loading_status' => 'loaded', 'receiving_status' => 'pending']);
@@ -156,17 +156,17 @@ class DynamicTripPaymentTest extends TestCase
         $this->confirm($trip, $actor);
         $this->confirm($trip, $actor);
         $trip->refresh();
-        $this->assertSame(40000, $trip->payment_snapshot['total']);
-        $this->assertEquals(40000, $trip->parcels()->sum('driver_allocation_cents'));
+        $this->assertSame(11040, $trip->payment_snapshot['total']);
+        $this->assertEquals(11040, $trip->parcels()->sum('driver_allocation_cents'));
         $this->assertSame('held_in_escrow', EscrowRemittance::where('hub_transfer_id', $trip->id)->sole()->status);
         $trip->update(['status' => 'arrived']);
         $trip->parcels()->update(['receiving_status' => 'received', 'condition' => 'good']);
         HubTransferService::complete($trip, $actor);
         HubTransferService::complete($trip, $actor);
         TripPaymentService::complete($trip->fresh());
-        $this->assertEquals(400, HubTransferEarning::where('hub_transfer_id', $trip->id)->sole()->amount);
+        $this->assertEquals(110.4, HubTransferEarning::where('hub_transfer_id', $trip->id)->sole()->amount);
         $payout = EscrowRemittance::where('settlement_reference', 'TRIP-'.$trip->id)->sole();
-        $this->assertEquals(400, $payout->amount);
+        $this->assertEquals(110.4, $payout->amount);
         $this->assertSame('pending_remittance', $payout->status);
         $this->assertNull($payout->order_id);
         $this->assertEquals(1, HubTransferEarning::where('hub_transfer_id', $trip->id)->count());
@@ -180,11 +180,11 @@ class DynamicTripPaymentTest extends TestCase
         TripPaymentService::assertUnchanged($trip->fresh());
         $trip->update(['status' => 'received']);
         $earning = TripPaymentService::complete($trip->fresh());
-        $this->assertEquals(400, $earning->amount);
+        $this->assertEquals(110.4, $earning->amount);
         $this->assertEquals(100, $trip->fresh()->payment_snapshot['rates']['trip_base_payment']);
         $trip->update(['payment_version' => null]);
         $legacy = EscrowEarnings::creditInterHubDriverForCompletedTrip($trip->fresh());
-        $this->assertEquals(400, $legacy->amount);
+        $this->assertEquals(110.4, $legacy->amount);
     }
 
     public function test_cancellation_reverses_reservation_and_keeps_snapshot_event(): void
@@ -210,7 +210,7 @@ class DynamicTripPaymentTest extends TestCase
             $this->assertSame(409, $e->getStatusCode());
         }
         $this->confirm($trip, $actor);
-        $trip->parcels()->first()->delivery->update(['length_cm' => 30]);
+        $trip->parcels()->first()->delivery->update(['weight' => 4]);
         $this->expectException(HttpException::class);
         TripPaymentService::assertUnchanged($trip->fresh());
     }
@@ -244,7 +244,7 @@ class DynamicTripPaymentTest extends TestCase
     public function test_staff_can_review_trip_payment_and_other_hub_staff_cannot_edit_it(): void
     {
         [$trip, $actor] = $this->fixture();
-        $this->actingAs($actor)->get(route('hub-transfers.show', $trip))->assertOk()->assertSee('Driver trip payment')->assertSee('400.00');
+        $this->actingAs($actor)->get(route('hub-transfers.show', $trip))->assertOk()->assertSee('Driver trip payment')->assertSee('110.40');
         $this->actingAs($actor)->post(route('hub-transfers.payment.confirm', $trip), ['preview_hash' => hash('sha256', json_encode(TripPaymentService::preview($trip)))])->assertSessionHasNoErrors()->assertRedirect();
         $actor->forceFill(['center_id' => $trip->destination_center_id])->save();
         $this->actingAs($actor)->post(route('hub-transfers.payment.reverse', $trip), ['reason' => 'Wrong hub'])->assertForbidden();
@@ -299,7 +299,67 @@ class DynamicTripPaymentTest extends TestCase
         $this->assertSame('remitted', $payout->fresh()->status);
         $this->assertTrue($payout->fresh()->accept($driver));
         $this->assertFalse($payout->fresh()->accept($driver));
-        $this->assertEquals(400, $driver->earnings()->sum('amount'));
+        $this->assertEquals(110.4, $driver->earnings()->sum('amount'));
+    }
+
+    public function test_incoming_feed_hides_zero_trip_placeholder_and_keeps_real_and_legacy_payments(): void
+    {
+        [$trip, $actor, , $driver] = $this->fixture(1);
+        $this->confirm($trip, $actor);
+        $placeholder = EscrowRemittance::create([
+            'order_id' => $trip->parcels()->first()->delivery->order_id,
+            'hub_transfer_id' => $trip->id, 'hub_transport_driver_id' => $driver->id,
+            'recipient_role' => 'inter_hub_driver', 'amount' => 0, 'status' => 'held_in_escrow',
+            'rule_applied' => 'Paid once through trip settlement; shipment allocation recorded on manifest',
+        ]);
+        $legacy = EscrowRemittance::create([
+            'hub_transport_driver_id' => $driver->id, 'recipient_role' => 'inter_hub_driver',
+            'amount' => 20, 'status' => 'accepted',
+        ]);
+        \Laravel\Sanctum\Sanctum::actingAs($driver, ['hub-courier']);
+        $response = $this->getJson('/api/remittances/incoming')->assertOk()->assertJsonCount(2, 'remittances');
+        $keys = collect($response->json('remittances'))->pluck('key')->all();
+        $this->assertNotContains('order-'.$placeholder->id, $keys);
+        $this->assertContains('order-'.$legacy->id, $keys);
+        $this->assertEquals(36.80, $response->json('summary.awaiting_release'));
+        $this->assertDatabaseHas('escrow_remittances', ['id' => $placeholder->id, 'amount' => 0]);
+    }
+
+    public function test_admin_can_release_a_stale_held_trip_after_settlement_without_reopening_the_list(): void
+    {
+        [$trip, $actor, , $driver] = $this->fixture(1);
+        \App\Models\PayoutAccount::create(['owner_type' => 'driver', 'owner_id' => $driver->id,
+            'details' => ['provider' => 'Test bank', 'holder' => $driver->name, 'account' => '000123456789']]);
+        $this->confirm($trip, $actor);
+        $trip->update(['status' => 'received']);
+        $trip->parcels()->update(['receiving_status' => 'received', 'condition' => 'good']);
+        $order = $trip->parcels()->first()->delivery->order;
+        $order->update(['payment_status' => 'pending']);
+        $this->assertSame('Confirm escrow settlement for order #'.$order->id.' before releasing this trip payment.',
+            TripPaymentService::releaseHoldReason($trip->fresh()));
+        $payout = EscrowRemittance::where('settlement_reference', 'TRIP-'.$trip->id)->sole();
+        $this->assertSame('held_in_escrow', $payout->status);
+        $order->update(['payment_status' => 'paid']);
+        $admin = User::factory()->create(['role' => 'admin', 'is_admin' => true, 'status' => 'active', 'account_status' => 'active']);
+        $this->actingAs($admin)->post(route('admin.escrow.remit', $payout), ['bank_reference' => 'BANK-AFTER-SETTLEMENT'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('remitted', $payout->fresh()->status);
+        $this->assertEquals(36.80, $payout->fresh()->amount);
+        $this->assertTrue($payout->fresh()->accept($driver));
+    }
+
+    public function test_admin_trip_dialog_displays_actual_order_hold_and_link(): void
+    {
+        [$trip, $actor] = $this->fixture(1);
+        $this->confirm($trip, $actor);
+        $trip->update(['status' => 'received']);
+        $trip->parcels()->update(['receiving_status' => 'received', 'condition' => 'good']);
+        $order = $trip->parcels()->first()->delivery->order;
+        $order->update(['payment_status' => 'pending']);
+        $admin = User::factory()->create(['role' => 'admin', 'is_admin' => true, 'status' => 'active', 'account_status' => 'active']);
+        $this->actingAs($admin)->get(route('admin.payments'))->assertOk()
+            ->assertSee('Confirm escrow settlement for order #'.$order->id.' before releasing this trip payment.')
+            ->assertSee('Open order #'.$order->id);
     }
 
     public function test_missing_and_damaged_cargo_hold_the_entire_trip_payout(): void
@@ -343,7 +403,7 @@ class DynamicTripPaymentTest extends TestCase
         $parcel = $trip->parcels()->first()->delivery;
         $parcel->order->items()->delete();
         $seller = Seller::factory()->create(['status' => 'active', 'line_of_business' => 'Retail', 'seller_type' => 'individual', 'tin' => 'TEST', 'region' => 'NCR', 'province' => 'Metro Manila', 'city' => 'Manila', 'barangay' => 'Test', 'postal_code' => '1000', 'address_line' => 'Test road']);
-        $product = Product::create(['category_id' => Category::factory()->create()->id, 'seller_id' => $seller->user_id, 'name' => 'Trip parcel product', 'slug' => 'trip-'.uniqid(), 'status' => 'active', 'price' => 1000, 'stock' => 5]);
+        $product = Product::create(['category_id' => Category::factory()->create(['name' => 'Routing category '.uniqid()])->id, 'seller_id' => $seller->user_id, 'name' => 'Trip parcel product', 'slug' => 'trip-'.uniqid(), 'status' => 'active', 'price' => 1000, 'stock' => 5]);
         OrderItem::create(['order_id' => $parcel->order_id, 'product_id' => $product->id, 'seller_id' => $seller->user_id, 'quantity' => 1, 'price' => 1000, 'unit_price' => 1000, 'product_name' => 'Trip parcel product']);
         $parcel->update(['seller_id' => $seller->user_id]);
         $legacy = null;
@@ -358,12 +418,12 @@ class DynamicTripPaymentTest extends TestCase
             EscrowEarnings::syncRemittancesForOrder($parcel->order);
         }
         $this->confirm($trip, $actor);
-        $this->assertEquals(['reserved' => $hasLegacyLeg ? 30 : 50, 'released' => 0], TripPaymentService::orderBudget($parcel->order));
+        $this->assertEquals(['reserved' => 36.8, 'released' => 0], TripPaymentService::orderBudget($parcel->order));
         $trip->update(['status' => 'received']);
         $calc = EscrowEarnings::calculateForSeller($parcel->order, $seller->user_id, $parcel->fresh());
-        $this->assertEquals(50, $calc['inter_hub_driver_fee']);
+        $this->assertEquals($hasLegacyLeg ? 56.8 : 36.8, $calc['inter_hub_driver_fee']);
         $this->assertEquals(0, $calc['platform_trip_adjustment']);
-        $this->assertEquals(140, $calc['merch_logistics_deducted']);
+        $this->assertEquals($hasLegacyLeg ? 146.8 : 126.8, $calc['merch_logistics_deducted']);
         $this->assertTrue($calc['conserved']);
         EscrowEarnings::syncRemittancesForOrder($parcel->order);
         $oldPayout = EscrowRemittance::where('order_id', $parcel->order_id)->where('recipient_role', 'inter_hub_driver')->sole();
@@ -380,7 +440,7 @@ class DynamicTripPaymentTest extends TestCase
         $delivery = $trip->parcels()->first()->delivery;
         $delivery->order->items()->delete();
         $delivery->update(['seller_id' => $actor->id, 'weight' => null, 'length_cm' => null, 'width_cm' => null, 'height_cm' => null]);
-        $product = Product::create(['category_id' => Category::factory()->create()->id, 'seller_id' => $actor->id,
+        $product = Product::create(['category_id' => Category::factory()->create(['name' => 'Routing category '.uniqid()])->id, 'seller_id' => $actor->id,
             'name' => 'Measured item', 'slug' => 'auto-trip-'.uniqid(), 'status' => 'active', 'price' => 100, 'stock' => 10,
             'weight' => '300 g', 'dimensions' => '6 * 6 * 16cm']);
         OrderItem::create(['order_id' => $delivery->order_id, 'product_id' => $product->id, 'seller_id' => $actor->id,
@@ -406,14 +466,14 @@ class DynamicTripPaymentTest extends TestCase
         $s = TripPaymentService::preview($trip);
         $this->assertSame(75.432, $s['distance']);
         $this->assertEquals(0.6, $s['weight']);
-        $this->assertEqualsWithDelta(0.001152, $s['volume'], 0.0000001);
-        $this->assertEquals(32, $s['parcels'][0]['height_cm']);
-        $this->assertSame(47716, $s['uncapped_total']);
-        $this->assertSame(1000, $s['total']);
+        $this->assertNull($s['volume']);
+        $this->assertArrayNotHasKey('height_cm', $s['parcels'][0]);
+        $this->assertSame(3, $s['pricing_version']);
+        $this->assertSame(3690, $s['total']);
         $this->assertNull($delivery->fresh()->length_cm);
         $this->assertNull($trip->fresh()->route_distance_km);
         TripPaymentService::confirm($trip, $actor, hash('sha256', json_encode($s)));
-        $this->assertEquals(32, $delivery->fresh()->height_cm);
+        $this->assertNull($delivery->fresh()->height_cm);
         $this->assertEquals(75.432, $trip->fresh()->route_distance_km);
         $this->assertSame($actor->id, (int) $trip->fresh()->route_recorded_by);
         $product->update(['dimensions' => '100 x 100 x 100 cm', 'weight' => '200 kg']);
@@ -427,7 +487,7 @@ class DynamicTripPaymentTest extends TestCase
     {
         [$trip, $actor, $delivery, $product] = $this->automaticInputs();
         $s = TripPaymentService::preview($trip);
-        $product->update(['dimensions' => '10 x 10 x 20 cm']);
+        $product->update(['weight' => '400 g']);
         try {
             TripPaymentService::confirm($trip, $actor, hash('sha256', json_encode($s)));
             $this->fail('Stale product measurements were accepted.');
@@ -448,7 +508,7 @@ class DynamicTripPaymentTest extends TestCase
         $s = TripPaymentService::preview($trip->fresh());
         $this->assertSame(75.432, $s['distance']);
         $this->assertEquals(0.6, $s['weight']);
-        $this->assertEquals(32, $s['parcels'][0]['height_cm']);
+        $this->assertArrayNotHasKey('height_cm', $s['parcels'][0]);
     }
 
     public function test_unavailable_road_route_is_not_replaced_with_straight_line_distance(): void
@@ -475,30 +535,27 @@ class DynamicTripPaymentTest extends TestCase
         TripPaymentService::preview($trip);
     }
 
-    public function test_missing_product_dimensions_block_payment_without_inventing_measurements(): void
+    public function test_missing_product_dimensions_do_not_block_payment(): void
     {
         [$trip, $actor, $delivery, $product] = $this->automaticInputs();
         $product->update(['dimensions' => null]);
-        try {
-            TripPaymentService::preview($trip);
-            $this->fail('Missing dimensions accepted.');
-        } catch (ValidationException $e) {
-            $this->assertStringContainsString('length', $e->getMessage());
-        }
+        $snapshot = TripPaymentService::preview($trip);
+        $this->assertSame(3690, $snapshot['total']);
+        TripPaymentService::confirm($trip, $actor, hash('sha256', json_encode($snapshot)));
         $this->assertNull($delivery->fresh()->length_cm);
-        $this->assertFalse(EscrowRemittance::where('hub_transfer_id', $trip->id)->exists());
+        $this->assertSame(3690, $trip->fresh()->payment_snapshot['total']);
     }
 
-    public function test_automatic_inputs_remain_visible_when_truck_cargo_dimensions_are_missing(): void
+    public function test_payment_is_available_when_truck_cargo_dimensions_are_missing(): void
     {
         [$trip, $actor] = $this->automaticInputs();
-        $trip->truck->update(['cargo_length_cm' => null]);
+        $trip->truck->update(['cargo_length_cm' => null, 'cargo_width_cm' => null, 'cargo_height_cm' => null]);
         $this->actingAs($actor)->get(route('hub-transfers.show', $trip))
             ->assertOk()->assertSee('Automatic road distance: 75.432 km')
-            ->assertSee('Truck cargo length must be recorded')
-            ->assertSee('value="32"', false)
+            ->assertDontSee('Truck cargo length must be recorded')
+            ->assertDontSee('Length (cm)')->assertDontSee('Width (cm)')->assertDontSee('Height (cm)')
             ->assertDontSee('name="route_distance_km"', false)
-            ->assertDontSee('Confirm &amp; reserve', false);
+            ->assertSee('Confirm &amp; reserve', false);
     }
 
     public function test_road_routing_works_for_any_hub_pair_and_caches_each_direction_separately(): void

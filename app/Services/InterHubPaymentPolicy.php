@@ -6,7 +6,7 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Support\EscrowEarnings;
 
-/** Caps the actual driver payment, rather than creating a separate funding obligation. */
+/** Archived version 2 policy. New quotes use ParcelInterHubPricing. */
 class InterHubPaymentPolicy
 {
     public static function budget(Order $order, int $seller, array $rates, float $fraction = 1): int

@@ -28,6 +28,20 @@ class EscrowRemittance extends Model
 
     public const ROLE_SELLER = 'seller';
 
+    public const WORKER_ROLES = [self::ROLE_ORIGIN_HUB, self::ROLE_PICKUP_RIDER,
+        self::ROLE_INTER_HUB_DRIVER, self::ROLE_DESTINATION_HUB, self::ROLE_LAST_MILE_RIDER];
+
+    /** Refund requests do not undo an already completed outbound service. */
+    public function isCompletedWorkerPayout(): bool
+    {
+        if (!in_array($this->recipient_role, self::WORKER_ROLES, true)) return false;
+        if ($this->delivery_id) {
+            return $this->delivery && ($this->delivery->status === 'delivered' || $this->delivery->delivered_at);
+        }
+        return $this->order && $this->order->deliveries()->exists()
+            && !$this->order->deliveries()->where('status', '!=', 'delivered')->whereNull('delivered_at')->exists();
+    }
+
     public const STATUS_HELD_IN_ESCROW = 'held_in_escrow';
 
     public const STATUS_PENDING_REMITTANCE = 'pending_remittance';
@@ -184,7 +198,13 @@ class EscrowRemittance extends Model
                 return false;
             }
             if ($order && GcashEscrowService::isGcash($order)) {
-                GcashEscrowService::assertFunded($order);
+                if ($locked->isCompletedWorkerPayout()) {
+                    if (!GcashEscrowService::funded($order)) {
+                        throw \Illuminate\Validation\ValidationException::withMessages(['gcash' => 'Confirm the original escrow deposit before accepting this payout.']);
+                    }
+                } else {
+                    GcashEscrowService::assertFunded($order);
+                }
             }
 
             $confirmedAt = now()->format('Y-m-d H:i:s');
