@@ -14,7 +14,6 @@ jobs:
       APP_URL: http://127.0.0.1:8000
       APP_MAINTENANCE_DRIVER: file
       DB_CONNECTION: sqlite
-      DB_DATABASE: ${{ runner.temp }}/invoiz-playwright.sqlite
       DB_URL: ''
       DB_HOST: invalid.example
       DB_PORT: '0'
@@ -27,15 +26,21 @@ jobs:
       QUEUE_CONNECTION: sync
       MAIL_MAILER: array
       LOG_CHANNEL: stderr
-      LARAVEL_STORAGE_PATH: ${{ runner.temp }}/invoiz-playwright/storage
-      VIEW_COMPILED_PATH: ${{ runner.temp }}/invoiz-playwright/storage/framework/views
-      APP_CONFIG_CACHE: ${{ runner.temp }}/invoiz-playwright/cache/config.php
-      APP_ROUTES_CACHE: ${{ runner.temp }}/invoiz-playwright/cache/routes.php
-      APP_EVENTS_CACHE: ${{ runner.temp }}/invoiz-playwright/cache/events.php
-      APP_PACKAGES_CACHE: ${{ runner.temp }}/invoiz-playwright/cache/packages.php
-      APP_SERVICES_CACHE: ${{ runner.temp }}/invoiz-playwright/cache/services.php
     steps:
     - uses: actions/checkout@v4
+    - name: Configure isolated runtime paths
+      shell: bash
+      run: |
+        {
+          echo "DB_DATABASE=$RUNNER_TEMP/invoiz-playwright.sqlite"
+          echo "LARAVEL_STORAGE_PATH=$RUNNER_TEMP/invoiz-playwright/storage"
+          echo "VIEW_COMPILED_PATH=$RUNNER_TEMP/invoiz-playwright/storage/framework/views"
+          echo "APP_CONFIG_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/config.php"
+          echo "APP_ROUTES_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/routes.php"
+          echo "APP_EVENTS_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/events.php"
+          echo "APP_PACKAGES_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/packages.php"
+          echo "APP_SERVICES_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/services.php"
+        } >> "$GITHUB_ENV"
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
