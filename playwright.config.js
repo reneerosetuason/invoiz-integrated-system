@@ -71,11 +71,15 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://localhost:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
+  // CI owns this isolated server; never reuse an unrelated running website.
+  // Local runs keep their existing server behavior unless CI is explicitly set.
+  webServer: process.env.CI ? {
+    command: 'php artisan serve --host=127.0.0.1 --port=8000',
+    url: 'http://127.0.0.1:8000/up',
+    reuseExistingServer: false,
+    timeout: 120_000,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  } : undefined,
 });
 

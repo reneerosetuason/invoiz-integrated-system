@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="../../vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="scripts/test-bootstrap.php" colors="true" cacheResult="false">
+    <!-- Explicit, reviewed fixtures only. Never invoke the migration-based suite. -->
+    <testsuites>
+        <testsuite name="Laboratory delivery artifact">
+            <file>challenges/LabImageVersionTest.php</file>
+        </testsuite>
+        <testsuite name="INVOIZ isolated CI fixtures">
+            <file>../../tests/Unit/PickupHubRecommendationsTest.php</file>
+            <file>../../tests/Feature/SharedBackendTest.php</file>
+            <file>../../tests/Feature/BuyerWebShoppingTest.php</file>
+            <file>../../tests/Feature/SellerProductShippingDimensionsTest.php</file>
+        </testsuite>
+    </testsuites>
+    <php>
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="DB_CONNECTION" value="sqlite" force="true"/>
+        <env name="DB_DATABASE" value=":memory:" force="true"/>
+        <env name="DB_URL" value="" force="true"/>
+        <env name="CACHE_STORE" value="array" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="MAIL_MAILER" value="array" force="true"/>
+        <env name="BCRYPT_ROUNDS" value="4" force="true"/>
+    </php>
+</phpunit>
