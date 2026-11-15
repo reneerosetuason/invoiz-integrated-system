@@ -1,0 +1,27 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { parseDocument } from 'yaml';
+
+const document = parseDocument(readFileSync(new URL('../../../.github/workflows/ci-cd.yml', import.meta.url), 'utf8'), { uniqueKeys: true });
+assert.deepEqual(document.errors, [], 'Workflow must parse without YAML errors');
+const workflow = document.toJS();
+assert.deepEqual(workflow.on.push.branches, ['main']);
+assert.deepEqual(workflow.on.push.tags, ['v*']);
+assert.deepEqual(workflow.on.pull_request.branches, ['main']);
+assert.ok(Object.hasOwn(workflow.on, 'workflow_dispatch'));
+assert.equal(workflow.permissions.contents, 'read');
+assert.equal(workflow.jobs.ci.permissions?.packages, undefined);
+assert.equal(workflow.jobs.docker.needs, 'ci');
+assert.ok(workflow.jobs.docker.if.includes("github.event_name != 'pull_request'"));
+assert.ok(workflow.jobs.docker.if.includes("github.ref == 'refs/heads/main'"));
+assert.equal(workflow.jobs.docker.permissions.packages, 'write');
+const steps = workflow.jobs.docker.steps;
+assert.equal(steps.find(step => step.uses?.startsWith('docker/login-action@')).with.password, '${{ secrets.GITHUB_TOKEN }}');
+assert.equal(steps.find(step => step.uses?.startsWith('docker/build-push-action@')).with.push, true);
+const secret = workflow.jobs.ci.steps.find(step => step.env?.DEMO_API_KEY);
+assert.ok(secret);
+assert.equal(secret.env.DEMO_API_KEY, '${{ secrets.DEMO_API_KEY }}');
+assert.ok(secret.run.includes('[ -n "$DEMO_API_KEY" ]'));
+assert.ok(!secret.run.includes('echo "$DEMO_API_KEY"'));
+console.log('PASS: YAML parsing and CI trigger, dependency, publication permission, PR exclusion, and secret policies.');
+console.log('This local policy check does not replace actionlint or an actual GitHub Actions execution.');

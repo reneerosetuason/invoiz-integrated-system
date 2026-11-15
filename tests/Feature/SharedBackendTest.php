@@ -53,11 +53,13 @@ class SharedBackendTest extends TestCase
     {
         return User::create([
             'name' => ucfirst($role).' Account',
-            'email' => $role.'@example.test',
+            'email' => $role === 'logistics_admin' ? User::GLOBAL_LOGISTICS_ADMIN_EMAIL : $role.'@example.test',
             'password' => 'Password123!',
             'role' => $role,
             'status' => 'active',
             'account_status' => 'active',
+            'is_admin' => false,
+            'center_id' => null,
             'email_verified_at' => now(),
         ]);
     }
