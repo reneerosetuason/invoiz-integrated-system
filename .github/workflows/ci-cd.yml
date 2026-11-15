@@ -1,0 +1,140 @@
+name: INVOIZ CI-CD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: invoiz-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    name: PHP syntax, isolated tests, and web build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      APP_ENV: testing
+      DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
+      DB_URL: ''
+      CACHE_STORE: array
+      SESSION_DRIVER: array
+      MAIL_MAILER: array
+      QUEUE_CONNECTION: sync
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, pdo_sqlite, pdo_mysql, bcmath, gd, zip, dom, curl
+          coverage: none
+          tools: composer:v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: |
+          composer install --prefer-dist --no-interaction --no-progress
+          npm ci
+      - name: Check PHP syntax
+        run: php devops/lab-act-3/scripts/lint-php.php
+      - name: Validate workflow policies
+        run: node devops/lab-act-3/scripts/validate-workflow.mjs
+      - name: Run existing tests with isolated SQLite fixtures
+        run: php vendor/phpunit/phpunit/phpunit -c devops/lab-act-3/phpunit.ci.xml --log-junit test-results/phpunit.xml
+      - name: Build web assets
+        run: npm run build
+      - name: Verify Secret Configuration
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          DEMO_API_KEY: ${{ secrets.DEMO_API_KEY }}
+        shell: bash
+        run: |
+          if [ -n "$DEMO_API_KEY" ]; then
+            echo "Secret successfully configured."
+          else
+            echo "DEMO_API_KEY is missing. Configure the laboratory dummy repository secret."
+            exit 1
+          fi
+      - name: Explain fork secret availability
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: echo "Fork PR code checks run without repository secrets; secret verification is skipped."
+      - name: Save test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phpunit-results
+          path: test-results/phpunit.xml
+          if-no-files-found: warn
+      - name: Save compiled web assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: public/build
+
+  docker:
+    name: Build and publish GHCR image
+    needs: ci
+    if: >-
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate version reference
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]] && [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must use vMAJOR.MINOR.PATCH, for example v1.0.0."
+            exit 1
+          fi
+      - name: Normalize image name
+        id: image
+        shell: bash
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          flavor: latest=false
+          tags: |
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=sha,prefix=sha-
+      - name: Build and publish
+        id: publish
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+      - name: Verify published manifest
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.publish.outputs.digest }}
+        run: docker buildx imagetools inspect "$IMAGE@$DIGEST"

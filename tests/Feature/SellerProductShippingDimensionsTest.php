@@ -24,6 +24,11 @@ class SellerProductShippingDimensionsTest extends TestCase
         parent::setUp();
         $this->createMobileDatabase();
 
+        // Match the existing migration without running it against any database.
+        Schema::table('products', function (Blueprint $table) {
+            $table->decimal('packaging_cost', 12, 2)->nullable();
+        });
+
         if (! Schema::hasColumn('products', 'dimensions')) {
             Schema::table('products', function (Blueprint $table) {
                 $table->string('dimensions')->nullable();
@@ -94,9 +99,12 @@ class SellerProductShippingDimensionsTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $response->assertRedirect();
+        $response->assertStatus(302);
 
         $product = Product::where('name', 'Portable Bluetooth Speaker')->firstOrFail();
+        $response->assertRedirect(route('seller.products.edit', $product->id));
+        $response->assertSessionHas('success', 'Product added successfully.');
+        $this->assertSame(0.0, $product->packaging_cost);
         $this->assertSame('2 kg', $product->weight);
         $this->assertSame('40 × 30 × 20 cm', $product->dimensions);
         $this->assertSame('2', $product->weight_value);
@@ -143,7 +151,7 @@ class SellerProductShippingDimensionsTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response = $this->post('/seller/products/'.$product->id, [
+        $response = $this->from('/seller/products/'.$product->id.'/edit')->post('/seller/products/'.$product->id, [
             'name' => 'Kitchen Blender Pro',
             'category_id' => $this->category->id,
             'price' => 2500.00,
@@ -156,8 +164,12 @@ class SellerProductShippingDimensionsTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
+        $response->assertStatus(302);
+        $response->assertRedirect('/seller/products/'.$product->id.'/edit');
+        $response->assertSessionHas('success', 'Product updated successfully.');
         $product->refresh();
 
+        $this->assertSame(0.0, $product->packaging_cost);
         $this->assertSame('Kitchen Blender Pro', $product->name);
         $this->assertSame('3.5 kg', $product->weight);
         $this->assertSame('50 × 25 × 18 cm', $product->dimensions);

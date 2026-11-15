@@ -1,5 +1,62 @@
 # INVOIZ E-Commerce, Logistics & Escrow Platform
 
+## LAB ACT 3: CI/CD
+
+The existing Laravel/Blade application is the laboratory target. Buyer and rider
+Flutter apps continue to use the same backend; this pipeline does not rebuild mobile apps.
+All supporting laboratory files are organized in [`devops/lab-act-3/`](devops/lab-act-3/README.md).
+
+The new [GitHub Actions workflow](.github/workflows/ci-cd.yml) runs on pushes to
+`main`, pull requests targeting `main`, `v*` tags, and manual dispatch. It installs
+locked Composer/npm dependencies, checks PHP syntax, runs four existing test
+classes against isolated in-memory SQLite fixtures, and builds Vite assets.
+It verifies the presence of `DEMO_API_KEY` without displaying it (fork PRs skip
+secret verification). After CI succeeds, trusted main/version runs build and
+publish a Docker image to GHCR using `GITHUB_TOKEN`. PRs never publish images.
+Publishing an image provides continuous delivery; it does not deploy the website.
+The existing Playwright workflow is preserved as a separate workflow.
+
+Required tools: Git, PHP 8.4.1+ for the current lockfile (CI/container: 8.4), Composer 2, Node.js/npm
+(CI/container: Node 22), SQLite PHP extension for CI fixtures, and optional Docker
+Desktop with Linux containers. GitHub Actions/GHCR require repository access.
+Existing application dependencies and lockfiles are unchanged.
+
+Safe local checks from the repository root:
+
+```powershell
+php devops/lab-act-3/scripts/lint-php.php
+php vendor/phpunit/phpunit/phpunit -c devops/lab-act-3/phpunit.ci.xml
+node devops/lab-act-3/scripts/validate-workflow.mjs
+# Keep generated assets separate from the currently running website:
+npm.cmd run build -- --outDir devops/lab-act-3/.runtime/build --emptyOutDir
+```
+
+Install dependencies with `composer install` and `npm ci` in a fresh checkout.
+Do not overwrite an existing `.env`, generate a new key for a running installation,
+or run development database commands for this lab. The CI bootstrap forces SQLite,
+array cache/session/mail, and separate runtime storage/cache paths.
+
+Container build (when Docker is available):
+
+```powershell
+docker build -t invoiz-lab:local .
+```
+
+For low-RAM verification, build `--target web`, then `--target vendor`, then the
+final image sequentially. Run
+`powershell -NoProfile -File devops/lab-act-3/scripts/Test-Docker.ps1` to verify
+one resource-limited container using SQLite memory on port 8085 and remove it
+afterward. No existing MySQL database or host application files are mounted.
+
+For independent container setup, health checks, GHCR pulls/runs, secret setup,
+release tags, and safe challenge procedures, follow the
+[lab guide](devops/lab-act-3/README.md),
+[GitHub setup](devops/lab-act-3/docs/github-setup.md), and
+[challenge instructions](devops/lab-act-3/docs/challenges.md).
+The [verification report](devops/lab-act-3/docs/verification-results.md) distinguishes
+verified local Docker results from unexecuted Actions and GHCR checks.
+No push, remote tag, publication, or deployment is performed by local validation.
+
 An integrated multi-role e-commerce marketplace, Seller Center, logistics hub fulfillment network, and escrow platform built on Laravel 11 and Flutter.
 
 ---

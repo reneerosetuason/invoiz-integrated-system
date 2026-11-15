@@ -8,13 +8,74 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: testing
+      APP_DEBUG: 'false'
+      APP_URL: http://127.0.0.1:8000
+      APP_MAINTENANCE_DRIVER: file
+      DB_CONNECTION: sqlite
+      DB_URL: ''
+      DB_HOST: invalid.example
+      DB_PORT: '0'
+      DB_USERNAME: ''
+      DB_PASSWORD: ''
+      SESSION_DRIVER: file
+      SESSION_COOKIE: invoiz_playwright_session
+      SESSION_SECURE_COOKIE: 'false'
+      CACHE_STORE: file
+      QUEUE_CONNECTION: sync
+      MAIL_MAILER: array
+      LOG_CHANNEL: stderr
     steps:
     - uses: actions/checkout@v4
+    - name: Configure isolated runtime paths
+      shell: bash
+      run: |
+        {
+          echo "DB_DATABASE=$RUNNER_TEMP/invoiz-playwright.sqlite"
+          echo "LARAVEL_STORAGE_PATH=$RUNNER_TEMP/invoiz-playwright/storage"
+          echo "VIEW_COMPILED_PATH=$RUNNER_TEMP/invoiz-playwright/storage/framework/views"
+          echo "APP_CONFIG_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/config.php"
+          echo "APP_ROUTES_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/routes.php"
+          echo "APP_EVENTS_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/events.php"
+          echo "APP_PACKAGES_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/packages.php"
+          echo "APP_SERVICES_CACHE=$RUNNER_TEMP/invoiz-playwright/cache/services.php"
+        } >> "$GITHUB_ENV"
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.4'
+        extensions: mbstring, pdo_sqlite, bcmath, gd, zip, dom, curl
+        coverage: none
+        tools: composer:v2
     - uses: actions/setup-node@v4
       with:
         node-version: lts/*
     - name: Install dependencies
-      run: npm ci
+      run: |
+        mkdir -p "$LARAVEL_STORAGE_PATH"/framework/{cache/data,sessions,views} "$LARAVEL_STORAGE_PATH"/app/{private,public} "$LARAVEL_STORAGE_PATH"/logs "$RUNNER_TEMP/invoiz-playwright/cache"
+        test "$DB_CONNECTION" = sqlite
+        case "$DB_DATABASE" in "$RUNNER_TEMP"/*) ;; *) echo "Refusing a database outside runner temporary storage."; exit 1 ;; esac
+        touch "$DB_DATABASE"
+        php -r 'file_put_contents(getenv("GITHUB_ENV"), "APP_KEY=base64:".base64_encode(random_bytes(32)).PHP_EOL, FILE_APPEND);'
+        composer install --prefer-dist --no-interaction --no-progress
+        npm ci
+    - name: Initialize isolated login fixtures and assets
+      run: |
+        # Only the base authentication schema; never run the full migration history.
+        php artisan migrate --path=database/migrations/0001_01_01_000000_create_users_table.php --force --no-interaction
+        # Empty fixtures for the logistics login page's public counters.
+        php <<'PHP'
+        <?php
+        $database = getenv('DB_DATABASE');
+        if (getenv('DB_CONNECTION') !== 'sqlite' || !str_starts_with($database, getenv('RUNNER_TEMP').'/')) {
+            throw new RuntimeException('Refusing an unexpected browser-test database.');
+        }
+        $pdo = new PDO('sqlite:'.$database);
+        $pdo->exec('CREATE TABLE riders (id INTEGER PRIMARY KEY, status TEXT)');
+        $pdo->exec('CREATE TABLE deliveries (id INTEGER PRIMARY KEY, status TEXT, archived_at TEXT)');
+        PHP
+        npm run build
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests

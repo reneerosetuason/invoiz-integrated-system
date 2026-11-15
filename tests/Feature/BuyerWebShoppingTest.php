@@ -84,13 +84,35 @@ class BuyerWebShoppingTest extends TestCase
     public function test_add_to_cart_repeats_and_keeps_variations_separate(): void
     {
         [$buyer,$product]=$this->shoppingFixture();$product->update(['stock'=>20]);
+        $this->post('/cart/add/'.$product->id,['qty'=>2])->assertRedirect('/cart')->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->post('/cart/add/'.$product->id,['qty'=>3])->assertRedirect('/cart')->assertSessionHasNoErrors()->assertSessionHas('success');
+        // Preserve a base-product line when the seller subsequently adds variations.
         $variant=ProductVariant::create(['product_id'=>$product->id,'variant_type'=>'Color','variant_value'=>'White','stock'=>8,'price_adjustment'=>20,'status'=>'active']);
-        $this->post('/cart/add/'.$product->id,['qty'=>2])->assertRedirect('/cart');
-        $this->post('/cart/add/'.$product->id,['qty'=>3])->assertRedirect('/cart');
-        $this->post('/cart/add/'.$product->id,['qty'=>2,'variant_id'=>$variant->id])->assertRedirect('/cart');
+        $this->post('/cart/add/'.$product->id,['qty'=>2,'variant_id'=>$variant->id])->assertRedirect('/cart')->assertSessionHasNoErrors()->assertSessionHas('success');
         $this->assertDatabaseCount('cart_items',2);
         $this->assertDatabaseHas('cart_items',['variant_id'=>null,'quantity'=>5]);
         $this->assertDatabaseHas('cart_items',['variant_id'=>$variant->id,'quantity'=>2]);
+    }
+
+    public function test_omitted_variation_selects_available_active_variant_and_repeated_additions_share_its_line(): void
+    {
+        [$buyer,$product]=$this->shoppingFixture();
+        ProductVariant::create(['product_id'=>$product->id,'variant_type'=>'Color','variant_value'=>'Inactive','stock'=>8,'status'=>'inactive']);
+        ProductVariant::create(['product_id'=>$product->id,'variant_type'=>'Color','variant_value'=>'Sold out','stock'=>0,'status'=>'active']);
+        $variant=ProductVariant::create(['product_id'=>$product->id,'variant_type'=>'Color','variant_value'=>'White','stock'=>8,'price_adjustment'=>20,'status'=>'active']);
+        $otherVariant=ProductVariant::create(['product_id'=>$product->id,'variant_type'=>'Color','variant_value'=>'Black','stock'=>2,'status'=>'active']);
+
+        $this->post('/cart/add/'.$product->id,['qty'=>2])->assertRedirect('/cart')->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->post('/cart/add/'.$product->id,['qty'=>3])->assertRedirect('/cart')->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->post('/cart/add/'.$product->id,['qty'=>1,'variant_id'=>$variant->id])->assertRedirect('/cart')->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->assertDatabaseCount('cart_items',1);
+        $this->assertDatabaseHas('cart_items',['cart_id'=>Cart::headerFor($buyer->id)->id,'product_id'=>$product->id,'variant_id'=>$variant->id,'quantity'=>6]);
+        $this->assertDatabaseMissing('cart_items',['product_id'=>$product->id,'variant_id'=>null]);
+
+        $this->post('/cart/add/'.$product->id,['qty'=>2,'variant_id'=>$otherVariant->id])->assertRedirect('/cart')->assertSessionHasNoErrors()->assertSessionHas('success');
+        $this->assertDatabaseCount('cart_items',2);
+        $this->assertDatabaseHas('cart_items',['variant_id'=>$variant->id,'quantity'=>6]);
+        $this->assertDatabaseHas('cart_items',['variant_id'=>$otherVariant->id,'quantity'=>2]);
     }
 
     public function test_variation_cannot_be_added_when_general_stock_is_zero(): void
@@ -187,7 +209,11 @@ class BuyerWebShoppingTest extends TestCase
     public function test_product_keeps_add_button_after_first_cart_addition(): void
     {
         [$buyer,$product]=$this->shoppingFixture();$this->line($buyer,$product);
-        $this->get('/product/'.$product->id)->assertOk()->assertSee('onclick="openOpt()"',false)->assertSee('View Cart');
+        $response=$this->get('/product/'.$product->id)->assertOk()->assertSee('Add to Cart')->assertSee('View Cart');
+        $document=new \DOMDocument();
+        @$document->loadHTML($response->getContent());
+        $buttons=(new \DOMXPath($document))->query('//button[@onclick="confirmOpt(\'cart\')" and contains(normalize-space(.), "Add to Cart") and not(@disabled)]');
+        $this->assertGreaterThan(0,$buttons->length,'An enabled Add to Cart button must remain available after the first cart addition.');
     }
 
     public function test_cart_summary_uses_sale_and_variation_price(): void
