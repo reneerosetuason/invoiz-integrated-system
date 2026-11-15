@@ -149,6 +149,7 @@ class HubTransportDriverProvisioner
                 $driver = HubTransportDriver::create([
                     'user_id' => $user->id,
                     'logistics_company_id' => $companyId,
+                    'center_id' => $center->id,
                     'name' => $application->name,
                     'email' => $email,
                     'phone' => $application->phone,
@@ -166,6 +167,7 @@ class HubTransportDriverProvisioner
 
                 $driver->update([
                     'user_id' => $driver->user_id ?: $user->id,
+                    'center_id' => $driver->center_id ?: $center->id,
                     'name' => $application->name,
                     'phone' => $application->phone,
                     'license_number' => $application->license_number ?: $driver->license_number,
@@ -192,6 +194,7 @@ class HubTransportDriverProvisioner
                         'plate_number' => $application->license_plate,
                     ],
                     [
+                        'center_id' => $center->id,
                         'ownership_type' => 'driver_owned',
                         'hub_transport_driver_id' => $driver->id,
                         'vehicle_type' => $truckType,
@@ -205,8 +208,9 @@ class HubTransportDriverProvisioner
                     ]
                 );
 
-                if ($truck->wasRecentlyCreated || ! $truck->hub_transport_driver_id || ! $truck->vehicle_type || (int) $truck->parcel_capacity <= 0) {
+                if ($truck->wasRecentlyCreated || ! $truck->hub_transport_driver_id || ! $truck->vehicle_type || (int) $truck->parcel_capacity <= 0 || ! $truck->center_id) {
                     $truck->update([
+                        'center_id' => $truck->center_id ?: $center->id,
                         'ownership_type' => 'driver_owned',
                         'hub_transport_driver_id' => $driver->id,
                         'vehicle_type' => $truck->vehicle_type ?: $truckType,

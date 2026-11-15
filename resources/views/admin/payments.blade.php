@@ -8,6 +8,10 @@
 @endpush
 
 @section('content')
+@if(\App\Services\FailedDeliveryService::available())
+    <a href="{{ route('failed-deliveries.index') }}" class="mb-4 inline-block rounded-lg border px-4 py-2 font-semibold">Failed-delivery seller deposits and service payouts</a>
+@endif
+
 @php
     $escrowRemittancesList = $escrowRemittancesList ?? $escrowRemittances ?? null;
     $pendingEscrowRemittances = $pendingEscrowRemittances ?? (isset($escrowRemittancesList) ? collect($escrowRemittancesList->items())->where('status', 'pending_remittance')->filter(fn ($row) => $row->order?->payment?->method !== 'gcash') : collect());
@@ -53,7 +57,7 @@
             <tbody>
                 @forelse($adminRemittances ?? [] as $remit)
                     <tr>
-                        <td><a class="po-truncate po-order" href="{{ ($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id) }}</a></td>
+                        <td><a class="po-truncate po-order" href="{{ $remit->adminOrderUrl() }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id) }}</a></td>
                         <td class="po-money">&#8369;{{ number_format((float) $remit->amount, 2) }}</td>
                         <td>@include('admin.partials.payment-status', ['paymentStatus' => $remit->status])</td>
                         <td class="po-action"><button class="po-view" type="button" data-payment-dialog="payout-detail-order-{{ $remit->id }}" aria-haspopup="dialog" aria-label="View admin remittance {{ $remit->id }}">View</button></td>
@@ -87,7 +91,7 @@
             <tbody>
                 @forelse($escrowRemittancesList ?? [] as $remit)
                     <tr>
-                        <td><a class="po-truncate po-order" href="{{ $remit->source==='return'?route('returns.agreement',$remit->return_id):($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->source==='return'?'Return #'.$remit->return_id:($remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id)) }}</a></td>
+                        <td><a class="po-truncate po-order" href="{{ $remit->source==='return'?route('returns.agreement',$remit->return_id):$remit->adminOrderUrl() }}" title="{{ $remit->order?->order_number ?? $remit->order_id }}">{{ $remit->source==='return'?'Return #'.$remit->return_id:($remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id)) }}</a></td>
                         <td class="po-recipient"><span class="po-truncate po-recipient-name">{{ $remit->recipient_name }}</span><small class="po-truncate">{{ $remit->roleLabel() }}</small></td>
                         @php
                             $paidViaTrip = $remit->recipient_role === 'inter_hub_driver' && !$remit->settlement_reference && (float) $remit->amount === 0.0 && str_contains((string) $remit->rule_applied, 'Paid once through trip settlement');
@@ -151,7 +155,7 @@
 <dialog class="po-dialog" id="payout-detail-{{ $payoutKey }}" aria-labelledby="payout-title-{{ $payoutKey }}">
     <header><div><p class="po-eyebrow">{{ $remit->source==='return'?'Return #'.$remit->return_id.' · ':'' }}Allocation #{{ $remit->id }}</p><h2 id="payout-title-{{ $payoutKey }}">Payout details</h2></div><button type="button" class="po-close" data-payment-close aria-label="Close payout details">&times;</button></header>
     <dl class="po-detail-list">
-        <div><dt>Order</dt><dd><a href="{{ ($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}">{{ $remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id) }}</a></dd></div>
+        <div><dt>Order</dt><dd><a href="{{ $remit->adminOrderUrl() }}">{{ $remit->settlement_reference ? $remit->hubTransfer?->reference : '#'.($remit->order?->order_number ?? $remit->order_id) }}</a></dd></div>
         <div><dt>Recipient</dt><dd>{{ $remit->recipient_name }}</dd></div>
         <div><dt>Role</dt><dd>{{ $remit->roleLabel() }}</dd></div>
         <div><dt>Amount</dt><dd class="po-detail-amount">&#8369;{{ number_format((float) $remit->amount, 2) }}</dd></div>
@@ -239,7 +243,7 @@
         @endphp
         <p class="po-dialog-note">{{ $holdExplanation }}</p>
     @endif
-    <footer><button type="button" class="po-button" data-payment-close>Close</button><a href="{{ ($remit->settlement_reference ? route('hub-transfers.show', $remit->hub_transfer_id) : url('/admin/orders/'.$remit->order_id)) }}" class="po-button">{{ $remit->settlement_reference ? 'Open truck trip' : 'Open order' }} &rarr;</a></footer>
+    <footer><button type="button" class="po-button" data-payment-close>Close</button><a href="{{ $remit->adminOrderUrl() }}" class="po-button">Open order &rarr;</a></footer>
 </dialog>
 @endforeach
 

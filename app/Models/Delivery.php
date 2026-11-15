@@ -23,6 +23,22 @@ class Delivery extends Model
 
     public const RETURN_TO_SELLER_STATUSES = ['delivery_failed', 'damaged'];
 
+    public const MAX_BUYER_DELIVERY_ATTEMPTS = 3;
+
+    public function failedAttempts(): int
+    {
+        $logs = $this->statusLogs()->where('status', 'delivery_failed')->count();
+        $failures = \Illuminate\Support\Facades\Schema::hasTable('delivery_failures')
+            ? \Illuminate\Support\Facades\DB::table('delivery_failures')->where('delivery_id', $this->id)->count() : 0;
+
+        return max($logs, $failures);
+    }
+
+    public function deliveryAttemptsExhausted(): bool
+    {
+        return $this->failedAttempts() >= self::MAX_BUYER_DELIVERY_ATTEMPTS;
+    }
+
     /**
      * Dashboard KPI buckets. Each key maps to the exact set of delivery
      * statuses counted for that bucket, so a dashboard count always equals
@@ -470,57 +486,166 @@ class Delivery extends Model
         $centers = $centers->where('is_active', true);
         $areas ??= ServiceArea::where('is_active', true)->whereIn('logistics_center_id', $centers->pluck('id'))->get();
         $areas = $areas->where('is_active', true)->whereIn('logistics_center_id', $centers->pluck('id')->all());
-        $suggested = $this->suggestedDestination($areas);
+        $suggested = $this->suggestedDestination($areas, $centers);
         $hub = $centers->firstWhere('id', $suggested['center_id']);
         if (!$hub) return null;
         $area = $areas->firstWhere('id', $suggested['service_area_id']);
-        return ['center_id' => (int) $hub->id, 'service_area_id' => $area ? (int) $area->id : null,
-            'name' => $hub->name, 'location' => implode(', ', array_filter([$hub->city, $hub->province])),
-            'reason' => $area ? 'Serves the buyer’s address in '.$area->name.'.' : 'Matches the buyer’s city and province.'];
+        $reason = $suggested['reason'] ?? ($area ? 'Serves the buyer’s address in '.$area->name.'.' : 'Matches the buyer’s city and province.');
+        return [
+            'center_id' => (int) $hub->id,
+            'service_area_id' => $area ? (int) $area->id : null,
+            'name' => $hub->name,
+            'location' => implode(', ', array_filter([$hub->city, $hub->province])),
+            'reason' => $reason,
+        ];
     }
 
-    public function suggestedDestination(?\Illuminate\Support\Collection $areas = null): array
+    public function suggestedDestination(?\Illuminate\Support\Collection $areas = null, ?\Illuminate\Support\Collection $centers = null): array
     {
         if (!\Illuminate\Support\Facades\Schema::hasTable('service_areas') || !\Illuminate\Support\Facades\Schema::hasTable('logistics_centers')) {
-            return ['center_id' => null, 'service_area_id' => null];
+            return ['center_id' => null, 'service_area_id' => null, 'reason' => null];
         }
-        $address = mb_strtolower((string) $this->recipient_address);
-        if ($address === '') {
-            return ['center_id' => null, 'service_area_id' => null];
+        $address = (string) $this->recipient_address;
+        $addressLower = mb_strtolower($address);
+        if ($addressLower === '') {
+            return ['center_id' => null, 'service_area_id' => null, 'reason' => null];
         }
         $areas ??= ServiceArea::where('is_active', true)->whereHas('logisticsCenter', function ($q) {
             $q->where('is_active', true);
             if (\Illuminate\Support\Facades\Schema::hasTable('logistics_companies')) $q->whereHas('company', fn ($company) => $company->where('status', 'active'));
         })->get();
-        $match = self::matchServiceArea($areas, $address);
+        $match = self::matchServiceArea($areas, $addressLower);
 
-        // A hub's registered city is also a destination match. A missing
-        // service-area record must not turn Makati-to-Lumban into a local job.
-        $center = null;
-        if (!$match) {
-            $shipping = $this->order?->shipping_address;
-            $city = is_array($shipping) ? ($shipping['city'] ?? null) : null;
-            $province = is_array($shipping) ? ($shipping['province'] ?? null) : null;
-            if (!$city && $this->order?->address) {
-                $city = $this->order->address->city;
-                $province = $this->order->address->province;
-            }
-            $normalize = fn ($s) => trim(preg_replace('/\b(city of|city|municipality of)\b/u', '', mb_strtolower(trim((string) $s))));
+        if ($match) {
+            return [
+                'center_id' => (int) $match->logistics_center_id,
+                'service_area_id' => (int) $match->id,
+                'reason' => 'Serves buyer’s address in ' . $match->name . '.',
+            ];
+        }
+
+        // Nearest hub matching by Barangay, Municipality / City, and Province
+        $shipping = $this->order?->shipping_address;
+        $city = is_array($shipping) ? ($shipping['city'] ?? null) : null;
+        $province = is_array($shipping) ? ($shipping['province'] ?? null) : null;
+        $barangay = is_array($shipping) ? ($shipping['barangay'] ?? null) : null;
+        if ((!$city || !$province) && $this->order?->address) {
+            $city = $city ?: $this->order->address->city;
+            $province = $province ?: $this->order->address->province;
+            $barangay = $barangay ?: $this->order->address->barangay;
+        }
+
+        $normalize = fn ($s) => trim(preg_replace('/\b(city of|city|municipality of|municipality|brgy\.?|barangay)\b/ui', '', mb_strtolower(trim((string) $s))));
+        $normCity = $normalize($city);
+        $normProv = $normalize($province);
+        $normBrgy = $normalize($barangay);
+
+        if ($centers === null) {
             $centerQuery = LogisticsCenter::where('is_active', true);
-            if (\Illuminate\Support\Facades\Schema::hasTable('logistics_companies')) $centerQuery->whereHas('company', fn ($q) => $q->where('status', 'active'));
-            $centers = $centerQuery->get()->filter(function ($hub) use ($city, $province, $address, $normalize) {
-                if (!$hub->city) return false;
-                if ($city) return $normalize($hub->city) === $normalize($city)
-                    && (!$province || !$hub->province || $normalize($hub->province) === $normalize($province));
-                return preg_match('/(?<!\pL)'.preg_quote(mb_strtolower($hub->city), '/').'(?!\pL)/u', $address) === 1;
-            });
-            // Multiple hubs need staff routing; never silently choose one.
-            if ($centers->count() === 1) $center = $centers->first();
+            if (\Illuminate\Support\Facades\Schema::hasTable('logistics_companies')) {
+                $centerQuery->whereHas('company', fn ($q) => $q->where('status', 'active'));
+            }
+            $centers = $centerQuery->get();
+        }
+        $centers = $centers->where('is_active', true);
+
+        $bestHub = null;
+        $bestScore = 0;
+        $bestReason = null;
+        $bestAreaId = null;
+
+        foreach ($centers as $hub) {
+            $score = 0;
+            $reason = null;
+            $areaId = null;
+
+            $hubCityNorm = $normalize($hub->city);
+            $hubProvNorm = $normalize($hub->province);
+            $hubBrgyNorm = $normalize($hub->barangay);
+
+            // Tier 1: Service area under this hub matches city/barangay/address text
+            $hubAreas = $areas->where('logistics_center_id', $hub->id);
+            foreach ($hubAreas as $ha) {
+                $haNorm = $normalize($ha->name);
+                if ($haNorm !== '') {
+                    $matched = false;
+                    if ($normCity !== '' && (str_contains($normCity, $haNorm) || str_contains($haNorm, $normCity))) {
+                        $matched = true;
+                    } elseif ($normBrgy !== '' && (str_contains($normBrgy, $haNorm) || str_contains($haNorm, $normBrgy))) {
+                        $matched = true;
+                    } elseif ($haNorm === 'manila') {
+                        $matched = (bool) preg_match('/(?<!\pL|metro\s)'.preg_quote($haNorm, '/').'(?!\pL)/u', $addressLower);
+                    } else {
+                        $matched = (bool) preg_match('/(?<!\pL)'.preg_quote($haNorm, '/').'(?!\pL)/u', $addressLower);
+                    }
+
+                    if ($matched) {
+                        $score = 100;
+                        $reason = 'Serves buyer’s area in ' . $ha->name . ' (' . implode(', ', array_filter([$hub->city, $hub->province])) . ').';
+                        $areaId = (int) $ha->id;
+                        break;
+                    }
+                }
+            }
+
+            // Tier 2: Barangay match
+            if ($score < 80) {
+                $matchedBrgy = false;
+                if ($normBrgy !== '' && $hubBrgyNorm !== '' && ($hubBrgyNorm === $normBrgy || str_contains($hubBrgyNorm, $normBrgy) || str_contains($normBrgy, $hubBrgyNorm))) {
+                    $matchedBrgy = true;
+                } elseif ($normBrgy !== '' && $hub->address && str_contains(mb_strtolower($hub->address), $normBrgy)) {
+                    $matchedBrgy = true;
+                } elseif ($hubBrgyNorm !== '' && str_contains($addressLower, $hubBrgyNorm)) {
+                    $matchedBrgy = true;
+                }
+                if ($matchedBrgy) {
+                    $score = 80;
+                    $reason = 'Nearest hub in buyer’s barangay (' . ($barangay ?: $hub->barangay) . ($hub->city ? ', ' . $hub->city : '') . ').';
+                }
+            }
+
+            // Tier 3: Municipality / City match
+            if ($score < 60) {
+                $matchedCity = false;
+                if ($normCity !== '' && $hubCityNorm !== '' && ($hubCityNorm === $normCity || str_contains($hubCityNorm, $normCity) || str_contains($normCity, $hubCityNorm))) {
+                    $matchedCity = true;
+                } elseif ($hubCityNorm !== '' && (str_contains($addressLower, $hubCityNorm) || preg_match('/(?<!\pL)'.preg_quote(mb_strtolower($hub->city), '/').'(?!\pL)/u', $addressLower) === 1)) {
+                    $matchedCity = true;
+                }
+                if ($matchedCity) {
+                    $provMatches = ($normProv !== '' && $hubProvNorm !== '' && ($normProv === $hubProvNorm || str_contains($hubProvNorm, $normProv)))
+                        || ($hubProvNorm !== '' && str_contains($addressLower, $hubProvNorm));
+                    $score = $provMatches ? 65 : 55;
+                    $reason = 'Nearest hub in buyer’s municipality/city (' . $hub->city . ($hub->province ? ', ' . $hub->province : '') . ').';
+                }
+            }
+
+            // Tier 4: Province match
+            if ($score < 40) {
+                $matchedProv = false;
+                if ($normProv !== '' && $hubProvNorm !== '' && ($hubProvNorm === $normProv || str_contains($hubProvNorm, $normProv) || str_contains($normProv, $hubProvNorm))) {
+                    $matchedProv = true;
+                } elseif ($hubProvNorm !== '' && (str_contains($addressLower, $hubProvNorm) || preg_match('/(?<!\pL)'.preg_quote(mb_strtolower($hub->province), '/').'(?!\pL)/u', $addressLower) === 1)) {
+                    $matchedProv = true;
+                }
+                if ($matchedProv) {
+                    $score = 35;
+                    $reason = 'Nearest hub in buyer’s province (' . $hub->province . ') — ' . $hub->name . '.';
+                }
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestHub = $hub;
+                $bestReason = $reason;
+                $bestAreaId = $areaId;
+            }
         }
 
         return [
-            'center_id' => $match?->logistics_center_id ? (int) $match->logistics_center_id : $center?->id,
-            'service_area_id' => $match ? (int) $match->id : null,
+            'center_id' => $bestHub ? (int) $bestHub->id : null,
+            'service_area_id' => $bestAreaId,
+            'reason' => $bestReason,
         ];
     }
 
@@ -715,7 +840,14 @@ class Delivery extends Model
     private static function matchServiceArea(?\Illuminate\Support\Collection $areas, string $address): ?ServiceArea
     {
         return $areas?->sortByDesc(fn ($area) => mb_strlen((string) $area->name))
-            ->first(fn ($area) => $area->name && str_contains($address, mb_strtolower((string) $area->name)));
+            ->first(function ($area) use ($address) {
+                if (!$area->name) return false;
+                $name = mb_strtolower((string) $area->name);
+                if ($name === 'manila') {
+                    return (bool) preg_match('/(?<!\pL|metro\s)'.preg_quote($name, '/').'(?!\pL)/u', $address);
+                }
+                return (bool) preg_match('/(?<!\pL)'.preg_quote($name, '/').'(?!\pL)/u', $address);
+            });
     }
 
     public function scopeNotArchived($query)

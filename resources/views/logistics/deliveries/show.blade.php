@@ -32,8 +32,6 @@
         $isTerminalBad = in_array($delivery->status, ['delivery_failed', 'lost', 'damaged', 'returned_to_seller', 'cancelled']);
         $weight = (float) ($delivery->weight ?? 0);
         $capacities = \App\Models\LogisticsSetting::vehicleCapacities();
-        $attemptPrefs = \App\Models\LogisticsSetting::forUser(auth()->id())->delivery ?? [];
-        $maxAttempts = (int) ($attemptPrefs['max_attempts'] ?? 2);
         $failedAttempts = $delivery->statusLogs->where('status', 'delivery_failed')->count();
         $isCodDelivery = \App\Support\Cod::isCod($delivery);
         $canProcessParcels = \App\Support\LogisticsAccess::canProcessParcels(auth()->user());
@@ -54,8 +52,8 @@
             <h1 class="text-2xl font-bold text-gray-900">Delivery Details</h1>
             <x-status-badge :status="$delivery->status" />
             @if($failedAttempts > 0)
-                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full {{ $failedAttempts >= $maxAttempts ? 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200' : 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200' }}" title="Failed delivery attempts used out of the Maximum Delivery Attempts preference in Settings">
-                    Attempts {{ $failedAttempts }} of {{ $maxAttempts }}
+                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200" title="Maximum three buyer delivery attempts. After the third failure the seller chooses return or unclaimed storage.">
+                    Failed attempts: {{ $failedAttempts }} / 3
                 </span>
             @endif
             @if($delivery->archived_at)
@@ -806,7 +804,7 @@
                                     <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
                                         <span class="text-sm font-semibold text-gray-900">
                                             {{ \Illuminate\Support\Str::title(str_replace('_', ' ', $log->status)) }}
-                                            @if(in_array($log->status, ['delivery_failed', 'lost', 'returned_to_seller', 'cancelled']))<span class="ml-1 text-xs font-normal text-red-500">(final)</span>@endif
+                                            @if(in_array($log->status, ['lost', 'returned_to_seller', 'cancelled']))<span class="ml-1 text-xs font-normal text-red-500">(final)</span>@endif
                                             @if(in_array($log->status, $parcelEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-teal-light text-teal-dark">Parcel</span>@endif
                                             @if(in_array($log->status, $centerEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-amber-100 text-amber-700">Hub Sorting</span>@endif
                                             @if(in_array($log->status, $recordEventStatuses, true))<span class="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide rounded bg-gray-200 text-gray-500">Record</span>@endif
@@ -1231,9 +1229,20 @@
             </div>
 
             <div class="rounded-xl border border-gray-200 p-4">
-                <h3 class="font-semibold text-gray-900 mb-1">Return to Seller</h3>
+                <h3 class="font-semibold text-gray-900 mb-1">{{ ($returnState['state'] ?? null) === 'awaiting_redelivery' ? 'Destination Hub / Delivery Retry' : 'Return to Seller' }}</h3>
                 @if($returnState)
-                    @if($returnState['state'] === 'received')
+                    @if($delivery->deliveryAttemptsExhausted())
+                        <p class="text-sm text-gray-600">Three buyer delivery attempts have failed. The parcel must return to the destination hub for the seller to choose a funded return or unclaimed storage. Completed services remain payable.</p>
+                        @if(\App\Services\FailedDeliveryService::available() && $delivery->returned_at)
+                            <a class="mt-3 inline-block font-semibold text-teal-700 underline" href="{{ route('failed-deliveries.show', $delivery) }}">Manage failed-delivery resolution</a>
+                        @endif
+                    @elseif($returnState['state'] === 'awaiting_redelivery')
+                        @if($delivery->returned_at)
+                            <p class="text-sm text-gray-600">The failed parcel is waiting at the destination Logistics Hub. Assign an eligible rider above, then dispatch it for another delivery attempt. Up to three buyer delivery attempts are allowed.</p>
+                        @else
+                            <p class="text-sm text-gray-600">The rider must return the failed parcel to the destination Logistics Hub before staff can assign the next delivery attempt.</p>
+                        @endif
+                    @elseif($returnState['state'] === 'received')
                         <p class="text-sm font-semibold text-emerald-700">Seller confirmed receipt on {{ $returnState['received_at']?->format('M d, Y h:i A') }}.</p>
                         <p class="text-xs text-gray-500 mt-1">Stock was restored once. No automatic refund was issued.</p>
                     @elseif($returnState['state'] === 'dispatched')

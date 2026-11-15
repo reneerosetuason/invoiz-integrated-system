@@ -30,6 +30,7 @@ class Delivery {
     this.deliveredAt,
     this.failedAt,
     this.failureReason,
+    this.failedAttempts = 0,
     this.reattemptRequestedAt,
     this.returnedAt,
     this.returnReason,
@@ -84,6 +85,8 @@ class Delivery {
   final DateTime? deliveredAt;
   final DateTime? failedAt;
   final String? failureReason;
+  final int failedAttempts;
+  bool get deliveryAttemptsExhausted => failedAttempts >= 3;
   final DateTime? reattemptRequestedAt;
   final DateTime? returnedAt;
   final String? returnReason;
@@ -216,6 +219,9 @@ class Delivery {
       deliveredAt: _parseDate(json['delivered_at']),
       failedAt: _parseDate(json['failed_at']),
       failureReason: json['failure_reason'] as String?,
+      failedAttempts:
+          (json['failed_attempts'] as num?)?.toInt() ??
+          logs.where((log) => log.status == 'delivery_failed').length,
       reattemptRequestedAt: _parseDate(json['reattempt_requested_at']),
       returnedAt: _parseDate(json['returned_at']),
       returnReason: json['return_reason'] as String?,
@@ -278,6 +284,7 @@ class Delivery {
       deliveredAt: deliveredAt,
       failedAt: failedAt,
       failureReason: failureReason,
+      failedAttempts: failedAttempts,
       reattemptRequestedAt: reattemptRequestedAt,
       returnedAt: returnedAt,
       returnReason: returnReason,

@@ -61,8 +61,9 @@ class PaymentController extends Controller
             ->with(['settlement.order','recipientUser','rider','driver','center'])->get():collect();
         $combinedPayouts=\App\Support\RemittanceFeed::combine($orderPayouts,$returnPayouts);
         $escrowRemittances=\App\Support\RemittanceFeed::paginate($combinedPayouts,15,'remit_page');
+        // Keep orphaned receipts in the ledger, outside the actionable inbox.
         $returnFundingReceipts=Schema::hasTable('return_fund_payments')?\App\Models\ReturnFundPayment::with('settlement.returnRequest.item')
-            ->where('status','submitted')->latest('id')->paginate(10,['*'],'funding_page'):null;
+            ->whereHas('settlement')->where('status','submitted')->latest('id')->paginate(10,['*'],'funding_page'):null;
         $escrowAdjustments=Schema::hasTable('return_allocations')?\App\Models\ReturnAllocation::whereNotIn('role',\App\Support\ReturnRemittanceInbox::ROLES)
             ->whereIn('status',['eligible','remitted'])->count():0;
 

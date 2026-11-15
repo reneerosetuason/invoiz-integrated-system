@@ -15,6 +15,8 @@ import '../lib/services/delivery_service.dart';
 Map<String, dynamic> _delivery({
   String status = 'out_for_delivery',
   String? failureReason,
+  bool returned = false,
+  int failedAttempts = 0,
 }) => {
   'id': 55,
   'tracking_number': 'TRK-20261029-FAIL',
@@ -32,6 +34,8 @@ Map<String, dynamic> _delivery({
   'amount_to_collect': 500,
   'pickup_pin_required': false,
   'failure_reason': ?failureReason,
+  'returned_at': returned ? '2026-11-15T12:00:00Z' : null,
+  'failed_attempts': failedAttempts,
 };
 
 http.Response _json(Object body, [int status = 200]) => http.Response(
@@ -41,7 +45,7 @@ http.Response _json(Object body, [int status = 200]) => http.Response(
 );
 
 class _Backend {
-  _Backend() {
+  _Backend({this.attempts = 0}) {
     client = MockClient((request) async {
       final path = request.url.path;
       if (request.method == 'GET' && path.endsWith('/rider/deliveries/55')) {
@@ -49,11 +53,23 @@ class _Backend {
       }
       if (request.method == 'POST' && path.endsWith('/failed')) {
         final body = jsonDecode(request.body) as Map;
+        attempts++;
         return _json({
           'message': 'Failed delivery reported.',
           'delivery': _delivery(
             status: 'delivery_failed',
             failureReason: body['reason'] as String?,
+            failedAttempts: attempts,
+          ),
+        });
+      }
+      if (request.method == 'POST' && path.endsWith('/return-to-center')) {
+        returns++;
+        return _json({
+          'delivery': _delivery(
+            status: 'delivery_failed',
+            returned: true,
+            failedAttempts: attempts,
           ),
         });
       }
@@ -62,6 +78,8 @@ class _Backend {
   }
 
   late final MockClient client;
+  int returns = 0;
+  int attempts;
 }
 
 Future<DeliveryProvider> _load(_Backend backend) async {
@@ -72,10 +90,7 @@ Future<DeliveryProvider> _load(_Backend backend) async {
   return provider;
 }
 
-Future<void> _pump(
-  WidgetTester tester,
-  DeliveryProvider provider,
-) async {
+Future<void> _pump(WidgetTester tester, DeliveryProvider provider) async {
   await tester.pumpWidget(
     ChangeNotifierProvider<DeliveryProvider>.value(
       value: provider,
@@ -85,10 +100,7 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
-Future<void> _report(
-  WidgetTester tester,
-  String reason,
-) async {
+Future<void> _report(WidgetTester tester, String reason) async {
   final tile = find.text(reason);
   await tester.ensureVisible(tile);
   await tester.tap(tile);
@@ -99,35 +111,83 @@ Future<void> _report(
 }
 
 void main() {
-  testWidgets('refused delivery offers Return to Sender, not re-attempt', (
-    tester,
-  ) async {
-    final provider = await _load(_Backend());
-    await _pump(tester, provider);
+  testWidgets(
+    'refused delivery waits at destination hub for staff reassignment',
+    (tester) async {
+      final provider = await _load(_Backend());
+      await _pump(tester, provider);
 
-    await _report(tester, 'Customer refused order');
+      await _report(tester, 'Customer refused order');
 
-    expect(
-      find.textContaining('Customer refused: this parcel must go back'),
-      findsOneWidget,
-    );
-    expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
-    expect(find.text('Request Re-attempt'), findsNothing);
-  });
+      expect(
+        find.textContaining('It will stay there until logistics staff assigns'),
+        findsOneWidget,
+      );
+      expect(find.text('Confirm return to destination hub'), findsOneWidget);
+      expect(find.text('Request Re-attempt'), findsNothing);
+    },
+  );
 
-  testWidgets('other failures explain the 3-attempt return rule', (
-    tester,
-  ) async {
-    final provider = await _load(_Backend());
-    await _pump(tester, provider);
+  testWidgets(
+    'other failures allow future delivery attempts without a sender return',
+    (tester) async {
+      final provider = await _load(_Backend());
+      await _pump(tester, provider);
 
-    await _report(tester, 'Customer unavailable');
+      await _report(tester, 'Customer unavailable');
 
-    expect(
-      find.textContaining('After the 3rd failed attempt'),
-      findsOneWidget,
-    );
-    expect(find.text('Request Re-attempt'), findsOneWidget);
-    expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
-  });
+      expect(find.textContaining('After the 3rd failed attempt'), findsNothing);
+      expect(find.text('Request Re-attempt'), findsNothing);
+      expect(find.textContaining('Return to Sender'), findsNothing);
+      expect(find.text('Confirm return to destination hub'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'hub return requires physical handover confirmation and then shows waiting',
+    (tester) async {
+      final backend = _Backend();
+      final provider = await _load(backend);
+      await _pump(tester, provider);
+      await _report(tester, 'Customer unavailable');
+      await tester.tap(find.text('Confirm return to destination hub'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('physically handed the parcel back'),
+        findsOneWidget,
+      );
+      expect(backend.returns, 0);
+      await tester.tap(find.text('Not yet'));
+      await tester.pumpAndSettle();
+      expect(backend.returns, 0);
+      await tester.tap(find.text('Confirm return to destination hub'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm handover'));
+      await tester.pumpAndSettle();
+      expect(backend.returns, 1);
+      expect(provider.selected!.hasCenterReturn, isTrue);
+      expect(find.text('Waiting at destination hub'), findsOneWidget);
+      expect(find.text('Confirm return to destination hub'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'third failed attempt requires seller return or unclaimed decision',
+    (tester) async {
+      final backend = _Backend(attempts: 2);
+      final provider = await _load(backend);
+      await _pump(tester, provider);
+      await _report(tester, 'Customer unavailable');
+      expect(provider.selected!.deliveryAttemptsExhausted, isTrue);
+      expect(find.text('Failed attempts: 3 / 3'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'The seller must choose return to seller or unclaimed storage',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Request Re-attempt'), findsNothing);
+      expect(find.text('Confirm return to destination hub'), findsOneWidget);
+    },
+  );
 }

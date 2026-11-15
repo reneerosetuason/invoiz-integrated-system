@@ -137,7 +137,7 @@ class SettingController extends Controller
     public function updateDelivery(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'max_attempts' => 'required|integer|min:1|max:3',
+            'max_attempts' => 'required|integer|in:3',
         ]);
 
         $existing = LogisticsSetting::forUser(Auth::id())->delivery ?? [];

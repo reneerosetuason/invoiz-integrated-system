@@ -167,7 +167,11 @@ class OrderController extends Controller
             'note' => 'nullable|string|max:1000',
         ]);
 
-        $returns->confirm($delivery, $request->user(), $validated['note'] ?? null);
+        if (\App\Services\FailedDeliveryService::caseFor($delivery)) {
+            app(\App\Services\FailedDeliveryService::class)->act($delivery, $request->user(), 'seller_receive', $validated);
+        } else {
+            $returns->confirm($delivery, $request->user(), $validated['note'] ?? null);
+        }
 
         return back()->with('success', 'Returned parcel confirmed. Eligible undamaged stock is restored once; prepaid refunds await admin payment review.');
     }

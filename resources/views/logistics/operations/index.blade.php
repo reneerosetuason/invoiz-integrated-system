@@ -81,6 +81,8 @@
         $destinationCentersMeta = $destinationCenters->map(fn ($dc) => [
             'id' => (int) $dc->id,
             'name' => $dc->name,
+            'city' => $dc->city ?? '',
+            'province' => $dc->province ?? '',
         ])->values();
 
         $ridersMeta = $eligibleRiders->map(fn ($r) => [
@@ -671,9 +673,9 @@
                                     @change="bulkSortServiceAreaId = ''"
                                     class="w-full rounded-lg border border-[#D8D5CE] px-3 py-2 text-xs">
                                 <option value="">Select next destination hub…</option>
-                                @foreach($destinationCenters as $destCenter)
-                                    <option value="{{ $destCenter->id }}">{{ $destCenter->name }}</option>
-                                @endforeach
+                                <template x-for="destCenter in sortedDestinationHubs()" :key="destCenter.id">
+                                    <option :value="destCenter.id" x-text="destCenter.label" :class="destCenter.is_recommended ? 'font-bold text-teal-800' : ''"></option>
+                                </template>
                             </select>
                         </div>
 
@@ -793,11 +795,9 @@
                             <label class="block text-xs font-semibold text-[#1B1B1E] mb-1">Confirm Next Destination Hub</label>
                             <select x-model="bulkTransferDestinationId" class="w-full rounded-lg border border-[#D8D5CE] px-3 py-2 text-xs">
                                 <option value="">Select destination hub to confirm…</option>
-                                @foreach($destinationCenters as $destCenter)
-                                    @if(! $center || (int) $destCenter->id !== (int) $center->id)
-                                        <option value="{{ $destCenter->id }}">{{ $destCenter->name }}</option>
-                                    @endif
-                                @endforeach
+                                <template x-for="destCenter in transferDestinationHubs()" :key="destCenter.id">
+                                    <option :value="destCenter.id" x-text="destCenter.label" :class="destCenter.is_target ? 'font-bold text-teal-800' : ''"></option>
+                                </template>
                             </select>
                             <p class="mt-1 text-[11px] text-[#6E6E73]">
                                 Every selected parcel's existing destination will be independently verified against this destination hub before opening the transfer manifest.
@@ -1332,6 +1332,54 @@
                         return [...groups.values()];
                     },
 
+                    sortedDestinationHubs() {
+                        const recs = this.sortingRecommendations();
+                        const recMap = new Map();
+                        recs.forEach(r => {
+                            if (r.center_id) {
+                                recMap.set(Number(r.center_id), r);
+                            }
+                        });
+
+                        return this.destinationCenters.map(hub => {
+                            const hId = Number(hub.id);
+                            const rec = recMap.get(hId);
+                            let label = hub.name;
+                            if (rec) {
+                                label += ' — ⭐ Recommended (' + (rec.reason || 'Nearest to buyer') + ')';
+                            } else if (hub.city) {
+                                label += ' (' + hub.city + (hub.province ? ', ' + hub.province : '') + ')';
+                            }
+                            return {
+                                id: hub.id,
+                                name: hub.name,
+                                label: label,
+                                is_recommended: Boolean(rec),
+                            };
+                        }).sort((a, b) => (b.is_recommended ? 1 : 0) - (a.is_recommended ? 1 : 0));
+                    },
+
+                    transferDestinationHubs() {
+                        const tGroups = this.transferDestinationGroups();
+                        const targetIds = new Set(tGroups.map(g => Number(g.destination_center_id)));
+                        return this.destinationCenters.filter(dc => !this.centerId || Number(dc.id) !== Number(this.centerId)).map(hub => {
+                            const isTarget = targetIds.has(Number(hub.id));
+                            let label = hub.name;
+                            if (isTarget) {
+                                const grp = tGroups.find(g => Number(g.destination_center_id) === Number(hub.id));
+                                label += ' — ⭐ Target Hub (' + (grp?.parcel_count || 0) + ' parcels)';
+                            } else if (hub.city) {
+                                label += ' (' + hub.city + (hub.province ? ', ' + hub.province : '') + ')';
+                            }
+                            return {
+                                id: hub.id,
+                                name: hub.name,
+                                label: label,
+                                is_target: isTarget,
+                            };
+                        }).sort((a, b) => (b.is_target ? 1 : 0) - (a.is_target ? 1 : 0));
+                    },
+
                     useSortingRecommendation(recommendation) {
                         this.selectedIds = recommendation.parcel_ids.slice();
                         this.bulkSortDestinationId = String(recommendation.center_id);
@@ -1562,14 +1610,8 @@
                                 this.bulkSortDestinationId = String(sGroups[0].destination_center_id);
                                 this.bulkSortServiceAreaId = sGroups[0].service_area_id ? String(sGroups[0].service_area_id) : '';
                             } else {
-                                const recommendations = this.sortingRecommendations();
-                                if (recommendations.length === 1 && recommendations[0].parcel_ids.length === this.eligibleParcels('sort').length) {
-                                    this.bulkSortDestinationId = String(recommendations[0].center_id);
-                                    this.bulkSortServiceAreaId = recommendations[0].service_area_id ? String(recommendations[0].service_area_id) : '';
-                                } else {
-                                    this.bulkSortDestinationId = '';
-                                    this.bulkSortServiceAreaId = '';
-                                }
+                                this.bulkSortDestinationId = '';
+                                this.bulkSortServiceAreaId = '';
                             }
                         } else if (action === 'transfer') {
                             const tGroups = this.transferDestinationGroups();

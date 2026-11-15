@@ -1028,7 +1028,14 @@ class EscrowEarnings
                     || (Schema::hasTable('parcel_liabilities') && \App\Models\ParcelLiability::where('delivery_id', $delivery->id)->exists())
                 );
 
+                $failedResolutionOwnsWorkers = $delivery && \App\Services\FailedDeliveryService::caseFor($delivery);
                 foreach ($rows as $role => $meta) {
+                    // A failed-shipment case owns only its worker settlement.
+                    // Keep buyer/seller/refund escrow on its existing pathway.
+                    if ($delivery && in_array($role, EscrowRemittance::WORKER_ROLES, true)
+                        && $failedResolutionOwnsWorkers) {
+                        continue;
+                    }
                     $existing = EscrowRemittance::where('order_id', $order->id)
                         ->where('seller_id', $sellerId)
                         ->where('recipient_role', $role)

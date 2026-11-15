@@ -281,6 +281,12 @@ class UnifiedAuthController extends Controller
         $request->session()->regenerate();
         $this->putBuyerSession($request, $user);
 
+        $request->session()->forget('url.intended');
+        $seller = \App\Models\Seller::where('user_id', $user->id)->first();
+        if ($seller && strtolower((string) ($seller->approval_status ?? '')) === 'pending') {
+            return redirect('/sell')->with('success', 'Email verified! Your seller application is submitted and under administrator review.');
+        }
+
         return $this->redirectForRole($user)
             ->with('success', 'Email verified — welcome, ' . ($user->first_name ?? 'buyer') . '!');
     }
@@ -551,7 +557,7 @@ class UnifiedAuthController extends Controller
         if ($seller && ! $seller->isApproved()) {
             // Pending applications must not sign out an otherwise valid buyer account.
             if (strtolower((string) ($seller->approval_status ?? '')) === 'pending') {
-                return redirect()->intended('/shop')->with('error', 'Your seller application is still pending approval.');
+                return redirect()->intended('/sell')->with('info', 'Your seller application is under review.');
             }
         }
 

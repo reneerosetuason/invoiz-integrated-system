@@ -163,9 +163,9 @@ class HubCourierController extends Controller
         $returnEarnings=\App\Support\ReturnServiceEarnings::driver($driver->id);
         $returnTotal=\App\Support\ReturnServiceEarnings::amount($returnEarnings);
         $entries=$earnings->map(fn($row)=>$row->toArray()+['source'=>'order'])->concat($returnEarnings->map(fn($row)=>[
-            'id'=>$row->id,'source'=>'return','return_id'=>$row->settlement->return_request_id,'amount'=>$row->amount_cents/100,
+            'id'=>$row->id,'source'=>$row instanceof \App\Models\FailedDeliveryFee?'failed_delivery':'return','return_id'=>$row instanceof \App\Models\FailedDeliveryFee?null:$row->settlement->return_request_id,'amount'=>$row->amount_cents/100,
             'base_amount'=>$row->amount_cents/100,'vehicle_allowance'=>0,'created_at'=>$row->accepted_at?->toIso8601String(),
-            'transfer'=>['reference'=>'Return #'.$row->settlement->return_request_id],
+            'transfer'=>['reference'=>$row instanceof \App\Models\FailedDeliveryFee?'Failed delivery #'.$row->failed_delivery_case_id:'Return #'.$row->settlement->return_request_id],
         ]))->sortByDesc('created_at')->values();
         $earningPage=\App\Support\RemittanceFeed::paginate($entries,20);
 

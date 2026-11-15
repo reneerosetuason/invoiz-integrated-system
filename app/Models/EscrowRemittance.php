@@ -113,6 +113,33 @@ class EscrowRemittance extends Model
         return $this->belongsTo(HubTransportDriver::class, 'hub_transport_driver_id');
     }
 
+    public function resolvedOrderId(): ?int
+    {
+        if ($this->order_id) {
+            return (int) $this->order_id;
+        }
+
+        if ($this->delivery?->order_id) {
+            return (int) $this->delivery->order_id;
+        }
+
+        if ($this->hub_transfer_id && $this->hubTransfer) {
+            $firstParcel = $this->hubTransfer->parcels()->with('delivery')->first();
+            if ($firstParcel?->delivery?->order_id) {
+                return (int) $firstParcel->delivery->order_id;
+            }
+        }
+
+        return null;
+    }
+
+    public function adminOrderUrl(): string
+    {
+        $id = $this->resolvedOrderId();
+
+        return $id ? url('/admin/orders/'.$id) : url('/admin/orders');
+    }
+
     public function recipientUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recipient_user_id');

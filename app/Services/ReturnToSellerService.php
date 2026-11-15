@@ -24,6 +24,8 @@ class ReturnToSellerService
 
     public const RECEIVED = 'return_received_by_seller';
 
+    // Preserve receipt confirmation for seller returns dispatched before the
+    // failed-delivery policy changed; new dispatches use the model allowlist.
     private const ELIGIBLE_STATUSES = ['delivery_failed', 'damaged'];
 
     public function state(Delivery $delivery): array
@@ -42,6 +44,12 @@ class ReturnToSellerService
             $state = 'received';
         } elseif ($dispatched) {
             $state = 'dispatched';
+        } elseif ($delivery->status === 'delivery_failed' && $delivery->deliveryAttemptsExhausted()) {
+            $state = FailedDeliveryService::caseFor($delivery)?->stage ?? 'awaiting_seller_decision';
+        } elseif ($delivery->status === 'delivery_failed'
+            || ($delivery->returned_at !== null
+                && in_array($delivery->status, ['waiting_for_rider', 'assigned', 'accepted'], true))) {
+            $state = 'awaiting_redelivery';
         } elseif ($delivery->returned_at) {
             $state = 'queued';
         }
@@ -54,7 +62,7 @@ class ReturnToSellerService
             'can_dispatch' => $delivery->returned_at !== null
                 && ! $dispatched
                 && ! $received
-                && in_array($delivery->status, self::ELIGIBLE_STATUSES, true),
+                && $delivery->status === 'damaged',
             'can_confirm' => $dispatched !== null && ! $received,
         ];
     }
@@ -82,8 +90,16 @@ class ReturnToSellerService
                 throw ValidationException::withMessages(['return' => 'The parcel must be returned to the center before it can be sent to the seller.']);
             }
 
-            if (! in_array($locked->status, self::ELIGIBLE_STATUSES, true)) {
-                throw ValidationException::withMessages(['return' => 'Only failed or damaged parcels can be returned to the seller.']);
+            if (! in_array($locked->status, Delivery::RETURN_TO_SELLER_STATUSES, true)) {
+                throw ValidationException::withMessages(['return' => 'Failed deliveries stay at the destination Logistics Hub for reassignment. Only damaged parcels can be dispatched back to the seller.']);
+            }
+
+            if ($locked->status === 'delivery_failed') {
+                $case = FailedDeliveryService::caseFor($locked);
+                if (! $case || $case->stage !== 'seller_delivery' || ! $case->funded_at
+                    || $case->decision !== 'return' || (int) $case->rider?->user_id !== (int) $actor?->id) {
+                    throw ValidationException::withMessages(['return' => 'Use the seller-approved, funded return workflow after three failed attempts.']);
+                }
             }
 
             DeliveryStatusLog::create([
@@ -130,6 +146,10 @@ class ReturnToSellerService
 
     public function confirm(Delivery $delivery, User $sellerUser, ?string $note = null): Delivery
     {
+        $case = FailedDeliveryService::caseFor($delivery);
+        if ($case && (! in_array($case->stage, ['seller_arrival', 'completed'], true) || ! $case->funded_at)) {
+            throw ValidationException::withMessages(['return' => 'The assigned return rider must record seller handover before receipt confirmation.']);
+        }
         $sellerKeys = [(int) $sellerUser->id];
 
         return DB::transaction(function () use ($delivery, $sellerUser, $sellerKeys, $note) {

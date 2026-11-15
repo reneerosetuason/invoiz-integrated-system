@@ -53,6 +53,9 @@ class SellerApplicationController extends Controller
 
         $userId = $request->user()?->id ?? ($request->hasSession() ? $request->session()->get('buyer.id') : null);
         $currentUser = $userId ? User::find($userId) : null;
+        if (! $currentUser && $request->hasSession()) {
+            $request->session()->forget(['buyer', 'seller_id', 'url.intended']);
+        }
         $knownUser = $currentUser ?: User::where('email', $request->input('email'))->first();
         $existing = $knownUser ? Seller::where('user_id', $knownUser->id)->first() : null;
 

@@ -166,4 +166,55 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('filters directly to COD release when requested', (tester) async {
+    final client = MockClient((request) async {
+      return http.Response(
+        jsonEncode({
+          'remittances': [
+            {
+              'id': 12,
+              'order_id': 175,
+              'amount': 8098.0,
+              'status': 'sent',
+              'reference': 'COD-DEDUCT-1',
+            },
+          ],
+          'summary': {
+            'total_due': 0,
+            'total_confirmed': 0,
+            'pending_count': 0,
+            'sent_count': 1,
+            'confirmed_count': 0,
+          },
+        }),
+        200,
+        headers: {'content-type': 'application/json'},
+      );
+    });
+
+    final provider = RemittanceProvider(
+      RemittanceService(ApiClient(client: client)),
+    );
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: provider,
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(
+            splashFactory: NoSplash.splashFactory,
+          ),
+          home: const RemittancesScreen(
+            initialFilter: RemittanceViewFilter.codRelease,
+            showFilter: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Outgoing COD cash'), findsOneWidget);
+    expect(find.text('Waiting for logistics to confirm receipt.'), findsOneWidget);
+    expect(find.text('Incoming escrow payouts'), findsNothing);
+  });
 }

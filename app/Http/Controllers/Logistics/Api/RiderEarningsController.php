@@ -59,7 +59,7 @@ class RiderEarningsController extends Controller
             $date=$earning->accepted_at->toDateString();$day=$days->get($date,['date'=>$date,'amount'=>0,'deliveries'=>0,'breakdown'=>collect()]);
             $day['amount']+=(float)$earning->amount_cents/100;$day['deliveries']++;
             $day['breakdown']=collect($day['breakdown'])->push(['type'=>'return_service','amount'=>$earning->amount_cents/100,
-                'description'=>'Return #'.$earning->settlement->return_request_id.' · '.str_replace('_',' ',$earning->role),'delivery_id'=>null,'return_id'=>$earning->settlement->return_request_id]);
+                'description'=>($earning instanceof \App\Models\FailedDeliveryFee ? 'Failed delivery #'.$earning->failed_delivery_case_id : 'Return #'.$earning->settlement->return_request_id).' · '.str_replace('_',' ',$earning->role),'delivery_id'=>$earning instanceof \App\Models\FailedDeliveryFee ? $earning->resolution->delivery_id : null,'return_id'=>$earning instanceof \App\Models\FailedDeliveryFee ? null : $earning->settlement->return_request_id]);
             $days->put($date,$day);
         }
         return response()->json([

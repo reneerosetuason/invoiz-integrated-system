@@ -318,10 +318,17 @@
 
 @if($order->delivery && $returnState && $returnState['state'] !== 'not_queued')
     <div class="card mt-6 p-6">
-        <h3 class="mb-2 text-base font-bold">Returned Parcel</h3>
+        <h3 class="mb-2 text-base font-bold">{{ $returnState['state'] === 'awaiting_redelivery' ? 'Delivery Re-attempt' : 'Returned Parcel' }}</h3>
         <p class="text-sm text-ink-light">Tracking {{ $order->delivery->tracking_number }}</p>
 
-        @if($returnState['state'] === 'received')
+        @if($order->delivery->deliveryAttemptsExhausted())
+            <p class="mt-3 text-sm text-ink-light">Three attempts to deliver this parcel to the buyer have failed. After hub return, choose a funded return to your store or leave it unclaimed at the hub. Completed outbound services remain payable either way.</p>
+            @if(\App\Services\FailedDeliveryService::available() && $order->delivery->returned_at)
+                <a class="btn btn-primary mt-3" href="{{ route('failed-deliveries.show', $order->delivery) }}">Review return or unclaimed options</a>
+            @endif
+        @elseif($returnState['state'] === 'awaiting_redelivery')
+            <p class="mt-3 text-sm text-ink-light">The delivery attempt was unsuccessful. The parcel will wait at the destination Logistics Hub after the rider returns it. Logistics staff can assign another delivery attempt to the buyer.</p>
+        @elseif($returnState['state'] === 'received')
             <p class="mt-3 text-sm font-semibold text-green-700">You confirmed receipt on {{ $returnState['received_at']?->format('M j, Y g:i A') }}.</p>
             @php
                 $liability = \App\Models\ParcelLiability::where('delivery_id', $order->delivery->id)->first();

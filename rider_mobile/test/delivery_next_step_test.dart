@@ -28,43 +28,48 @@ Map<String, dynamic> _delivery({
   String statusLabel = 'Arrived at Customer',
   bool requested = false,
   bool returned = false,
-}) =>
-    {
-      'id': 77,
-      'tracking_number': 'TRK-20260925-NX01',
-      'order_id': 9001,
-      'status': status,
-      'status_label': statusLabel,
-      'shop': {'name': 'Shop'},
-      'customer': {'name': 'Cust', 'address': '1 Way'},
-      'items': [],
-      'subtotal': 0,
-      'total': 100,
-      'payment_method': 'gcash',
-      'reattempt_requested_at':
-          requested ? '2026-09-25T11:00:00.000Z' : null,
-      'returned_at': returned ? '2026-09-25T11:05:00.000Z' : null,
-      'return_reason': returned ? 'Customer refused order' : null,
-    };
+}) => {
+  'id': 77,
+  'tracking_number': 'TRK-20260925-NX01',
+  'order_id': 9001,
+  'status': status,
+  'status_label': statusLabel,
+  'shop': {'name': 'Shop'},
+  'customer': {'name': 'Cust', 'address': '1 Way'},
+  'items': [],
+  'subtotal': 0,
+  'total': 100,
+  'payment_method': 'gcash',
+  'reattempt_requested_at': requested ? '2026-09-25T11:00:00.000Z' : null,
+  'returned_at': returned ? '2026-09-25T11:05:00.000Z' : null,
+  'return_reason': returned ? 'Customer refused order' : null,
+};
 
 MockClient _backend({int reattemptStatus = 200, int returnStatus = 200}) {
   http.Response json(Object data, [int status = 200]) => http.Response(
-        jsonEncode(data),
-        status,
-        headers: {'content-type': 'application/json'},
-      );
+    jsonEncode(data),
+    status,
+    headers: {'content-type': 'application/json'},
+  );
   return MockClient((http.BaseRequest request) async {
     final path = request.url.path;
     bool isPath(String suffix) => path.endsWith(suffix);
     if (RegExp(r'/rider/deliveries/\d+$').hasMatch(path) &&
         request.method == 'GET') {
-      return json({'delivery': _delivery(status: 'delivery_failed', statusLabel: 'Delivery Failed')});
+      return json({
+        'delivery': _delivery(
+          status: 'delivery_failed',
+          statusLabel: 'Delivery Failed',
+        ),
+      });
     }
     if (isPath('/rider/deliveries/77/failed')) {
       return json({
         'message': 'Failed delivery reported.',
-        'delivery':
-            _delivery(status: 'delivery_failed', statusLabel: 'Delivery Failed'),
+        'delivery': _delivery(
+          status: 'delivery_failed',
+          statusLabel: 'Delivery Failed',
+        ),
       });
     }
     if (isPath('/rider/deliveries/77/reattempt')) {
@@ -74,9 +79,10 @@ MockClient _backend({int reattemptStatus = 200, int returnStatus = 200}) {
       return json({
         'message': 'Re-attempt requested.',
         'delivery': _delivery(
-            status: 'delivery_failed',
-            statusLabel: 'Delivery Failed',
-            requested: true),
+          status: 'delivery_failed',
+          statusLabel: 'Delivery Failed',
+          requested: true,
+        ),
       });
     }
     if (isPath('/rider/deliveries/77/return-to-center')) {
@@ -86,9 +92,10 @@ MockClient _backend({int reattemptStatus = 200, int returnStatus = 200}) {
       return json({
         'message': 'Returned.',
         'delivery': _delivery(
-            status: 'delivery_failed',
-            statusLabel: 'Delivery Failed',
-            returned: true),
+          status: 'delivery_failed',
+          statusLabel: 'Delivery Failed',
+          returned: true,
+        ),
       });
     }
     if (isPath('/rider/notifications') && request.method == 'GET') {
@@ -137,7 +144,7 @@ MockClient _backend({int reattemptStatus = 200, int returnStatus = 200}) {
           'current_page': 1,
           'last_page': 1,
           'total': 1,
-          'per_page': 15
+          'per_page': 15,
         },
       });
     }
@@ -145,10 +152,14 @@ MockClient _backend({int reattemptStatus = 200, int returnStatus = 200}) {
   });
 }
 
-Future<void> _pump(WidgetTester tester, Widget app, MockClient backend,
-    {DeliveryProvider? deliveries,
-    NotificationProvider? notifications,
-    EarningsProvider? earnings}) async {
+Future<void> _pump(
+  WidgetTester tester,
+  Widget app,
+  MockClient backend, {
+  DeliveryProvider? deliveries,
+  NotificationProvider? notifications,
+  EarningsProvider? earnings,
+}) async {
   tester.view.physicalSize = const Size(390, 844);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.resetPhysicalSize);
@@ -165,7 +176,8 @@ Future<void> _pump(WidgetTester tester, Widget app, MockClient backend,
           ChangeNotifierProvider<DeliveryProvider>.value(value: deliveries),
         if (notifications != null)
           ChangeNotifierProvider<NotificationProvider>.value(
-              value: notifications),
+            value: notifications,
+          ),
         if (earnings != null)
           ChangeNotifierProvider<EarningsProvider>.value(value: earnings),
       ],
@@ -178,8 +190,7 @@ Future<void> _pump(WidgetTester tester, Widget app, MockClient backend,
 void main() {
   group('Delivery model next-step flags', () {
     test('parses reattempt and return timestamps', () {
-      final d = Delivery.fromJson(
-          _delivery(requested: true, returned: true));
+      final d = Delivery.fromJson(_delivery(requested: true, returned: true));
       expect(d.hasReattemptRequest, isTrue);
       expect(d.hasCenterReturn, isTrue);
       expect(d.returnReason, 'Customer refused order');
@@ -212,11 +223,13 @@ void main() {
       final backend = _backend();
       final api = ApiClient(client: backend);
       final deliveries = DeliveryProvider(DeliveryService(api));
-      await _pump(tester, const FailedDeliveryScreen(deliveryId: 77),
-          backend,
-          deliveries: deliveries);
-      // Arrived state loads; report a non-refusal failure so both next-step
-      // actions remain available (refusals go straight to RTS).
+      await _pump(
+        tester,
+        const FailedDeliveryScreen(deliveryId: 77),
+        backend,
+        deliveries: deliveries,
+      );
+      // Reporting a failure exposes the destination-hub handover action.
       await tester.ensureVisible(find.text('Customer unavailable'));
       await tester.tap(find.text('Customer unavailable'));
       await tester.pumpAndSettle();
@@ -224,49 +237,57 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('WHAT SHOULD HAPPEN NEXT?'), findsOneWidget);
-      expect(find.text('Request Re-attempt'), findsOneWidget);
-      expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
+      expect(find.text('Request Re-attempt'), findsNothing);
+      expect(find.text('Confirm return to destination hub'), findsOneWidget);
     });
 
-    testWidgets('requesting a re-attempt succeeds', (tester) async {
+    testWidgets('confirmed destination-hub return succeeds', (tester) async {
       var posts = 0;
       final backend = MockClient((http.BaseRequest request) async {
         http.Response json(Object data, [int status = 200]) => http.Response(
-              jsonEncode(data),
-              status,
-              headers: {'content-type': 'application/json'},
-            );
+          jsonEncode(data),
+          status,
+          headers: {'content-type': 'application/json'},
+        );
         final path = request.url.path;
         if (RegExp(r'/rider/deliveries/\d+$').hasMatch(path)) {
           return json({
             'delivery': _delivery(
-                status: 'delivery_failed', statusLabel: 'Delivery Failed')
+              status: 'delivery_failed',
+              statusLabel: 'Delivery Failed',
+            ),
           });
         }
         if (path.endsWith('/failed')) {
           return json({
             'message': 'Failed delivery reported.',
             'delivery': _delivery(
-                status: 'delivery_failed', statusLabel: 'Delivery Failed'),
+              status: 'delivery_failed',
+              statusLabel: 'Delivery Failed',
+            ),
           });
         }
-        if (path.endsWith('/reattempt')) {
+        if (path.endsWith('/return-to-center')) {
           posts++;
           return json({
-            'message': 'Re-attempt requested.',
+            'message': 'Returned to destination hub.',
             'delivery': _delivery(
-                status: 'delivery_failed',
-                statusLabel: 'Delivery Failed',
-                requested: true),
+              status: 'delivery_failed',
+              statusLabel: 'Delivery Failed',
+              returned: true,
+            ),
           });
         }
         return json({}, 404);
       });
       final api = ApiClient(client: backend);
       final deliveries = DeliveryProvider(DeliveryService(api));
-      await _pump(tester, const FailedDeliveryScreen(deliveryId: 77),
-          backend,
-          deliveries: deliveries);
+      await _pump(
+        tester,
+        const FailedDeliveryScreen(deliveryId: 77),
+        backend,
+        deliveries: deliveries,
+      );
 
       await tester.ensureVisible(find.text('Customer unavailable'));
       await tester.tap(find.text('Customer unavailable'));
@@ -280,14 +301,20 @@ void main() {
           .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
           .clearSnackBars();
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Request Re-attempt'));
+      await tester.tap(find.text('Confirm return to destination hub'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Confirm handover'));
       // Bounded pump: pumpAndSettle would advance past the SnackBar's
       // auto-dismiss window before the assertion runs.
       await tester.pump();
 
       expect(posts, 1);
-      expect(find.text('Re-attempt requested. Logistics will review and reassign.'),
-          findsOneWidget);
+      expect(
+        find.text(
+          'Parcel returned. Waiting for logistics staff to assign the next delivery attempt.',
+        ),
+        findsOneWidget,
+      );
     });
   });
 
@@ -295,48 +322,56 @@ void main() {
     testWidgets('failed delivery offers next-step actions', (tester) async {
       final backend = _backend();
       final api = ApiClient(client: backend);
-      final deliveries = DeliveryProvider(DeliveryService(api))
-        ..loadDetail(77);
-      await _pump(tester, const DeliveryDetailScreen(deliveryId: 77),
-          backend,
-          deliveries: deliveries);
+      final deliveries = DeliveryProvider(DeliveryService(api))..loadDetail(77);
+      await _pump(
+        tester,
+        const DeliveryDetailScreen(deliveryId: 77),
+        backend,
+        deliveries: deliveries,
+      );
 
-      expect(find.text('Request Re-attempt'), findsOneWidget);
-      expect(find.text('Return to Logistics Hub (RTS)'), findsOneWidget);
+      expect(find.text('Request Re-attempt'), findsNothing);
+      expect(find.text('Confirm return to destination hub'), findsOneWidget);
     });
 
-    testWidgets('requested state shows the waiting banner', (tester) async {
-      final backend = MockClient((http.BaseRequest request) async {
-        http.Response json(Object data, [int status = 200]) => http.Response(
-              jsonEncode(data),
-              status,
-              headers: {'content-type': 'application/json'},
-            );
-        return json({
-          'delivery': _delivery(
+    testWidgets(
+      'pending reattempt still requires the rider to return the parcel',
+      (tester) async {
+        final backend = MockClient((http.BaseRequest request) async {
+          http.Response json(Object data, [int status = 200]) => http.Response(
+            jsonEncode(data),
+            status,
+            headers: {'content-type': 'application/json'},
+          );
+          return json({
+            'delivery': _delivery(
               status: 'delivery_failed',
               statusLabel: 'Delivery Failed',
-              requested: true)
+              requested: true,
+            ),
+          });
         });
-      });
-      final api = ApiClient(client: backend);
-      final deliveries = DeliveryProvider(DeliveryService(api))
-        ..loadDetail(77);
-      await _pump(tester, const DeliveryDetailScreen(deliveryId: 77),
+        final api = ApiClient(client: backend);
+        final deliveries = DeliveryProvider(DeliveryService(api))
+          ..loadDetail(77);
+        await _pump(
+          tester,
+          const DeliveryDetailScreen(deliveryId: 77),
           backend,
-          deliveries: deliveries);
+          deliveries: deliveries,
+        );
 
-      expect(find.textContaining('waiting on Logistics'), findsOneWidget);
-      expect(find.text('Request Re-attempt'), findsNothing);
-    });
+        expect(find.text('Confirm return to destination hub'), findsOneWidget);
+        expect(find.text('Request Re-attempt'), findsNothing);
+      },
+    );
   });
 
   group('History detail tap-through', () {
     testWidgets('tapping a history card opens the delivery', (tester) async {
       final backend = _backend();
       final api = ApiClient(client: backend);
-      final earnings = EarningsProvider(EarningsService(api))
-        ..loadHistory();
+      final earnings = EarningsProvider(EarningsService(api))..loadHistory();
       final deliveries = DeliveryProvider(DeliveryService(api));
       SharedPreferences.setMockInitialValues({});
       tester.view.physicalSize = const Size(390, 844);
@@ -369,12 +404,17 @@ void main() {
     testWidgets('delivery notification opens the delivery', (tester) async {
       final backend = _backend();
       final api = ApiClient(client: backend);
-      final notifications =
-          NotificationProvider(NotificationService(api))..load();
+      final notifications = NotificationProvider(NotificationService(api))
+        ..load();
       // The detail screen reads its own provider for the opened delivery.
       final deliveries = DeliveryProvider(DeliveryService(api));
-      await _pump(tester, const NotificationsScreen(), backend,
-          notifications: notifications, deliveries: deliveries);
+      await _pump(
+        tester,
+        const NotificationsScreen(),
+        backend,
+        notifications: notifications,
+        deliveries: deliveries,
+      );
 
       await tester.tap(find.text('New Delivery Assignment'));
       await tester.pumpAndSettle();
@@ -385,11 +425,16 @@ void main() {
     testWidgets('notification without delivery stays put', (tester) async {
       final backend = _backend();
       final api = ApiClient(client: backend);
-      final notifications =
-          NotificationProvider(NotificationService(api))..load();
+      final notifications = NotificationProvider(NotificationService(api))
+        ..load();
       final deliveries = DeliveryProvider(DeliveryService(api));
-      await _pump(tester, const NotificationsScreen(), backend,
-          notifications: notifications, deliveries: deliveries);
+      await _pump(
+        tester,
+        const NotificationsScreen(),
+        backend,
+        notifications: notifications,
+        deliveries: deliveries,
+      );
 
       await tester.tap(find.text('Holiday schedule'));
       await tester.pumpAndSettle();
@@ -398,17 +443,17 @@ void main() {
       expect(find.text('TRK-20260925-NX01'), findsNothing);
     });
 
-    testWidgets('unauthorized delivery shows an error, not data',
-        (tester) async {
+    testWidgets('unauthorized delivery shows an error, not data', (
+      tester,
+    ) async {
       final backend = MockClient((http.BaseRequest request) async {
         http.Response json(Object data, [int status = 200]) => http.Response(
-              jsonEncode(data),
-              status,
-              headers: {'content-type': 'application/json'},
-            );
+          jsonEncode(data),
+          status,
+          headers: {'content-type': 'application/json'},
+        );
         final path = request.url.path;
-        if (path.endsWith('/rider/notifications') &&
-            request.method == 'GET') {
+        if (path.endsWith('/rider/notifications') && request.method == 'GET') {
           return json({
             'notifications': [
               {
@@ -428,16 +473,23 @@ void main() {
           return json({'ok': true});
         }
         if (RegExp(r'/rider/deliveries/\d+$').hasMatch(path)) {
-          return json({'message': 'This delivery is not assigned to you.'}, 403);
+          return json({
+            'message': 'This delivery is not assigned to you.',
+          }, 403);
         }
         return json({}, 404);
       });
       final api = ApiClient(client: backend);
-      final notifications =
-          NotificationProvider(NotificationService(api))..load();
+      final notifications = NotificationProvider(NotificationService(api))
+        ..load();
       final deliveries = DeliveryProvider(DeliveryService(api));
-      await _pump(tester, const NotificationsScreen(), backend,
-          notifications: notifications, deliveries: deliveries);
+      await _pump(
+        tester,
+        const NotificationsScreen(),
+        backend,
+        notifications: notifications,
+        deliveries: deliveries,
+      );
 
       await tester.tap(find.text('Stale Assignment'));
       await tester.pumpAndSettle();

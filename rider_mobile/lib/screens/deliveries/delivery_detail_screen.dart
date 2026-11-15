@@ -10,6 +10,7 @@ import '../../models/delivery.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/delivery_provider.dart';
 import '../../services/message_service.dart';
+import '../../widgets/failed_delivery_hub_return.dart';
 import '../../widgets/app_ui.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
@@ -774,99 +775,37 @@ class _ActionBar extends StatelessWidget {
     );
   }
 
-  /// Failed-delivery next step: request a re-attempt or return the
-  /// parcel, unless already done. Terminal otherwise.
+  /// Failed parcels wait at the destination hub for staff reassignment.
   Widget _failedNextStep(BuildContext context) {
-    if (delivery.hasReattemptRequest) {
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: _custodyBanner(
-            'Re-attempt requested — waiting on Logistics to reassign.',
-          ),
-        ),
-      );
-    }
-    if (delivery.hasCenterReturn) {
-      final center = delivery.destinationCenterName?.isNotEmpty == true
-          ? delivery.destinationCenterName
-          : delivery.handlingCenterName;
-      return SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: _custodyBanner(
-            center != null && center.isNotEmpty
-                ? 'Parcel returned to $center.'
-                : 'Parcel returned to the Logistics Hub.',
-          ),
-        ),
-      );
-    }
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // RID-FAIL-003: a refusal goes straight back; no further attempt.
-            if (delivery.failureReason != 'Customer refused order') ...[
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: busy ? null : () => _nextStep(context, true),
-                  icon: const Icon(Icons.replay_outlined, size: 20),
-                  label: Text(busy ? 'Working...' : 'Request Re-attempt'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(48),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: busy ? null : () => _nextStep(context, false),
-                icon: const Icon(Icons.warehouse_outlined, size: 20),
-                label: Text(
-                  busy ? 'Working...' : 'Return to Logistics Hub (RTS)',
-                ),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(48),
-                ),
-              ),
-            ),
-          ],
+        child: FailedDeliveryHubReturn(
+          busy: busy,
+          returned: delivery.hasCenterReturn,
+          failedAttempts: delivery.failedAttempts,
+          centerName:
+              delivery.destinationCenterName ?? delivery.handlingCenterName,
+          onReturn: () => _returnFailedParcel(context),
         ),
       ),
     );
   }
 
-  void _nextStep(BuildContext context, bool reattempt) async {
+  void _returnFailedParcel(BuildContext context) async {
+    if (!await confirmFailedParcelHandover(context) || !context.mounted) return;
     final provider = context.read<DeliveryProvider>();
-    final ok = reattempt
-        ? await provider.requestReattempt(delivery.id)
-        : await provider.returnToCenter(delivery.id);
+    final ok = await provider.returnToCenter(delivery.id);
     if (!context.mounted) return;
     if (ok) {
       provider.loadDetail(delivery.id);
       _snack(
         context,
-        reattempt
-            ? 'Re-attempt requested. Logistics will review and reassign.'
-            : 'Parcel marked as returned to the Logistics Hub.',
+        'Parcel returned. Waiting for logistics staff to assign the next delivery attempt.',
       );
     } else {
-      _snack(
-        context,
-        provider.error ??
-            (reattempt
-                ? 'Unable to request a re-attempt.'
-                : 'Unable to return the parcel.'),
-      );
+      _snack(context, provider.error ?? 'Unable to return the parcel.');
     }
   }
 

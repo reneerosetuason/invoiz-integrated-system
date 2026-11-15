@@ -178,6 +178,7 @@ class Rider extends Model
      */
     public function assignmentBlockReason(): ?string
     {
+        if ($this->hasActiveFailedReturn()) return 'Complete the assigned failed-parcel return first';
         if (! $this->isEligibilityApproved()) {
             return 'Rider application not approved';
         }
@@ -216,6 +217,13 @@ class Rider extends Model
     public function canGoOnline(): bool
     {
         return $this->assignmentBlockReason() === null;
+    }
+
+    public function hasActiveFailedReturn(): bool
+    {
+        return \Illuminate\Support\Facades\Schema::hasTable('failed_delivery_cases')
+            && FailedDeliveryCase::where('return_rider_id', $this->id)
+                ->whereIn('stage', ['seller_assigned', 'seller_delivery', 'seller_arrival'])->exists();
     }
 
     /**

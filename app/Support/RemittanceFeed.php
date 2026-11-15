@@ -26,7 +26,14 @@ final class RemittanceFeed
             }
             $orders=$q->get();
         }
-        return self::combine($orders,self::returns($actor));
+        $failed=collect();
+        if(Schema::hasTable('failed_delivery_fees')){
+            $failed=\App\Models\FailedDeliveryFee::with(['resolution.delivery.order','recipientUser','driver','center'])->get()
+                ->filter(fn($fee)=>$fee->canAccept($actor) && $fee->payableCents()>0)
+                ->map(fn($fee)=>RemittanceEntry::failed($fee));
+        }
+        return self::combine($orders,self::returns($actor))->concat($failed)
+            ->sortByDesc(fn($entry)=>$entry->remitted_at??$entry->created_at)->values();
     }
     public static function returns($actor, bool $hubOversight=false): Collection
     {

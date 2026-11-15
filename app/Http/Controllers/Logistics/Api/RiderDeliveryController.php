@@ -665,8 +665,8 @@ class RiderDeliveryController extends Controller
      *
      * The delivery record, tracking number, and failure history are
      * preserved; status stays delivery_failed. Logistics reassigns through
-     * the existing assign flow (failed → assigned, gated by max_attempts /
-     * allow_reassignment). One request per failure cycle; the flag clears
+     * the existing assign flow after hub return, with rider eligibility and
+     * reassignment permissions preserved. One request per failure cycle; the flag clears
      * on (re)assignment or on each fresh failure.
      */
     public function requestReattempt(Request $request, Delivery $delivery): JsonResponse
@@ -688,6 +688,9 @@ class RiderDeliveryController extends Controller
 
                 if ($locked->status !== 'delivery_failed') {
                     return ['conflict' => $this->invalidTransition($locked)];
+                }
+                if ($locked->deliveryAttemptsExhausted()) {
+                    return ['conflict' => response()->json(['message' => 'Three delivery attempts have failed. Return the parcel to the destination hub for the seller decision.'], 409)];
                 }
                 if ($locked->reattempt_requested_at !== null) {
                     return ['conflict' => response()->json([
@@ -768,6 +771,15 @@ class RiderDeliveryController extends Controller
                     // Returning supersedes any pending re-attempt request.
                     'reattempt_requested_at' => null,
                 ]);
+
+                // The destination hub holds this failed parcel for another
+                // delivery attempt. Require a new staff dispatch before the
+                // next rider collects it; retain scan/sort and failure history.
+                if ($locked->status === 'delivery_failed' && $locked->received_at !== null) {
+                    $locked->update(['parcel_status' => 'sorted', 'dispatched_at' => null]);
+                }
+
+                app(\App\Services\FailedDeliveryService::class)->open($locked);
 
                 $this->logStatus($locked, 'returned_to_center', 'Parcel returned to the sorting center.');
 

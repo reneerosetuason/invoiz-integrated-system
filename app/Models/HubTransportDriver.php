@@ -25,6 +25,7 @@ class HubTransportDriver extends Authenticatable
     protected $fillable = [
         'user_id',
         'logistics_company_id',
+        'center_id',
         'logistics_truck_id',
         'name',
         'email',
@@ -50,6 +51,16 @@ class HubTransportDriver extends Authenticatable
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function center(): BelongsTo
+    {
+        return $this->belongsTo(LogisticsCenter::class, 'center_id');
+    }
+
+    public function centerId(): ?int
+    {
+        return $this->center_id ? (int) $this->center_id : ($this->user?->center_id ? (int) $this->user->center_id : null);
     }
 
     public function company(): BelongsTo
@@ -156,7 +167,9 @@ class HubTransportDriver extends Authenticatable
 
     public function hasActiveTransfer(): bool
     {
-        return $this->transfers()
+        return (\Illuminate\Support\Facades\Schema::hasTable('failed_delivery_cases')
+            && FailedDeliveryCase::where('return_driver_id', $this->id)->whereIn('stage', ['in_transfer', 'hub_arrival'])->exists())
+            || $this->transfers()
             ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
             ->exists();
     }

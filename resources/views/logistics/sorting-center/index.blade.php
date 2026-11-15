@@ -327,14 +327,14 @@
                                                         $suggested = $delivery->suggestedDestination($sortServiceAreas);
                                                         $recommended = $delivery->destinationRecommendation($sortServiceAreas, $allCenters ?? $centers);
                                                         $destSelected = (int) ($delivery->destination_center_id ?: 0);
-                                                        if ($destSelected === 0 || $destSelected === (int) $delivery->center_id) {
-                                                            $destSelected = (int) ($suggested['center_id'] ?? 0);
+                                                        if ($destSelected === (int) $delivery->center_id) {
+                                                            $destSelected = 0;
                                                         }
                                                         $areaSelected = (int) ($delivery->service_area_id ?: 0);
                                                         $areaFitsDestination = $sortServiceAreas->contains(fn ($area) => (int) $area->id === $areaSelected
                                                             && (int) $area->logistics_center_id === $destSelected);
-                                                        if ($areaSelected === 0 || ! $areaFitsDestination) {
-                                                            $areaSelected = (int) ($suggested['service_area_id'] ?? 0);
+                                                        if (! $areaFitsDestination) {
+                                                            $areaSelected = 0;
                                                         }
                                                     @endphp
                                                     @if($recommended)
@@ -351,8 +351,17 @@
                                                     <label class="field-label text-xs">Destination Hub
                                                         <select name="destination_center_id" id="sort-center-{{ $delivery->id }}" data-sort-center data-area-target="sort-area-{{ $delivery->id }}" required class="select mt-1 text-xs">
                                                             <option value="">Select Logistics Hub</option>
-                                                            @foreach(($allCenters ?? $centers) as $center)
-                                                                <option value="{{ $center->id }}" @selected($destSelected === (int) $center->id)>{{ $center->name }}{{ (int) ($recommended['center_id'] ?? 0) === (int) $center->id ? ' — Recommended' : '' }}</option>
+                                                            @php
+                                                                $recCenterId = (int) ($recommended['center_id'] ?? 0);
+                                                                $availableCenters = ($allCenters ?? $centers)->sortByDesc(fn ($c) => (int) $c->id === $recCenterId ? 1 : 0);
+                                                            @endphp
+                                                            @foreach($availableCenters as $center)
+                                                                @php
+                                                                    $isRec = $recCenterId === (int) $center->id;
+                                                                @endphp
+                                                                <option value="{{ $center->id }}" @selected($destSelected === (int) $center->id) style="{{ $isRec ? 'font-weight:bold;color:#0E4A57;' : '' }}">
+                                                                    {{ $center->name }}{{ $isRec ? ' — ⭐ Recommended (' . ($recommended['reason'] ?? 'Nearest Hub') . ')' : ($center->city ? ' (' . $center->city . ')' : '') }}
+                                                                </option>
                                                             @endforeach
                                                         </select>
                                                     </label>

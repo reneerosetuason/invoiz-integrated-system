@@ -9,6 +9,7 @@ import '../../widgets/app_ui.dart';
 import '../../widgets/error_widget.dart';
 import '../../widgets/loading_widget.dart';
 import '../../widgets/stagger_in.dart';
+import '../deliveries/failed_parcel_returns_screen.dart';
 import '../deliveries/delivery_detail_screen.dart';
 import '../home/hub_courier_home_screen.dart';
 
@@ -37,11 +38,8 @@ class NotificationsScreen extends StatelessWidget {
         child: provider.loading && provider.notifications.isEmpty
             ? const LoadingWidget(label: 'Loading notifications...')
             : provider.error != null && provider.notifications.isEmpty
-                ? ErrorView(
-                    message: provider.error!,
-                    onRetry: provider.load,
-                  )
-                : _buildList(provider),
+            ? ErrorView(message: provider.error!, onRetry: provider.load)
+            : _buildList(provider),
       ),
     );
   }
@@ -50,12 +48,26 @@ class NotificationsScreen extends StatelessWidget {
   /// carries one. Delivery ownership stays server-enforced: an
   /// unauthorized or missing delivery simply shows the detail error
   /// state instead of leaking data.
-  void _openNotification(BuildContext context, NotificationProvider provider,
-      RiderNotification notification) {
+  void _openNotification(
+    BuildContext context,
+    NotificationProvider provider,
+    RiderNotification notification,
+  ) {
     provider.markRead(notification.id);
     final data = notification.data;
-    final hubIdRaw = data == null ? null : (data['hub_transfer_id'] ?? data['transfer_id']);
-    final hubTransferId = hubIdRaw is int ? hubIdRaw : int.tryParse('${hubIdRaw ?? ''}');
+    if (data?['failed_delivery_case_id'] != null) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const FailedParcelReturnsScreen()),
+      );
+      return;
+    }
+
+    final hubIdRaw = data == null
+        ? null
+        : (data['hub_transfer_id'] ?? data['transfer_id']);
+    final hubTransferId = hubIdRaw is int
+        ? hubIdRaw
+        : int.tryParse('${hubIdRaw ?? ''}');
     if (hubTransferId != null && hubTransferId > 0) {
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -66,8 +78,7 @@ class NotificationsScreen extends StatelessWidget {
     }
 
     final rawId = data == null ? null : data['delivery_id'];
-    final deliveryId =
-        rawId is int ? rawId : int.tryParse('${rawId ?? ''}');
+    final deliveryId = rawId is int ? rawId : int.tryParse('${rawId ?? ''}');
     if (deliveryId == null || deliveryId <= 0) return;
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -141,9 +152,7 @@ class _NotificationTile extends StatelessWidget {
                 icon: icon,
                 size: 42,
                 iconSize: 20,
-                color: isRead
-                    ? AppColors.textSecondary
-                    : AppTheme.primary,
+                color: isRead ? AppColors.textSecondary : AppTheme.primary,
               ),
               const SizedBox(width: AppGaps.md),
               Expanded(
@@ -153,8 +162,7 @@ class _NotificationTile extends StatelessWidget {
                     Text(
                       title,
                       style: AppText.body.copyWith(
-                        fontWeight:
-                            isRead ? FontWeight.w500 : FontWeight.w800,
+                        fontWeight: isRead ? FontWeight.w500 : FontWeight.w800,
                       ),
                     ),
                     if (body != null && body.isNotEmpty) ...[

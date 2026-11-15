@@ -19,6 +19,14 @@ class SecurityHeaders
         foreach (['X-Content-Type-Options' => 'nosniff', 'X-Frame-Options' => 'SAMEORIGIN', 'Referrer-Policy' => 'strict-origin-when-cross-origin'] as $name => $value) {
             if (! $response->headers->has($name)) $response->headers->set($name, $value);
         }
+
+        // Prevent browsers from serving sensitive/authenticated pages from the Back-Forward Cache (bfcache)
+        // after sign out or session changes.
+        if (! $request->is('assets/*', 'storage/*', 'images/*', 'favicon.ico')) {
+            $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', 'Sat, 01 Jan 2000 00:00:00 GMT');
+        }
         // Report-only CSP: observes inline/remote script usage without blocking
         // anything. Violations appear in the browser console only; flip to an
         // enforcing Content-Security-Policy once inline JS is audited.

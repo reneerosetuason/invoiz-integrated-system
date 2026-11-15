@@ -12,9 +12,22 @@ import '../../widgets/loading_widget.dart';
 import '../../widgets/receipt_confirmation.dart';
 import '../../widgets/payout_account_button.dart';
 
+enum RemittanceViewFilter {
+  all,
+  incoming,
+  codRelease,
+}
+
 /// Cash-on-Delivery collections the rider must hand over to logistics.
 class RemittancesScreen extends StatefulWidget {
-  const RemittancesScreen({super.key});
+  const RemittancesScreen({
+    super.key,
+    this.initialFilter = RemittanceViewFilter.all,
+    this.showFilter = false,
+  });
+
+  final RemittanceViewFilter initialFilter;
+  final bool showFilter;
 
   @override
   State<RemittancesScreen> createState() => _RemittancesScreenState();
@@ -22,9 +35,12 @@ class RemittancesScreen extends StatefulWidget {
 
 class _RemittancesScreenState extends State<RemittancesScreen>
     with WidgetsBindingObserver {
+  late RemittanceViewFilter _currentFilter;
+
   @override
   void initState() {
     super.initState();
+    _currentFilter = widget.initialFilter;
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<RemittanceProvider>().load();
@@ -76,111 +92,144 @@ class _RemittancesScreenState extends State<RemittancesScreen>
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Incoming escrow payouts',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Order and return-delivery payments appear here. Confirm receipt after admin releases your share. Only confirmed payments count as earnings.',
-        ),
-        if (provider.payoutError != null)
+        if (widget.showFilter || _currentFilter != RemittanceViewFilter.all)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(provider.payoutError!),
+            padding: const EdgeInsets.only(bottom: 16),
+            child: SegmentedButton<RemittanceViewFilter>(
+            segments: const [
+              ButtonSegment(
+                value: RemittanceViewFilter.all,
+                label: Text('All'),
+              ),
+              ButtonSegment(
+                value: RemittanceViewFilter.incoming,
+                label: Text('Payouts'),
+                icon: Icon(Icons.account_balance_wallet_outlined, size: 16),
+              ),
+              ButtonSegment(
+                value: RemittanceViewFilter.codRelease,
+                label: Text('To Release (COD)'),
+                icon: Icon(Icons.price_check_outlined, size: 16),
+              ),
+            ],
+            selected: {_currentFilter},
+            onSelectionChanged: (selected) {
+              setState(() {
+                _currentFilter = selected.first;
+              });
+            },
           ),
-        if (provider.payouts.isEmpty && provider.payoutError == null)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('No incoming payouts yet.'),
+        ),
+        if (_currentFilter != RemittanceViewFilter.codRelease) ...[
+          Text(
+            'Incoming escrow payouts',
+            style: Theme.of(context).textTheme.titleMedium,
           ),
-        ...provider.payouts.map(
-          (payout) => Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${payout.source == 'return' ? 'Return #${payout.returnId}' : payout.orderNumber} · ${payout.roleLabel}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  Text(FormatUtils.peso(payout.amount)),
-                  Text(switch (payout.status) {
-                    'remitted' => 'Sent by admin · confirm after funds arrive',
-                    'accepted' => 'Receipt accepted · credited to earnings',
-                    'pending_remittance' => 'Awaiting admin transfer',
-                    'voided' => 'Voided',
-                    _ => payout.holdReason ?? 'Held in escrow',
-                  }),
-                  if (payout.reference != null)
-                    Text('Reference: ${payout.reference}'),
-                  if (payout.canAccept)
-                    FilledButton(
-                      onPressed: provider.actionBusy
-                          ? null
-                          : () => _acceptPayout(context, provider, payout),
-                      child: const Text('Confirm payout received'),
+          const SizedBox(height: 8),
+          const Text(
+            'Order and return-delivery payments appear here. Confirm receipt after admin releases your share. Only confirmed payments count as earnings.',
+          ),
+          if (provider.payoutError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(provider.payoutError!),
+            ),
+          if (provider.payouts.isEmpty && provider.payoutError == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Text('No incoming payouts yet.'),
+            ),
+          ...provider.payouts.map(
+            (payout) => Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${payout.source == 'return' ? 'Return #${payout.returnId}' : payout.orderNumber} · ${payout.roleLabel}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          'Outgoing COD cash',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: DashboardCard(
-                label: 'To Remit',
-                value: FormatUtils.peso(page.summary.totalDue),
-                icon: Icons.account_balance_outlined,
-                color: AppTheme.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: DashboardCard(
-                label: 'Confirmed',
-                value: FormatUtils.peso(page.summary.totalConfirmed),
-                icon: Icons.verified_outlined,
-                color: AppTheme.success,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'COD collections are confirmed by logistics staff after handover. '
-          'Mark a remittance as sent once you have turned over the cash.',
-          style: AppText.secondary.copyWith(fontSize: 12),
-        ),
-        const SizedBox(height: 16),
-        if (page.remittances.isEmpty)
-          const Card(
-            child: Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(
-                child: Text(
-                  'No cash remittances yet.',
-                  style: TextStyle(color: AppColors.textSecondary),
+                    Text(FormatUtils.peso(payout.amount)),
+                    Text(switch (payout.status) {
+                      'remitted' => 'Sent by admin · confirm after funds arrive',
+                      'accepted' => 'Receipt accepted · credited to earnings',
+                      'pending_remittance' => 'Awaiting admin transfer',
+                      'voided' => 'Voided',
+                      _ => payout.holdReason ?? 'Held in escrow',
+                    }),
+                    if (payout.reference != null)
+                      Text('Reference: ${payout.reference}'),
+                    if (payout.canAccept)
+                      FilledButton(
+                        onPressed: provider.actionBusy
+                            ? null
+                            : () => _acceptPayout(context, provider, payout),
+                        child: const Text('Confirm payout received'),
+                      ),
+                  ],
                 ),
               ),
             ),
-          )
-        else
-          ...page.remittances.map(
-            (remittance) => _RemittanceCard(
-              remittance: remittance,
-              busy: provider.actionBusy,
-              onMarkSent: () => _markSent(context, provider, remittance),
-            ),
           ),
+        ],
+        if (_currentFilter == RemittanceViewFilter.all)
+          const SizedBox(height: 20),
+        if (_currentFilter != RemittanceViewFilter.incoming) ...[
+          Text(
+            'Outgoing COD cash',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DashboardCard(
+                  label: 'To Remit',
+                  value: FormatUtils.peso(page.summary.totalDue),
+                  icon: Icons.account_balance_outlined,
+                  color: AppTheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DashboardCard(
+                  label: 'Confirmed',
+                  value: FormatUtils.peso(page.summary.totalConfirmed),
+                  icon: Icons.verified_outlined,
+                  color: AppTheme.success,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'COD collections are confirmed by logistics staff after handover. '
+            'Mark a remittance as sent once you have turned over the cash.',
+            style: AppText.secondary.copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          if (page.remittances.isEmpty)
+            const Card(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    'No cash remittances yet.',
+                    style: TextStyle(color: AppColors.textSecondary),
+                  ),
+                ),
+              ),
+            )
+          else
+            ...page.remittances.map(
+              (remittance) => _RemittanceCard(
+                remittance: remittance,
+                busy: provider.actionBusy,
+                onMarkSent: () => _markSent(context, provider, remittance),
+              ),
+            ),
+        ],
       ],
     );
   }

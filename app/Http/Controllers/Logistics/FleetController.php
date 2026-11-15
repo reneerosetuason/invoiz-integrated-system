@@ -258,6 +258,8 @@ class FleetController extends Controller
         abort_if(HubTransportDriver::where('logistics_truck_id', $truck->id)->exists(), 422, 'This truck already has an assigned Hub Transport Driver.');
         abort_if($truck->hasActiveTransfer(), 409, 'This truck is already assigned to an active hub transfer.');
 
+        $data['center_id'] = $truck->center_id;
+
         $company->transportDrivers()->create($data);
 
         return back()->with('success', 'Hub Transport Driver registered.');

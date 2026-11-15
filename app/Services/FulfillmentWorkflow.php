@@ -85,6 +85,7 @@ class FulfillmentWorkflow
     public static function assertReady(Delivery $delivery): void
     {
         self::assertActiveOrder($delivery);
+        abort_if($delivery->deliveryAttemptsExhausted(), 409, 'Three buyer delivery attempts have failed. Use the failed-delivery resolution workflow.');
         abort_if(self::hasActiveHubTransfer($delivery), 409, 'This parcel is in an active hub transfer and cannot be assigned for last-mile delivery.');
         abort_if($delivery->lastMileRouteBlockReason() !== null, 409, $delivery->lastMileRouteBlockReason() ?? 'Review the destination hub.');
         if (! $delivery->order_id) {

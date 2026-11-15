@@ -28,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'buy/*',
             'logistics/logistics-center/apply',
             'logistics/logistics-center/verification/*',
+            'verify',
+            'verify/*',
         ]);
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         // Session-expired (guest) redirects must land on the login page that
@@ -117,6 +119,8 @@ return Application::configure(basePath: dirname(__DIR__))
                 return redirect()->route('deliveries.index')->with('error', 'Your session had expired, so nothing was archived. Please try again.');
             } elseif ($request->is('logistics/logistics-center/apply')) {
                 return redirect()->route('center-application.apply')->withInput()->with('error', 'Your session timed out. Please verify your email and try submitting again.');
+            } elseif ($request->is('sell')) {
+                return redirect()->route('sell')->withInput()->with('error', 'Your session timed out. Please review your details and submit again.');
             } else {
                 return null;
             }

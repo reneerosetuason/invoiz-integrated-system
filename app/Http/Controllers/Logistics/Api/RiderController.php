@@ -366,6 +366,8 @@ class RiderController extends Controller
             'failed_at' => $delivery->failed_at?->toIso8601String(),
             'failure_reason' => $delivery->failure_reason,
             'reattempt_requested_at' => $delivery->reattempt_requested_at?->toIso8601String(),
+            'failed_attempts' => $delivery->failedAttempts(),
+            'max_delivery_attempts' => Delivery::MAX_BUYER_DELIVERY_ATTEMPTS,
             'returned_at' => $delivery->returned_at?->toIso8601String(),
             'return_reason' => $delivery->return_reason,
             'sorting_center_handoff_at' => $delivery->sorting_center_handoff_at?->toIso8601String(),

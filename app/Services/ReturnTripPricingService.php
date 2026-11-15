@@ -87,5 +87,8 @@ class ReturnTripPricingService
         $fields = ($snapshot['pricing_version'] ?? 1) >= 3 ? ['capacity_kg', 'parcel_capacity'] : ['capacity_kg', 'parcel_capacity', 'cargo_length_cm', 'cargo_width_cm', 'cargo_height_cm'];
         abort_unless($truck->only($fields) == array_intersect_key($snapshot['truck'], array_flip($fields)), 422, 'The quoted truck capacity changed; revise the return agreement.');
         abort_if(ReturnWorkflow::where('driver_id', $driver->id)->where('stage', 'in_transfer')->where('return_request_id', '!=', $case->id)->exists(), 422, 'This driver already has a return trip in transit.');
+        abort_if(\Illuminate\Support\Facades\Schema::hasTable('failed_delivery_cases')
+            && \App\Models\FailedDeliveryCase::where('return_driver_id', $driver->id)->whereIn('stage', ['in_transfer', 'hub_arrival'])->exists(),
+            422, 'This driver already has a failed-parcel return in transit.');
     }
 }

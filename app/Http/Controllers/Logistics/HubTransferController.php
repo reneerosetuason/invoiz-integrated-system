@@ -177,7 +177,16 @@ class HubTransferController extends Controller
         $fleetTruckIssues = collect();
         if ($company) {
             $eligibleTrucks = $company->trucks()
-                ->with('driver')
+                ->with(['driver.user', 'center'])
+                ->when($selectedOriginId, function ($q) use ($selectedOriginId) {
+                    $q->where(function ($sub) use ($selectedOriginId) {
+                        $sub->where('center_id', $selectedOriginId)
+                            ->orWhereHas('driver', function ($d) use ($selectedOriginId) {
+                                $d->where('center_id', $selectedOriginId)
+                                    ->orWhereHas('user', fn ($u) => $u->where('center_id', $selectedOriginId));
+                            });
+                    });
+                })
                 ->orderBy('plate_number')
                 ->get()
                 ->filter(fn (LogisticsTruck $truck) => $truck->isApproved()
@@ -187,8 +196,17 @@ class HubTransferController extends Controller
                 ->values();
 
             $pairedTrucks = $eligibleTrucks
-                ->filter(fn (LogisticsTruck $truck) => $truck->driver
-                    && (int) $truck->driver->logistics_company_id === (int) $company->id)
+                ->filter(function (LogisticsTruck $truck) use ($company, $selectedOriginId) {
+                    if (! $truck->driver) return false;
+                    if ((int) $truck->driver->logistics_company_id !== (int) $company->id) return false;
+                    if ($selectedOriginId) {
+                        $dCenter = $truck->driver->centerId();
+                        $tCenter = $truck->centerId();
+                        if ($dCenter && (int) $dCenter !== (int) $selectedOriginId) return false;
+                        if ($tCenter && (int) $tCenter !== (int) $selectedOriginId) return false;
+                    }
+                    return true;
+                })
                 ->values();
 
             $licensedTrucks = $pairedTrucks
@@ -306,6 +324,13 @@ class HubTransferController extends Controller
         $transfer = DB::transaction(function () use ($request, $company, $validated): HubTransfer {
             $truck = LogisticsTruck::query()->whereKey($validated['truck_id'])->lockForUpdate()->firstOrFail();
             $driver = HubTransportDriver::query()->whereKey($validated['driver_id'])->lockForUpdate()->firstOrFail();
+            $originId = (int) $validated['origin_center_id'];
+            if ($driver->centerId()) {
+                abort_unless((int) $driver->centerId() === $originId, 422, 'The driver is assigned to a different logistics center.');
+            }
+            if ($truck->centerId()) {
+                abort_unless((int) $truck->centerId() === $originId, 422, 'The truck is assigned to a different logistics center.');
+            }
             abort_unless(
                 (int) $truck->logistics_company_id === (int) $company->id
                     && in_array($truck->status, [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED], true),
@@ -487,6 +512,15 @@ class HubTransferController extends Controller
             // ignored when checking for conflicting manifests.
             $trucks = LogisticsTruck::query()
                 ->where('logistics_company_id', $hubTransfer->logistics_company_id)
+                ->when($hubTransfer->origin_center_id, function ($q) use ($hubTransfer) {
+                    $q->where(function ($sub) use ($hubTransfer) {
+                        $sub->where('center_id', $hubTransfer->origin_center_id)
+                            ->orWhereHas('driver', function ($d) use ($hubTransfer) {
+                                $d->where('center_id', $hubTransfer->origin_center_id)
+                                    ->orWhereHas('user', fn ($u) => $u->where('center_id', $hubTransfer->origin_center_id));
+                            });
+                    });
+                })
                 ->whereIn('status', [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED])
                 ->whereDoesntHave('transfers', fn ($query) => $query
                     ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
@@ -740,6 +774,9 @@ class HubTransferController extends Controller
         ]);
         $truck = LogisticsTruck::whereKey($data['truck_id'])->firstOrFail();
         abort_unless((int) $truck->logistics_company_id === (int) $hubTransfer->logistics_company_id, 422, 'The truck must belong to the same logistics company as this transfer.');
+        if ($truck->centerId()) {
+            abort_unless((int) $truck->centerId() === (int) $hubTransfer->origin_center_id, 422, 'The truck is assigned to a different logistics center.');
+        }
         abort_unless(
             in_array($truck->status, [LogisticsTruck::STATUS_AVAILABLE, LogisticsTruck::STATUS_ASSIGNED], true),
             422,

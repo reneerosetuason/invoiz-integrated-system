@@ -30,6 +30,7 @@ class LogisticsTruck extends Model
 
     protected $fillable = [
         'logistics_company_id',
+        'center_id',
         'ownership_type',
         'hub_transport_driver_id',
         'plate_number',
@@ -55,6 +56,16 @@ class LogisticsTruck extends Model
             'parcel_capacity' => 'integer',
             'reviewed_at' => 'datetime',
         ];
+    }
+
+    public function center(): BelongsTo
+    {
+        return $this->belongsTo(LogisticsCenter::class, 'center_id');
+    }
+
+    public function centerId(): ?int
+    {
+        return $this->center_id ? (int) $this->center_id : ($this->driver?->centerId() ?: null);
     }
 
     public function company(): BelongsTo
@@ -142,7 +153,9 @@ class LogisticsTruck extends Model
      */
     public function hasActiveTransfer(?int $exceptTransferId = null): bool
     {
-        return $this->transfers()
+        return (\Illuminate\Support\Facades\Schema::hasTable('failed_delivery_cases')
+            && FailedDeliveryCase::where('truck_id', $this->id)->whereIn('stage', ['in_transfer', 'hub_arrival'])->exists())
+            || $this->transfers()
             ->whereIn('status', HubTransfer::ACTIVE_STATUSES)
             ->when($exceptTransferId !== null, fn ($query) => $query->whereKeyNot($exceptTransferId))
             ->exists();

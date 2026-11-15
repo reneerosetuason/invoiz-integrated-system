@@ -1,4 +1,11 @@
 (function(){
+  if (window.addEventListener) {
+    window.addEventListener('pageshow', function(e) {
+      if (e.persisted) {
+        window.location.reload();
+      }
+    });
+  }
   var btn = document.getElementById('resendBtn'), tag = document.getElementById('resendTimer'), s = 60;
   btn.disabled = true; btn.classList.add('opacity-40');
   var t = setInterval(function(){

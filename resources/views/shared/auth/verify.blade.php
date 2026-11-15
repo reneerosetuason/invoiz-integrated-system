@@ -21,7 +21,14 @@
     @if(session('error'))<div class="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 ring-1 ring-red-100">{{ session('error') }}</div>@endif
     <form method="POST" action="{{ url('/verify') }}">
       @csrf
-      <input type="hidden" name="email" value="{{ $email }}">
+      @if(!empty($email))
+        <input type="hidden" name="email" value="{{ $email }}">
+      @else
+        <div class="mb-3">
+          <label class="mb-1.5 block text-xs font-extrabold uppercase tracking-wider text-gray-500" for="email">Email address</label>
+          <input id="email" type="email" name="email" value="{{ old('email') }}" required class="w-full rounded-2xl border-2 border-gray-200 px-4 py-3 text-sm font-bold text-teal-dark" placeholder="your-email@example.com">
+        </div>
+      @endif
       <label class="mb-1.5 block text-center text-xs font-extrabold uppercase tracking-wider text-gray-500" for="otp">Enter code</label>
       <input id="otp" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="••••••"
         class="w-full rounded-2xl border-2 border-gray-200 px-4 py-4 text-center text-2xl font-extrabold text-teal-dark">

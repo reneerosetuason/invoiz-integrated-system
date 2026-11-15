@@ -93,7 +93,7 @@ class LogisticsSetting extends Model
                 'email_notifications' => true,
                 'delivery' => [
                     'require_proof' => true,
-                    'max_attempts' => 2,
+                    'max_attempts' => Delivery::MAX_BUYER_DELIVERY_ATTEMPTS,
                     'allow_reassignment' => true,
                 ],
             ]

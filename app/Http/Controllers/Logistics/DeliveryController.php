@@ -971,6 +971,10 @@ class DeliveryController extends Controller
             // rider two active deliveries or reset a delivery mid-transition.
             $lockedDelivery = FulfillmentWorkflow::lock($delivery);
             if ($this->hasActiveHubTransfer($lockedDelivery)) return ['error' => 'This parcel is reserved for hub-to-hub transfer.'];
+            if ($lockedDelivery->deliveryAttemptsExhausted()) {
+                return ['error' => 'Three buyer delivery attempts have failed. Return the parcel to the destination hub for the seller to choose return or unclaimed storage.'];
+            }
+
             FulfillmentWorkflow::assertReady($lockedDelivery);
             if ($lockedDelivery->order_id && $lockedDelivery->status === 'delivery_failed') {
                 abort_unless($lockedDelivery->returned_at && $lockedDelivery->received_at, 409, 'A different rider can only be assigned after the failed parcel is returned to its center.');
@@ -1030,6 +1034,10 @@ class DeliveryController extends Controller
                 return ['error' => 'Cannot assign delivery. Rider application is not approved.'];
             }
 
+            if ($rider->hasActiveFailedReturn()) {
+                return ['error' => 'This rider must complete the assigned failed-parcel return first.'];
+            }
+
             if ($rider->status === 'inactive') {
                 return ['error' => 'Cannot assign delivery. Rider account is inactive.'];
             }
@@ -1073,13 +1081,12 @@ class DeliveryController extends Controller
                 return ['error' => 'Rider reassignment is disabled in your Delivery Preferences (Settings). Enable "Allow Rider Reassignment" to move this delivery to another rider.'];
             }
 
-            $maxAttempts = (int) ($preferences['max_attempts'] ?? 2);
-            $failedAttempts = DeliveryStatusLog::where('delivery_id', $lockedDelivery->id)
-                ->where('status', 'delivery_failed')
-                ->count();
-
-            if ($failedAttempts >= $maxAttempts) {
-                return ['error' => "This delivery has used all {$maxAttempts} of its {$maxAttempts} delivery attempts. Raise \"Maximum Delivery Attempts\" in Settings to allow another retry."];
+            // A historic seller-return handoff still owns custody and must
+            // never be reassigned to a buyer-delivery rider.
+            if (DeliveryStatusLog::where('delivery_id', $lockedDelivery->id)
+                ->whereIn('status', [ReturnToSellerService::DISPATCHED, ReturnToSellerService::RECEIVED])
+                ->exists()) {
+                return ['error' => 'This parcel was already dispatched back to the seller and cannot be reassigned for buyer delivery.'];
             }
 
             $weight = (float) ($lockedDelivery->weight ?? 0);
@@ -1120,6 +1127,7 @@ class DeliveryController extends Controller
 
             $lockedDelivery->rider_id = $rider->id;
             $lockedDelivery->status = 'assigned';
+            $lockedDelivery->reattempt_requested_at = null;
             $lockedDelivery->assigned_at = $lockedDelivery->assigned_at ?? now();
             $lockedDelivery->save();
 
@@ -1190,6 +1198,9 @@ class DeliveryController extends Controller
         $target = $validated['status'];
         $current = $delivery->status;
         $isOverride = $request->boolean('override');
+        if ($delivery->deliveryAttemptsExhausted() && ! in_array($target, ['cancelled', 'delivery_failed'], true)) {
+            return back()->with('error', 'Three buyer delivery attempts have failed. Use the failed-delivery resolution workflow.');
+        }
         FulfillmentWorkflow::assertActiveOrder($delivery);
         if ($isOverride) {
             abort_unless(
@@ -1316,6 +1327,8 @@ class DeliveryController extends Controller
 
                 if ($target === 'delivery_failed') {
                     $delivery->failure_reason = $reasonText;
+                    $delivery->returned_at = null;
+                    $delivery->reattempt_requested_at = null;
                 } elseif ($target === 'cancelled') {
                     $delivery->cancellation_reason = $reasonText;
                 }
@@ -1331,14 +1344,12 @@ class DeliveryController extends Controller
                 }
 
                 if ($target === 'delivery_failed' && $delivery->rider_id) {
-                    DeliveryFailure::firstOrCreate(
-                        ['delivery_id' => $delivery->id],
-                        [
+                    DeliveryFailure::create([
+                            'delivery_id' => $delivery->id,
                             'rider_id' => $delivery->rider_id,
                             'reason' => $reasonText ?? 'Delivery failed',
                             'reported_at' => $now,
-                        ]
-                    );
+                        ]);
                 }
 
                 DeliveryStatusLog::create([

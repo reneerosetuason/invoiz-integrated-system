@@ -50,6 +50,16 @@ class LogisticsCenter extends Model
         return $this->belongsTo(LogisticsCompany::class, 'logistics_company_id');
     }
 
+    public function transportDrivers(): HasMany
+    {
+        return $this->hasMany(HubTransportDriver::class, 'center_id');
+    }
+
+    public function trucks(): HasMany
+    {
+        return $this->hasMany(LogisticsTruck::class, 'center_id');
+    }
+
     public function originTransfers(): HasMany
     {
         return $this->hasMany(HubTransfer::class, 'origin_center_id');

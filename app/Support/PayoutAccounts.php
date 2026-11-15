@@ -2,14 +2,14 @@
 
 namespace App\Support;
 
-use App\Models\{EscrowRemittance, HubTransportDriver, LogisticsCenter, PayoutAccount, ReturnAllocation, User};
+use App\Models\{EscrowRemittance, FailedDeliveryFee, HubTransportDriver, LogisticsCenter, PayoutAccount, ReturnAllocation, User};
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 
 /** A reusable receiving account, separate from payment amounts and statuses. */
 final class PayoutAccounts
 {
-    public static function ready(EscrowRemittance|ReturnAllocation $row): bool
+    public static function ready(EscrowRemittance|ReturnAllocation|FailedDeliveryFee $row): bool
     {
         $role = $row instanceof ReturnAllocation ? $row->role : $row->recipient_role;
         // Platform commission is retained internally, not sent to an external payee.
@@ -28,7 +28,7 @@ final class PayoutAccounts
             && mb_strlen(trim((string) ($details['account'] ?? ''))) >= 4;
     }
 
-    public static function assertReady(EscrowRemittance|ReturnAllocation $row): void
+    public static function assertReady(EscrowRemittance|ReturnAllocation|FailedDeliveryFee $row): void
     {
         if (!self::ready($row)) throw \Illuminate\Validation\ValidationException::withMessages([
             'payout_account' => 'The recipient must save complete banking or e-wallet details before this remittance can be released.',
@@ -82,7 +82,7 @@ final class PayoutAccounts
     }
 
     /** Resolve the actual payee, never a hub manager's personal account for a hub cut. */
-    public static function forRemittance(EscrowRemittance|ReturnAllocation $row): ?array
+    public static function forRemittance(EscrowRemittance|ReturnAllocation|FailedDeliveryFee $row): ?array
     {
         $isReturn = $row instanceof ReturnAllocation;
         $role = $isReturn ? $row->role : $row->recipient_role;

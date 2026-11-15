@@ -179,13 +179,13 @@
                                 <li class="px-6 py-4 flex items-center justify-between gap-4">
                                     <div>
                                         <p class="text-sm font-semibold text-gray-900">Maximum Delivery Attempts</p>
-                                        <p class="text-xs text-gray-500 mt-0.5">Maximum number of delivery re-attempts allowed before a parcel is returned to hub</p>
+                                        <p class="text-xs text-gray-500 mt-0.5">Three total buyer delivery attempts. After the third failure the seller chooses a funded return or unclaimed hub storage.</p>
                                     </div>
                                     <div class="flex gap-2 flex-shrink-0">
-                                        @foreach([1, 2, 3] as $attempt)
+                                        @foreach([3] as $attempt)
                                         <label class="cursor-pointer">
                                             <input type="radio" name="max_attempts" value="{{ $attempt }}"
-                                                   class="peer sr-only" {{ (int)($delivery['max_attempts'] ?? 2) === $attempt ? 'checked' : '' }}>
+                                                   class="peer sr-only" checked>
                                             <span class="inline-flex items-center justify-center w-10 h-10 rounded-xl text-sm font-bold bg-gray-100 text-gray-600 transition-colors peer-checked:bg-teal peer-checked:text-white hover:bg-gray-200 peer-checked:hover:bg-teal-dark">
                                                 {{ $attempt }}
                                             </span>

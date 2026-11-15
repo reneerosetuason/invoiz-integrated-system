@@ -79,7 +79,9 @@
                                 <option value="">Select next-hop hub</option>
                                 @foreach(($destinationCenters ?? $destinationHubs ?? $centers) as $center)
                                     @if(!$originCenterId || $originCenterId != $center->id)
-                                        <option value="{{ $center->id }}" @selected(old('destination_center_id', $selectedDestinationId ?? null) == $center->id)>{{ $center->name }}</option>
+                                        <option value="{{ $center->id }}" @selected(old('destination_center_id', $selectedDestinationId ?? null) == $center->id)>
+                                            {{ $center->name }}{{ $center->city ? ' (' . $center->city . ($center->province ? ', ' . $center->province : '') . ')' : '' }}
+                                        </option>
                                     @endif
                                 @endforeach
                             </select>
@@ -97,7 +99,7 @@
                                     </option>
                                 @endforeach
                             </select>
-                            <p class="text-[11px] text-[#6E6E73] mt-1">Only approved four-wheel trucks paired with an available, licensed Hub Transport Driver and no other active transfer are listed.</p>
+                            <p class="text-[11px] text-[#6E6E73] mt-1">Only approved four-wheel trucks assigned to this origin hub and paired with an available, licensed Hub Transport Driver and no other active transfer are listed.</p>
                         </div>
                         <div>
                             <label class="field-label">Hub Transport Driver <span class="text-red-500">*</span></label>
@@ -107,7 +109,7 @@
                                     <option value="{{ $driver->id }}" data-truck-id="{{ $driver->logistics_truck_id }}" @selected(old('driver_id') == $driver->id)>{{ $driver->name }} ({{ $driver->phone ?: $driver->email }})</option>
                                 @endforeach
                             </select>
-                            <p class="text-[11px] text-[#6E6E73] mt-1">Selected automatically from the paired truck. Only drivers with an approved, unexpired license are listed.</p>
+                            <p class="text-[11px] text-[#6E6E73] mt-1">Selected automatically from the paired truck assigned to this origin hub.</p>
                         </div>
                         <div>
                             <label class="field-label">Planned Dispatch</label>

@@ -8,7 +8,23 @@ use Illuminate\Support\Fluent;
 /** Presentation of one existing ledger record, with an explicit source identity. */
 final class RemittanceEntry extends Fluent
 {
-    private EscrowRemittance|ReturnAllocation $record;
+    private EscrowRemittance|ReturnAllocation|\App\Models\FailedDeliveryFee $record;
+
+    public static function failed(\App\Models\FailedDeliveryFee $row): self
+    {
+        $case=$row->resolution;
+        $status=match($row->status){'remitted','accepted'=>$row->status,'eligible'=>$case->funded_at?'pending_remittance':'held_in_escrow','credited'=>'voided',default=>'held_in_escrow'};
+        $entry=new self(['id'=>$row->id,'source'=>'failed_delivery','key'=>'failed-delivery-'.$row->id,
+            'return_id'=>null,'order_id'=>$case->delivery->order_id,'order'=>$case->delivery->order,
+            'delivery'=>$case->delivery,'logisticsCenter'=>$row->center,'hubTransfer'=>null,
+            'recipient_role'=>$row->role,'recipient_name'=>$row->recipientUser?->name??$row->driver?->name??$row->center?->name??'Awaiting worker',
+            'amount'=>$row->payableCents()/100,'status'=>$status,'bank_reference'=>$row->reference,
+            'remitted_at'=>$row->remitted_at,'created_at'=>$row->created_at,'accepted_at'=>$row->accepted_at,
+            'rule_applied'=>ucfirst($row->leg).' failed-delivery service · Case #'.$case->id,
+            'notes'=>null,'has_proof'=>(bool)$row->proof_path,
+            'hold_reason'=>$status==='held_in_escrow'?($row->fulfilled_at?'Awaiting verified seller funds':'Awaiting completed service'):null]);
+        $entry->record=$row;return $entry;
+    }
 
     public static function order(EscrowRemittance $row): self
     {
@@ -52,6 +68,7 @@ final class RemittanceEntry extends Fluent
     public function roleLabel(): string
     {
         if($this->source==='order')return $this->record->roleLabel();
+        if($this->source==='failed_delivery')return ucfirst($this->record->leg).' '.str_replace('_',' ',$this->recipient_role);
         return match($this->recipient_role){
             'collection_rider'=>'Return pickup rider','collection_hub'=>'Return origin hub',
             'inter_hub_driver'=>'Return inter-hub driver','seller_hub'=>'Return destination hub',
@@ -66,6 +83,21 @@ final class RemittanceEntry extends Fluent
     { return $this->source==='order'?$this->record->settlementModeLabel():'Escrow release · recipient confirms receipt'; }
     public function canAcceptHubPayout($user): bool
     { return $this->source==='order'?$this->record->canAcceptHubPayout($user):$this->record->canAccept($user); }
+    public function resolvedOrderId(): ?int
+    {
+        if ($this->order_id) {
+            return (int) $this->order_id;
+        }
+        if ($this->source === 'order' && $this->record instanceof EscrowRemittance) {
+            return $this->record->resolvedOrderId();
+        }
+        return null;
+    }
+    public function adminOrderUrl(): string
+    {
+        $id = $this->resolvedOrderId();
+        return $id ? url('/admin/orders/'.$id) : url('/admin/orders');
+    }
     public function sourceSiteLabel(): string
     {
         return $this->source === 'return' ? 'Site Admin (Return Escrow)' : 'Site Admin (Platform Escrow)';
@@ -102,7 +134,7 @@ final class RemittanceEntry extends Fluent
             'bank_reference'=>$this->bank_reference,'remitted_at'=>$this->remitted_at?->toIso8601String(),
             'tracking_number'=>$this->delivery?->tracking_number,
             'transfer_reference'=>$this->source==='return'?'Return #'.$this->return_id:$this->hubTransfer?->reference,
-            'rule_applied'=>$this->rule_applied,'has_proof'=>$this->source==='return' && $this->has_proof,
+            'rule_applied'=>$this->rule_applied,'has_proof'=>in_array($this->source,['return','failed_delivery'],true) && $this->has_proof,
             'hold_reason'=>$this->hold_reason,
         ];
     }

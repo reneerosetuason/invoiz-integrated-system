@@ -12,6 +12,7 @@ import '../notifications/notifications_screen.dart';
 import '../onboarding/rider_tutorial_screen.dart';
 import '../profile/change_password_screen.dart';
 import '../profile/profile_screen.dart';
+import '../deliveries/failed_parcel_returns_screen.dart';
 
 /// Rider settings hub: account shortcuts, notification preferences,
 /// privacy information, operational support, and logout.
@@ -42,7 +43,10 @@ class SettingsScreen extends StatelessWidget {
             child: Card(
               margin: EdgeInsets.zero,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -50,7 +54,8 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.person_outline,
                       iconColor: AppTheme.primary,
                       title: 'Profile Information',
-                      subtitle: 'View credentials, vehicle details, and edit contact info',
+                      subtitle:
+                          'View credentials, vehicle details, and edit contact info',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const ProfileScreen(),
@@ -86,7 +91,10 @@ class SettingsScreen extends StatelessWidget {
             child: Card(
               margin: EdgeInsets.zero,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -94,7 +102,8 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.notifications_outlined,
                       iconColor: AppTheme.primary,
                       title: 'Notification Center',
-                      subtitle: 'View operational announcements and delivery alerts',
+                      subtitle:
+                          'View operational announcements and delivery alerts',
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const NotificationsScreen(),
@@ -106,8 +115,10 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.tune_outlined,
                       iconColor: AppTheme.primary,
                       title: 'Alert Preferences',
-                      subtitle: 'Operational dispatch alerts and in-transit updates',
-                      onTap: () => _showNotificationPreferences(context, isHubCourier),
+                      subtitle:
+                          'Operational dispatch alerts and in-transit updates',
+                      onTap: () =>
+                          _showNotificationPreferences(context, isHubCourier),
                     ),
                   ],
                 ),
@@ -126,7 +137,10 @@ class SettingsScreen extends StatelessWidget {
             child: Card(
               margin: EdgeInsets.zero,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -134,7 +148,8 @@ class SettingsScreen extends StatelessWidget {
                       icon: Icons.security_outlined,
                       iconColor: AppTheme.primary,
                       title: 'Privacy Policy & Data Usage',
-                      subtitle: 'How GPS tracking, photos, and personal data are protected',
+                      subtitle:
+                          'How GPS tracking, photos, and personal data are protected',
                       onTap: () => _showPrivacyDialog(context),
                     ),
                     const Divider(height: 1, indent: 4, endIndent: 4),
@@ -162,7 +177,10 @@ class SettingsScreen extends StatelessWidget {
             child: Card(
               margin: EdgeInsets.zero,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -189,6 +207,18 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     const Divider(height: 1, indent: 4, endIndent: 4),
                     InfoTile(
+                      icon: Icons.assignment_return_outlined,
+                      iconColor: AppColors.secondary,
+                      title: 'Failed-parcel Returns',
+                      subtitle: 'Funded hub transport and seller delivery jobs',
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const FailedParcelReturnsScreen(),
+                        ),
+                      ),
+                    ),
+                    const Divider(height: 1, indent: 4, endIndent: 4),
+                    InfoTile(
                       icon: Icons.headset_mic_outlined,
                       iconColor: AppColors.secondary,
                       title: 'Logistics Support Desk',
@@ -208,7 +238,10 @@ class SettingsScreen extends StatelessWidget {
             child: Card(
               margin: EdgeInsets.zero,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 child: FutureBuilder<PackageInfo>(
                   future: PackageInfo.fromPlatform(),
                   builder: (context, snapshot) {
@@ -243,7 +276,10 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.logout),
-              label: const Text('Log Out', style: TextStyle(fontWeight: FontWeight.w700)),
+              label: const Text(
+                'Log Out',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -289,7 +325,9 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 _AlertPrefTile(
-                  title: isHubCourier ? 'Transfer Assignments' : 'New Delivery Assignments',
+                  title: isHubCourier
+                      ? 'Transfer Assignments'
+                      : 'New Delivery Assignments',
                   subtitle: isHubCourier
                       ? 'Alerts when hub-to-hub cargo transfers are ready for dispatch'
                       : 'Alerts when parcels are assigned for pickup and drop-off',
@@ -298,13 +336,15 @@ class SettingsScreen extends StatelessWidget {
                 const Divider(height: 1),
                 const _AlertPrefTile(
                   title: 'Emergency & Exception Alerts',
-                  subtitle: 'Urgent notices about route changes, weather alerts, and return orders',
+                  subtitle:
+                      'Urgent notices about route changes, weather alerts, and return orders',
                   initialValue: true,
                 ),
                 const Divider(height: 1),
                 const _AlertPrefTile(
                   title: 'Remittance & Earnings Payouts',
-                  subtitle: 'Updates on cash turnover reconciliation and earnings transfers',
+                  subtitle:
+                      'Updates on cash turnover reconciliation and earnings transfers',
                   initialValue: true,
                 ),
                 const SizedBox(height: 20),
@@ -353,7 +393,11 @@ class SettingsScreen extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 'Invoiz Rider collects precise GPS location data exclusively while you are toggled ONLINE or actively executing a delivery/transfer. Location tracking immediately stops when you go offline.',
-                style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: AppColors.textSecondary,
+                ),
               ),
               SizedBox(height: 12),
               Text(
@@ -363,7 +407,11 @@ class SettingsScreen extends StatelessWidget {
               SizedBox(height: 4),
               Text(
                 'Uploaded identification cards, driver\'s licenses, and proof of delivery photos are stored on secure private storage and protected with short-lived cryptographic signed links. Your personal data is never sold or shared with third parties.',
-                style: TextStyle(fontSize: 13, height: 1.4, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -371,7 +419,10 @@ class SettingsScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Understood', style: TextStyle(color: AppTheme.primary)),
+            child: const Text(
+              'Understood',
+              style: TextStyle(color: AppTheme.primary),
+            ),
           ),
         ],
       ),
@@ -389,15 +440,30 @@ class SettingsScreen extends StatelessWidget {
           children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.location_on_outlined, color: AppTheme.primary),
-              title: Text('Location Permission', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              subtitle: Text('Required for real-time dispatch and route tracking', style: TextStyle(fontSize: 12)),
+              leading: Icon(
+                Icons.location_on_outlined,
+                color: AppTheme.primary,
+              ),
+              title: Text(
+                'Location Permission',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                'Required for real-time dispatch and route tracking',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.camera_alt_outlined, color: AppTheme.primary),
-              title: Text('Camera & Storage', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              subtitle: Text('Required for Proof-of-Delivery photos and profile avatar updates', style: TextStyle(fontSize: 12)),
+              title: Text(
+                'Camera & Storage',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                'Required for Proof-of-Delivery photos and profile avatar updates',
+                style: TextStyle(fontSize: 12),
+              ),
             ),
           ],
         ),
@@ -439,14 +505,26 @@ class SettingsScreen extends StatelessWidget {
             const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.support_agent, color: AppTheme.primary),
-              title: Text('Central Dispatch Hotline', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              subtitle: Text('0917-123-4567 / (02) 8123-4567', style: TextStyle(fontSize: 13)),
+              title: Text(
+                'Central Dispatch Hotline',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                '0917-123-4567 / (02) 8123-4567',
+                style: TextStyle(fontSize: 13),
+              ),
             ),
             const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.email_outlined, color: AppTheme.primary),
-              title: Text('Support Email', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              subtitle: Text('logistics-support@invoiz.test', style: TextStyle(fontSize: 13)),
+              title: Text(
+                'Support Email',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                'logistics-support@invoiz.test',
+                style: TextStyle(fontSize: 13),
+              ),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -501,7 +579,10 @@ class SettingsScreen extends StatelessWidget {
             },
             child: const Text(
               'Log Out',
-              style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w700),
+              style: TextStyle(
+                color: AppTheme.danger,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -546,12 +627,18 @@ class _AlertPrefTileState extends State<_AlertPrefTile> {
               children: [
                 Text(
                   widget.title,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   widget.subtitle,
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),

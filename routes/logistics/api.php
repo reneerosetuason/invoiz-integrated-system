@@ -103,6 +103,10 @@ Route::get('/courier/documents/{document}', [HubCourierController::class, 'docum
     ->name('api.logistics.courier.documents.show');
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/failed-deliveries', [\App\Http\Controllers\FailedDeliveryController::class, 'index']);
+    Route::get('/failed-deliveries/{delivery}', [\App\Http\Controllers\FailedDeliveryController::class, 'show']);
+    Route::post('/failed-deliveries/{delivery}', [\App\Http\Controllers\FailedDeliveryController::class, 'update']);
+
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', [AuthController::class, 'user']);
 

@@ -115,12 +115,42 @@ class EarningsScreen extends StatelessWidget {
             ),
             title: const Text('Remittances & escrow payouts'),
             subtitle: const Text(
-              'Confirm incoming payouts and manage COD cash',
+              'Confirm incoming delivery earnings and payouts',
             ),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const RemittancesScreen()),
+                MaterialPageRoute(
+                  builder: (_) => const RemittancesScreen(
+                    initialFilter: RemittanceViewFilter.incoming,
+                    showFilter: true,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
+        Card(
+          child: ListTile(
+            leading: const IconTile(
+              icon: Icons.price_check_outlined,
+              size: 42,
+              iconSize: 20,
+            ),
+            title: const Text("To release on admin's escrow"),
+            subtitle: const Text(
+              'Review COD cash collections waiting for logistics & escrow release',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RemittancesScreen(
+                    initialFilter: RemittanceViewFilter.codRelease,
+                    showFilter: true,
+                  ),
+                ),
               );
             },
           ),

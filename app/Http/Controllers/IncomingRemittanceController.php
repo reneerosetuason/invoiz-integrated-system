@@ -37,7 +37,11 @@ class IncomingRemittanceController extends Controller
     {
         $actor=$this->actor($request);
         $request->validate(['confirm_received'=>'required|accepted']);
-        if($source==='return'){
+        if($source==='failed_delivery'){
+            $row=\App\Models\FailedDeliveryFee::findOrFail($id);
+            app(\App\Services\FailedDeliveryService::class)->payout($row,$actor,true);
+            $entry=RemittanceEntry::failed($row->fresh());
+        }elseif($source==='return'){
             $row=ReturnAllocation::findOrFail($id);
             abort_unless($row->isDeliveryService(),404);
             ReturnSettlementService::payout($row,$actor,'accept',[]);
