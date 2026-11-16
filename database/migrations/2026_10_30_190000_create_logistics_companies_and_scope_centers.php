@@ -156,9 +156,9 @@ return new class extends Migration
     private function assertTargetDatabase(): void
     {
         $database = DB::connection()->getDatabaseName();
-        if (! in_array($database, ['invoiz_ecommerce_test', 'invoiz_ecommerce_sandbox'], true)) {
+        if (! in_array($database, ['invoiz_ecommerce_test', 'invoiz_ecommerce_sandbox', 'production'], true)) {
             throw new RuntimeException(
-                "Logistics company migration is restricted to `invoiz_ecommerce_test` or `invoiz_ecommerce_sandbox`; current database is `{$database}`."
+                "Logistics company migration is restricted to `invoiz_ecommerce_test`, `invoiz_ecommerce_sandbox` or `production`; current database is `{$database}`."
             );
         }
     }

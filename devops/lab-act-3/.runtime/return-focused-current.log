@@ -1,0 +1,46 @@
+PHPUnit 10.5.65 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.9
+Configuration: C:\Invoiz\devops\lab-act-3\.runtime\return-focused-current.xml
+
+E...........                                                      12 / 12 (100%)
+
+Time: 00:11.284, Memory: 68.00 MB
+
+There was 1 error:
+
+1) Tests\Feature\ReturnWorkflowTest::test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+ERRORS!
+Tests: 12, Assertions: 136, Errors: 1.
+
+[2026-11-15 14:06:02] testing.INFO: Refund for order 1: Buyer confirmed seller-direct refund; return #1  
+[2026-11-15 14:06:03] testing.INFO: Refund for order 1: Buyer confirmed seller-direct refund; return #1  
+[2026-11-15 14:06:04] testing.INFO: Refund for order 1: Buyer confirmed seller-direct refund; return #1  
+[2026-11-15 14:06:11] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  
+[2026-11-15 14:06:11] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  
+[2026-11-15 14:06:11] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  
+[2026-11-15 14:06:12] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  

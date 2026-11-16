@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="C:\Invoiz\devops\lab-act-3\.runtime\return-baseline.xml" tests="12" assertions="136" errors="1" failures="0" skipped="0" time="11.968426">
+    <testsuite name="Read-only baseline return failures" tests="12" assertions="136" errors="1" failures="0" skipped="0" time="11.968426">
+      <testsuite name="Tests\Feature\ReturnWorkflowTest" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" tests="1" assertions="0" errors="1" failures="0" skipped="0" time="0.000000">
+        <testcase name="test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="163" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+      </testsuite>
+      <testsuite name="Tests\Feature\ReturnSettlementTest" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" tests="11" assertions="136" errors="0" failures="0" skipped="0" time="11.968426">
+        <testcase name="test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="163" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.595751"/>
+        <testcase name="test_buyer_fault_direct_refund_requires_seller_receipt_and_buyer_confirmation_and_preserves_original_earnings" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="897" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="11" time="0.698155"/>
+        <testcase name="test_seller_fault_direct_full_refund_requires_physical_receipt_and_buyer_confirmation_preserving_earned_cuts" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1031" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="0.735060"/>
+        <testcase name="test_buyer_fault_mobile_api_confirms_seller_refund_and_private_receipt_without_admin" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1155" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.840865"/>
+        <testcase name="test_suspended_original_hub_can_be_replaced_without_changing_fees_or_paying_the_old_hub" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1281" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="10" time="5.980397"/>
+        <testcase name="test_inter_hub_return_job_has_its_own_driver_api_and_arrival_never_fakes_hub_receipt" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1309" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="14" time="0.471355"/>
+        <testcase name="test_zero_priced_return_transfer_still_requires_an_online_driver_and_appears_in_the_app" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1327" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.483945"/>
+        <testcase name="test_keep_item_direct_seller_refund_requires_no_platform_money_and_closes_only_on_buyer_confirmation" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1380" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="28" time="0.853524"/>
+        <testcase name="test_keep_item_direct_decline_and_messages_preserve_terms_and_allow_corrected_receipts_without_admin" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1410" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="0.430275"/>
+        <testcase name="test_keep_item_direct_partial_refund_uses_agreed_amount_and_rejects_platform_deposits_and_admin_transfers" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1433" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="17" time="0.414599"/>
+        <testcase name="test_partial_refund_negotiation_receipt_decline_and_correction_end_in_only_the_agreed_payment" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1468" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.464498"/>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

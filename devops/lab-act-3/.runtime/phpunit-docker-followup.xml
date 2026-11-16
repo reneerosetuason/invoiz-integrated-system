@@ -1,0 +1,801 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="C:\Invoiz\devops\lab-act-3\phpunit.ci.xml" tests="43" assertions="215" errors="1" failures="4" skipped="0" time="37.003422">
+    <testsuite name="Laboratory delivery artifact" tests="1" assertions="1" errors="0" failures="0" skipped="0" time="0.519492">
+      <testsuite name="LabImageVersionTest" file="C:\Invoiz\devops\lab-act-3\challenges\LabImageVersionTest.php" tests="1" assertions="1" errors="0" failures="0" skipped="0" time="0.519492">
+        <testcase name="test_packaged_laboratory_version_is_expected" file="C:\Invoiz\devops\lab-act-3\challenges\LabImageVersionTest.php" line="9" class="LabImageVersionTest" classname="LabImageVersionTest" assertions="1" time="0.519492"/>
+      </testsuite>
+    </testsuite>
+    <testsuite name="INVOIZ isolated CI fixtures" tests="42" assertions="214" errors="1" failures="4" skipped="0" time="36.483930">
+      <testsuite name="Tests\Unit\PickupHubRecommendationsTest" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" tests="9" assertions="24" errors="0" failures="0" skipped="0" time="14.875378">
+        <testcase name="test_kalayaan_pickups_recommend_multiple_nearby_hubs_and_keep_far_hubs_available" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="26" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="5" time="13.656097"/>
+        <testcase name="test_province_disambiguates_municipalities_with_the_same_name" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="38" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="3" time="0.091247"/>
+        <testcase name="test_saved_pickup_address_takes_precedence_over_a_store_that_moved" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="48" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="1" time="0.069701"/>
+        <testcase name="test_unknown_saved_address_does_not_fall_back_to_an_unrelated_current_store_address" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="55" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="2" time="0.085592"/>
+        <testcase name="test_exact_coordinates_override_locality_estimates_and_enforce_the_radius" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="63" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="3" time="0.232135"/>
+        <testcase name="test_inactive_centers_are_never_offered" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="75" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="2" time="0.171120"/>
+        <testcase name="test_unknown_locations_do_not_get_false_recommendations" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="84" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="3" time="0.095038"/>
+        <testcase name="test_city_and_province_labels_are_normalized" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="92" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="1" time="0.079467"/>
+        <testcase name="test_dropdown_labels_nearby_hubs_without_overriding_the_selected_distant_hub" file="C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php" line="100" class="Tests\Unit\PickupHubRecommendationsTest" classname="Tests.Unit.PickupHubRecommendationsTest" assertions="4" time="0.394981"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\SharedBackendTest" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" tests="8" assertions="48" errors="1" failures="0" skipped="0" time="11.053971">
+        <testcase name="test_backend_check_verifies_connections_without_writing_data" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="65" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="14" time="7.108466"/>
+        <testcase name="test_backend_check_rejects_a_separate_session_database" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="78" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="2" time="0.127618"/>
+        <testcase name="test_backend_check_rejects_a_separate_account_provider" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="91" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="2" time="0.114671"/>
+        <testcase name="test_backend_check_detects_missing_role_tables" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="100" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="2" time="0.108940"/>
+        <testcase name="test_every_role_authenticates_against_the_same_users_table" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="109" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="6" time="1.397731">
+          <error type="Illuminate\Auth\Access\AuthorizationException">Tests\Feature\SharedBackendTest::test_every_role_authenticates_against_the_same_users_table&#13;
+Illuminate\Auth\Access\AuthorizationException: Only the designated account may be assigned the global Logistics Admin role.
+&#13;
+C:\Invoiz\app\Models\User.php:131
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Events\Dispatcher.php:459
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Events\Dispatcher.php:287
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Events\Dispatcher.php:267
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Events\Dispatcher.php:233
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Concerns\HasEvents.php:224
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:1147
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1128
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\helpers.php:399
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php:1127
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php:23
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2372
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php:2384
+C:\Invoiz\tests\Feature\SharedBackendTest.php:54
+C:\Invoiz\tests\Feature\SharedBackendTest.php:112</error>
+        </testcase>
+        <testcase name="test_buyer_order_seller_items_and_rider_delivery_reference_one_record" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="120" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="7" time="0.434628"/>
+        <testcase name="test_marketplace_entry_stays_local_and_keeps_the_existing_login" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="145" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="10" time="1.650978"/>
+        <testcase name="test_shared_backend_preserves_logistics_permissions_and_rider_destination" file="C:\Invoiz\tests\Feature\SharedBackendTest.php" line="160" class="Tests\Feature\SharedBackendTest" classname="Tests.Feature.SharedBackendTest" assertions="5" time="0.110940"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\BuyerWebShoppingTest" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" tests="22" assertions="129" errors="0" failures="2" skipped="0" time="8.722431">
+        <testcase name="test_add_to_cart_repeats_and_keeps_variations_separate" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="84" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="7" time="0.887827">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\BuyerWebShoppingTest::test_add_to_cart_repeats_and_keeps_variations_separate&#13;
+Failed asserting that table [cart_items] matches expected entries count of 2. Entries found: 1.
+.
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\InteractsWithDatabase.php:79
+C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php:91</failure>
+        </testcase>
+        <testcase name="test_variation_cannot_be_added_when_general_stock_is_zero" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="96" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="4" time="0.082192"/>
+        <testcase name="test_invalid_or_inactive_variation_does_not_silently_add_base_product" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="104" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="5" time="0.132575"/>
+        <testcase name="test_inactive_product_cannot_be_added" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="115" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="4" time="0.073297"/>
+        <testcase name="test_quantity_increment_cannot_bypass_200_item_cart_limit" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="122" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="2" time="0.075533"/>
+        <testcase name="test_adding_only_remaining_stock_uses_actual_quantity_for_cart_limit" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="130" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="3" time="0.099669"/>
+        <testcase name="test_cart_adjustments_use_item_ids_without_product_id_fallback" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="140" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="12" time="0.090556"/>
+        <testcase name="test_selected_checkout_never_matches_product_ids" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="154" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="5" time="4.122219"/>
+        <testcase name="test_buy_now_keeps_selected_quantity_and_variation_in_preview" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="165" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="5" time="0.093383"/>
+        <testcase name="test_buy_now_rejects_sold_out_variation" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="173" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="2" time="0.072169"/>
+        <testcase name="test_cart_page_uses_authenticated_buyer_without_legacy_session" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="181" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="4" time="0.251872"/>
+        <testcase name="test_product_keeps_add_button_after_first_cart_addition" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="187" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="2" time="0.450610">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\BuyerWebShoppingTest::test_product_keeps_add_button_after_first_cart_addition&#13;
+Failed asserting that '&lt;!doctype html&gt;\r\n
+&lt;html lang="en"&gt;\r\n
+&lt;head&gt;\r\n
+  &lt;meta charset="utf-8"&gt;\r\n
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1"&gt;\r\n
+  &lt;meta name="csrf-token" content="gwxiaYDGwa0HWwhiYVwQ8iypv1WZBZonCdipN0PQ"&gt;\r\n
+  &lt;title&gt;Invoiz — Online Shopping&lt;/title&gt;\r\n
+  &lt;link rel="preconnect" href="https://fonts.googleapis.com"&gt;\r\n
+  &lt;link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"&gt;\r\n
+  &lt;link rel="stylesheet" href="http://localhost/assets/shared/css/frontend-app.css"&gt;\r\n
+  &lt;link rel="stylesheet" href="http://localhost/assets/shared/css/theme.css"&gt;\r\n
+  &lt;link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,700&amp;family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"&gt;\r\n
+  &lt;link rel="stylesheet" href="http://localhost/assets/shared/css/app-sidebar.css?v=1793869570"&gt;\r\n
+  &lt;link rel="stylesheet" href="http://localhost/assets/shared/css/shop.css?v=1794552585"&gt;\r\n
+  &lt;script src="http://localhost/assets/buyer/js/layouts/website.js"&gt;&lt;/script&gt;\r\n
+  &lt;script src="http://localhost/assets/shared/js/app-sidebar.js?v=1793869709" defer&gt;&lt;/script&gt;\r\n
+  &lt;script src="http://localhost/assets/buyer/js/shop.js?v=1793173272" defer&gt;&lt;/script&gt;\r\n
+  &lt;link rel="stylesheet" href="http://localhost/assets/buyer/css/layouts/website.css?v=1793848499"&gt;\r\n
+&lt;/head&gt;\r\n
+&lt;body&gt;\r\n
+    &lt;header class="topbar buyerbar"&gt;\r\n
+    &lt;button id="buyerMenuBtn" class="hamburger" title="Toggle menu" aria-label="Toggle menu" aria-expanded="true"&gt;&amp;#9776;&lt;/button&gt;    &lt;a href="http://localhost/shop" class="brand"&gt;\r\n
+      &lt;div class="brand-icon"&gt;&lt;img src="http://localhost/storage/logos/logo.png" onerror="this.onerror=null;this.src='http://localhost/assets/shared/images/logo.png'" alt="Invoiz" style="width:100%;height:100%;object-fit:cover;"&gt;&lt;/div&gt;\r\n
+      &lt;span class="brand-text"&gt;INVOIZ&lt;/span&gt;\r\n
+      &lt;span class="brand-sub"&gt;ONLINE SHOPPING&lt;/span&gt;\r\n
+    &lt;/a&gt;\r\n
+    &lt;form method="GET" action="http://localhost/shop" class="search"&gt;\r\n
+      &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"&gt;&lt;circle cx="11" cy="11" r="8"/&gt;&lt;path d="m21 21-4.35-4.35"/&gt;&lt;/svg&gt;\r\n
+      &lt;input type="text" name="search" value="" placeholder="Search products..."&gt;\r\n
+      &lt;button type="submit" class="search-btn"&gt;Search&lt;/button&gt;\r\n
+    &lt;/form&gt;\r\n
+    \r\n
+    &lt;a href="http://localhost/cart" class="topbar-link" style="position:relative"&gt;\r\n
+      &lt;span style="position:relative;display:inline-flex;line-height:0"&gt;\r\n
+        &lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;circle cx="9" cy="21" r="1"/&gt;&lt;circle cx="20" cy="21" r="1"/&gt;&lt;path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/&gt;&lt;/svg&gt;\r\n
+        &lt;span class="badge"&gt;1&lt;/span&gt;      &lt;/span&gt;\r\n
+      Cart\r\n
+    &lt;/a&gt;\r\n
+    &lt;a href="http://localhost/orders" class="topbar-link"&gt;\r\n
+      &lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/&gt;&lt;polyline points="14 2 14 8 20 8"/&gt;&lt;/svg&gt;\r\n
+      Orders\r\n
+    &lt;/a&gt;\r\n
+          &lt;div style="position:relative"&gt;\r\n
+        &lt;button onclick="document.getElementById('profileDrop').classList.toggle('open')" class="profile-btn"&gt;\r\n
+          &lt;img src="https://ui-avatars.com/api/?name=Preview+Buyer&amp;amp;background=134e4a&amp;amp;color=fff&amp;amp;size=32" alt="" class="profile-avatar" style="width:32px!important;height:32px!important;min-width:32px!important;max-width:32px!important;min-height:32px!important;max-height:32px!important;border-radius:50%!important;object-fit:cover!important;flex-shrink:0!important;display:block!important;"&gt;\r\n
+          &lt;span style="font-weight:600;font-size:13.5px;max-width:90px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"&gt;Preview&lt;/span&gt;\r\n
+          &lt;svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;polyline points="6 9 12 15 18 9"/&gt;&lt;/svg&gt;\r\n
+        &lt;/button&gt;\r\n
+        &lt;div id="profileDrop"&gt;\r\n
+          &lt;div style="display:flex;gap:10px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border-light)"&gt;\r\n
+            &lt;img src="https://ui-avatars.com/api/?name=Preview+Buyer&amp;amp;background=134e4a&amp;amp;color=fff&amp;amp;size=48" style="width:44px;height:44px;border-radius:50%"&gt;\r\n
+            &lt;div&gt;\r\n
+              &lt;div style="font-weight:700;font-size:13px"&gt;Preview Buyer&lt;/div&gt;\r\n
+              &lt;div style="font-size:11px;color:var(--text3)"&gt;preview-buyer@example.test&lt;/div&gt;\r\n
+              &lt;div style="font-size:10px;color:var(--success);font-weight:700;margin-top:2px"&gt;● Buyer&lt;/div&gt;\r\n
+            &lt;/div&gt;\r\n
+          &lt;/div&gt;\r\n
+          &lt;div style="padding:10px 0"&gt;\r\n
+            &lt;a href="http://localhost/profile" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--text);font-weight:600;font-size:12px" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'"&gt;\r\n
+              &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/&gt;&lt;circle cx="12" cy="7" r="4"/&gt;&lt;/svg&gt;\r\n
+              My Profile\r\n
+            &lt;/a&gt;\r\n
+            &lt;a href="http://localhost/orders" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--text);font-weight:600;font-size:12px" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='transparent'"&gt;\r\n
+              &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/&gt;&lt;polyline points="14 2 14 8 20 8"/&gt;&lt;/svg&gt;\r\n
+              My Orders\r\n
+            &lt;/a&gt;\r\n
+            &lt;a href="http://localhost/logout" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;text-decoration:none;color:var(--danger);font-weight:600;font-size:12px;margin-top:4px;border-top:1px solid var(--border-light)" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'"&gt;\r\n
+              &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/&gt;&lt;polyline points="16 17 21 12 16 7"/&gt;&lt;line x1="21" y1="12" x2="9" y2="12"/&gt;&lt;/svg&gt;\r\n
+              Logout\r\n
+            &lt;/a&gt;\r\n
+          &lt;/div&gt;\r\n
+        &lt;/div&gt;\r\n
+      &lt;/div&gt;\r\n
+      &lt;/header&gt;\r\n
+\r\n
+\r\n
+  &lt;div class="shell"&gt;\r\n
+        &lt;div class="sb-scrim" id="buyerScrim" hidden&gt;&lt;/div&gt;\r\n
+    &lt;aside id="sidebar" class="sb2 sb2--buyer" aria-label="Buyer sidebar"&gt;\n
+      &lt;div class="sb-drawer-head"&gt;&lt;strong&gt;Menu&lt;/strong&gt;&lt;button type="button" data-buyer-drawer-close aria-label="Close navigation"&gt;&lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"&gt;&lt;path d="m6 6 12 12M18 6 6 18"/&gt;&lt;/svg&gt;&lt;/button&gt;&lt;/div&gt;\n
+      &lt;nav class="sidebar-nav" aria-label="Buyer navigation"&gt;\n
+        &lt;div role="group" aria-labelledby="bbLblMenu"&gt;\n
+          &lt;div class="nav-section sb-hide-collapsed" id="bbLblMenu"&gt;Menu&lt;/div&gt;\n
+          &lt;a href="http://localhost/shop" title="Home" class=""&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;rect x="3" y="3" width="7" height="7"/&gt;&lt;rect x="14" y="3" width="7" height="7"/&gt;&lt;rect x="3" y="14" width="7" height="7"/&gt;&lt;rect x="14" y="14" width="7" height="7"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Home&lt;/span&gt;\n
+          &lt;/a&gt;\n
+          &lt;a href="http://localhost/sale" title="Sale" class="active"&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M20.12 10.13 13.87 3.88a2 2 0 0 0-2.83 0L2.05 12.87a2 2 0 0 0 0 2.83l6.25 6.25a2 2 0 0 0 2.83 0l8.99-8.99a2 2 0 0 0 0-2.83z"/&gt;&lt;circle cx="7.5" cy="7.5" r="1.5"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Sale&lt;/span&gt;\n
+          &lt;/a&gt;\n
+          &lt;a href="http://localhost/cart" title="Cart" class=""&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;circle cx="9" cy="21" r="1"/&gt;&lt;circle cx="20" cy="21" r="1"/&gt;&lt;path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Cart&lt;/span&gt;\n
+            &lt;span class="sb-badge" data-count="1"&gt;&lt;span class="sb-num"&gt;1&lt;/span&gt;&lt;span class="sr-only"&gt; items in cart&lt;/span&gt;&lt;/span&gt;          &lt;/a&gt;\n
+        &lt;/div&gt;\n
+        &lt;div role="group" aria-labelledby="bbLblCat"&gt;\n
+          &lt;div class="nav-section sb-hide-collapsed" id="bbLblCat"&gt;Categories&lt;/div&gt;\n
+                      &lt;a class="sb-cat " href="http://localhost/shop?category=1" title="Appliances"&gt;\n
+              &lt;span&gt;Appliances&lt;/span&gt;\n
+            &lt;/a&gt;\n
+                  &lt;/div&gt;\n
+                  &lt;div role="group" aria-labelledby="bbLblAcct"&gt;\n
+            &lt;div class="nav-section sb-hide-collapsed" id="bbLblAcct"&gt;Account&lt;/div&gt;\n
+            &lt;a href="http://localhost/orders" title="My Orders" class=""&gt;\n
+              &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/&gt;&lt;polyline points="14 2 14 8 20 8"/&gt;&lt;line x1="16" y1="13" x2="8" y2="13"/&gt;&lt;line x1="16" y1="17" x2="8" y2="17"/&gt;&lt;/svg&gt;\n
+              &lt;span class="sb-label sb-hide-collapsed"&gt;My Orders&lt;/span&gt;\n
+                          &lt;/a&gt;\n
+            &lt;a href="http://localhost/profile" title="My Profile" class=""&gt;\n
+              &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/&gt;&lt;circle cx="12" cy="7" r="4"/&gt;&lt;/svg&gt;\n
+              &lt;span class="sb-label sb-hide-collapsed"&gt;My Profile&lt;/span&gt;\n
+            &lt;/a&gt;\n
+                                  &lt;/div&gt;\n
+                &lt;div role="group" aria-labelledby="bbLblMore"&gt;\n
+          &lt;div class="nav-section sb-hide-collapsed" id="bbLblMore"&gt;More&lt;/div&gt;\n
+          &lt;a href="http://localhost/wishlist" title="Wishlist" class=""&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8z"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Wishlist&lt;/span&gt;\n
+                      &lt;/a&gt;\n
+          &lt;a href="http://localhost/vouchers" title="Vouchers" class=""&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M20 12V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v5"/&gt;&lt;path d="M4 12a2 2 0 0 1 0 4v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1a2 2 0 0 1 0-4"/&gt;&lt;path d="M13 5v2m0 4v2m0 4v2"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Vouchers&lt;/span&gt;\n
+          &lt;/a&gt;\n
+          &lt;a href="http://localhost/message-center" title="Messages" class=""&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Messages&lt;/span&gt;\n
+                      &lt;/a&gt;\n
+          &lt;a href="http://localhost/notifications" title="Notifications" class=""&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/&gt;&lt;path d="M13.73 21a2 2 0 0 1-3.46 0"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Notifications&lt;/span&gt;\n
+                      &lt;/a&gt;\n
+          &lt;a href="http://localhost/help" title="Help &amp;amp; FAQ" class=""&gt;\n
+            &lt;svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;circle cx="12" cy="12" r="10"/&gt;&lt;path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/&gt;&lt;line x1="12" y1="17" x2="12.01" y2="17"/&gt;&lt;/svg&gt;\n
+            &lt;span class="sb-label sb-hide-collapsed"&gt;Help &amp;amp; FAQ&lt;/span&gt;\n
+          &lt;/a&gt;\n
+        &lt;/div&gt;\n
+      &lt;/nav&gt;\n
+      &lt;div class="sb-foot"&gt;\n
+                                      &lt;div class="sb-pillwrap"&gt;\n
+            &lt;div class="sb-pill"&gt;\n
+              &lt;a href="http://localhost/profile" class="sb-who" data-tip="Preview Buyer · Buyer"&gt;\n
+                                  &lt;img src="https://ui-avatars.com/api/?name=Preview+Buyer&amp;amp;background=16697A&amp;amp;color=fff&amp;amp;size=72" alt="" class="sb-avatar"&gt;\n
+                                &lt;span class="sb-fade"&gt;\n
+                  &lt;span class="sb-name" title="Preview Buyer"&gt;Preview Buyer&lt;/span&gt;\n
+                  &lt;span class="sb-role"&gt;Buyer&lt;/span&gt;\n
+                &lt;/span&gt;\n
+              &lt;/a&gt;\n
+              &lt;form method="POST" action="http://localhost/logout" style="margin:0;flex-shrink:0"&gt;\n
+                &lt;input type="hidden" name="_token" value="gwxiaYDGwa0HWwhiYVwQ8iypv1WZBZonCdipN0PQ" autocomplete="off"&gt;                &lt;button type="submit" class="sb-logout" data-tip="Log out" aria-label="Log out"&gt;\n
+                  &lt;span class="sb-logout-circle"&gt;&lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/&gt;&lt;polyline points="16 17 21 12 16 7"/&gt;&lt;line x1="21" y1="12" x2="9" y2="12"/&gt;&lt;/svg&gt;&lt;/span&gt;\n
+                &lt;/button&gt;\n
+              &lt;/form&gt;\n
+            &lt;/div&gt;\n
+          &lt;/div&gt;\n
+                &lt;div class="sb-version sb-hide-collapsed no-print"&gt;INVOIZ v1&lt;/div&gt;\n
+      &lt;/div&gt;\n
+    &lt;/aside&gt;\n
+\n
+\n
+        &lt;div class="main"&gt;\r\n
+      &lt;main class="container" style="padding-top:0;flex:1"&gt;\r\n
+                &lt;div class="shopx"&gt;\r\n
+&lt;div class="wrap"&gt;\r\n
+\r\n
+\r\n
+  &lt;div class="backrow rv"&gt;\r\n
+    &lt;a href="http://localhost/shop" class="backlink"&gt;&lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;line x1="19" y1="12" x2="5" y2="12"/&gt;&lt;polyline points="12 19 5 12 12 5"/&gt;&lt;/svg&gt;Back to store&lt;/a&gt;\r\n
+    &lt;nav class="crumbs" aria-label="Breadcrumb"&gt;\r\n
+      &lt;a href="http://localhost/shop" class="u-line"&gt;Shop&lt;/a&gt;\r\n
+      &lt;span aria-hidden="true"&gt;/&lt;/span&gt;\r\n
+              &lt;a href="http://localhost/shop?category=1" class="u-line"&gt;Appliances&lt;/a&gt;\r\n
+        &lt;span aria-hidden="true"&gt;/&lt;/span&gt;\r\n
+            &lt;span class="here" aria-current="page"&gt;Preview fan&lt;/span&gt;\r\n
+    &lt;/nav&gt;\r\n
+  &lt;/div&gt;\r\n
+\r\n
+    \r\n
+  &lt;div class="pdetail"&gt;\r\n
+        &lt;div class="gallery rv" style="max-width:440px;width:100%;"&gt;\r\n
+      &lt;div class="gmain" style="position:relative;overflow:hidden;border-radius:18px;background:#F8F7F4;aspect-ratio:1/1;max-height:440px;display:flex;align-items:center;justify-content:center;"&gt;\r\n
+                  &lt;div class="pimg-fallback" role="img" aria-label="Preview fan — product image coming soon"&gt;\r\n
+            &lt;div class="mark"&gt;INVOIZ&lt;/div&gt;\r\n
+            &lt;div class="soon"&gt;Product image coming soon&lt;/div&gt;\r\n
+          &lt;/div&gt;\r\n
+              &lt;/div&gt;\r\n
+\r\n
+          &lt;/div&gt;\r\n
+\r\n
+    &lt;div class="pinfo rv"&gt;\r\n
+              &lt;div class="eyebrow"&gt;Appliances&lt;/div&gt;\r\n
+            &lt;h1 class="ptitle"&gt;Preview fan&lt;/h1&gt;\r\n
+            &lt;div class="soldby"&gt;Sold by &lt;a href="http://localhost/store/2" class="u-line"&gt;Preview Store&lt;/a&gt;&lt;/div&gt;\r\n
+\r\n
+      &lt;div style="display:flex;align-items:center;gap:6px;margin-top:8px;color:#A16207;font-size:13px;font-weight:700"&gt;\r\n
+        &lt;span aria-label="0.0 out of 5 stars" style="display:inline-flex;align-items:center;gap:4px;"&gt;\r\n
+                      &lt;span&gt;No ratings yet&lt;/span&gt;\r\n
+                  &lt;/span&gt;\r\n
+        &lt;span style="color:var(--text3);font-weight:500"&gt;(0 reviews)&lt;/span&gt;\r\n
+      &lt;/div&gt;\r\n
+\r\n
+      &lt;div class="pricerow"&gt;\r\n
+                &lt;span class="bignum"&gt;₱100.00&lt;/span&gt;\r\n
+                      &lt;/div&gt;\r\n
+\r\n
+      \r\n
+      &lt;div class="prow"&gt;\r\n
+        &lt;span&gt;10 left&lt;/span&gt;\r\n
+        &lt;span class="codpill"&gt;&lt;svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;rect x="1" y="4" width="22" height="16" rx="2"/&gt;&lt;line x1="1" y1="10" x2="23" y2="10"/&gt;&lt;/svg&gt;Cash on delivery&lt;/span&gt;\r\n
+      &lt;/div&gt;\r\n
+\r\n
+            \r\n
+      &lt;div style="margin:12px 0 16px"&gt;\r\n
+        &lt;div style="font-size:12px;font-weight:700;margin-bottom:6px"&gt;Quantity&lt;/div&gt;\r\n
+        &lt;div style="display:flex;align-items:center;gap:10px"&gt;\r\n
+          &lt;button type="button" onclick="optQty(-1)" aria-label="Decrease quantity" style="width:32px;height:32px;border-radius:50%;background:#fff;border:1px solid var(--border);font-weight:800;font-size:14px;cursor:pointer"&gt;−&lt;/button&gt;\r\n
+          &lt;span id="pageQtyVal" style="min-width:32px;text-align:center;font-weight:800;font-size:14px"&gt;1&lt;/span&gt;\r\n
+          &lt;button type="button" onclick="optQty(1)" aria-label="Increase quantity" style="width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer"&gt;+&lt;/button&gt;\r\n
+          &lt;span id="pageAvail" style="font-size:12px;color:var(--text3);margin-left:6px"&gt;10 available&lt;/span&gt;\r\n
+        &lt;/div&gt;\r\n
+      &lt;/div&gt;\r\n
+\r\n
+      &lt;div class="p-actions"&gt;\r\n
+        &lt;button type="button" onclick="confirmOpt('cart')" class="btn-p btn-line opt-btn-cart"&gt;&lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;circle cx="9" cy="21" r="1"/&gt;&lt;circle cx="20" cy="21" r="1"/&gt;&lt;path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/&gt;&lt;/svg&gt;Add to Cart&lt;/button&gt;\r\n
+        &lt;button type="button" onclick="confirmOpt('buy')" class="btn-p btn-solid opt-btn-buy"&gt;&lt;svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/&gt;&lt;/svg&gt;Buy Now&lt;/button&gt;\r\n
+      &lt;/div&gt;\r\n
+\r\n
+              &lt;div style="margin-top:10px"&gt;&lt;a href="http://localhost/cart" class="btn-p btn-line"&gt;&lt;svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"&gt;&lt;polyline points="20 6 9 17 4 12"/&gt;&lt;/svg&gt;In Cart — View Cart&lt;/a&gt;&lt;/div&gt;\r\n
+      \r\n
+      &lt;form method="POST" action="http://localhost/wishlist/1/toggle" style="margin-top:10px"&gt;\r\n
+        &lt;input type="hidden" name="_token" value="gwxiaYDGwa0HWwhiYVwQ8iypv1WZBZonCdipN0PQ" autocomplete="off"&gt;        &lt;button type="submit" class="btn-p btn-line" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;"&gt;\r\n
+                      &lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/&gt;&lt;/svg&gt;\r\n
+            &lt;span&gt;Add to Wishlist&lt;/span&gt;\r\n
+                  &lt;/button&gt;\r\n
+      &lt;/form&gt;\r\n
+\r\n
+      &lt;a href="http://localhost/chat/seller/2" class="msglink u-line"&gt;\r\n
+        &lt;svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/&gt;&lt;/svg&gt;Message Seller\r\n
+      &lt;/a&gt;\r\n
+\r\n
+      &lt;div class="trust"&gt;\r\n
+        &lt;div class="ti"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;rect x="1" y="4" width="22" height="16" rx="2"/&gt;&lt;line x1="1" y1="10" x2="23" y2="10"/&gt;&lt;/svg&gt;&lt;div&gt;&lt;b&gt;Cash on delivery&lt;/b&gt;&lt;span&gt;Pay at your door, no prepayment.&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;\r\n
+        &lt;div class="ti"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;rect x="1" y="3" width="15" height="13" rx="1"/&gt;&lt;path d="M16 8h4l3 3v5h-7V8z"/&gt;&lt;circle cx="5.5" cy="18.5" r="2.5"/&gt;&lt;circle cx="18.5" cy="18.5" r="2.5"/&gt;&lt;/svg&gt;&lt;div&gt;&lt;b&gt;Rider-tracked delivery&lt;/b&gt;&lt;span&gt;Follow your parcel to arrival.&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;\r\n
+        &lt;div class="ti"&gt;&lt;svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"&gt;&lt;polyline points="1 4 1 10 7 10"/&gt;&lt;path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/&gt;&lt;/svg&gt;&lt;div&gt;&lt;b&gt;Easy returns&lt;/b&gt;&lt;span&gt;Report a problem, we make it right.&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;\r\n
+      &lt;/div&gt;\r\n
+    &lt;/div&gt;\r\n
+  &lt;/div&gt;\r\n
+\r\n
+    &lt;section class="details rv" aria-labelledby="pdetails-h"&gt;\r\n
+    &lt;div class="eyebrow"&gt;Details&lt;/div&gt;\r\n
+    &lt;h2 id="pdetails-h"&gt;Product details&lt;/h2&gt;\r\n
+        &lt;dl class="specs"&gt;\r\n
+                                                                                                                            &lt;div class="row"&gt;&lt;dt&gt;Category&lt;/dt&gt;&lt;dd&gt;Appliances&lt;/dd&gt;&lt;/div&gt;\r\n
+      &lt;div class="row"&gt;&lt;dt&gt;Stock&lt;/dt&gt;&lt;dd&gt;10 available · Cash on Delivery&lt;/dd&gt;&lt;/div&gt;\r\n
+    &lt;/dl&gt;\r\n
+  &lt;/section&gt;\r\n
+\r\n
+  &lt;section class="details rv" aria-labelledby="reviews-h" style="margin-top:18px"&gt;\r\n
+    &lt;div class="eyebrow"&gt;Buyer feedback&lt;/div&gt;\r\n
+    &lt;h2 id="reviews-h"&gt;Ratings and reviews&lt;/h2&gt;\r\n
+          &lt;p style="font-size:13px;color:var(--text2)"&gt;No reviews yet. Buyers can rate this product after delivery.&lt;/p&gt;\r\n
+      &lt;/section&gt;\r\n
+\r\n
+&lt;/div&gt;\r\n
+&lt;/div&gt;\r\n
+\r\n
+\r\n
+&lt;div id="optModal" style="display:none;position:fixed;inset:0;z-index:100;background:rgba(10,47,58,.45);align-items:center;justify-content:center;padding:16px"&gt;\r\n
+  &lt;div style="background:#fff;border-radius:20px;max-width:420px;width:100%;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.25)" role="dialog" aria-modal="true" aria-label="Order options"&gt;\r\n
+    &lt;div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"&gt;\r\n
+      &lt;div style="font-weight:800;font-size:15px"&gt;Order options&lt;/div&gt;\r\n
+      &lt;button type="button" onclick="closeOpt()" aria-label="Close options" style="background:transparent;border:none;cursor:pointer;color:var(--text3);padding:4px"&gt;&lt;svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"&gt;&lt;line x1="18" y1="6" x2="6" y2="18"/&gt;&lt;line x1="6" y1="6" x2="18" y2="18"/&gt;&lt;/svg&gt;&lt;/button&gt;\r\n
+    &lt;/div&gt;\r\n
+    &lt;div style="font-size:12px;color:var(--text2);margin-bottom:12px"&gt;Preview fan · &lt;b id="optBasePrice" style="color:var(--green)"&gt;₱100.00&lt;/b&gt;&lt;/div&gt;\r\n
+        &lt;div style="font-size:12px;font-weight:700;margin:14px 0 6px"&gt;Quantity&lt;/div&gt;\r\n
+    &lt;div style="display:flex;align-items:center;gap:10px"&gt;\r\n
+      &lt;button type="button" onclick="optQty(-1)" aria-label="Decrease quantity" style="width:30px;height:30px;border-radius:50%;background:#fff;border:1px solid var(--border);font-weight:800;font-size:14px;cursor:pointer"&gt;−&lt;/button&gt;\r\n
+      &lt;span id="optQtyVal" style="min-width:30px;text-align:center;font-weight:800"&gt;1&lt;/span&gt;\r\n
+      &lt;button type="button" onclick="optQty(1)" aria-label="Increase quantity" style="width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;border:none;font-weight:800;font-size:14px;cursor:pointer"&gt;+&lt;/button&gt;\r\n
+      &lt;span id="optAvail" style="font-size:11px;color:var(--text3)"&gt;10 available&lt;/span&gt;\r\n
+    &lt;/div&gt;\r\n
+    &lt;div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0;font-weight:800"&gt;Total &lt;span id="optTotal" style="color:var(--green);font-size:16px"&gt;₱100.00&lt;/span&gt;&lt;/div&gt;\r\n
+    &lt;p id="optError" role="alert" hidden style="color:#991b1b;margin-bottom:10px"&gt;This item is out of stock.&lt;/p&gt;\r\n
+    &lt;div style="display:flex;gap:10px"&gt;\r\n
+      &lt;button type="button" onclick="confirmOpt('cart')" class="opt-confirm" style="flex:1;padding:11px;border-radius:999px;background:#fff;color:var(--green);border:1.5px solid var(--green);font-weight:700;cursor:pointer;font-family:inherit;font-size:13px"&gt;Add to Cart&lt;/button&gt;\r\n
+      &lt;button type="button" onclick="confirmOpt('buy')" class="opt-confirm" style="flex:1;padding:11px;border-radius:999px;background:var(--green);color:#fff;border:none;font-weight:700;cursor:pointer;font-family:inherit;font-size:13px"&gt;Buy Now&lt;/button&gt;\r\n
+    &lt;/div&gt;\r\n
+  &lt;/div&gt;\r\n
+&lt;/div&gt;\r\n
+&lt;script id="product-config-script" src="http://localhost/assets/buyer/js/product.js?v=1793443822" data-config="[100,10,false,&amp;quot;\/buy\/1&amp;quot;,&amp;quot;\/cart\/add\/1&amp;quot;,&amp;quot;gwxiaYDGwa0HWwhiYVwQ8iypv1WZBZonCdipN0PQ&amp;quot;,1]"&gt;&lt;/script&gt;\r\n
+&lt;script&gt;\r\n
+(function(){\r\n
+  var viewport = document.getElementById('galleryViewport');\r\n
+  if (!viewport) return;\r\n
+\r\n
+  var thumbs = document.querySelectorAll('.gallery-thumb');\r\n
+  var counter = document.getElementById('galleryCounter');\r\n
+  var slides = viewport.querySelectorAll('.gallery-slide');\r\n
+  var total = slides.length;\r\n
+  if (total &lt;= 1) return;\r\n
+\r\n
+  var currentIndex = 0;\r\n
+  var isNavigating = false;\r\n
+\r\n
+  function updateActive(idx) {\r\n
+    if (idx &lt; 0) idx = 0;\r\n
+    if (idx &gt;= total) idx = total - 1;\r\n
+    currentIndex = idx;\r\n
+    if (counter) counter.textContent = (idx + 1) + ' / ' + total;\r\n
+    thumbs.forEach(function(tb, i){\r\n
+      if (i === idx) {\r\n
+        tb.style.borderColor = '#0E4A57';\r\n
+        tb.style.opacity = '1';\r\n
+        try { tb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }); } catch(e){}\r\n
+      } else {\r\n
+        tb.style.borderColor = 'transparent';\r\n
+        tb.style.opacity = '0.6';\r\n
+      }\r\n
+    });\r\n
+  }\r\n
+\r\n
+  window.galleryGoTo = function(idx) {\r\n
+    if (idx &lt; 0 || idx &gt;= total) return;\r\n
+    var targetSlide = slides[idx];\r\n
+    if (targetSlide) {\r\n
+      isNavigating = true;\r\n
+      viewport.scrollTo({\r\n
+        left: targetSlide.offsetLeft,\r\n
+        behavior: 'smooth'\r\n
+      });\r\n
+      updateActive(idx);\r\n
+      setTimeout(function(){ isNavigating = false; }, 350);\r\n
+    }\r\n
+  };\r\n
+\r\n
+  window.gallerySlide = function(direction) {\r\n
+    var next = currentIndex + direction;\r\n
+    if (next &lt; 0) next = total - 1;\r\n
+    else if (next &gt;= total) next = 0;\r\n
+    window.galleryGoTo(next);\r\n
+  };\r\n
+\r\n
+  // Sync active slide on scroll\r\n
+  var scrollDebounce;\r\n
+  viewport.addEventListener('scroll', function(){\r\n
+    if (isNavigating) return;\r\n
+    clearTimeout(scrollDebounce);\r\n
+    scrollDebounce = setTimeout(function(){\r\n
+      var width = viewport.clientWidth || 1;\r\n
+      var scrollLeft = viewport.scrollLeft;\r\n
+      var nearest = Math.round(scrollLeft / width);\r\n
+      if (nearest &gt;= 0 &amp;&amp; nearest &lt; total &amp;&amp; nearest !== currentIndex) {\r\n
+        updateActive(nearest);\r\n
+      }\r\n
+    }, 50);\r\n
+  }, { passive: true });\r\n
+\r\n
+  // Touch swipe support for mobile\r\n
+  var touchStartX = 0, touchStartY = 0, touchEndX = 0, touchDeltaX = 0;\r\n
+  viewport.addEventListener('touchstart', function(e){\r\n
+    if (e.touches &amp;&amp; e.touches.length &gt; 0) {\r\n
+      touchStartX = e.touches[0].clientX;\r\n
+      touchStartY = e.touches[0].clientY;\r\n
+      touchEndX = touchStartX;\r\n
+      touchDeltaX = 0;\r\n
+    }\r\n
+  }, { passive: true });\r\n
+\r\n
+  viewport.addEventListener('touchmove', function(e){\r\n
+    if (e.touches &amp;&amp; e.touches.length &gt; 0) {\r\n
+      touchEndX = e.touches[0].clientX;\r\n
+      touchDeltaX = touchEndX - touchStartX;\r\n
+    }\r\n
+  }, { passive: true });\r\n
+\r\n
+  viewport.addEventListener('touchend', function(e){\r\n
+    var deltaX = touchStartX - touchEndX;\r\n
+    var deltaY = Math.abs((e.changedTouches &amp;&amp; e.changedTouches[0] ? e.changedTouches[0].clientY : 0) - touchStartY);\r\n
+    if (Math.abs(deltaX) &gt; 40 &amp;&amp; deltaY &lt; Math.abs(deltaX) * 1.5) {\r\n
+      if (deltaX &gt; 0 &amp;&amp; currentIndex &lt; total - 1) {\r\n
+        window.galleryGoTo(currentIndex + 1);\r\n
+      } else if (deltaX &lt; 0 &amp;&amp; currentIndex &gt; 0) {\r\n
+        window.galleryGoTo(currentIndex - 1);\r\n
+      }\r\n
+    }\r\n
+  }, { passive: true });\r\n
+\r\n
+  // Mouse drag support for desktop\r\n
+  var isMouseDown = false, mouseStartX = 0, mouseScrollStart = 0, hasDragged = false;\r\n
+  viewport.addEventListener('mousedown', function(e){\r\n
+    if (e.target.closest('.gallery-arrow')) return;\r\n
+    isMouseDown = true;\r\n
+    hasDragged = false;\r\n
+    mouseStartX = e.pageX;\r\n
+    mouseScrollStart = viewport.scrollLeft;\r\n
+    viewport.style.cursor = 'grabbing';\r\n
+    viewport.style.userSelect = 'none';\r\n
+  });\r\n
+\r\n
+  window.addEventListener('mousemove', function(e){\r\n
+    if (!isMouseDown) return;\r\n
+    var dist = e.pageX - mouseStartX;\r\n
+    if (Math.abs(dist) &gt; 5) {\r\n
+      hasDragged = true;\r\n
+    }\r\n
+    viewport.scrollLeft = mouseScrollStart - dist;\r\n
+  });\r\n
+\r\n
+  window.addEventListener('mouseup', function(e){\r\n
+    if (!isMouseDown) return;\r\n
+    isMouseDown = false;\r\n
+    viewport.style.cursor = 'grab';\r\n
+    viewport.style.removeProperty('user-select');\r\n
+    if (hasDragged) {\r\n
+      var width = viewport.clientWidth || 1;\r\n
+      var targetIdx = Math.round(viewport.scrollLeft / width);\r\n
+      window.galleryGoTo(targetIdx);\r\n
+    }\r\n
+  });\r\n
+\r\n
+  viewport.querySelectorAll('button[data-image-viewer]').forEach(function(btn){\r\n
+    btn.addEventListener('click', function(e){\r\n
+      if (hasDragged) {\r\n
+        e.preventDefault();\r\n
+        e.stopPropagation();\r\n
+      }\r\n
+    }, true);\r\n
+  });\r\n
+\r\n
+  // Keyboard navigation\r\n
+  viewport.setAttribute('tabindex', '0');\r\n
+  viewport.addEventListener('keydown', function(e){\r\n
+    if (e.key === 'ArrowLeft') {\r\n
+      e.preventDefault();\r\n
+      window.gallerySlide(-1);\r\n
+    } else if (e.key === 'ArrowRight') {\r\n
+      e.preventDefault();\r\n
+      window.gallerySlide(1);\r\n
+    }\r\n
+  });\r\n
+})();\r\n
+&lt;/script&gt;\r\n
+&lt;style&gt;\r\n
+.shopx .pdetail {\r\n
+  display: grid;\r\n
+  grid-template-columns: minmax(300px, 440px) 1fr;\r\n
+  gap: 36px;\r\n
+  align-items: start;\r\n
+}\r\n
+@media (max-width: 900px) {\r\n
+  .shopx .pdetail {\r\n
+    grid-template-columns: 1fr;\r\n
+    gap: 24px;\r\n
+  }\r\n
+}\r\n
+.gallery-viewport::-webkit-scrollbar { display: none; }\r\n
+.gallery-thumbs::-webkit-scrollbar { height: 4px; }\r\n
+.gallery-thumbs::-webkit-scrollbar-thumb { background: rgba(14,74,87,0.2); border-radius: 4px; }\r\n
+.gallery-arrow:hover { background: #fff !important; transform: translateY(-50%) scale(1.06) !important; }\r\n
+.gallery-thumb:hover { opacity: 0.9 !important; }\r\n
+.gallery-slide button:focus-visible { outline: 2px solid #0E4A57; outline-offset: -2px; }\r\n
+&lt;/style&gt;\r\n
+      &lt;/main&gt;\r\n
+      &lt;footer class="footer buyerfoot"&gt;\r\n
+        &lt;div class="buyerfoot-mark"&gt;INVOIZ&lt;/div&gt;\r\n
+        &lt;nav class="buyerfoot-links" aria-label="Policies"&gt;&lt;a href="http://localhost/terms-of-service"&gt;Terms of Service&lt;/a&gt;&lt;a href="http://localhost/privacy-policy"&gt;Privacy Policy&lt;/a&gt;&lt;/nav&gt;\r\n
+        &lt;div&gt;&amp;copy; 2026 Invoiz Online Shopping. All rights reserved.&lt;/div&gt;\r\n
+      &lt;/footer&gt;\r\n
+    &lt;/div&gt;\r\n
+  &lt;/div&gt;\r\n
+    &lt;script src="http://localhost/assets/buyer/js/app.js?v=1793173272"&gt;&lt;/script&gt;\r\n
+  &lt;button id="supportChatBtn" onclick="toggleSupportChat()" aria-label="Chat with support"\n
+        style="position:fixed;right:18px;bottom:18px;z-index:9999;width:52px;height:52px;border-radius:50%;background:#FBF9F6;color:#0E4A57;border:1px solid rgba(15,76,92,.2);cursor:pointer;box-shadow:0 10px 28px rgba(10,47,58,.28);display:flex;align-items:center;justify-content:center"&gt;\n
+  &lt;svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"&gt;&lt;path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/&gt;&lt;/svg&gt;\n
+  &lt;span id="supportChatDot" style="position:absolute;top:2px;right:2px;width:12px;height:12px;border-radius:50%;background:#F0A202;border:2px solid #FBF9F6"&gt;&lt;/span&gt;\n
+&lt;/button&gt;\n
+&lt;div id="supportChatPanel" style="display:none;position:fixed;right:18px;bottom:78px;z-index:9999;width:min(360px,calc(100vw - 36px));height:480px;max-height:calc(100vh - 110px);background:#FBF9F6;border:1px solid rgba(15,76,92,.14);border-radius:16px;box-shadow:0 18px 50px rgba(10,47,58,.3);overflow:hidden;display:none;flex-direction:column"&gt;\n
+  &lt;div style="background:var(--green,#16697A);color:#fff;padding:12px 14px;display:flex;align-items:center;gap:10px"&gt;\n
+    &lt;div style="width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-weight:800"&gt;I&lt;/div&gt;\n
+    &lt;div style="flex:1"&gt;\n
+      &lt;div style="font-weight:800;font-size:13px"&gt;Invoiz Assistant&lt;/div&gt;\n
+      &lt;div style="font-size:11px;opacity:.85"&gt;Online · replies instantly&lt;/div&gt;\n
+    &lt;/div&gt;\n
+    &lt;button onclick="toggleSupportChat()" aria-label="Close chat" style="background:transparent;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1"&gt;×&lt;/button&gt;\n
+  &lt;/div&gt;\n
+  &lt;div id="supportChatBody" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:#f7f7f5"&gt;&lt;/div&gt;\n
+  &lt;div id="supportChatChips" style="padding:8px 12px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--border-light,#eee);background:#fff"&gt;&lt;/div&gt;\n
+  &lt;div style="display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border,#e5e5e5);background:#fff"&gt;\n
+    &lt;input id="supportChatInput" type="text" placeholder="Type your question…" maxlength="300" autocomplete="off"\n
+           style="flex:1;padding:10px;border:1px solid var(--border,#ddd);border-radius:10px;font-size:13px"&gt;\n
+    &lt;button onclick="sendSupportChat()" aria-label="Send"\n
+            style="padding:0 14px;background:var(--green,#16697A);color:#fff;border:none;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer"&gt;\n
+      &lt;svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"&gt;&lt;line x1="22" y1="2" x2="11" y2="13"/&gt;&lt;polygon points="22 2 15 22 11 13 2 9 22 2"/&gt;&lt;/svg&gt;\n
+    &lt;/button&gt;\n
+  &lt;/div&gt;\n
+&lt;/div&gt;\n
+&lt;script src="http://localhost/assets/buyer/js/partials/support-chat.js" data-config="[[{&amp;quot;q&amp;quot;:&amp;quot;How do I place an order?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Add items to your cart or tap Buy Now. At checkout, choose a delivery address and an available payment method, review the total, then place your order. GCash requires a separate receipt for each store.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;order&amp;quot;,&amp;quot;buy&amp;quot;,&amp;quot;checkout&amp;quot;,&amp;quot;place&amp;quot;,&amp;quot;cart&amp;quot;,&amp;quot;purchase&amp;quot;,&amp;quot;paano umorder&amp;quot;,&amp;quot;orderin&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Orders \u0026 Checkout&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;What payment methods do you accept?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Choose Cash on Delivery or GCash when available. For GCash, check the seller account name, scan or import the receiving QR in your own GCash app, pay the displayed amount, and upload a readable receipt. Your rider collects no cash for a GCash order.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;payment&amp;quot;,&amp;quot;bayad&amp;quot;,&amp;quot;cod&amp;quot;,&amp;quot;cash&amp;quot;,&amp;quot;gcash&amp;quot;,&amp;quot;wallet&amp;quot;,&amp;quot;card&amp;quot;,&amp;quot;pay&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Orders \u0026 Checkout&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;Why is my GCash order awaiting confirmation?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Your seller reviews the receipt and transfers the full payment into platform escrow. Admin verifies the funds before the seller can accept the order. You do not pay the rider again for a GCash order.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;gcash confirmation&amp;quot;,&amp;quot;escrow&amp;quot;,&amp;quot;receipt review&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Orders \u0026 Checkout&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;Where can I track my order?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Open Orders and select an order to follow seller preparation, pickup, logistics hub handling, transport and final rider delivery. The order timeline shows the current progress.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;track&amp;quot;,&amp;quot;status&amp;quot;,&amp;quot;nasaan&amp;quot;,&amp;quot;where&amp;quot;,&amp;quot;saan&amp;quot;,&amp;quot;parcel&amp;quot;,&amp;quot;delivery status&amp;quot;,&amp;quot; dumating&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Orders \u0026 Checkout&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;Can I cancel my order?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Open the order to check whether cancellation is available. If a prepaid order is cancelled, the refund is reviewed separately; cancelling does not mean the money has already been returned. Confirm a refund only after receiving it.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;cancel&amp;quot;,&amp;quot;kansela&amp;quot;,&amp;quot;void&amp;quot;,&amp;quot;refund cancel&amp;quot;,&amp;quot;ayaw&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Orders \u0026 Checkout&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How much is the shipping fee?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Checkout shows the current delivery fee for each store and the full total before you order. Review that quote after changing quantities, vouchers or delivery details.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;shipping&amp;quot;,&amp;quot;delivery fee&amp;quot;,&amp;quot;ship&amp;quot;,&amp;quot;charge&amp;quot;,&amp;quot;fee&amp;quot;,&amp;quot;sf&amp;quot;,&amp;quot;magkano shipping&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Shipping \u0026 Delivery&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;Who delivers my order?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;The seller prepares your parcel. Pickup riders, logistics hubs and transport staff handle the parcel before a final rider delivers it. Track those handoffs in your order details.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;rider&amp;quot;,&amp;quot;deliver&amp;quot;,&amp;quot;courier&amp;quot;,&amp;quot;hatid&amp;quot;,&amp;quot;dedeliver&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Shipping \u0026 Delivery&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How do product sales work?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;A sale shows the current price, regular price and percentage off. Discounts that round to 0% are not listed as sales. When a product discount and a store campaign both apply, you receive the better price instead of stacked discounts. Review the final checkout quote before ordering.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;sale&amp;quot;,&amp;quot;product sale&amp;quot;,&amp;quot;discount percentage&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Vouchers \u0026 Discounts&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How do I use a voucher code?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Enter a voucher at checkout and apply it before placing the order. The updated quote shows eligible item discounts and delivery savings. Store vouchers apply only to the relevant store.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;voucher&amp;quot;,&amp;quot;coupon&amp;quot;,&amp;quot;code&amp;quot;,&amp;quot;discount&amp;quot;,&amp;quot;promo&amp;quot;,&amp;quot;sale&amp;quot;,&amp;quot;less&amp;quot;,&amp;quot;bawas&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Vouchers \u0026 Discounts&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;Who pays for voucher discounts?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;The seller absorbs them: discounts come out of the seller\u0027s sales. Rider pay is never reduced by vouchers.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;who pays&amp;quot;,&amp;quot;sagot&amp;quot;,&amp;quot;seller pays&amp;quot;,&amp;quot;rider voucher&amp;quot;,&amp;quot;kaltas&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Vouchers \u0026 Discounts&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;Why was my voucher rejected?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Common reasons: the code is expired or inactive, you have not reached its minimum spend, it has reached its usage limit, or (for seller vouchers) none of its shop\u0027s items are in your order.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;invalid&amp;quot;,&amp;quot;expired&amp;quot;,&amp;quot;rejected&amp;quot;,&amp;quot;ayaw gumana&amp;quot;,&amp;quot;not working&amp;quot;,&amp;quot;minimum spend&amp;quot;,&amp;quot;min spend&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Vouchers \u0026 Discounts&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How do I create an account?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Create a buyer account with your details and delivery address, verify the email code, and wait for administrator approval. The app will explain if verification or review is still pending.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;register&amp;quot;,&amp;quot;signup&amp;quot;,&amp;quot;sign up&amp;quot;,&amp;quot;account&amp;quot;,&amp;quot;gawa account&amp;quot;,&amp;quot;google&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Account&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;I did not receive my verification code.&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Check your spam folder, wait a minute, then use Resend on the verification page. Codes expire after 10 minutes.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;otp&amp;quot;,&amp;quot;code&amp;quot;,&amp;quot;verify&amp;quot;,&amp;quot;verification&amp;quot;,&amp;quot;email&amp;quot;,&amp;quot;resend&amp;quot;,&amp;quot;walang code&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Account&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How do I become a seller?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Create a buyer account first, then open the Sell page and submit your seller application with your business details. The administrator reviews it and the approval is sent to your email.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;seller&amp;quot;,&amp;quot;sell&amp;quot;,&amp;quot;benta&amp;quot;,&amp;quot;tinda&amp;quot;,&amp;quot;store&amp;quot;,&amp;quot;apply seller&amp;quot;,&amp;quot;maging seller&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Selling on Invoiz&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How do low-stock alerts work?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;When adding or editing a product, set a \u0022Low Stock Alert At\u0022 level (for example 10). When stock drops to that level you get a notification; it clears automatically once you restock above it.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;stock&amp;quot;,&amp;quot;inventory&amp;quot;,&amp;quot;ubos&amp;quot;,&amp;quot;low stock&amp;quot;,&amp;quot;alert&amp;quot;,&amp;quot;notify&amp;quot;,&amp;quot;restock&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Selling on Invoiz&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;What if my item arrives damaged or wrong?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Keep clear photos of the item and packaging. Open a delivered order and request a return for the affected item and quantity. After approval, logistics arranges collection and tracks the parcel back to the seller. Follow the return progress in Orders. A refund is separate from the physical return; view the transfer proof and confirm only after the money reaches you.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;return&amp;quot;,&amp;quot;refund&amp;quot;,&amp;quot;damaged&amp;quot;,&amp;quot;wrong&amp;quot;,&amp;quot;sira&amp;quot;,&amp;quot;mali&amp;quot;,&amp;quot;balik&amp;quot;,&amp;quot;sauli&amp;quot;,&amp;quot;reklamo&amp;quot;,&amp;quot;complaint&amp;quot;,&amp;quot;defect&amp;quot;,&amp;quot;missing&amp;quot;,&amp;quot;kulang&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Returns, Refunds \u0026 Help&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How do I contact customer service?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Use the contact card on this page (email, hotline, hours), ask the chatbot, message the seller directly from the store page, or file a complaint below for order problems.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;contact&amp;quot;,&amp;quot;support&amp;quot;,&amp;quot;help&amp;quot;,&amp;quot;hotline&amp;quot;,&amp;quot;tawag&amp;quot;,&amp;quot;number&amp;quot;,&amp;quot;email&amp;quot;,&amp;quot;tulong&amp;quot;,&amp;quot;customer service&amp;quot;,&amp;quot;cs&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Returns, Refunds \u0026 Help&amp;quot;},{&amp;quot;q&amp;quot;:&amp;quot;How do I message a seller?&amp;quot;,&amp;quot;a&amp;quot;:&amp;quot;Open the Messages page, or visit the seller\u0027s store and start a chat. Your conversation history stays in Messages.&amp;quot;,&amp;quot;keywords&amp;quot;:[&amp;quot;message&amp;quot;,&amp;quot;chat&amp;quot;,&amp;quot;kausap&amp;quot;,&amp;quot;seller chat&amp;quot;,&amp;quot;usap&amp;quot;],&amp;quot;category&amp;quot;:&amp;quot;Returns, Refunds \u0026 Help&amp;quot;}],[&amp;quot;Track my order&amp;quot;,&amp;quot;Shipping fee&amp;quot;,&amp;quot;Use a voucher&amp;quot;,&amp;quot;Cancel order&amp;quot;,&amp;quot;Contact support&amp;quot;],&amp;quot;Hi! I\u0027m the Invoiz Assistant. Ask me about orders, shipping, vouchers, or your account \u2014 or tap a topic below.&amp;quot;,&amp;quot;I\u0027m not sure about that yet. Try the FAQ list, file a complaint below with your order number, or contact us directly \u2014 we reply within 24 hours on business days.&amp;quot;,&amp;quot;http:\/\/localhost\/help&amp;quot;,&amp;quot;http:\/\/localhost\/orders&amp;quot;,&amp;quot;http:\/\/localhost\/messages&amp;quot;]"&gt;&lt;/script&gt;\n
+&lt;link rel="stylesheet" href="http://localhost/assets/shared/css/mobile-refinements.css?v=1794029392"&gt;\r\n
+&lt;script src="http://localhost/assets/shared/js/mobile-refinements.js?v=1794029391" defer&gt;&lt;/script&gt;\r\n
+&lt;link rel="stylesheet" href="http://localhost/assets/shared/css/media-viewer.css?v=1793869570"&gt;\n
+&lt;script src="http://localhost/assets/shared/js/media-viewer.js?v=1794196894" defer&gt;&lt;/script&gt;\n
+&lt;/body&gt;\r\n
+&lt;/html&gt;\r\n
+' [UTF-8](length: 42754) contains "onclick="openOpt()"" [ASCII](length: 19).
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:620
+C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php:190</failure>
+        </testcase>
+        <testcase name="test_cart_summary_uses_sale_and_variation_price" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="193" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="2" time="0.322606"/>
+        <testcase name="test_buyer_can_toggle_wishlist_and_browse_search_results" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="200" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="8" time="0.357516"/>
+        <testcase name="test_buy_now_places_the_previewed_quantity_and_variation" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="215" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="11" time="0.780991"/>
+        <testcase name="test_selected_order_removes_only_selected_lines_and_keeps_other_items" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="230" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="9" time="0.100373"/>
+        <testcase name="test_deleted_variation_is_not_converted_to_base_stock_during_checkout" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="245" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="5" time="0.106396"/>
+        <testcase name="test_voucher_claims_are_usable_and_marked_used_after_checkout" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="257" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="10" time="0.170989"/>
+        <testcase name="test_invalid_quantity_and_selection_inputs_return_validation_errors" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="271" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="5" time="0.130252"/>
+        <testcase name="test_buy_now_submission_keeps_its_page_when_another_tab_changes_session" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="279" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="7" time="0.103711"/>
+        <testcase name="test_selected_submission_keeps_its_page_when_another_tab_changes_session" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="291" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="10" time="0.125431"/>
+        <testcase name="test_foreign_cart_items_and_addresses_cannot_be_submitted" file="C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php" line="305" class="Tests\Feature\BuyerWebShoppingTest" classname="Tests.Feature.BuyerWebShoppingTest" assertions="7" time="0.092266"/>
+      </testsuite>
+      <testsuite name="Tests\Feature\SellerProductShippingDimensionsTest" file="C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php" tests="3" assertions="13" errors="0" failures="2" skipped="0" time="1.832149">
+        <testcase name="test_seller_can_create_product_with_weight_in_kg_and_dimensions_in_cm" file="C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php" line="82" class="Tests\Feature\SellerProductShippingDimensionsTest" classname="Tests.Feature.SellerProductShippingDimensionsTest" assertions="2" time="0.484364">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\SellerProductShippingDimensionsTest::test_seller_can_create_product_with_weight_in_kg_and_dimensions_in_cm&#13;
+Expected response status code [201, 301, 302, 303, 307, 308] but received 500.
+Failed asserting that false is true.&#13;
+&#13;
+The following exception occurred during the last request:
+
+PDOException: SQLSTATE[HY000]: General error: 1 table products has no column named packaging_cost in C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+Stack trace:
+#0 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(565): PDO-&gt;prepare('insert into "pr...')
+#1 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(812): Illuminate\Database\Connection-&gt;{closure:Illuminate\Database\Connection::statement():560}('insert into "pr...', Array)
+#2 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(779): Illuminate\Database\Connection-&gt;runQueryCallback('insert into "pr...', Array, Object(Closure))
+#3 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(560): Illuminate\Database\Connection-&gt;run('insert into "pr...', Array, Object(Closure))
+#4 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(524): Illuminate\Database\Connection-&gt;statement('insert into "pr...', Array)
+#5 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php(32): Illuminate\Database\Connection-&gt;insert('insert into "pr...', Array)
+#6 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php(3766): Illuminate\Database\Query\Processors\Processor-&gt;processInsertGetId(Object(Illuminate\Database\Query\Builder), 'insert into "pr...', Array, 'id')
+#7 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php(2120): Illuminate\Database\Query\Builder-&gt;insertGetId(Array, 'id')
+#8 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(1359): Illuminate\Database\Eloquent\Builder-&gt;__call('insertGetId', Array)
+#9 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(1324): Illuminate\Database\Eloquent\Model-&gt;insertAndSetId(Object(Illuminate\Database\Eloquent\Builder), Array)
+#10 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(1163): Illuminate\Database\Eloquent\Model-&gt;performInsert(Object(Illuminate\Database\Eloquent\Builder))
+#11 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php(1128): Illuminate\Database\Eloquent\Model-&gt;save()
+#12 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\helpers.php(399): Illuminate\Database\Eloquent\Builder-&gt;{closure:Illuminate\Database\Eloquent\Builder::create():1127}(Object(App\Models\Product))
+#13 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php(1127): tap(Object(App\Models\Product), Object(Closure))
+#14 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php(23): Illuminate\Database\Eloquent\Builder-&gt;create(Array)
+#15 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(2372): Illuminate\Database\Eloquent\Model-&gt;forwardCallTo(Object(Illuminate\Database\Eloquent\Builder), 'create', Array)
+#16 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(2384): Illuminate\Database\Eloquent\Model-&gt;__call('create', Array)
+#17 C:\Invoiz\app\Http\Controllers\Seller\ProductController.php(118): Illuminate\Database\Eloquent\Model::__callStatic('create', Array)
+#18 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php(32): App\Http\Controllers\Seller\ProductController-&gt;{closure:App\Http\Controllers\Seller\ProductController::store():117}(Object(Illuminate\Database\SQLiteConnection))
+#19 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\DatabaseManager.php(495): Illuminate\Database\Connection-&gt;transaction(Object(Closure))
+#20 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php(361): Illuminate\Database\DatabaseManager-&gt;__call('transaction', Array)
+#21 C:\Invoiz\app\Http\Controllers\Seller\ProductController.php(117): Illuminate\Support\Facades\Facade::__callStatic('transaction', Array)
+#22 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\ControllerDispatcher.php(47): App\Http\Controllers\Seller\ProductController-&gt;store(Object(Illuminate\Http\Request))
+#23 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Route.php(266): Illuminate\Routing\ControllerDispatcher-&gt;dispatch(Object(Illuminate\Routing\Route), Object(App\Http\Controllers\Seller\ProductController), 'store')
+#24 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Route.php(212): Illuminate\Routing\Route-&gt;runController()
+#25 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(808): Illuminate\Routing\Route-&gt;run()
+#26 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(170): Illuminate\Routing\Router-&gt;{closure:Illuminate\Routing\Router::runRouteWithinStack():807}(Object(Illuminate\Http\Request))
+#27 C:\Invoiz\app\Http\Middleware\EnsureSeller.php(53): Illuminate\Pipeline\Pipeline-&gt;{closure:Illuminate\Pipeline\Pipeline::prepareDestination():168}(Object(Illuminate\Http\Request))
+#28 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\EnsureSeller-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#29 C:\Invoiz\app\Http\Middleware\ApplyUserTimezone.php(61): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#30 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\ApplyUserTimezone-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#31 C:\Invoiz\app\Http\Middleware\EnsureActiveWebAccount.php(54): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#32 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\EnsureActiveWebAccount-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#33 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Middleware\SubstituteBindings.php(51): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#34 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Routing\Middleware\SubstituteBindings-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#35 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken.php(88): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#36 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\VerifyCsrfToken-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#37 C:\Invoiz\vendor\laravel\framework\src\Illuminate\View\Middleware\ShareErrorsFromSession.php(49): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#38 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\View\Middleware\ShareErrorsFromSession-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#39 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Session\Middleware\StartSession.php(121): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#40 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Session\Middleware\StartSession.php(64): Illuminate\Session\Middleware\StartSession-&gt;handleStatefulRequest(Object(Illuminate\Http\Request), Object(Illuminate\Session\Store), Object(Closure))
+#41 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Session\Middleware\StartSession-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#42 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse.php(37): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#43 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#44 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Cookie\Middleware\EncryptCookies.php(75): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#45 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Cookie\Middleware\EncryptCookies-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#46 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(127): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#47 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(807): Illuminate\Pipeline\Pipeline-&gt;then(Object(Closure))
+#48 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(786): Illuminate\Routing\Router-&gt;runRouteWithinStack(Object(Illuminate\Routing\Route), Object(Illuminate\Http\Request))
+#49 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(750): Illuminate\Routing\Router-&gt;runRoute(Object(Illuminate\Http\Request), Object(Illuminate\Routing\Route))
+#50 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(739): Illuminate\Routing\Router-&gt;dispatchToRoute(Object(Illuminate\Http\Request))
+#51 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Kernel.php(201): Illuminate\Routing\Router-&gt;dispatch(Object(Illuminate\Http\Request))
+#52 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(170): Illuminate\Foundation\Http\Kernel-&gt;{closure:Illuminate\Foundation\Http\Kernel::dispatchToRouter():198}(Object(Illuminate\Http\Request))
+#53 C:\Invoiz\app\Http\Middleware\SecurityHeaders.php(15): Illuminate\Pipeline\Pipeline-&gt;{closure:Illuminate\Pipeline\Pipeline::prepareDestination():168}(Object(Illuminate\Http\Request))
+#54 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\SecurityHeaders-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#55 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\TransformsRequest.php(21): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#56 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull.php(31): Illuminate\Foundation\Http\Middleware\TransformsRequest-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#57 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#58 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\TransformsRequest.php(21): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#59 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\TrimStrings.php(51): Illuminate\Foundation\Http\Middleware\TransformsRequest-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#60 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\TrimStrings-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#61 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Http\Middleware\ValidatePostSize.php(27): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#62 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Http\Middleware\ValidatePostSize-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#63 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance.php(110): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#64 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#65 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Http\Middleware\HandleCors.php(49): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#66 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Http\Middleware\HandleCors-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#67 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Http\Middleware\TrustProxies.php(58): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#68 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Http\Middleware\TrustProxies-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#69 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks.php(22): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#70 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#71 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(127): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#72 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Kernel.php(176): Illuminate\Pipeline\Pipeline-&gt;then(Object(Closure))
+#73 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Kernel.php(145): Illuminate\Foundation\Http\Kernel-&gt;sendRequestThroughRouter(Object(Illuminate\Http\Request))
+#74 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\MakesHttpRequests.php(607): Illuminate\Foundation\Http\Kernel-&gt;handle(Object(Illuminate\Http\Request))
+#75 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\MakesHttpRequests.php(397): Illuminate\Foundation\Testing\TestCase-&gt;call('POST', '/seller/product...', Array, Array, Array, Array)
+#76 C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php(84): Illuminate\Foundation\Testing\TestCase-&gt;post('/seller/product...', Array)
+#77 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestCase.php(1548): Tests\Feature\SellerProductShippingDimensionsTest-&gt;test_seller_can_create_product_with_weight_in_kg_and_dimensions_in_cm()
+#78 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestCase.php(686): PHPUnit\Framework\TestCase-&gt;runTest()
+#79 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestRunner.php(106): PHPUnit\Framework\TestCase-&gt;runBare()
+#80 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestCase.php(516): PHPUnit\Framework\TestRunner-&gt;run(Object(Tests\Feature\SellerProductShippingDimensionsTest))
+#81 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestSuite.php(374): PHPUnit\Framework\TestCase-&gt;run()
+#82 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestSuite.php(374): PHPUnit\Framework\TestSuite-&gt;run()
+#83 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestSuite.php(374): PHPUnit\Framework\TestSuite-&gt;run()
+#84 C:\Invoiz\vendor\phpunit\phpunit\src\TextUI\TestRunner.php(64): PHPUnit\Framework\TestSuite-&gt;run()
+#85 C:\Invoiz\vendor\phpunit\phpunit\src\TextUI\Application.php(204): PHPUnit\TextUI\TestRunner-&gt;run(Object(PHPUnit\TextUI\Configuration\Configuration), Object(PHPUnit\Runner\ResultCache\NullResultCache), Object(PHPUnit\Framework\TestSuite))
+#86 C:\Invoiz\vendor\phpunit\phpunit\phpunit(104): PHPUnit\TextUI\Application-&gt;run(Array)
+#87 {main}
+
+Next Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 table products has no column named packaging_cost (Connection: sqlite, SQL: insert into "products" ("name", "category_id", "price", "stock", "weight", "status", "packaging_cost", "dimensions", "seller_id", "low_stock_threshold", "updated_at", "created_at") values (Portable Bluetooth Speaker, 1, 1499, 25, 2 kg, active, 0, 40 × 30 × 20 cm, 1, 5, 2026-11-15 07:41:12, 2026-11-15 07:41:12)) in C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+Stack trace:
+#0 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(779): Illuminate\Database\Connection-&gt;runQueryCallback('insert into "pr...', Array, Object(Closure))
+#1 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(560): Illuminate\Database\Connection-&gt;run('insert into "pr...', Array, Object(Closure))
+#2 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php(524): Illuminate\Database\Connection-&gt;statement('insert into "pr...', Array)
+#3 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Query\Processors\Processor.php(32): Illuminate\Database\Connection-&gt;insert('insert into "pr...', Array)
+#4 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Query\Builder.php(3766): Illuminate\Database\Query\Processors\Processor-&gt;processInsertGetId(Object(Illuminate\Database\Query\Builder), 'insert into "pr...', Array, 'id')
+#5 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php(2120): Illuminate\Database\Query\Builder-&gt;insertGetId(Array, 'id')
+#6 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(1359): Illuminate\Database\Eloquent\Builder-&gt;__call('insertGetId', Array)
+#7 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(1324): Illuminate\Database\Eloquent\Model-&gt;insertAndSetId(Object(Illuminate\Database\Eloquent\Builder), Array)
+#8 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(1163): Illuminate\Database\Eloquent\Model-&gt;performInsert(Object(Illuminate\Database\Eloquent\Builder))
+#9 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php(1128): Illuminate\Database\Eloquent\Model-&gt;save()
+#10 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\helpers.php(399): Illuminate\Database\Eloquent\Builder-&gt;{closure:Illuminate\Database\Eloquent\Builder::create():1127}(Object(App\Models\Product))
+#11 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Builder.php(1127): tap(Object(App\Models\Product), Object(Closure))
+#12 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Traits\ForwardsCalls.php(23): Illuminate\Database\Eloquent\Builder-&gt;create(Array)
+#13 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(2372): Illuminate\Database\Eloquent\Model-&gt;forwardCallTo(Object(Illuminate\Database\Eloquent\Builder), 'create', Array)
+#14 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Eloquent\Model.php(2384): Illuminate\Database\Eloquent\Model-&gt;__call('create', Array)
+#15 C:\Invoiz\app\Http\Controllers\Seller\ProductController.php(118): Illuminate\Database\Eloquent\Model::__callStatic('create', Array)
+#16 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Concerns\ManagesTransactions.php(32): App\Http\Controllers\Seller\ProductController-&gt;{closure:App\Http\Controllers\Seller\ProductController::store():117}(Object(Illuminate\Database\SQLiteConnection))
+#17 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\DatabaseManager.php(495): Illuminate\Database\Connection-&gt;transaction(Object(Closure))
+#18 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php(361): Illuminate\Database\DatabaseManager-&gt;__call('transaction', Array)
+#19 C:\Invoiz\app\Http\Controllers\Seller\ProductController.php(117): Illuminate\Support\Facades\Facade::__callStatic('transaction', Array)
+#20 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\ControllerDispatcher.php(47): App\Http\Controllers\Seller\ProductController-&gt;store(Object(Illuminate\Http\Request))
+#21 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Route.php(266): Illuminate\Routing\ControllerDispatcher-&gt;dispatch(Object(Illuminate\Routing\Route), Object(App\Http\Controllers\Seller\ProductController), 'store')
+#22 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Route.php(212): Illuminate\Routing\Route-&gt;runController()
+#23 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(808): Illuminate\Routing\Route-&gt;run()
+#24 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(170): Illuminate\Routing\Router-&gt;{closure:Illuminate\Routing\Router::runRouteWithinStack():807}(Object(Illuminate\Http\Request))
+#25 C:\Invoiz\app\Http\Middleware\EnsureSeller.php(53): Illuminate\Pipeline\Pipeline-&gt;{closure:Illuminate\Pipeline\Pipeline::prepareDestination():168}(Object(Illuminate\Http\Request))
+#26 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\EnsureSeller-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#27 C:\Invoiz\app\Http\Middleware\ApplyUserTimezone.php(61): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#28 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\ApplyUserTimezone-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#29 C:\Invoiz\app\Http\Middleware\EnsureActiveWebAccount.php(54): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#30 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\EnsureActiveWebAccount-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#31 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Middleware\SubstituteBindings.php(51): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#32 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Routing\Middleware\SubstituteBindings-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#33 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken.php(88): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#34 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\VerifyCsrfToken-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#35 C:\Invoiz\vendor\laravel\framework\src\Illuminate\View\Middleware\ShareErrorsFromSession.php(49): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#36 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\View\Middleware\ShareErrorsFromSession-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#37 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Session\Middleware\StartSession.php(121): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#38 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Session\Middleware\StartSession.php(64): Illuminate\Session\Middleware\StartSession-&gt;handleStatefulRequest(Object(Illuminate\Http\Request), Object(Illuminate\Session\Store), Object(Closure))
+#39 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Session\Middleware\StartSession-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#40 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse.php(37): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#41 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#42 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Cookie\Middleware\EncryptCookies.php(75): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#43 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Cookie\Middleware\EncryptCookies-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#44 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(127): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#45 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(807): Illuminate\Pipeline\Pipeline-&gt;then(Object(Closure))
+#46 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(786): Illuminate\Routing\Router-&gt;runRouteWithinStack(Object(Illuminate\Routing\Route), Object(Illuminate\Http\Request))
+#47 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(750): Illuminate\Routing\Router-&gt;runRoute(Object(Illuminate\Http\Request), Object(Illuminate\Routing\Route))
+#48 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Routing\Router.php(739): Illuminate\Routing\Router-&gt;dispatchToRoute(Object(Illuminate\Http\Request))
+#49 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Kernel.php(201): Illuminate\Routing\Router-&gt;dispatch(Object(Illuminate\Http\Request))
+#50 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(170): Illuminate\Foundation\Http\Kernel-&gt;{closure:Illuminate\Foundation\Http\Kernel::dispatchToRouter():198}(Object(Illuminate\Http\Request))
+#51 C:\Invoiz\app\Http\Middleware\SecurityHeaders.php(15): Illuminate\Pipeline\Pipeline-&gt;{closure:Illuminate\Pipeline\Pipeline::prepareDestination():168}(Object(Illuminate\Http\Request))
+#52 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): App\Http\Middleware\SecurityHeaders-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#53 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\TransformsRequest.php(21): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#54 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull.php(31): Illuminate\Foundation\Http\Middleware\TransformsRequest-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#55 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#56 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\TransformsRequest.php(21): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#57 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\TrimStrings.php(51): Illuminate\Foundation\Http\Middleware\TransformsRequest-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#58 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\TrimStrings-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#59 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Http\Middleware\ValidatePostSize.php(27): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#60 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Http\Middleware\ValidatePostSize-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#61 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance.php(110): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#62 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#63 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Http\Middleware\HandleCors.php(49): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#64 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Http\Middleware\HandleCors-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#65 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Http\Middleware\TrustProxies.php(58): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#66 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Http\Middleware\TrustProxies-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#67 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks.php(22): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#68 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(209): Illuminate\Foundation\Http\Middleware\InvokeDeferredCallbacks-&gt;handle(Object(Illuminate\Http\Request), Object(Closure))
+#69 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Pipeline\Pipeline.php(127): Illuminate\Pipeline\Pipeline-&gt;{closure:{closure:Illuminate\Pipeline\Pipeline::carry():184}:185}(Object(Illuminate\Http\Request))
+#70 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Kernel.php(176): Illuminate\Pipeline\Pipeline-&gt;then(Object(Closure))
+#71 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Http\Kernel.php(145): Illuminate\Foundation\Http\Kernel-&gt;sendRequestThroughRouter(Object(Illuminate\Http\Request))
+#72 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\MakesHttpRequests.php(607): Illuminate\Foundation\Http\Kernel-&gt;handle(Object(Illuminate\Http\Request))
+#73 C:\Invoiz\vendor\laravel\framework\src\Illuminate\Foundation\Testing\Concerns\MakesHttpRequests.php(397): Illuminate\Foundation\Testing\TestCase-&gt;call('POST', '/seller/product...', Array, Array, Array, Array)
+#74 C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php(84): Illuminate\Foundation\Testing\TestCase-&gt;post('/seller/product...', Array)
+#75 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestCase.php(1548): Tests\Feature\SellerProductShippingDimensionsTest-&gt;test_seller_can_create_product_with_weight_in_kg_and_dimensions_in_cm()
+#76 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestCase.php(686): PHPUnit\Framework\TestCase-&gt;runTest()
+#77 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestRunner.php(106): PHPUnit\Framework\TestCase-&gt;runBare()
+#78 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestCase.php(516): PHPUnit\Framework\TestRunner-&gt;run(Object(Tests\Feature\SellerProductShippingDimensionsTest))
+#79 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestSuite.php(374): PHPUnit\Framework\TestCase-&gt;run()
+#80 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestSuite.php(374): PHPUnit\Framework\TestSuite-&gt;run()
+#81 C:\Invoiz\vendor\phpunit\phpunit\src\Framework\TestSuite.php(374): PHPUnit\Framework\TestSuite-&gt;run()
+#82 C:\Invoiz\vendor\phpunit\phpunit\src\TextUI\TestRunner.php(64): PHPUnit\Framework\TestSuite-&gt;run()
+#83 C:\Invoiz\vendor\phpunit\phpunit\src\TextUI\Application.php(204): PHPUnit\TextUI\TestRunner-&gt;run(Object(PHPUnit\TextUI\Configuration\Configuration), Object(PHPUnit\Runner\ResultCache\NullResultCache), Object(PHPUnit\Framework\TestSuite))
+#84 C:\Invoiz\vendor\phpunit\phpunit\phpunit(104): PHPUnit\TextUI\Application-&gt;run(Array)
+#85 {main}
+
+----------------------------------------------------------------------------------
+
+SQLSTATE[HY000]: General error: 1 table products has no column named packaging_cost (Connection: sqlite, SQL: insert into "products" ("name", "category_id", "price", "stock", "weight", "status", "packaging_cost", "dimensions", "seller_id", "low_stock_threshold", "updated_at", "created_at") values (Portable Bluetooth Speaker, 1, 1499, 25, 2 kg, active, 0, 40 × 30 × 20 cm, 1, 5, 2026-11-15 07:41:12, 2026-11-15 07:41:12))
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:185
+C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php:97</failure>
+        </testcase>
+        <testcase name="test_product_edit_page_populates_weight_and_dimension_fields" file="C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php" line="108" class="Tests\Feature\SellerProductShippingDimensionsTest" classname="Tests.Feature.SellerProductShippingDimensionsTest" assertions="9" time="1.116030"/>
+        <testcase name="test_seller_can_update_weight_and_dimensions" file="C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php" line="133" class="Tests\Feature\SellerProductShippingDimensionsTest" classname="Tests.Feature.SellerProductShippingDimensionsTest" assertions="2" time="0.231755">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\SellerProductShippingDimensionsTest::test_seller_can_update_weight_and_dimensions&#13;
+Failed asserting that two strings are identical.
+--- Expected
++++ Actual
+@@ @@
+-'Kitchen Blender Pro'
++'Kitchen Blender'
+&#13;
+C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php:161</failure>
+        </testcase>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

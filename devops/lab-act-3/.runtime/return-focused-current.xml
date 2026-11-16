@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='utf-8'?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../vendor/phpunit/phpunit/phpunit.xsd" bootstrap="C:/Invoiz/devops/lab-act-3/scripts/test-bootstrap.php" colors="true" cacheResult="false">
+    
+    <testsuites><testsuite name="Read-only baseline return failures"><file>C:/Invoiz/tests/Feature/ReturnWorkflowTest.php</file><file>C:/Invoiz/tests/Feature/ReturnSettlementTest.php</file></testsuite></testsuites><php>
+        <env name="APP_ENV" value="testing" force="true" />
+        <env name="DB_CONNECTION" value="sqlite" force="true" />
+        <env name="DB_DATABASE" value=":memory:" force="true" />
+        <env name="DB_URL" value="" force="true" />
+        <env name="CACHE_STORE" value="array" force="true" />
+        <env name="SESSION_DRIVER" value="array" force="true" />
+        <env name="QUEUE_CONNECTION" value="sync" force="true" />
+        <env name="MAIL_MAILER" value="array" force="true" />
+        <env name="BCRYPT_ROUNDS" value="4" force="true" />
+    </php>
+</phpunit>

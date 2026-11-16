@@ -1,0 +1,563 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="C:\Invoiz\devops\lab-act-3\.runtime\return-focused-current.xml" tests="154" assertions="878" errors="31" failures="2" skipped="0" time="67.907669">
+    <testsuite name="Read-only baseline return failures" tests="154" assertions="878" errors="31" failures="2" skipped="0" time="67.907669">
+      <testsuite name="Tests\Feature\ReturnWorkflowTest" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" tests="31" assertions="0" errors="31" failures="0" skipped="0" time="0.000000">
+        <testcase name="test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="163" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_missing_platform_account_blocks_seller_deposit_and_acceptance_after_receipt_verification" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="172" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_missing_platform_account_blocks_seller_deposit_and_acceptance_after_receipt_verification&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_verification_ownership_and_full_deposit_amount_are_enforced" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="186" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_verification_ownership_and_full_deposit_amount_are_enforced&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_admin_must_attest_actual_funds_and_only_admin_confirmation_unlocks_order" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="198" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_admin_must_attest_actual_funds_and_only_admin_confirmation_unlocks_order&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_rejected_deposit_can_be_corrected_and_review_cannot_be_replayed" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="212" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_rejected_deposit_can_be_corrected_and_review_cannot_be_replayed&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_deposit_proof_is_private_and_only_admin_can_review_it" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="223" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_deposit_proof_is_private_and_only_admin_can_review_it&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_gcash_rider_gets_no_cash_handoff_and_earns_only_after_acceptance" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="232" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_gcash_rider_gets_no_cash_handoff_and_earns_only_after_acceptance&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_unfunded_gcash_cannot_be_dispatched_through_delivery_updates" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="260" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_unfunded_gcash_cannot_be_dispatched_through_delivery_updates&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_admin_cannot_batch_release_gcash_or_release_before_delivery" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="266" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_admin_cannot_batch_release_gcash_or_release_before_delivery&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_legacy_gcash_earnings_are_hidden_until_the_matching_payout_is_accepted" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="277" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_legacy_gcash_earnings_are_hidden_until_the_matching_payout_is_accepted&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_admin_can_render_deposit_review_and_seller_can_upload_a_receiving_qr" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="295" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_admin_can_render_deposit_review_and_seller_can_upload_a_receiving_qr&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_another_rider_cannot_accept_the_payout" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="305" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_another_rider_cannot_accept_the_payout&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_one_escrow_transfer_reference_cannot_fund_two_orders" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="320" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_one_escrow_transfer_reference_cannot_fund_two_orders&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_admin_cannot_release_more_than_the_confirmed_escrow_balance" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="333" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_admin_cannot_release_more_than_the_confirmed_escrow_balance&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_gcash_pickup_pay_waits_for_remittance_acceptance_too" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="343" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_gcash_pickup_pay_waits_for_remittance_acceptance_too&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_cod_earnings_remain_visible_without_escrow_acceptance" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="363" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_cod_earnings_remain_visible_without_escrow_acceptance&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_return_pickup_rechecks_online_status_after_the_rider_list_was_opened" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="81" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_return_pickup_rechecks_online_status_after_the_rider_list_was_opened&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_return_rider_options_omit_offline_riders_and_explain_when_none_are_online" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="100" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_return_rider_options_omit_offline_riders_and_explain_when_none_are_online&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_reverse_custody_refund_and_buyer_confirmation_are_separate_and_replay_safe" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="120" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_reverse_custody_refund_and_buyer_confirmation_are_separate_and_replay_safe&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_refund_requires_actual_transfer_and_sufficient_recovery_to_preserve_logistics_fees" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="141" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_refund_requires_actual_transfer_and_sufficient_recovery_to_preserve_logistics_fees&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_seller_cannot_receive_before_logistics_dispatch_and_restock_is_explicit_once" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="152" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_seller_cannot_receive_before_logistics_dispatch_and_restock_is_explicit_once&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_other_hubs_riders_sellers_and_buyers_cannot_change_custody_or_confirm_refunds" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="163" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_other_hubs_riders_sellers_and_buyers_cannot_change_custody_or_confirm_refunds&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_return_transfer_requires_destination_hub_receipt_before_seller_dispatch" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="174" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_return_transfer_requires_destination_hub_receipt_before_seller_dispatch&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_open_return_blocks_admin_payout_and_private_refund_proof_is_buyer_scoped" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="189" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_open_return_blocks_admin_payout_and_private_refund_proof_is_buyer_scoped&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_refund_confirm_api_requires_the_owning_buyer_and_admin_page_renders" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="202" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_refund_confirm_api_requires_the_owning_buyer_and_admin_page_renders&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_real_action_routes_accept_handoffs_but_require_admin_transfer_attestation" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="211" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_real_action_routes_accept_handoffs_but_require_admin_transfer_attestation&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_cod_returns_wait_for_reconciliation_and_do_not_erase_refunds_on_later_settlement" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="229" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_cod_returns_wait_for_reconciliation_and_do_not_erase_refunds_on_later_settlement&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_prepaid_cancellation_queues_the_unused_shipping_too_without_claiming_a_refund" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="245" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_prepaid_cancellation_queues_the_unused_shipping_too_without_claiming_a_refund&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_zero_cash_value_return_closes_without_a_fictitious_transfer" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="260" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_zero_cash_value_return_closes_without_a_fictitious_transfer&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_fully_refunded_gcash_cannot_restart_but_recovered_funds_can_pay_earned_logistics" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="270" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_fully_refunded_gcash_cannot_restart_but_recovered_funds_can_pay_earned_logistics&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+        <testcase name="test_rider_return_api_shows_only_assigned_collections_and_never_collects_cash" file="C:\Invoiz\tests\Feature\ReturnWorkflowTest.php" line="286" class="Tests\Feature\ReturnWorkflowTest" classname="Tests.Feature.ReturnWorkflowTest" assertions="0" time="0.000000">
+          <error type="Illuminate\Database\QueryException">Tests\Feature\ReturnWorkflowTest::test_rider_return_api_shows_only_assigned_collections_and_never_collects_cash&#13;
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21</error>
+        </testcase>
+      </testsuite>
+      <testsuite name="Tests\Feature\ReturnSettlementTest" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" tests="123" assertions="878" errors="0" failures="2" skipped="0" time="67.907669">
+        <testcase name="test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="163" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.293383"/>
+        <testcase name="test_missing_platform_account_blocks_seller_deposit_and_acceptance_after_receipt_verification" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="172" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.196790"/>
+        <testcase name="test_verification_ownership_and_full_deposit_amount_are_enforced" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="186" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="7" time="0.211612"/>
+        <testcase name="test_admin_must_attest_actual_funds_and_only_admin_confirmation_unlocks_order" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="198" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="13" time="0.267054"/>
+        <testcase name="test_rejected_deposit_can_be_corrected_and_review_cannot_be_replayed" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="212" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.219734"/>
+        <testcase name="test_deposit_proof_is_private_and_only_admin_can_review_it" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="223" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.211018"/>
+        <testcase name="test_gcash_rider_gets_no_cash_handoff_and_earns_only_after_acceptance" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="232" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="24" time="0.383027"/>
+        <testcase name="test_unfunded_gcash_cannot_be_dispatched_through_delivery_updates" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="260" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="1" time="0.247439"/>
+        <testcase name="test_admin_cannot_batch_release_gcash_or_release_before_delivery" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="266" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.277592"/>
+        <testcase name="test_legacy_gcash_earnings_are_hidden_until_the_matching_payout_is_accepted" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="277" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.294879"/>
+        <testcase name="test_admin_can_render_deposit_review_and_seller_can_upload_a_receiving_qr" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="295" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="4.672030"/>
+        <testcase name="test_another_rider_cannot_accept_the_payout" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="305" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="7" time="0.207050"/>
+        <testcase name="test_one_escrow_transfer_reference_cannot_fund_two_orders" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="320" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.194624"/>
+        <testcase name="test_admin_cannot_release_more_than_the_confirmed_escrow_balance" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="333" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="7" time="0.205456"/>
+        <testcase name="test_gcash_pickup_pay_waits_for_remittance_acceptance_too" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="343" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="13" time="0.252342"/>
+        <testcase name="test_cod_earnings_remain_visible_without_escrow_acceptance" file="C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php" line="363" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.157160"/>
+        <testcase name="test_refund_only_never_fakes_a_physical_return_or_creates_transport_work" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="144" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.353140"/>
+        <testcase name="test_buyer_deduction_is_reserved_once_and_net_refund_reverses_the_full_merchandise" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="157" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.415513"/>
+        <testcase name="test_return_earnings_require_verified_work_actual_remittance_and_recipient_acceptance" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="169" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.306774"/>
+        <testcase name="test_return_release_requires_saved_account_without_per_return_account_or_receipt" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="183" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="25" time="0.442136"/>
+        <testcase name="test_unified_return_release_still_blocks_unfunded_or_unperformed_work_and_other_recipients" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="209" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.374536"/>
+        <testcase name="test_orders_and_returns_with_the_same_numeric_id_cannot_confirm_each_other" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="222" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.442686"/>
+        <testcase name="test_all_five_return_services_use_order_style_release_and_the_common_recipient_confirmation" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="240" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="42" time="0.863344"/>
+        <testcase name="test_sent_return_rider_fees_wait_in_the_regular_inbox_until_receipt_is_accepted" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="285" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="17" time="0.505323"/>
+        <testcase name="test_return_hub_payments_appear_in_regular_hub_remittances_and_cannot_be_claimed_by_another_hub" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="309" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="1.157907"/>
+        <testcase name="test_driver_return_remittance_inbox_contains_only_its_released_transfer_fee" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="327" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="7" time="0.409121"/>
+        <testcase name="test_screenshots_cannot_unlock_pickup_and_nonadmins_cannot_verify_funding" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="348" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.247139"/>
+        <testcase name="test_private_refund_account_is_encrypted_and_hidden_from_seller_and_strangers" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="356" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.237867"/>
+        <testcase name="test_stale_quotes_and_buyer_charges_for_seller_fault_are_rejected" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="365" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.288880"/>
+        <testcase name="test_exchange_has_no_cash_refund_and_waits_for_actual_replacement_receipt" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="372" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.311832"/>
+        <testcase name="test_cancelled_deduction_releases_original_reservation_without_giving_buyer_free_money" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="384" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.354156"/>
+        <testcase name="test_cancelled_separate_payment_returns_budget_to_the_payer_without_counting_it_as_earnings" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="394" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.319924"/>
+        <testcase name="test_funding_activation_is_not_replayed_after_receipt_and_disputes_stop_new_custody" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="407" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.298109"/>
+        <testcase name="test_agreement_and_remittance_pages_render_for_each_participant_without_bank_leaks" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="419" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="17" time="2.248390"/>
+        <testcase name="test_rejected_receipt_can_be_corrected_without_reusing_verified_money" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="435" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.232951"/>
+        <testcase name="test_unused_recovery_is_returned_once_without_creating_refund_credit" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="449" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.299830"/>
+        <testcase name="test_unreconciled_original_payment_cannot_unlock_a_resolution" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="467" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="1" time="0.244168"/>
+        <testcase name="test_exchange_stock_is_reserved_once_and_restored_when_cancelled_before_collection" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="476" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.299806"/>
+        <testcase name="test_recipient_bank_details_and_acceptance_cannot_be_changed_by_another_participant" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="489" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.309846"/>
+        <testcase name="test_existing_in_transit_legacy_returns_are_not_retroactively_quoted" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="500" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.202032"/>
+        <testcase name="test_pickup_form_uses_philippine_time_instead_of_server_time" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="509" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.298245"/>
+        <testcase name="test_legacy_seller_reject_action_cannot_close_a_case_holding_verified_return_funds" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="519" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.232276"/>
+        <testcase name="test_active_inter_hub_driver_can_be_assigned_to_a_return_transfer" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="530" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.220623"/>
+        <testcase name="test_inactive_inter_hub_driver_cannot_be_assigned_to_a_return_transfer" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="538" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.212929"/>
+        <testcase name="test_suspended_inter_hub_driver_cannot_be_assigned_to_a_return_transfer" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="546" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.213646"/>
+        <testcase name="test_inter_hub_driver_must_belong_to_the_return_company" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="554" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.203677"/>
+        <testcase name="test_suspended_driver_cannot_use_return_settlement_endpoints" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="561" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.235977"/>
+        <testcase name="test_assigned_active_driver_still_accepts_return_remittances" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="573" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.466182"/>
+        <testcase name="test_automatic_buyer_funding_deducts_and_reserves_once_after_approval" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="607" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.428334"/>
+        <testcase name="test_automatic_buyer_funding_falls_back_to_deposit_without_verified_escrow" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="621" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.261515"/>
+        <testcase name="test_automatic_cod_deduction_requires_reconciled_original_cash" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="634" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.458924"/>
+        <testcase name="test_explicit_separate_payment_stays_available_when_refund_could_cover_fees" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="649" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.291675"/>
+        <testcase name="test_newly_reconciled_seller_funds_can_unlock_without_mutating_a_page_preview" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="660" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="10" time="0.444934"/>
+        <testcase name="test_seller_escrow_reservation_preserves_buyer_refund_and_original_logistics" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="681" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.356990"/>
+        <testcase name="test_late_verified_seller_funds_reduce_the_deposit_before_submission" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="699" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.363228"/>
+        <testcase name="test_seller_pays_only_the_shortfall_after_a_partial_escrow_reservation" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="713" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.371193"/>
+        <testcase name="test_released_seller_money_cannot_be_reserved_again" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="726" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.303793"/>
+        <testcase name="test_cancelled_seller_reservation_is_released_without_an_extra_cash_refund" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="736" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.304559"/>
+        <testcase name="test_revision_releases_internal_holds_and_requires_fresh_approval" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="747" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.294519"/>
+        <testcase name="test_full_refund_cannot_use_the_same_seller_money_twice_for_transport" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="757" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.335348"/>
+        <testcase name="test_mixed_seller_funding_cancellation_returns_only_the_external_deposit" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="765" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.438888"/>
+        <testcase name="test_funded_refund_is_protected_from_another_return_on_the_same_order" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="775" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.545348"/>
+        <testcase name="test_seller_funded_refund_releases_its_hold_only_when_actual_transfer_is_recorded" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="790" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.598876"/>
+        <testcase name="test_other_sellers_escrow_is_not_used_for_an_automatic_refund_deduction" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="804" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.480878"/>
+        <testcase name="test_buyer_fault_recovers_original_seller_costs_without_charging_original_shipping_twice" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="863" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="10" time="0.572015"/>
+        <testcase name="test_new_buyer_fault_collects_without_admin_customer_approval_but_cannot_pay_unverified_escrow" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="877" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="1.123127"/>
+        <testcase name="test_buyer_fault_direct_refund_requires_seller_receipt_and_buyer_confirmation_and_preserves_original_earnings" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="897" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="11" time="0.852070"/>
+        <testcase name="test_buyer_fault_buyer_cannot_pay_fee_or_fake_refund_and_admin_cannot_handle_customer_refund" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="922" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.598634"/>
+        <testcase name="test_buyer_fault_account_is_shared_only_with_accepted_seller_and_customer_ui_has_no_admin_forms" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="931" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="16" time="1.303098"/>
+        <testcase name="test_buyer_fault_new_rates_do_not_change_recorded_original_compensation_and_manual_compensation_is_rejected" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="946" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.315822"/>
+        <testcase name="test_buyer_fault_seller_deposits_only_delivery_and_cannot_send_item_refund_into_return_escrow" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="955" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="1" time="0.341718"/>
+        <testcase name="test_buyer_fault_rejected_delivery_receipt_pauses_custody_until_seller_corrects_it" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="963" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.342656"/>
+        <testcase name="test_buyer_fault_disagreement_is_resolved_by_reporting_party_without_admin_customer_approval" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="977" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.349389"/>
+        <testcase name="test_seller_fault_return_refunds_full_paid_amount_and_funds_only_configured_delivery" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="991" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="0.391699"/>
+        <testcase name="test_seller_fault_return_uses_mutual_agreement_and_seller_payment_without_admin_customer_approval" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1009" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="14" time="1.045503"/>
+        <testcase name="test_seller_fault_direct_full_refund_requires_physical_receipt_and_buyer_confirmation_preserving_earned_cuts" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1031" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="0.647087"/>
+        <testcase name="test_seller_fault_ui_shares_refund_account_only_with_agreed_seller_and_has_no_customer_admin_steps" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1059" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="13" time="0.549788"/>
+        <testcase name="test_seller_fault_shipping_is_per_seller_and_returned_quantity_without_refunding_another_store_shipping" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1074" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.345913"/>
+        <testcase name="test_seller_fault_never_reimburses_free_shipping_or_accepts_manual_cost_deductions" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1091" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.468812"/>
+        <testcase name="test_partial_buyer_fault_costs_share_shipping_credit_and_cannot_recover_more_than_original_costs" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1101" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.746361"/>
+        <testcase name="test_buyer_fault_cost_snapshot_conflict_requires_a_new_proposal_instead_of_silent_deduction_change" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1118" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="1" time="0.719564"/>
+        <testcase name="test_buyer_fault_reverse_transfer_uses_collection_company_driver_before_new_receiving_hub" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1125" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="7" time="0.573207"/>
+        <testcase name="test_buyer_fault_mobile_api_confirms_seller_refund_and_private_receipt_without_admin" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1155" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.487257">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ReturnSettlementTest::test_buyer_fault_mobile_api_confirms_seller_refund_and_private_receipt_without_admin&#13;
+Header [Cache-Control] was found, but value [max-age=0, must-revalidate, no-cache, no-store, private] does not match [no-store, private].
+Failed asserting that two strings are equal.
+--- Expected
++++ Actual
+@@ @@
+-'no-store, private'
++'max-age=0, must-revalidate, no-cache, no-store, private'
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:310
+C:\Invoiz\tests\Feature\ReturnSettlementTest.php:1161</failure>
+        </testcase>
+        <testcase name="test_buyer_fault_cannot_make_unreconciled_original_cod_appear_funded_through_an_external_refund" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1167" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.688216"/>
+        <testcase name="test_buyer_fault_acceptance_allows_mysql_json_key_normalization_without_repricing" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1178" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.703422"/>
+        <testcase name="test_return_last_mile_assignment_blocks_offline_rider_without_advancing_custody_or_payee" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1190" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="7" time="0.690416"/>
+        <testcase name="test_replacement_dispatch_requires_an_online_rider_and_preserves_the_undispatched_agreement" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1210" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.627170"/>
+        <testcase name="test_zero_priced_return_rider_services_cannot_bypass_online_assignment_checks" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1223" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.522873"/>
+        <testcase name="test_return_center_renders_the_online_only_selector_for_logistics" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1243" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="7" time="1.201006"/>
+        <testcase name="test_pickup_assignment_is_returned_to_the_exact_rider_and_next_step_is_not_a_dropdown" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1268" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.605370"/>
+        <testcase name="test_suspended_original_hub_can_be_replaced_without_changing_fees_or_paying_the_old_hub" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1281" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="10" time="1.259316"/>
+        <testcase name="test_original_seller_hub_is_recommended_and_suspended_companies_are_not_choices" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1297" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="1.250257"/>
+        <testcase name="test_inter_hub_return_job_has_its_own_driver_api_and_arrival_never_fakes_hub_receipt" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1309" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="14" time="2.714196"/>
+        <testcase name="test_zero_priced_return_transfer_still_requires_an_online_driver_and_appears_in_the_app" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1327" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="1.068465"/>
+        <testcase name="test_receiving_hub_cannot_be_changed_after_its_work_is_eligible" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1344" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.663832"/>
+        <testcase name="test_keep_item_direct_seller_refund_requires_no_platform_money_and_closes_only_on_buyer_confirmation" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1380" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="28" time="1.503428"/>
+        <testcase name="test_keep_item_direct_decline_and_messages_preserve_terms_and_allow_corrected_receipts_without_admin" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1410" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="0.568015"/>
+        <testcase name="test_keep_item_direct_partial_refund_uses_agreed_amount_and_rejects_platform_deposits_and_admin_transfers" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1433" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="17" time="0.586340"/>
+        <testcase name="test_partial_refund_requires_a_positive_item_amount_below_the_full_value" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1455" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.509654"/>
+        <testcase name="test_partial_refund_negotiation_receipt_decline_and_correction_end_in_only_the_agreed_payment" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1468" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.437920"/>
+        <testcase name="test_keep_item_direct_cannot_reuse_another_cases_historical_transfer_reference" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1496" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.682426"/>
+        <testcase name="test_return_fee_upload_is_private_pending_and_requires_admin_receipt_preview_before_success" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1529" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="13" time="0.610233">
+          <failure type="PHPUnit\Framework\ExpectationFailedException">Tests\Feature\ReturnSettlementTest::test_return_fee_upload_is_private_pending_and_requires_admin_receipt_preview_before_success&#13;
+Header [Cache-Control] was found, but value [max-age=0, must-revalidate, no-cache, no-store, private] does not match [no-store, private].
+Failed asserting that two strings are equal.
+--- Expected
++++ Actual
+@@ @@
+-'no-store, private'
++'max-age=0, must-revalidate, no-cache, no-store, private'
+&#13;
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:310
+C:\Invoiz\tests\Feature\ReturnSettlementTest.php:1545</failure>
+        </testcase>
+        <testcase name="test_return_receipt_rejection_and_correction_requires_a_fresh_preview" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1553" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.562093"/>
+        <testcase name="test_return_fee_cannot_be_uploaded_without_a_receipt_and_duplicate_pending_upload_is_hidden" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1569" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="11" time="1.698570"/>
+        <testcase name="test_seller_refund_funding_has_a_separate_explanation_and_upload_form" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1581" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="9" time="0.655020"/>
+        <testcase name="test_direct_same_hub_fees_include_all_configured_services_without_manual_input" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1593" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="11" time="0.388662"/>
+        <testcase name="test_direct_cross_hub_quote_uses_commission_rates_and_returned_quantity" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1606" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.389331"/>
+        <testcase name="test_direct_return_can_reverse_the_original_delivery_between_companies" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1620" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.414679"/>
+        <testcase name="test_direct_quote_allows_an_active_alternative_company_destination" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1647" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.335246"/>
+        <testcase name="test_direct_buyer_agreement_then_separate_payment_unlocks_without_admin_decision" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1655" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="12" time="0.432340"/>
+        <testcase name="test_direct_seller_fault_requires_separate_seller_payment_and_never_spends_held_earnings" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1674" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.355832"/>
+        <testcase name="test_direct_comments_and_declines_require_a_new_seller_proposal_and_fresh_acceptance" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1687" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="8" time="0.323288"/>
+        <testcase name="test_direct_fees_cannot_be_manually_changed_by_admin" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1701" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="1" time="0.498709"/>
+        <testcase name="test_direct_payment_is_blocked_before_buyer_acceptance" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1708" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="1" time="0.605490"/>
+        <testcase name="test_direct_seller_proposal_http_accepts_no_payer_or_manual_fee_fields" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1714" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="3" time="0.639399"/>
+        <testcase name="test_direct_admin_cannot_replace_the_sellers_proposal" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1725" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="1" time="0.717070"/>
+        <testcase name="test_direct_buyer_cannot_pay_the_sellers_fee_and_admin_cannot_approve_fault" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1733" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.591109"/>
+        <testcase name="test_direct_payment_then_refund_account_unlocks_automatically_once" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1744" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.496687"/>
+        <testcase name="test_direct_submitted_receipt_locks_proposal_but_does_not_unlock_collection" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1755" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="2" time="0.342281"/>
+        <testcase name="test_direct_funded_account_correction_preserves_fees_and_does_not_require_fault_approval" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1764" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="6" time="0.377859"/>
+        <testcase name="test_direct_keep_item_refund_has_no_transport_or_admin_approval_step" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1779" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="5" time="0.357967"/>
+        <testcase name="test_direct_pages_show_no_manual_fee_or_responsibility_approval_forms" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1789" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="26" time="0.616160"/>
+        <testcase name="test_original_earned_logistics_can_be_released_after_verified_refund_recovery" file="C:\Invoiz\tests\Feature\ReturnSettlementTest.php" line="1801" class="Tests\Feature\ReturnSettlementTest" classname="Tests.Feature.ReturnSettlementTest" assertions="4" time="0.624443"/>
+      </testsuite>
+    </testsuite>
+  </testsuite>
+</testsuites>

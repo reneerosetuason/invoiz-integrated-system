@@ -1,0 +1,836 @@
+PHPUnit 10.5.65 by Sebastian Bergmann and contributors.
+
+Runtime:       PHP 8.5.9
+Configuration: C:\Invoiz\devops\lab-act-3\.runtime\return-focused-current.xml
+
+EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE................................  63 / 154 ( 40%)
+..................................................F............ 126 / 154 ( 81%)
+......F.....................                                    154 / 154 (100%)
+
+Time: 01:12.661, Memory: 94.00 MB
+
+There were 31 errors:
+
+1) Tests\Feature\ReturnWorkflowTest::test_seller_cannot_accept_with_only_a_buyer_receipt_or_submitted_deposit
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+2) Tests\Feature\ReturnWorkflowTest::test_missing_platform_account_blocks_seller_deposit_and_acceptance_after_receipt_verification
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+3) Tests\Feature\ReturnWorkflowTest::test_verification_ownership_and_full_deposit_amount_are_enforced
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+4) Tests\Feature\ReturnWorkflowTest::test_admin_must_attest_actual_funds_and_only_admin_confirmation_unlocks_order
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+5) Tests\Feature\ReturnWorkflowTest::test_rejected_deposit_can_be_corrected_and_review_cannot_be_replayed
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+6) Tests\Feature\ReturnWorkflowTest::test_deposit_proof_is_private_and_only_admin_can_review_it
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+7) Tests\Feature\ReturnWorkflowTest::test_gcash_rider_gets_no_cash_handoff_and_earns_only_after_acceptance
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+8) Tests\Feature\ReturnWorkflowTest::test_unfunded_gcash_cannot_be_dispatched_through_delivery_updates
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+9) Tests\Feature\ReturnWorkflowTest::test_admin_cannot_batch_release_gcash_or_release_before_delivery
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+10) Tests\Feature\ReturnWorkflowTest::test_legacy_gcash_earnings_are_hidden_until_the_matching_payout_is_accepted
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+11) Tests\Feature\ReturnWorkflowTest::test_admin_can_render_deposit_review_and_seller_can_upload_a_receiving_qr
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+12) Tests\Feature\ReturnWorkflowTest::test_another_rider_cannot_accept_the_payout
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+13) Tests\Feature\ReturnWorkflowTest::test_one_escrow_transfer_reference_cannot_fund_two_orders
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+14) Tests\Feature\ReturnWorkflowTest::test_admin_cannot_release_more_than_the_confirmed_escrow_balance
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+15) Tests\Feature\ReturnWorkflowTest::test_gcash_pickup_pay_waits_for_remittance_acceptance_too
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+16) Tests\Feature\ReturnWorkflowTest::test_cod_earnings_remain_visible_without_escrow_acceptance
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+17) Tests\Feature\ReturnWorkflowTest::test_return_pickup_rechecks_online_status_after_the_rider_list_was_opened
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+18) Tests\Feature\ReturnWorkflowTest::test_return_rider_options_omit_offline_riders_and_explain_when_none_are_online
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+19) Tests\Feature\ReturnWorkflowTest::test_reverse_custody_refund_and_buyer_confirmation_are_separate_and_replay_safe
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+20) Tests\Feature\ReturnWorkflowTest::test_refund_requires_actual_transfer_and_sufficient_recovery_to_preserve_logistics_fees
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+21) Tests\Feature\ReturnWorkflowTest::test_seller_cannot_receive_before_logistics_dispatch_and_restock_is_explicit_once
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+22) Tests\Feature\ReturnWorkflowTest::test_other_hubs_riders_sellers_and_buyers_cannot_change_custody_or_confirm_refunds
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+23) Tests\Feature\ReturnWorkflowTest::test_return_transfer_requires_destination_hub_receipt_before_seller_dispatch
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+24) Tests\Feature\ReturnWorkflowTest::test_open_return_blocks_admin_payout_and_private_refund_proof_is_buyer_scoped
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+25) Tests\Feature\ReturnWorkflowTest::test_refund_confirm_api_requires_the_owning_buyer_and_admin_page_renders
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+26) Tests\Feature\ReturnWorkflowTest::test_real_action_routes_accept_handoffs_but_require_admin_transfer_attestation
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+27) Tests\Feature\ReturnWorkflowTest::test_cod_returns_wait_for_reconciliation_and_do_not_erase_refunds_on_later_settlement
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+28) Tests\Feature\ReturnWorkflowTest::test_prepaid_cancellation_queues_the_unused_shipping_too_without_claiming_a_refund
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+29) Tests\Feature\ReturnWorkflowTest::test_zero_cash_value_return_closes_without_a_fictitious_transfer
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+30) Tests\Feature\ReturnWorkflowTest::test_fully_refunded_gcash_cannot_restart_but_recovered_funds_can_pay_earned_logistics
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+31) Tests\Feature\ReturnWorkflowTest::test_rider_return_api_shows_only_assigned_collections_and_never_collects_cash
+Illuminate\Database\QueryException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path (Connection: sqlite, SQL: alter table "return_requests" add column "evidence_path" varchar)
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:825
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+Caused by
+PDOException: SQLSTATE[HY000]: General error: 1 duplicate column name: evidence_path
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:565
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:812
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:779
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Connection.php:560
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Blueprint.php:118
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:564
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Database\Schema\Builder.php:406
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Support\Facades\Facade.php:361
+C:\Invoiz\tests\Feature\ReturnWorkflowTest.php:21
+
+--
+
+There were 2 failures:
+
+1) Tests\Feature\ReturnSettlementTest::test_buyer_fault_mobile_api_confirms_seller_refund_and_private_receipt_without_admin
+Header [Cache-Control] was found, but value [max-age=0, must-revalidate, no-cache, no-store, private] does not match [no-store, private].
+Failed asserting that two strings are equal.
+--- Expected
++++ Actual
+@@ @@
+-'no-store, private'
++'max-age=0, must-revalidate, no-cache, no-store, private'
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:310
+C:\Invoiz\tests\Feature\ReturnSettlementTest.php:1161
+
+2) Tests\Feature\ReturnSettlementTest::test_return_fee_upload_is_private_pending_and_requires_admin_receipt_preview_before_success
+Header [Cache-Control] was found, but value [max-age=0, must-revalidate, no-cache, no-store, private] does not match [no-store, private].
+Failed asserting that two strings are equal.
+--- Expected
++++ Actual
+@@ @@
+-'no-store, private'
++'max-age=0, must-revalidate, no-cache, no-store, private'
+
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponseAssert.php:45
+C:\Invoiz\vendor\laravel\framework\src\Illuminate\Testing\TestResponse.php:310
+C:\Invoiz\tests\Feature\ReturnSettlementTest.php:1545
+
+ERRORS!
+Tests: 154, Assertions: 878, Errors: 31, Failures: 2.
+
+[2026-11-15 14:09:25] testing.INFO: Refund for order 1: Return #1 transfer BUYER-REFUND  
+[2026-11-15 14:09:25] testing.INFO: Refund for order 1: Return #1 transfer NET-REFUND  
+[2026-11-15 14:09:31] testing.WARNING: Low-stock check failed: SQLSTATE[HY000]: General error: 1 no such column: is_read (Connection: sqlite, SQL: update "seller_notifications" set "is_read" = 1, "updated_at" = 2026-11-15 14:09:31 where "seller_id" = 1 and "type" = low_stock and "product_id" = 1 and "is_read" = 0)  
+[2026-11-15 14:09:35] testing.WARNING: Low-stock check failed: SQLSTATE[HY000]: General error: 1 no such column: is_read (Connection: sqlite, SQL: update "seller_notifications" set "is_read" = 1, "updated_at" = 2026-11-15 14:09:35 where "seller_id" = 1 and "type" = low_stock and "product_id" = 1 and "is_read" = 0)  
+[2026-11-15 14:09:35] testing.WARNING: Low-stock check failed: SQLSTATE[HY000]: General error: 1 no such column: is_read (Connection: sqlite, SQL: update "seller_notifications" set "is_read" = 1, "updated_at" = 2026-11-15 14:09:35 where "seller_id" = 1 and "type" = low_stock and "product_id" = 1 and "is_read" = 0)  
+[2026-11-15 14:09:43] testing.INFO: Refund for order 1: Return #1 transfer ACTUAL-SELLER-FUNDED-REFUND  
+[2026-11-15 14:09:46] testing.INFO: Refund for order 1: Buyer confirmed seller-direct refund; return #1  
+[2026-11-15 14:09:52] testing.INFO: Refund for order 1: Buyer confirmed seller-direct refund; return #1  
+[2026-11-15 14:09:58] testing.WARNING: Low-stock check failed: SQLSTATE[HY000]: General error: 1 no such column: is_read (Connection: sqlite, SQL: update "seller_notifications" set "is_read" = 1, "updated_at" = 2026-11-15 14:09:58 where "seller_id" = 1 and "type" = low_stock and "product_id" = 1 and "is_read" = 0)  
+[2026-11-15 14:10:09] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  
+[2026-11-15 14:10:10] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  
+[2026-11-15 14:10:10] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  
+[2026-11-15 14:10:11] testing.INFO: Refund for order 1: Buyer confirmed seller-direct keep-item refund; return #1  
+[2026-11-15 14:10:17] testing.INFO: Refund for order 1: Return #1 transfer DIRECT-ACTUAL-REFUND  
+[2026-11-15 14:10:24] testing.INFO: Refund for order 1: Return #1 transfer RECOVERED-REFUND  

@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='utf-8'?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../vendor/phpunit/phpunit/phpunit.xsd" bootstrap="C:\Invoiz\devops\lab-act-3\scripts\test-bootstrap.php" colors="true" cacheResult="false">
+    
+    <testsuites>
+        <testsuite name="Laboratory delivery artifact">
+            <file>C:\Invoiz\devops\lab-act-3\challenges\LabImageVersionTest.php</file>
+        </testsuite>
+        <testsuite name="INVOIZ isolated CI fixtures">
+            <file>C:\Invoiz\tests\Unit\PickupHubRecommendationsTest.php</file>
+            <file>C:\Invoiz\tests\Feature\SharedBackendTest.php</file>
+            <file>C:\Invoiz\tests\Feature\BuyerWebShoppingTest.php</file>
+            <file>C:\Invoiz\tests\Feature\SellerProductShippingDimensionsTest.php</file>
+        </testsuite>
+    <testsuite name="Failed delivery and existing payment return regressions"><file>C:\Invoiz\tests\Feature\FailedDeliveryRedeliveryTest.php</file><file>C:\Invoiz\tests\Feature\FailedDeliveryResolutionTest.php</file><file>C:\Invoiz\tests\Feature\GcashEscrowWorkflowTest.php</file><file>C:\Invoiz\tests\Feature\ReturnWorkflowTest.php</file><file>C:\Invoiz\tests\Feature\ReturnSettlementTest.php</file><file>C:\Invoiz\tests\Feature\HubRemittanceAcceptanceTest.php</file><file>C:\Invoiz\tests\Feature\InterHubRemittanceAcceptanceTest.php</file><file>C:\Invoiz\tests\Feature\DeliveryParcelDetailPrivacyTest.php</file></testsuite></testsuites>
+    <php>
+        <env name="APP_ENV" value="testing" force="true" />
+        <env name="DB_CONNECTION" value="sqlite" force="true" />
+        <env name="DB_DATABASE" value=":memory:" force="true" />
+        <env name="DB_URL" value="" force="true" />
+        <env name="CACHE_STORE" value="array" force="true" />
+        <env name="SESSION_DRIVER" value="array" force="true" />
+        <env name="QUEUE_CONNECTION" value="sync" force="true" />
+        <env name="MAIL_MAILER" value="array" force="true" />
+        <env name="BCRYPT_ROUNDS" value="4" force="true" />
+    </php>
+</phpunit>
